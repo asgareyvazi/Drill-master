@@ -85,6 +85,10 @@ class AutoSaveManager:
             logging.getLogger("core.managers").warning("Auto-save: %s", result.summary())
         return result
 
+    def active_timer_count(self) -> int:
+        """Autosave timers currently running (for status displays)."""
+        return sum(1 for timer in self._timers.values() if timer.isActive())
+
     def set_enabled(self, enabled):
         self._enabled = enabled
         for timer in self._timers.values():

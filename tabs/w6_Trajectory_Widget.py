@@ -720,6 +720,7 @@ class TrajectoryWidget(DrillTabBase):
         self.trip_sheet_tab = None
         self.survey_data_tab = None
         self.plot_tab = None
+        self.viewer_tab = None
         self.calculation_manager = TrajectoryCalculationManager(db_manager)
         
         self.init_ui()
@@ -749,6 +750,9 @@ class TrajectoryWidget(DrillTabBase):
         self.trip_sheet_tab = TripSheetTab(self.db)
         self.survey_data_tab = SurveyDataTab(self.db)
         self.plot_tab = TrajectoryPlotTab(self.db)
+        from tabs.trajectory_viewer import TrajectoryViewerTab
+        self.viewer_tab = TrajectoryViewerTab(self.db)
+        self.tab_widget.addTab(self.viewer_tab, "Well Trajectory Viewer")
         self.tab_widget.addTab(self.trip_sheet_tab, "Trip Sheet")
         self.tab_widget.addTab(self.survey_data_tab, "Survey Data")
         self.tab_widget.addTab(self.plot_tab, "Trajectory Plot")
@@ -826,6 +830,11 @@ class TrajectoryWidget(DrillTabBase):
         self.current_report_id = report_id
         self.update_tabs()
     
+    def show_viewer(self):
+        """Bring the Well Trajectory Viewer sub-tab to the front."""
+        if self.viewer_tab is not None:
+            self.tab_widget.setCurrentWidget(self.viewer_tab)
+
     def update_tabs(self):
         """به‌روزرسانی همه زیرتب‌ها با وضعیت جاری"""
         if self.trip_sheet_tab:
@@ -846,6 +855,9 @@ class TrajectoryWidget(DrillTabBase):
             self.plot_tab.current_report_id = self.current_report_id
             if self.current_report_id:
                 self.plot_tab.load_plots()
+
+        if self.viewer_tab:
+            self.viewer_tab.set_context(self.current_well_id, self.current_report_id)
     
     def get_survey_data(self):
         data = []
@@ -873,6 +885,8 @@ class TrajectoryWidget(DrillTabBase):
         self.last_save_outcome = save_all(steps)
         if self.plot_tab and self.current_report_id:
             self.plot_tab.load_for_report(self.current_report_id)
+        if self.viewer_tab:
+            self.viewer_tab.reload()
         (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())
         return bool(self.last_save_outcome)
 

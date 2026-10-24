@@ -1018,6 +1018,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.home_tab, "🏠 Home")
         self.home_tab.set_parent_tab_widget(self.tab_widget)
         self.home_tab.parent_window = self
+        self.home_tab.navigate_requested.connect(self.navigate_to)
 
         # Tab 1: Well Info (well)
         self.well_info_tab = WellInfoTab(self.db_manager, self)
@@ -1145,6 +1146,8 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.reference_tab, "📚 Reference")
 
         # SelectionManager connections
+        # Status-bar label follows every selection path (tree, dashboard, combos).
+        self.sel_manager.well_changed.connect(self._show_selected_well)
         self.sel_manager.well_changed.connect(
             lambda wid, wd: (
                 self.export_widget.set_current_well(wid, wd)
@@ -1632,8 +1635,17 @@ class MainWindow(QMainWindow):
 
     def on_tree_item_clicked(self, item, column):
         data = item.data(0, Qt.UserRole)
+        if data and not self.navigate_to(data):
+            item.setExpanded(not item.isExpanded())   # company/project nodes
+
+    def navigate_to(self, data):
+        """Select the entity in ``data`` (a tree payload) and show its tab.
+
+        Shared by the hierarchy tree and the operations dashboard drill-down.
+        Returns False when the payload type is not navigable.
+        """
         if not data:
-            return
+            return False
 
         item_type = data.get("type")
 
@@ -1709,6 +1721,8 @@ class MainWindow(QMainWindow):
                     if tab_title in self.tab_widget.tabText(i):
                         self.tab_widget.setCurrentIndex(i)
                         break
+            if data.get("subtab") == "viewer" and hasattr(self.tab_widget.currentWidget(), "show_viewer"):
+                self.tab_widget.currentWidget().show_viewer()
 
         elif item_type == "section_tab":
             well_id = data.get("well_id")
@@ -1746,7 +1760,8 @@ class MainWindow(QMainWindow):
                     logger.warning(f"Tab '{tab_title}' not found")
                 
         else:
-            item.setExpanded(not item.isExpanded())
+            return False
+        return True
 
     def _open_section_data(self, section_id, well_id):
         """باز کردن تب Section Data برای سکشن مشخص"""
@@ -2886,6 +2901,12 @@ class MainWindow(QMainWindow):
 
     def on_section_changed(self, section_id, section_data):
         pass
+
+    def _show_selected_well(self, well_id, well_data):
+        """Update only the status-bar well label (no selection state changes)."""
+        if hasattr(self, 'current_well_label'):
+            name = (well_data or {}).get('name') if isinstance(well_data, dict) else None
+            self.current_well_label.setText(f"🛢️ Well: {name or f'id {well_id}'}")
 
     def set_current_well(self, well_id, well_data):
         self.sel_manager.select_well(well_id, well_data)

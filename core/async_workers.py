@@ -63,3 +63,35 @@ class ExportWorker(QThread):
             self.failed.emit(type(exc).__name__)
             return
         self.completed.emit(result)
+
+
+class ReadOnlyQueryWorker(QThread):
+    """Run ``fn(db)`` off the UI thread with its own read-only connection.
+
+    ``fn`` receives a manager view from ``core.export_jobs.worker_database``
+    (separate ``mode=ro`` SQLite connection, restore-gated), so it can never
+    write and never touches the application's shared connection.  Only use
+    it when ``has_isolated_reader(db_manager)`` is true; otherwise call ``fn``
+    synchronously.  ``failed`` carries the exception type name only.
+    """
+    completed = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, db_manager, fn, parent=None):
+        super().__init__(parent)
+        self.db_manager = db_manager
+        self.fn = fn
+
+    def run(self):
+        import logging
+
+        from core.export_jobs import worker_database
+
+        try:
+            with worker_database(self.db_manager) as db:
+                result = self.fn(db)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Read-only worker failed: %s", type(exc).__name__)
+            self.failed.emit(type(exc).__name__)
+            return
+        self.completed.emit(result)

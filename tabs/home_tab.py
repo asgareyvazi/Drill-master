@@ -1,764 +1,548 @@
+"""Home tab: operations dashboard backed by stored data (M44).
+
+All figures come from ``core.operations_dashboard.build_snapshot``; each KPI
+card's tooltip is its written definition.  Nothing is simulated: a value that
+cannot be computed shows "No data", a failed load shows the error type and
+keeps the previous figures marked as stale.
+
+Loading runs in ``ReadOnlyQueryWorker`` with its own read-only SQLite
+connection when the database is a file; in-memory databases (tests) share a
+single connection and are read synchronously.  A refresh requested while a
+load is running is queued, never run concurrently.
+
+Double-clicking a well, a report or an attention item navigates through
+``navigate_requested`` with the same payloads as the hierarchy tree.
 """
-Home Tab - Dashboard and Overview with Real Data
-"""
+from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
+from pathlib import Path
+from typing import Optional
+
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QGridLayout,
-    QGroupBox,
-    QLabel,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QProgressBar,
-    QFrame,
-    QScrollArea,
+    QAbstractItemView, QFrame, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QListWidget,
+    QListWidgetItem, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
-from PySide6.QtGui import QFont, QColor
-from PySide6.QtCore import Qt, QTimer, QDate
-from core.database import DailyReport
+
 from core.base_tab import DrillTabBase
 
 logger = logging.getLogger(__name__)
 
+SEVERITY_COLORS = {"error": "#b42318", "warning": "#a15c07", "info": "#475467"}
+STATE_COLORS = {"ok": "#1d6fb8", "warning": "#a15c07", "error": "#b42318", "no_data": "#98a2b3"}
+SURVEY_LABELS = {"READY": "OK", "REVIEW_REQUIRED": "Review", "INSUFFICIENT_DATA": "Insufficient",
+                 "NO_DATA": "None", "ERROR": "Error"}
+WELL_COLUMNS = ("Well", "Project", "Type", "Status", "Reports", "Latest report", "Depth (m)", "Days since",
+                "Survey MD / TVD (m)", "Survey", "Attention")
+KPI_ORDER = ("wells_total", "wells_active", "wells_planning", "wells_completed", "reports_total",
+             "reports_window", "latest_report", "npt_window", "npt_share", "wells_need_review", "imports_window")
+
+STYLE = """
+QFrame#kpiCard { background: #ffffff; border: 1px solid #d0d5dd; border-radius: 6px; }
+QLabel#kpiTitle { color: #475467; font-size: 11px; }
+QLabel#kpiValue { font-size: 20px; font-weight: 600; }
+QLabel#dashState { color: #475467; }
+QLabel#emptyTitle { font-size: 16px; font-weight: 600; color: #344054; }
+QGroupBox { font-weight: 600; }
+"""
+
+
+def format_kpi_value(kpi) -> str:
+    """Display text of a KPI; None is always "No data", never 0."""
+    if kpi.value is None:
+        return "No data"
+    if isinstance(kpi.value, date):
+        return kpi.value.isoformat()
+    if isinstance(kpi.value, float):
+        text = f"{kpi.value:,.1f}"
+    else:
+        text = f"{kpi.value:,}"
+    return f"{text} {kpi.unit}".strip()
+
+
+class KpiCard(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("kpiCard")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(2)
+        self.title = QLabel("—")
+        self.title.setObjectName("kpiTitle")
+        self.value = QLabel("…")
+        self.value.setObjectName("kpiValue")
+        layout.addWidget(self.title)
+        layout.addWidget(self.value)
+        self.kpi = None
+
+    def set_kpi(self, kpi):
+        self.kpi = kpi
+        self.title.setText(kpi.label)
+        self.value.setText(format_kpi_value(kpi))
+        self.value.setStyleSheet(f"color: {STATE_COLORS[kpi.state]};")
+        self.setToolTip(kpi.definition)
+
 
 class HomeTab(DrillTabBase):
-    """Home/Dashboard Tab - Shows overview with real data"""
+    """Operations dashboard."""
+
+    navigate_requested = Signal(dict)
 
     def __init__(self, db_manager, parent=None):
         super().__init__("HomeTab", db_manager, parent)
         self.db = db_manager
-        self.db_manager = db_manager 
-        self.parent_window = None
+        self.db_manager = db_manager
+        self.parent_window = parent           # MainWindow (backup service, autosave, tabs)
         self.parent_tab_widget = None
-    
         self.status_manager.register_widget("HomeTab", self)
-
-        self.last_update = None
-
+        self.snapshot = None
+        self.last_update: Optional[datetime] = None
+        self.backup_info = None
+        self._worker = None
+        self._refresh_pending = False
+        self.load_count = 0
         self.init_ui()
-        self.setup_connections()
-        self.load_data()
-
-        # Setup refresh timer (every 60 seconds)
-        self.refresh_timer = QTimer()
+        # First load on the next event-loop turn, once the main window is built.
+        QTimer.singleShot(0, self.load_data)
+        self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.load_data)
-        self.refresh_timer.start(300000)
+        self.refresh_timer.start(300_000)     # every 5 minutes
 
-
+    # ------------------------------------------------------------------ UI
     def init_ui(self):
-        """Initialize user interface with scroll area"""
-        # Create scroll area
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QFrame.NoFrame)
-
-        # Create container widget
+        self.setStyleSheet(STYLE)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
         container = QWidget()
-        main_layout = QVBoxLayout(container)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(15)
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(10)
 
-        # Header
-        header_layout = QHBoxLayout()
-
-        self.title_label = QLabel("🏠 DrillMaster Dashboard")
-        self.title_label.setFont(QFont("Arial", 18, QFont.Bold))
-        self.title_label.setStyleSheet("color: #2c3e50;")
-        header_layout.addWidget(self.title_label)
-
-        header_layout.addStretch()
-
-        # Last update time
-        self.last_update_label = QLabel("Last update: --:--")
-        self.last_update_label.setStyleSheet("color: #7f8c8d; font-size: 11px;")
-        header_layout.addWidget(self.last_update_label)
-
-        # Refresh button
-        self.refresh_btn = QPushButton("🔄 Refresh")
-        self.refresh_btn.setMinimumWidth(100)
+        header = QHBoxLayout()
+        title = QLabel("Operations Dashboard")
+        title.setFont(QFont("Arial", 17, QFont.Bold))
+        header.addWidget(title)
+        header.addStretch()
+        self.state_label = QLabel("Loading…")
+        self.state_label.setObjectName("dashState")
+        header.addWidget(self.state_label)
+        self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self.load_data)
-        header_layout.addWidget(self.refresh_btn)
+        header.addWidget(self.refresh_btn)
+        layout.addLayout(header)
 
-        main_layout.addLayout(header_layout)
+        self.kpi_grid = QGridLayout()
+        self.kpi_grid.setSpacing(8)
+        self.kpi_cards = {}
+        for index, key in enumerate(KPI_ORDER):
+            card = KpiCard()
+            self.kpi_cards[key] = card
+            self.kpi_grid.addWidget(card, index // 6, index % 6)
+        layout.addLayout(self.kpi_grid)
 
-        # Separator
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
-        separator.setStyleSheet("background-color: #bdc3c7;")
-        main_layout.addWidget(separator)
+        self.empty_panel = QFrame()
+        empty_layout = QVBoxLayout(self.empty_panel)
+        empty_title = QLabel("No wells yet")
+        empty_title.setObjectName("emptyTitle")
+        empty_text = QLabel("Create a well, or import a daily drilling report, to populate the dashboard.")
+        empty_buttons = QHBoxLayout()
+        for text, slot in (("New well", self.open_new_well_tab), ("Import DDR", self.import_ddr)):
+            button = QPushButton(text)
+            button.clicked.connect(slot)
+            empty_buttons.addWidget(button)
+        empty_buttons.addStretch()
+        empty_layout.addWidget(empty_title)
+        empty_layout.addWidget(empty_text)
+        empty_layout.addLayout(empty_buttons)
+        self.empty_panel.setVisible(False)
+        layout.addWidget(self.empty_panel)
 
-        # Statistics Grid
-        stats_group = QGroupBox("📊 Project Statistics")
-        stats_group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                font-size: 13px;
-                border: 2px solid #3498db;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """
-        )
-        stats_layout = QGridLayout()
-        stats_layout.setSpacing(15)
-
-        # Define statistics items
-        self.stats_items = {
-            "companies": {
-                "row": 0,
-                "col": 0,
-                "label": "🏢 Companies:",
-                "value": "0",
-                "color": "#3498db",
-            },
-            "projects": {
-                "row": 0,
-                "col": 2,
-                "label": "📁 Projects:",
-                "value": "0",
-                "color": "#2ecc71",
-            },
-            "wells": {
-                "row": 0,
-                "col": 4,
-                "label": "🛢️ Wells:",
-                "value": "0",
-                "color": "#e74c3c",
-            },
-            "active_wells": {
-                "row": 1,
-                "col": 0,
-                "label": "🔧 Active Wells:",
-                "value": "0",
-                "color": "#f39c12",
-            },
-            "planning_wells": {
-                "row": 1,
-                "col": 2,
-                "label": "📋 Planning Wells:",
-                "value": "0",
-                "color": "#9b59b6",
-            },
-            "completed_wells": {
-                "row": 1,
-                "col": 4,
-                "label": "✅ Completed Wells:",
-                "value": "0",
-                "color": "#27ae60",
-            },
-        }
-
-        # Create statistics labels
-        self.stats_widgets = {}
-        for key, item in self.stats_items.items():
-            # Label
-            label = QLabel(item["label"])
-            label.setFont(QFont("Arial", 11))
-            stats_layout.addWidget(label, item["row"], item["col"])
-
-            # Value
-            value_label = QLabel(item["value"])
-            value_label.setFont(QFont("Arial", 16, QFont.Bold))
-            value_label.setStyleSheet(f"color: {item['color']};")
-            value_label.setAlignment(Qt.AlignCenter)
-            stats_layout.addWidget(value_label, item["row"], item["col"] + 1)
-
-            self.stats_widgets[key] = value_label
-
-        stats_group.setLayout(stats_layout)
-        main_layout.addWidget(stats_group)
-
-        # Recent Wells Table
-        wells_group = QGroupBox("🛢️ Recent Wells")
-        wells_group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                font-size: 13px;
-                border: 2px solid #e74c3c;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-        """
-        )
-        wells_layout = QVBoxLayout()
-
-        self.wells_table = QTableWidget()
-        self.wells_table.setColumnCount(5)
-        self.wells_table.setHorizontalHeaderLabels(
-            ["Well Name", "Project", "Status", "Type", "Last Update"]
-        )
-        self.wells_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.wells_table.setAlternatingRowColors(True)
-        self.wells_table.setMinimumHeight(200)
-
+        self.content = QSplitter(Qt.Horizontal)
+        wells_box = QGroupBox("Wells")
+        wells_layout = QVBoxLayout(wells_box)
+        self.wells_table = QTableWidget(0, len(WELL_COLUMNS))
+        self.wells_table.setHorizontalHeaderLabels(WELL_COLUMNS)
+        self.wells_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.wells_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.wells_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.wells_table.verticalHeader().setVisible(False)
+        self.wells_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.wells_table.horizontalHeader().setStretchLastSection(True)
+        # Snapshot order (needs-attention first) until the user sorts by a column.
+        self.wells_table.horizontalHeader().setSortIndicator(-1, Qt.AscendingOrder)
+        self.wells_table.cellDoubleClicked.connect(lambda row, _column: self.open_selected_well())
         wells_layout.addWidget(self.wells_table)
-        wells_group.setLayout(wells_layout)
-        main_layout.addWidget(wells_group)
+        actions = QHBoxLayout()
+        self.open_well_btn = QPushButton("Open well")
+        self.open_report_btn = QPushButton("Open latest report")
+        self.open_trajectory_btn = QPushButton("Open trajectory")
+        self.open_well_btn.clicked.connect(self.open_selected_well)
+        self.open_report_btn.clicked.connect(self.open_selected_latest_report)
+        self.open_trajectory_btn.clicked.connect(self.open_selected_trajectory)
+        for button in (self.open_well_btn, self.open_report_btn, self.open_trajectory_btn):
+            button.setEnabled(False)
+            actions.addWidget(button)
+        actions.addStretch()
+        wells_layout.addLayout(actions)
+        self.wells_table.itemSelectionChanged.connect(self._update_well_actions)
+        self.content.addWidget(wells_box)
 
-        # Project Progress Section
-        self.progress_group = QGroupBox("📈 Project Progress")
-        self.progress_group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                font-size: 13px;
-                border: 2px solid #2ecc71;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-        """
-        )
-        self.progress_layout = QVBoxLayout()
-        self.progress_group.setLayout(self.progress_layout)
-        main_layout.addWidget(self.progress_group)
+        side = QWidget()
+        side_layout = QVBoxLayout(side)
+        side_layout.setContentsMargins(0, 0, 0, 0)
+        attention_box = QGroupBox("Needs attention")
+        attention_layout = QVBoxLayout(attention_box)
+        self.attention_list = QListWidget()
+        self.attention_list.setWordWrap(True)
+        self.attention_list.itemDoubleClicked.connect(self._attention_activated)
+        attention_layout.addWidget(self.attention_list)
+        side_layout.addWidget(attention_box, 3)
+        recent_box = QGroupBox("Recent daily reports")
+        recent_layout = QVBoxLayout(recent_box)
+        self.recent_table = QTableWidget(0, 5)
+        self.recent_table.setHorizontalHeaderLabels(("Date", "Well", "#", "Depth (m)", "Status"))
+        self.recent_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.recent_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.recent_table.verticalHeader().setVisible(False)
+        self.recent_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.recent_table.horizontalHeader().setStretchLastSection(True)
+        self.recent_table.cellDoubleClicked.connect(self._recent_activated)
+        recent_layout.addWidget(self.recent_table)
+        side_layout.addWidget(recent_box, 2)
+        system_box = QGroupBox("System")
+        system_layout = QGridLayout(system_box)
+        self.system_labels = {}
+        for row, key in enumerate(("Database", "Last verified backup", "Autosave")):
+            system_layout.addWidget(QLabel(key + ":"), row, 0)
+            value = QLabel("—")
+            value.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            system_layout.addWidget(value, row, 1)
+            self.system_labels[key] = value
+        side_layout.addWidget(system_box)
+        self.content.addWidget(side)
+        self.content.setStretchFactor(0, 3)
+        self.content.setStretchFactor(1, 2)
+        layout.addWidget(self.content, 1)
 
-        # System Status
-        status_group = QGroupBox("🟢 System Status")
-        status_group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                font-size: 13px;
-                border: 2px solid #f39c12;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-        """
-        )
-        status_layout = QGridLayout()
+        quick = QHBoxLayout()
+        for text, slot in (("New daily report", self.new_report), ("Import DDR", self.import_ddr),
+                           ("New well", self.open_new_well_tab), ("Export Center", self.export_data),
+                           ("Analysis", self.open_analysis_tab)):
+            button = QPushButton(text)
+            button.clicked.connect(slot)
+            quick.addWidget(button)
+        quick.addStretch()
+        layout.addLayout(quick)
 
-        self.status_items = [
-            ("database", "Database", "Checking..."),
-            ("autosave", "Auto-save", "Checking..."),
-            ("backup", "Last Backup", "Checking..."),
-            ("users", "Active Users", "Checking..."),
-            ("reports", "Today's Reports", "Checking..."),
-            ("storage", "Storage", "Checking..."),
-        ]
+        scroll.setWidget(container)
+        outer.addWidget(scroll)
 
-        self.status_widgets = {}
-        for i, (key, label, value) in enumerate(self.status_items):
-            status_layout.addWidget(QLabel(f"{label}:"), i, 0)
-            value_label = QLabel(value)
-            value_label.setFont(QFont("Arial", 10))
-            status_layout.addWidget(value_label, i, 1)
-            self.status_widgets[key] = value_label
+    # -------------------------------------------------------------- loading
+    def _snapshot_job(self):
+        backup_service = getattr(self.parent_window, "backup_service", None)
+        today = date.today()
 
-        status_group.setLayout(status_layout)
-        main_layout.addWidget(status_group)
-
-        # Quick Actions
-        actions_group = QGroupBox("⚡ Quick Actions")
-        actions_group.setStyleSheet(
-            """
-            QGroupBox {
-                font-weight: bold;
-                font-size: 13px;
-                border: 2px solid #9b59b6;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-        """
-        )
-        actions_layout = QGridLayout()
-
-        actions = [
-            ("➕ New Well", "Create a new well", "#3498db", self.open_new_well_tab),
-            (
-                "📝 Daily Report",
-                "Create daily report",
-                "#2ecc71",
-                self.open_daily_report,
-            ),
-            ("📊 Export Data", "Export project data", "#e74c3c", self.export_data),
-            ("📋 Well List", "View all wells", "#f39c12", self.open_well_info_tab),
-            ("📈 Analytics", "View analytics", "#9b59b6", self.open_analysis_tab),
-            ("⚙️ Settings", "Application settings", "#34495e", self.open_settings_tab),
-        ]
-
-        row, col = 0, 0
-        for text, tooltip, color, slot in actions:
-            btn = QPushButton(text)
-            btn.setToolTip(tooltip)
-            btn.clicked.connect(slot)
-            btn.setMinimumHeight(45)
-            btn.setStyleSheet(
-                f"""
-                QPushButton {{
-                    background-color: {color};
-                    color: white;
-                    font-weight: bold;
-                    border-radius: 5px;
-                    padding: 8px;
-                }}
-                QPushButton:hover {{
-                    background-color: {self.darken_color(color)};
-                }}
-            """
-            )
-            actions_layout.addWidget(btn, row, col)
-
-            col += 1
-            if col > 2:  # 3 columns
-                col = 0
-                row += 1
-
-        actions_group.setLayout(actions_layout)
-        main_layout.addWidget(actions_group)
-
-        # Add stretch to push everything up
-        main_layout.addStretch()
-
-        # Set container to scroll area
-        scroll_area.setWidget(container)
-
-        # Set main layout
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(scroll_area)
-
-    def darken_color(self, color):
-        """Darken a hex color"""
-        try:
-            color = color.lstrip("#")
-            rgb = tuple(int(color[i : i + 2], 16) for i in (0, 2, 4))
-            darkened = tuple(max(0, c - 30) for c in rgb)
-            return f"#{darkened[0]:02x}{darkened[1]:02x}{darkened[2]:02x}"
-        except (AttributeError, ValueError, IndexError):
-            return color
-
-    def setup_connections(self):
-        """Setup signal connections"""
-        if hasattr(self, "daily_report_btn"):
-            self.daily_report_btn.clicked.connect(self.open_daily_report)
+        def job(db):
+            from core.operations_dashboard import build_snapshot
+            snapshot = build_snapshot(db, today=today)
+            backup = None
+            if backup_service is not None:
+                try:
+                    found = backup_service.list_backups(deep=False)
+                    backup = ("found", found[0][1].get("created_utc")) if found else ("none", None)
+                except OSError as exc:
+                    backup = ("unavailable", type(exc).__name__)
+            return snapshot, backup
+        return job
 
     def load_data(self):
-        """Load real data from database"""
+        """Reload the dashboard; queued if a load is already running."""
+        if self.db is None:
+            return
+        if self._worker is not None:
+            self._refresh_pending = True
+            return
+        self.state_label.setText("Loading…")
+        self.refresh_btn.setEnabled(False)
+        job = self._snapshot_job()
+        from core.export_jobs import has_isolated_reader
+        if has_isolated_reader(self.db):
+            from core.async_workers import ReadOnlyQueryWorker
+            worker = ReadOnlyQueryWorker(self.db, job, self)
+            worker.completed.connect(self._on_loaded)
+            worker.failed.connect(self._on_failed)
+            worker.finished.connect(self._on_worker_finished)
+            self._worker = worker
+            worker.start()
+            return
         try:
-            logger.info("Loading dashboard data from database...")
+            result = job(self.db)
+        except Exception as exc:
+            logger.warning("Dashboard load failed: %s", type(exc).__name__)
+            self._on_failed(type(exc).__name__)
+        else:
+            self._on_loaded(result)
+        self.refresh_btn.setEnabled(True)
 
-            # Update last update time
-            self.last_update = datetime.now()
-            self.last_update_label.setText(
-                f"Last update: {self.last_update.strftime('%H:%M:%S')}"
+    def _on_worker_finished(self):
+        worker, self._worker = self._worker, None
+        if worker is not None:
+            worker.deleteLater()
+        self.refresh_btn.setEnabled(True)
+        if self._refresh_pending:
+            self._refresh_pending = False
+            self.load_data()
+
+    def wait_for_load(self, timeout_ms: int = 10_000) -> bool:
+        """Block until a running load finishes (tests and shutdown)."""
+        worker = self._worker
+        if worker is None:
+            return True
+        finished = worker.wait(timeout_ms)
+        from PySide6.QtWidgets import QApplication
+        QApplication.processEvents()
+        return finished
+
+    def _on_failed(self, error_type: str):
+        stale = f" — showing data from {self.last_update:%H:%M:%S}" if self.last_update else ""
+        self.state_label.setText(f"Load failed ({error_type}){stale}")
+        self.state_label.setStyleSheet(f"color: {SEVERITY_COLORS['error']};")
+
+    def _on_loaded(self, result):
+        snapshot, backup = result
+        self.snapshot, self.backup_info = snapshot, backup
+        self.last_update = datetime.now()
+        self.load_count += 1
+        self.state_label.setStyleSheet("")
+        self.state_label.setText(f"Updated {self.last_update:%H:%M:%S} · data as of {snapshot.today.isoformat()}")
+        for key, card in self.kpi_cards.items():
+            card.set_kpi(snapshot.kpis[key])
+        self.empty_panel.setVisible(snapshot.empty)
+        self.content.setVisible(not snapshot.empty)
+        self._fill_wells(snapshot)
+        self._fill_attention(snapshot)
+        self._fill_recent(snapshot)
+        self._fill_system(backup)
+
+    # -------------------------------------------------------------- filling
+    @staticmethod
+    def _item(text, align_right=False, payload=None, color=None):
+        item = QTableWidgetItem(text)
+        if align_right:
+            item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        if payload is not None:
+            item.setData(Qt.UserRole, payload)
+        if color:
+            item.setForeground(QColor(color))
+        return item
+
+    def _fill_wells(self, snapshot):
+        table = self.wells_table
+        table.setSortingEnabled(False)
+        table.setRowCount(len(snapshot.wells))
+        for row, well in enumerate(snapshot.wells):
+            latest = "—"
+            if well.latest_report_date is not None:
+                latest = f"#{well.latest_report_number} · {well.latest_report_date.isoformat()}"
+            depth = "not reported" if well.report_count and well.latest_depth is None else (
+                "—" if well.latest_depth is None else f"{well.latest_depth:,.1f}")
+            survey = "—" if well.survey_md is None else f"{well.survey_md:,.1f} / {well.survey_tvd:,.1f}"
+            worst = well.worst_severity
+            attention = "; ".join(f.message for f in well.flags) or "OK"
+            values = (
+                self._item(well.name, payload=well.well_id),
+                self._item(well.project),
+                self._item(well.well_type or "—"),
+                self._item(well.status),
+                self._item(str(well.report_count), True),
+                self._item(latest),
+                self._item(depth, True, color=SEVERITY_COLORS["warning"] if depth == "not reported" else None),
+                self._item("—" if well.days_since_report is None else str(well.days_since_report), True),
+                self._item(survey, True),
+                self._item(SURVEY_LABELS.get(well.survey_status, well.survey_status),
+                           color=SEVERITY_COLORS["warning"] if well.survey_status == "REVIEW_REQUIRED" else None),
+                self._item(attention, color=SEVERITY_COLORS.get(worst) if worst else "#1e7b34"),
             )
+            for column, item in enumerate(values):
+                table.setItem(row, column, item)
+        table.setSortingEnabled(True)
+        self._update_well_actions()
 
-            # Get hierarchy from database
-            hierarchy = self.db.get_hierarchy()
+    def _fill_attention(self, snapshot):
+        self.attention_list.clear()
+        if not snapshot.attention:
+            item = QListWidgetItem("Nothing needs attention.")
+            item.setForeground(QColor("#1e7b34"))
+            self.attention_list.addItem(item)
+            return
+        for flag in snapshot.attention:
+            item = QListWidgetItem(f"{flag.severity.upper()} · {flag.well_name}: {flag.message}")
+            item.setForeground(QColor(SEVERITY_COLORS[flag.severity]))
+            item.setData(Qt.UserRole, flag)
+            item.setToolTip("Double-click to open")
+            self.attention_list.addItem(item)
 
-            # Calculate real statistics
-            companies_count = len(hierarchy)
-            projects_count = 0
-            wells_count = 0
-            active_wells_count = 0
-            planning_wells_count = 0
-            completed_wells_count = 0
+    def _fill_recent(self, snapshot):
+        table = self.recent_table
+        table.setSortingEnabled(False)
+        table.setRowCount(len(snapshot.recent_reports))
+        for row, report in enumerate(snapshot.recent_reports):
+            depth = "not reported" if report["depth"] is None else f"{report['depth']:,.1f}"
+            table.setItem(row, 0, self._item(report["date"].isoformat(), payload=report))
+            table.setItem(row, 1, self._item(report["well_name"]))
+            table.setItem(row, 2, self._item(str(report["number"]), True))
+            table.setItem(row, 3, self._item(depth, True))
+            table.setItem(row, 4, self._item(str(report["status"])))
 
-            all_wells = []
+    def _fill_system(self, backup):
+        # Describe the database the engine actually uses, not the configured path.
+        engine = getattr(self.db, "engine", None)
+        path = getattr(getattr(engine, "url", None), "database", None) or ""
+        if path and path != ":memory:" and Path(path).is_file():
+            size = Path(path).stat().st_size
+            shown = f"{size / 1024:.0f} KB" if size < 1024 * 1024 else f"{size / (1024 * 1024):.1f} MB"
+            self.system_labels["Database"].setText(f"{Path(path).name} · {shown}")
+        elif engine is not None and path in ("", ":memory:"):
+            self.system_labels["Database"].setText("In-memory database")
+        else:
+            self.system_labels["Database"].setText("Unavailable")
+        if backup is None:
+            text = "Backup service not available"
+        elif backup[0] == "none":
+            text = "No verified backup found"
+        elif backup[0] == "found":
+            text = str(backup[1]).replace("T", " ") + " UTC"
+        else:
+            text = f"Could not read backups ({backup[1]})"
+        self.system_labels["Last verified backup"].setText(text)
+        managers = []
+        if hasattr(self.parent_window, "_autosave_managers") and hasattr(self.parent_window, "auto_save_manager"):
+            managers = self.parent_window._autosave_managers()
+        active = sum(manager.active_timer_count() for manager in managers
+                     if hasattr(manager, "active_timer_count"))
+        self.system_labels["Autosave"].setText(
+            f"{active} editor timer(s) running" if active else ("Paused" if managers else "Unknown"))
 
-            for company in hierarchy:
-                projects_count += len(company.get("projects", []))
-                for project in company.get("projects", []):
-                    wells = project.get("wells", [])
-                    wells_count += len(wells)
+    # ------------------------------------------------------------ navigation
+    def _selected_well(self):
+        row = self.wells_table.currentRow()
+        if row < 0 or self.snapshot is None:
+            return None
+        item = self.wells_table.item(row, 0)
+        well_id = item.data(Qt.UserRole) if item else None
+        return next((w for w in self.snapshot.wells if w.well_id == well_id), None)
 
-                    for well in wells:
-                        well["project_name"] = project.get("name", "Unknown")
-                        all_wells.append(well)
+    def _update_well_actions(self):
+        well = self._selected_well()
+        self.open_well_btn.setEnabled(well is not None)
+        self.open_report_btn.setEnabled(bool(well and well.latest_report_id))
+        self.open_trajectory_btn.setEnabled(well is not None)
 
-                        status = well.get("status", "").lower()
-                        if status in ["drilling", "active"]:
-                            active_wells_count += 1
-                        elif status in ["planning", "design"]:
-                            planning_wells_count += 1
-                        elif status in ["completed", "abandoned", "producing"]:
-                            completed_wells_count += 1
+    def _navigate(self, payload: dict):
+        self.navigate_requested.emit(payload)
 
-            # Update statistics labels
-            self.stats_widgets["companies"].setText(str(companies_count))
-            self.stats_widgets["projects"].setText(str(projects_count))
-            self.stats_widgets["wells"].setText(str(wells_count))
-            self.stats_widgets["active_wells"].setText(str(active_wells_count))
-            self.stats_widgets["planning_wells"].setText(str(planning_wells_count))
-            self.stats_widgets["completed_wells"].setText(str(completed_wells_count))
+    def open_selected_well(self):
+        well = self._selected_well()
+        if well:
+            self._navigate({"type": "well", "id": well.well_id})
 
-            # Load recent wells (last 10)
-            self.load_recent_wells(all_wells)
+    def open_selected_latest_report(self):
+        well = self._selected_well()
+        if well and well.latest_report_id:
+            self._navigate({"type": "daily_report", "id": well.latest_report_id, "report_id": well.latest_report_id,
+                            "section_id": well.latest_report_section_id, "well_id": well.well_id})
 
-            # Load project progress
-            self.load_project_progress(hierarchy)
+    def open_selected_trajectory(self):
+        well = self._selected_well()
+        if well:
+            self._navigate({"type": "well_tab", "well_id": well.well_id, "tab_title": "Trajectory",
+                            "subtab": "viewer"})
 
-            # Update system status
-            self.update_system_status()
+    def _attention_activated(self, item):
+        flag = item.data(Qt.UserRole)
+        if flag is None:
+            return
+        if flag.target == "report" and flag.report_id:
+            self._navigate({"type": "daily_report", "id": flag.report_id, "report_id": flag.report_id,
+                            "section_id": flag.section_id, "well_id": flag.well_id})
+        elif flag.target == "trajectory":
+            self._navigate({"type": "well_tab", "well_id": flag.well_id, "tab_title": "Trajectory",
+                            "subtab": "viewer"})
+        else:
+            self._navigate({"type": "well", "id": flag.well_id})
 
-            logger.info("Dashboard data loaded successfully")
+    def _recent_activated(self, row, _column):
+        item = self.recent_table.item(row, 0)
+        report = item.data(Qt.UserRole) if item else None
+        if report:
+            self._navigate({"type": "daily_report", "id": report["report_id"], "report_id": report["report_id"],
+                            "section_id": report["section_id"], "well_id": report["well_id"]})
 
-        except Exception as e:
-            logger.error(f"Error loading dashboard data: {str(e)}")
-            self.last_update_label.setText("Last update: Failed to load data")
-
-    def load_recent_wells(self, wells):
-        """Load recent wells into table"""
-        try:
-            # Sort wells by ID (newest first) and take last 10
-            sorted_wells = sorted(wells, key=lambda x: x.get("id", 0), reverse=True)[
-                :10
-            ]
-
-            self.wells_table.setRowCount(len(sorted_wells))
-
-            for row, well in enumerate(sorted_wells):
-                # Well Name
-                name_item = QTableWidgetItem(well.get("name", "Unknown"))
-                self.wells_table.setItem(row, 0, name_item)
-
-                # Project
-                project_item = QTableWidgetItem(well.get("project_name", "Unknown"))
-                self.wells_table.setItem(row, 1, project_item)
-
-                # Status
-                status = well.get("status", "Unknown")
-                status_item = QTableWidgetItem(status)
-
-                # Color code status
-                if status.lower() in ["drilling", "active"]:
-                    status_item.setForeground(QColor("#27ae60"))  # Green
-                elif status.lower() in ["planning", "design"]:
-                    status_item.setForeground(QColor("#f39c12"))  # Orange
-                elif status.lower() in ["completed"]:
-                    status_item.setForeground(QColor("#3498db"))  # Blue
-                elif status.lower() in ["suspended", "abandoned"]:
-                    status_item.setForeground(QColor("#e74c3c"))  # Red
-
-                self.wells_table.setItem(row, 2, status_item)
-
-                # Type
-                well_type = well.get("well_type", "Unknown")
-                type_item = QTableWidgetItem(well_type)
-                self.wells_table.setItem(row, 3, type_item)
-
-                # Last Update — real persisted timestamp (no fabricated value).
-                updated_at = well.get("updated_at")
-                if updated_at is not None and hasattr(updated_at, "strftime"):
-                    last_update = updated_at.strftime("%Y-%m-%d")
-                elif updated_at:
-                    last_update = str(updated_at)
-                else:
-                    last_update = "—"
-                update_item = QTableWidgetItem(last_update)
-                self.wells_table.setItem(row, 4, update_item)
-
-        except Exception as e:
-            logger.error(f"Error loading recent wells: {str(e)}")
-
-    def load_project_progress(self, hierarchy):
-        """Load real project progress from database"""
-        try:
-            # Clear existing progress bars
-            while self.progress_layout.count():
-                item = self.progress_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-
-            # Add progress bars for each project
-            for company in hierarchy:
-                for project in company.get("projects", []):
-                    project_name = project.get("name", "Unknown")
-                    wells = project.get("wells", [])
-
-                    if wells:
-                        project_layout = QHBoxLayout()
-
-                        # Project label
-                        label_text = (
-                            f"{project_name} ({company.get('name', 'Unknown')})"
-                        )
-                        if len(label_text) > 30:
-                            label_text = label_text[:27] + "..."
-
-                        label = QLabel(f"{label_text}:")
-                        label.setMinimumWidth(200)
-                        label.setToolTip(
-                            f"{project_name} - {company.get('name', 'Unknown')}"
-                        )
-                        project_layout.addWidget(label)
-
-                        # Progress bar
-                        progress_bar = QProgressBar()
-                        progress_bar.setRange(0, 100)
-
-                        # Calculate progress based on well statuses
-                        total_wells = len(wells)
-                        if total_wells > 0:
-                            completed_wells = len(
-                                [
-                                    w
-                                    for w in wells
-                                    if w.get("status", "").lower()
-                                    in ["completed", "producing"]
-                                ]
-                            )
-                            progress = int((completed_wells / total_wells) * 100)
-                        else:
-                            progress = 0
-
-                        progress_bar.setValue(progress)
-
-                        # Set color based on progress
-                        if progress < 30:
-                            progress_bar.setStyleSheet(
-                                """
-                                QProgressBar {
-                                    border: 1px solid #bdc3c7;
-                                    border-radius: 5px;
-                                    text-align: center;
-                                }
-                                QProgressBar::chunk {
-                                    background-color: #e74c3c;
-                                    border-radius: 5px;
-                                }
-                            """
-                            )
-                        elif progress < 70:
-                            progress_bar.setStyleSheet(
-                                """
-                                QProgressBar {
-                                    border: 1px solid #bdc3c7;
-                                    border-radius: 5px;
-                                    text-align: center;
-                                }
-                                QProgressBar::chunk {
-                                    background-color: #f39c12;
-                                    border-radius: 5px;
-                                }
-                            """
-                            )
-                        else:
-                            progress_bar.setStyleSheet(
-                                """
-                                QProgressBar {
-                                    border: 1px solid #bdc3c7;
-                                    border-radius: 5px;
-                                    text-align: center;
-                                }
-                                QProgressBar::chunk {
-                                    background-color: #27ae60;
-                                    border-radius: 5px;
-                                }
-                            """
-                            )
-
-                        project_layout.addWidget(progress_bar)
-
-                        # Percentage label
-                        wells_text = f"{len([w for w in wells if w.get('status', '').lower() in ['completed', 'producing']])}/{total_wells}"
-                        percentage_label = QLabel(f"{progress}% ({wells_text} wells)")
-                        percentage_label.setMinimumWidth(120)
-                        project_layout.addWidget(percentage_label)
-
-                        self.progress_layout.addLayout(project_layout)
-
-            # If no projects, show message
-            if self.progress_layout.count() == 0:
-                no_data_label = QLabel("No project data available")
-                no_data_label.setAlignment(Qt.AlignCenter)
-                no_data_label.setStyleSheet("color: #7f8c8d; font-style: italic;")
-                self.progress_layout.addWidget(no_data_label)
-
-        except Exception as e:
-            logger.error(f"Error loading project progress: {str(e)}")
-
-    def update_system_status(self):
-        """Update system status with real information"""
-        try:
-            # Database status
-            try:
-                hierarchy = self.db.get_hierarchy()
-                db_status = "✅ Connected"
-                db_color = "#27ae60"
-            except Exception as exc:
-                logger.warning("Home dashboard: database status check failed: %s", type(exc).__name__)
-                db_status = "❌ Disconnected"
-                db_color = "#e74c3c"
-
-            self.status_widgets["database"].setText(db_status)
-            self.status_widgets["database"].setStyleSheet(
-                f"color: {db_color}; font-weight: bold;"
-            )
-
-            # Auto-save status (always on for now)
-            self.status_widgets["autosave"].setText("✅ Active")
-            self.status_widgets["autosave"].setStyleSheet(
-                "color: #27ae60; font-weight: bold;"
-            )
-
-            # Last backup (simulated)
-            today = QDate.currentDate()
-            backup_date = today.addDays(-1)  # Yesterday
-            self.status_widgets["backup"].setText(
-                f"📅 {backup_date.toString('yyyy-MM-dd')}"
-            )
-            self.status_widgets["backup"].setStyleSheet("color: #3498db;")
-
-            # Active users (from session, simulated)
-            self.status_widgets["users"].setText("👥 1 active")
-            self.status_widgets["users"].setStyleSheet("color: #9b59b6;")
-
-            # Today's reports (real)
-            try:
-                from datetime import date
-                today = date.today()
-                session = self.db.create_session()
-                try:
-                    report_count = session.query(DailyReport).filter(
-                        DailyReport.report_date == today
-                    ).count()
-                    self.status_widgets["reports"].setText(f"📋 {report_count} today")
-                    self.status_widgets["reports"].setStyleSheet("color: #27ae60;")
-                finally:
-                    session.close()
-            except Exception:
-                self.status_widgets["reports"].setText("📋 0 today")
-                self.status_widgets["reports"].setStyleSheet("color: #f39c12;")
-
-            # Storage for the configured database file.
-            from pathlib import Path
-
-            db_path = getattr(self.db, "db_path", "")
-            if db_path and db_path != ":memory:" and Path(db_path).exists():
-                size = Path(db_path).stat().st_size / (1024 * 1024)  # MB
-                self.status_widgets["storage"].setText(f"💾 {size:.1f} MB")
-                self.status_widgets["storage"].setStyleSheet(
-                    "color: #2ecc71;" if size < 100 else "color: #e74c3c;"
-                )
-            else:
-                self.status_widgets["storage"].setText("💾 N/A")
-                self.status_widgets["storage"].setStyleSheet("color: #7f8c8d;")
-
-        except Exception as e:
-            logger.error(f"Error updating system status: {str(e)}")
+    # ---------------------------------------------------------- quick actions
+    def _find_tab(self, text):
+        tabs = getattr(self.parent_window, "tab_widget", None)
+        if tabs is None:
+            return None, None
+        for index in range(tabs.count()):
+            if text in tabs.tabText(index):
+                return tabs, index
+        return tabs, None
 
     def new_report(self):
-        """Create new daily report - switch to Daily Report tab and initialize new report"""
-        if self.parent_window and hasattr(self.parent_window, 'tab_widget'):
-            tab_widget = self.parent_window.tab_widget
-            for i in range(tab_widget.count()):
-                if "Daily Report" in tab_widget.tabText(i):
-                    tab_widget.setCurrentIndex(i)
-                    daily_report_widget = tab_widget.widget(i)
-                    if hasattr(daily_report_widget, 'new_report'):
-                        daily_report_widget.new_report()
-                    elif hasattr(daily_report_widget, 'create_daily_report_for_current_section'):
-                        daily_report_widget.create_daily_report_for_current_section()
-                    self.status_manager.show_success("HomeTab", "Opened Daily Report for new entry")
-                    return
+        tabs, index = self._find_tab("Daily Report")
+        if index is None:
             self.status_manager.show_error("HomeTab", "Daily Report tab not found")
+            return
+        tabs.setCurrentIndex(index)
+        widget = tabs.widget(index)
+        for name in ("new_report", "create_daily_report_for_current_section"):
+            if hasattr(widget, name):
+                getattr(widget, name)()
+                break
+
+    def import_ddr(self):
+        if self.parent_window is not None and hasattr(self.parent_window, "open_excel_import"):
+            self.parent_window.open_excel_import()
 
     def export_data(self):
-        """Export data - switch to Export tab"""
-        if self.parent_window and hasattr(self.parent_window, 'tab_widget'):
-            tab_widget = self.parent_window.tab_widget
-            for i in range(tab_widget.count()):
-                if "Export" in tab_widget.tabText(i):
-                    tab_widget.setCurrentIndex(i)
-                    export_widget = tab_widget.widget(i)
-                    if hasattr(export_widget, 'refresh'):
-                        export_widget.refresh()
-                    self.status_manager.show_success("HomeTab", "Opened Export tab")
-                    return
-            self.status_manager.show_error("HomeTab", "Export tab not found")
-
-    def open_well_info_tab(self):
-        if self.parent_window and hasattr(self.parent_window, 'tab_widget'):
-            for i in range(self.parent_window.tab_widget.count()):
-                if self.parent_window.tab_widget.tabText(i) == "🛢️ Well Info":
-                    self.parent_window.tab_widget.setCurrentIndex(i)
-                    well_info = self.parent_window.tab_widget.widget(i)
-                    if hasattr(well_info, 'current_well_id') and well_info.current_well_id:
-                        well_info.load_data()   # اضافه شد
-                    break
-            self.status_manager.show_message("HomeTab", "Opened Well Information tab", 2000)
+        tabs, index = self._find_tab("Export")
+        if index is not None:
+            tabs.setCurrentIndex(index)
 
     def open_analysis_tab(self):
-        if self.parent_window and hasattr(self.parent_window, 'tab_widget'):
-            for i in range(self.parent_window.tab_widget.count()):
-                if self.parent_window.tab_widget.tabText(i) == "📊 Analysis":
-                    self.parent_window.tab_widget.setCurrentIndex(i)
-                    break
-            self.status_manager.show_message("HomeTab", "Opened Analysis tab", 2000)
-
-    def open_settings_tab(self):
-        if self.parent_window and hasattr(self.parent_window, 'tab_widget'):
-            for i in range(self.parent_window.tab_widget.count()):
-                if self.parent_window.tab_widget.tabText(i) == "⚙️ Settings":
-                    self.parent_window.tab_widget.setCurrentIndex(i)
-                    break
-            self.status_manager.show_message("HomeTab", "Opened Settings tab", 2000)
-
-    def open_daily_report(self):
-        """سوئیچ به تب Daily Report"""
-        if self.parent_window and hasattr(self.parent_window, 'tab_widget'):
-            tab_widget = self.parent_window.tab_widget
-            for i in range(tab_widget.count()):
-                if "Daily Report" in tab_widget.tabText(i):
-                    tab_widget.setCurrentIndex(i)
-                    daily_report_widget = tab_widget.widget(i)
-                    if hasattr(daily_report_widget, 'refresh'):
-                        daily_report_widget.refresh()
-                    self.status_manager.show_success("HomeTab", "Opened Daily Report tab")
-                    return
-            self.status_manager.show_error("HomeTab", "Daily Report tab not found")
+        tabs, index = self._find_tab("Analysis")
+        if index is not None:
+            tabs.setCurrentIndex(index)
 
     def open_new_well_tab(self):
-        """سوئیچ به تب Well Info و باز کردن فرم جدید"""
-        if self.parent_window and hasattr(self.parent_window, 'tab_widget'):
-            for i in range(self.parent_window.tab_widget.count()):
-                if "Well Info" in self.parent_window.tab_widget.tabText(i):
-                    self.parent_window.tab_widget.setCurrentIndex(i)
-                    well_info_tab = self.parent_window.tab_widget.widget(i)
-                    if hasattr(well_info_tab, 'create_new_well_dialog'):
-                        well_info_tab.create_new_well_dialog()
-                    break
-            self.status_manager.show_success("HomeTab", "Opened New Well dialog")
-            
+        tabs, index = self._find_tab("Well Info")
+        if index is None:
+            return
+        tabs.setCurrentIndex(index)
+        widget = tabs.widget(index)
+        if hasattr(widget, "create_new_well_dialog"):
+            widget.create_new_well_dialog()
+
+    # ------------------------------------------------------------ lifecycle
     def set_parent_tab_widget(self, tab_widget):
-        """Set reference to parent tab widget for navigation"""
         self.parent_tab_widget = tab_widget
 
     def on_selection_changed(self, item_type, item_id):
-        """Handle selection change"""
-        # Home tab doesn't typically handle selection changes
         pass
 
-
     def on_well_changed(self, well_id, well_data):
-        """بعد از تغییر well، داشبورد refresh شود"""
-        self.load_data()
-        
+        """The dashboard covers all wells; a selection change does not reload it."""
+
     def refresh(self):
-        """Refresh tab data"""
         self.load_data()
 
     def cleanup(self):
-        """Cleanup resources"""
         if hasattr(self, "refresh_timer"):
             self.refresh_timer.stop()
+        self.wait_for_load()

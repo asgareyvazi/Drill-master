@@ -214,11 +214,30 @@ def run_jobs(
     return BatchResult(tuple(outcomes))
 
 
+def has_isolated_reader(db_manager) -> bool:
+    """True when :func:`worker_database` gives a worker its own connection.
+
+    In-memory databases (tests) share one ``StaticPool`` connection; a worker
+    thread must not query it, so callers run such reads synchronously.
+    """
+    path = getattr(db_manager, "db_path", None)
+    engine = getattr(db_manager, "engine", None)
+    database = getattr(getattr(engine, "url", None), "database", None)
+    if not path or path == ":memory:" or not database or database == ":memory:":
+        return False
+    if getattr(db_manager, "Session", None) is None:
+        return False
+    from pathlib import Path
+    # A manager whose engine is not the configured file (e.g. a test manager
+    # over an in-memory engine) must not be redirected to a different file.
+    return Path(database).expanduser().resolve() == Path(path).expanduser().resolve()
+
+
 @contextmanager
 def worker_database(db_manager):
     """Yield a manager view with its own read-only connection for a worker."""
     path = getattr(db_manager, "db_path", None)
-    if not path or path == ":memory:" or getattr(db_manager, "Session", None) is None:
+    if not has_isolated_reader(db_manager):
         yield db_manager
         return
 
