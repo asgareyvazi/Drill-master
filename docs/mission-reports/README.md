@@ -17,6 +17,7 @@ Windows/operator acceptance, field validation and history purge are **not** esta
 | 2026-10-20 | [docs/mission-reports/M43_CONTINUATION_BASELINE.md](../../docs/mission-reports/M43_CONTINUATION_BASELINE.md) | M43 continuation — baseline (before any product-code change) |
 | 2026-10-20 | [docs/mission-reports/M43_DATABASE_RELIABILITY_REPORT.md](../../docs/mission-reports/M43_DATABASE_RELIABILITY_REPORT.md) | M43 — Database reliability: verified backup, safe restore (Phase E/F) |
 | 2026-10-20 | [docs/mission-reports/M43_RELEASE_HARDENING_REPORT.md](../../docs/mission-reports/M43_RELEASE_HARDENING_REPORT.md) | M43 — Release hardening: repository audit, privacy remediation, DB operations UX |
+| 2026-10-24 | [docs/mission-reports/M44_CONNECTED_CAPABILITIES_REPORT.md](../../docs/mission-reports/M44_CONNECTED_CAPABILITIES_REPORT.md) | M44 — Connected product capabilities: operations dashboard, trajectory viewer, reviewed document import and search |
 
 ## Historical (superseded for current status; content unchanged)
 
