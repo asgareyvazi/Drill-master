@@ -62,6 +62,46 @@
       "path": "tests/fixtures/synthetic_ddr_golden_a.xlsx",
       "sha256": "e9cd124da8d5d742d96197f48f16bb6547e253a151983215ecd40bd0ce419778",
       "provenance": "M43: de-identified derivative of the original Golden A workbook, produced by tools/privacy/sanitize_ddr_workbook.py with a private spec; identity cells, coordinates, images, printer settings and document properties replaced; verified by the embedded leak check and by tests/test_privacy_check.py M43 (release hardening): two numeric bit-serial cells (DDR Data!N52, N53) overwritten with synthetic values by the same tool."
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/before_home_dashboard.png",
+      "sha256": "f82f5eaa9421cb4aa30b88b6f271f3e2225c85a37368c42416a41a2ba9a54558",
+      "provenance": "reviewed M44: pre-M44 Home tab; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/before_trajectory_plot_plan.png",
+      "sha256": "2cb8782263041596afbb00ea6c5c2e181518d04703167c252147d66763e45ee7",
+      "provenance": "reviewed M44: pre-M44 per-report plot tab (blank as captured); offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/before_trajectory_plot_side.png",
+      "sha256": "771bae45479d13f31625feb6c58000e1fee03f00459a8b363ea10891ab5c9b3a",
+      "provenance": "reviewed M44: pre-M44 per-report side view (blank as captured); offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_home_dashboard.png",
+      "sha256": "3b80cf0b3c06acbef73a61b64d49cb7a0f7d09c8b2a95625d470f0e318f5bdc3",
+      "provenance": "reviewed M44: M44 operations dashboard; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_home_drilldown_trajectory_qa.png",
+      "sha256": "42fa89bb1b71f05538cd9026b994138feca384e5c17851e592f980cb57839610",
+      "provenance": "reviewed M44: M44 dashboard drill-down to trajectory viewer; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_trajectory_viewer_plan.png",
+      "sha256": "21fdb7a643d492c2c5596633c8fe0a971b9acce145c288b591bb5feb2d7ef778",
+      "provenance": "reviewed M44: M44 trajectory plan view, local relative N/E metres; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_trajectory_viewer_vertical_section.png",
+      "sha256": "6cd29f8c413ca70cdec174a585f506830f72ed5826f6096e88c8919572d9d461",
+      "provenance": "reviewed M44: M44 vertical section, local relative metres; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m44-screenshots/after_trajectory_viewer_review_required.png",
+      "sha256": "98a5f8bc0a6438a130073ea120f98e1aacdf994657025f18279d93fafb8a732d",
+      "provenance": "reviewed M44: M44 review-required trajectory state; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
     }
   ],
   "text_patterns": [
