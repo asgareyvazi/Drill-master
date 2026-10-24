@@ -81,6 +81,21 @@ class PermissionManager:
 permissions = PermissionManager()
 
 
+def session_user(account) -> dict:
+    """The session dict the UI uses (``MainWindow``, permissions) for an account.
+
+    ``DatabaseManager.authenticate_user`` returns an object; every login path
+    (dialog, development auto-login, tools) must convert it the same way.
+    """
+    return {
+        "id": account.id,
+        "username": account.username,
+        "full_name": getattr(account, "full_name", None) or account.username,
+        "role": getattr(account, "role", None) or "user",
+        "email": getattr(account, "email", None) or f"{account.username}@drillmaster.com",
+    }
+
+
 def require_permission(permission):
     """Guard a slot/method; returns False rather than crashing the UI."""
     def decorator(func):

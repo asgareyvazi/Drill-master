@@ -544,7 +544,11 @@ class DrillMasterApp(QApplication):
             ):
                 auto_password = bootstrap_password_for_role("admin")
                 if auto_password:
-                    self.user = self.db_manager.authenticate_user("admin", auto_password)
+                    account = self.db_manager.authenticate_user("admin", auto_password)
+                    if account:
+                        # MainWindow and permissions take the session dict, not the ORM-like object.
+                        from core.permissions import session_user
+                        self.user = session_user(account)
                 if self.user:
                     from core.permissions import permissions
                     permissions.set_user(self.user)

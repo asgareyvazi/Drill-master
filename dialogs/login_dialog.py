@@ -177,13 +177,8 @@ class LoginDialog(QDialog):
             user = self.db.authenticate_user(username, password)
 
             if user:
-                self.user = {
-                    'id': user.id,
-                    'username': user.username,
-                    'full_name': getattr(user, 'full_name', user.username),
-                    'role': getattr(user, 'role', 'user'),
-                    'email': getattr(user, 'email', f'{user.username}@drillmaster.com')
-                }
+                from core.permissions import session_user
+                self.user = session_user(user)
                 # ✅ ذخیره credentials
                 self._save_credentials()
                 self.accept()
