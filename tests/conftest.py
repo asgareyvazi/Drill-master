@@ -32,6 +32,30 @@ def pytest_configure(config):
     os.environ["DRILLMASTER_DB_PATH"] = str(Path(directory) / "test-session.db")
 
 
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _isolate_session_principal():
+    """Restore the process-wide signed-in principal after every test (M46).
+
+    ``core.permissions.permissions`` is a module singleton.  Tests that sign a
+    user in (``permissions.set_user``) without restoring it leaked that user
+    into every later test: with an in-memory database the leaked user id then
+    fails the mandatory audit's foreign key, imports roll back, and the later
+    test fails (or passes for the wrong reason) depending on file order -
+    e.g. ``test_p0_permissions`` before ``test_document_library``.  Each test
+    still sets the principal it needs; nothing here grants a permission.
+    """
+    from core.permissions import permissions
+    previous = permissions._user
+    try:
+        yield
+    finally:
+        permissions._user = previous
+
+
 _CRASH_BREADCRUMB_ENV = "DRILLMASTER_CRASH_BREADCRUMB"
 _CRASH_BREADCRUMB_PREFIX = "DRILLMASTER-TEST-START "
 
