@@ -49,6 +49,14 @@ REQUIRED_MODULES = (
     "tests/test_junit_report.py",
     "tests/test_windows_release_gate_contract.py",
     "tests/test_windows_release_evidence.py",
+    # M46 regressions (shared-connection rollback, 3D timer lifecycle, search parity, link atomicity,
+    # survey editor scope, principal isolation) must also run on the Windows runner.
+    "tests/test_test_isolation_m46.py",
+    "tests/test_search_parity_m46.py",
+    "tests/test_survey_editor_scope_m46.py",
+    "tests/test_hierarchy_worker_isolation_m46.py",
+    "tests/test_document_links_audit_m46.py",
+    "tests/test_trajectory_3d_lifecycle_m46.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 
