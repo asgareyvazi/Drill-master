@@ -323,3 +323,35 @@ def test_static_agg_fallback_is_reported_as_not_interactive(app, monkeypatch):
     monkeypatch.undo()
     canvas_class, interactive, reason = trajectory_3d_view._load_canvas()
     assert interactive is True and canvas_class.__name__ == "FigureCanvasQTAgg" and reason == ""
+
+
+def test_a_destroyed_view_leaves_no_pending_draw(app):
+    """Render, then destroy the C++ objects before the event loop runs: no
+    queued draw may fire on the deleted canvas (it used to raise
+    'Internal C++ object (FigureCanvasQTAgg) already deleted' in whatever
+    code processed events next)."""
+    import shiboken6
+
+    from tabs.trajectory_viewer import TrajectoryViewerTab
+    viewer = TrajectoryViewerTab(None)
+    viewer.view3d.render(scene_from_trajectory(compose_well_trajectory(_rows(TURN_PROFILE)), "m"))
+    viewer.view3d.zoom(1.25)
+    shiboken6.delete(viewer)
+    app.processEvents()                                   # must not raise
+
+
+def test_hidden_view_draws_when_shown(app):
+    from tabs.trajectory_3d_view import Trajectory3DView
+    view = Trajectory3DView()
+    drawn = []
+    original = view.canvas.draw
+    view.canvas.draw = lambda: (drawn.append(1), original())[1]
+    view.render(scene_from_trajectory(compose_well_trajectory(_rows(TURN_PROFILE)), "m"))
+    app.processEvents()
+    assert drawn == [] and view._dirty                     # hidden: nothing drawn yet
+    view.resize(800, 600)
+    view.show()
+    for _ in range(5):
+        app.processEvents()
+    assert drawn and not view._dirty                       # drawn once visible
+    view.close()

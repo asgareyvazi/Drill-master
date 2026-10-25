@@ -8,6 +8,10 @@ vertical-section views already show) as a 3D path with station markers.
 * Clicking a station selects that real station (``station_picked`` emits the
   index into ``WellTrajectory.stations``); the viewer then updates the info
   panel, the table and the 2D highlights.
+* Drawing goes through a single-shot timer owned by this widget and only
+  while the canvas is visible (a hidden view draws when it is shown).
+  Matplotlib's own ``draw_idle`` queues an unowned timer that can fire after
+  the canvas was destroyed ("Internal C++ object already deleted").
 * Interactive 3D needs the Qt Matplotlib canvas.  When only the static Agg
   fallback (or no Matplotlib) is available the tab says so and draws nothing:
   a static picture is never presented as an interactive 3D view.
@@ -20,7 +24,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from core.trajectory_3d import AXIS_CONVENTION, Scene3D, axis_limits, nearest_station
@@ -64,6 +68,11 @@ class Trajectory3DView(QWidget):
         self.highlighted: Optional[int] = None
         self._press = None
         self._zoom = 1.0
+        self._dirty = False
+        self._draw_timer = QTimer(self)                 # owned: destroyed with the view
+        self._draw_timer.setSingleShot(True)
+        self._draw_timer.setInterval(0)
+        self._draw_timer.timeout.connect(self._draw_now)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -129,7 +138,7 @@ class Trajectory3DView(QWidget):
         self.message.setText(message or "Nothing to plot.")
         self.message.setVisible(True)
         self.hint.setText("")
-        self.canvas.draw_idle()
+        self._request_draw()
 
     def render(self, scene: Scene3D, equal_scale: bool = True):
         """Draw a scene; a non-drawable scene shows its reason and no path."""
@@ -170,7 +179,7 @@ class Trajectory3DView(QWidget):
                           "click a station to inspect it.")
         if self.highlighted is not None:
             self._draw_highlight(self.highlighted)
-        self.canvas.draw_idle()
+        self._request_draw()
 
     def _apply_limits(self):
         (x0, x1), (y0, y1), (z0, z1) = axis_limits(self.scene, equal=self.equal_scale)
@@ -185,6 +194,25 @@ class Trajectory3DView(QWidget):
         self.axes.set_zlim(z1, z0)                        # inverted: TVD increases downwards
         self.axes.set_box_aspect((1.0, 1.0, 1.0))
 
+    # -------------------------------------------------------------- drawing
+    def _request_draw(self):
+        if self.canvas is not None:
+            self._dirty = True
+            self._draw_timer.start()
+
+    def _draw_now(self):
+        if self.canvas is None or not self._dirty:
+            return
+        if not self.canvas.isVisible():                  # drawn by showEvent instead
+            return
+        self._dirty = False
+        self.canvas.draw()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self._dirty:
+            self._draw_timer.start()
+
     # --------------------------------------------------------------- camera
     def camera(self) -> tuple:
         return (self.axes.elev, self.axes.azim) if self.interactive else (None, None)
@@ -193,7 +221,7 @@ class Trajectory3DView(QWidget):
         if self.interactive and self.scene is not None:
             elevation, azimuth = self.preset_combo.currentData()
             self.axes.view_init(elev=elevation, azim=azimuth)
-            self.canvas.draw_idle()
+            self._request_draw()
 
     def reset_view(self):
         if not self.interactive or self.scene is None:
@@ -209,7 +237,7 @@ class Trajectory3DView(QWidget):
             return
         self._zoom = min(max(self._zoom * factor, 0.2), 20.0)
         self._apply_limits()
-        self.canvas.draw_idle()
+        self._request_draw()
 
     def _scroll(self, event):
         self.zoom(1.25 if event.button == "up" else 0.8)
@@ -251,7 +279,7 @@ class Trajectory3DView(QWidget):
             return
         self.highlighted = index
         self._draw_highlight(index)
-        self.canvas.draw_idle()
+        self._request_draw()
 
     def _draw_highlight(self, index):
         for artist in list(self.axes.collections) + list(self.axes.texts):
