@@ -380,6 +380,11 @@ class WellInfoTab(DrillTabBase):
         button_layout.addStretch()
         layout.addLayout(button_layout)
 
+        # M45: documents linked to this well (read-only; links are edited in Documents).
+        from tabs.related_documents import RelatedDocumentsPanel
+        self.related_documents = RelatedDocumentsPanel(self.db, "well", container)
+        layout.addWidget(self.related_documents)
+
         container.setLayout(layout)
         scroll.setWidget(container)
         main_layout.addWidget(scroll)
@@ -637,6 +642,7 @@ class WellInfoTab(DrillTabBase):
             fields = [(key, getattr(self, key)) for key in ("gle_msl", "rte_msl", "gle_rte", "water_depth", "derrick_height", "lta_day", "actual_rig_days", "rig_heading", "kop1", "kop2", "latitude", "longitude", "northing", "easting", "spud_date", "start_hole_date", "rig_move_date", "report_date")]
             fields.extend([(key, self.estimated_depth) for key in ("target_depth", "estimated_final_depth")])
             reset_form_edit_tracking(self, fields)
+            self.related_documents.set_well(well_id)
             logger.info(f"Well data loaded successfully for well ID: {well_id}")
             
         except Exception as e:
@@ -896,6 +902,7 @@ class WellInfoTab(DrillTabBase):
 
     def clear_form_fields(self):
         self.is_loading = True
+        self.related_documents.set_well(None)
         self.well_type_onshore.setChecked(True)
         self.well_name.clear()
         self.well_code.clear()

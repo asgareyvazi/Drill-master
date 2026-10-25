@@ -496,6 +496,11 @@ class DailyReportWidget(DrillTabBase):
         stats_layout.addStretch()
         main_layout.addLayout(stats_layout)
 
+        # M45: documents linked to this report (read-only; links are edited in Documents).
+        from tabs.related_documents import RelatedDocumentsPanel
+        self.related_documents = RelatedDocumentsPanel(self.db_manager, "report")
+        main_layout.addWidget(self.related_documents)
+
         central_widget = QWidget()
         central_widget.setLayout(main_layout)
 
@@ -1346,6 +1351,7 @@ class DailyReportWidget(DrillTabBase):
             self.current_report_id = report_id
             self.current_report = result
             self.current_daily_report_id = report_id
+            self.related_documents.set_report(report_id)
 
             # ذخیره تب‌های دیگر
             # Global saves are coordinated by MainWindow, never cascaded here.
@@ -1624,6 +1630,7 @@ class DailyReportWidget(DrillTabBase):
         try:
             report_data = self.db_manager.get_daily_report_by_id(report_id)
             if not report_data:
+                self.related_documents.set_report(None)
                 self.status_manager.show_error("DailyReport", "Report not found")
                 return False
 
@@ -1666,6 +1673,7 @@ class DailyReportWidget(DrillTabBase):
             reset_form_edit_tracking(self,
                           [(key, getattr(self, key)) for key in ("report_date", "report_number", "rig_day", "depth_0000", "depth_0600", "depth_2400", "mw_pcf")])
             self._update_workflow_controls()
+            self.related_documents.set_report(report_id)
             self.status_manager.show_success("DailyReport", f"Report #{report_data.get('report_number', '')} loaded")
         except Exception as e:
             logger.error(f"Load report error: {e}")
@@ -2058,6 +2066,7 @@ class DailyReportWidget(DrillTabBase):
         """پاک کردن فرم برای گزارش جدید"""
         self.current_report = None
         self.current_report_id = None
+        self.related_documents.set_report(None)
         self.current_daily_report_id = None
         self.report_date.setDate(QDate.currentDate())
         self.report_number.setValue(1)

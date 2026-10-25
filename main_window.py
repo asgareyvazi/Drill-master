@@ -1149,10 +1149,19 @@ class MainWindow(QMainWindow):
         # Tab 19: Documents (software) - reviewed import + offline search (M44)
         self.documents_tab = DocumentsTab(self.db_manager, self)
         self.tab_widget.addTab(self.documents_tab, "📄 Documents")
+        # M45: "Related documents" on the Well Info / Daily Report pages open
+        # the document in the Documents tab; link edits refresh both panels.
+        for panel in self._related_document_panels():
+            panel.open_requested.connect(self.open_library_document)
+        self.documents_tab.links_changed.connect(
+            lambda: [panel.refresh() for panel in self._related_document_panels()])
 
         # SelectionManager connections
-        # Status-bar label follows every selection path (tree, dashboard, combos).
+        # Status-bar label follows every selection path (tree, dashboard, combos)
+        # and is reset when the selection is cleared (e.g. the current report
+        # or well was deleted), so it never shows a stale well.
         self.sel_manager.well_changed.connect(self._show_selected_well)
+        self.sel_manager.selection_cleared.connect(self._show_no_selected_well)
         self.sel_manager.well_changed.connect(
             lambda wid, wd: (
                 self.export_widget.set_current_well(wid, wd)
@@ -2909,9 +2918,29 @@ class MainWindow(QMainWindow):
 
     def _show_selected_well(self, well_id, well_data):
         """Update only the status-bar well label (no selection state changes)."""
+        if not hasattr(self, 'current_well_label'):
+            return
+        if not well_id:
+            self._show_no_selected_well()
+            return
+        name = (well_data or {}).get('name') if isinstance(well_data, dict) else None
+        self.current_well_label.setText(f"🛢️ Well: {name or f'id {well_id}'}")
+
+    def _show_no_selected_well(self):
         if hasattr(self, 'current_well_label'):
-            name = (well_data or {}).get('name') if isinstance(well_data, dict) else None
-            self.current_well_label.setText(f"🛢️ Well: {name or f'id {well_id}'}")
+            self.current_well_label.setText("🛢️ No well selected")
+
+    def _related_document_panels(self):
+        return [tab.related_documents for tab in (getattr(self, "well_info_tab", None),
+                                                  getattr(self, "daily_report_tab", None))
+                if tab is not None and hasattr(tab, "related_documents")]
+
+    def open_library_document(self, document_id, page_no=None):
+        """Show a library document (at its anchor page) in the Documents tab."""
+        if not hasattr(self, "documents_tab"):
+            return False
+        self.tab_widget.setCurrentWidget(self.documents_tab)
+        return self.documents_tab.open_document(int(document_id), page_no)
 
     def set_current_well(self, well_id, well_data):
         self.sel_manager.select_well(well_id, well_data)
