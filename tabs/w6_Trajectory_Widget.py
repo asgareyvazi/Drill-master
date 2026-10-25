@@ -483,6 +483,15 @@ class SurveyDataTab(QWidget):
                 well_id=self.current_well_id,
                 report_id=self.current_report_id
             )
+            if not self.current_report_id:
+                # No report selected: the editor's scope is the well-level
+                # rows (report_id NULL) - exactly what Save writes
+                # (replace_scope=(well, None)).  Daily-report rows carry
+                # per-report derived frames that restart at N=E=0; mixing
+                # them here showed TVD/N/E of different frames as one
+                # computed table and made Save fail (M46).  The whole-well
+                # path is the Well Trajectory Viewer.
+                points = [p for p in points if p.get('report_id') is None]
             for point in points:
                 row = self.survey_table.rowCount()
                 self.survey_table.insertRow(row)
