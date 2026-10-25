@@ -36,6 +36,8 @@ from sqlalchemy import (
     Time,
     Numeric,
     UniqueConstraint,
+    Index,
+    text as sql_text,
 )
 from sqlalchemy.orm import sessionmaker, relationship, Session, declarative_base, backref
 from sqlalchemy.pool import StaticPool
@@ -2618,6 +2620,8 @@ class Document(Base):
 
     pages = relationship("DocumentPage", backref="document", cascade="all, delete-orphan",
                          order_by="DocumentPage.page_no")
+    # M45: user-confirmed well/report links leave with the document.
+    links = relationship("DocumentLink", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class DocumentPage(Base):
@@ -2633,6 +2637,35 @@ class DocumentPage(Base):
     method = Column(String(20), nullable=False)           # pdf-text | text-file | ocr
     review_status = Column(String(20), nullable=False)    # extracted | approved | edited
     confidence = Column(Float)                            # OCR engine score (not a probability)
+
+
+class DocumentLink(Base):
+    """A user-confirmed link from a library document to a well and, optionally,
+    one of that well's daily reports (M45, see core/document_links.py).
+
+    Written only by ``DocumentLinkService`` after an explicit user action;
+    never inferred from the text.  ``report_id`` NULL means a well-level link.
+    ``page_no`` is the optional anchor page opened from the well/report page.
+    A link leaves with its document, well or report; the audit trail keeps
+    its history.  The ownership guard rejects a report of another well.
+    """
+    __tablename__ = "document_links"
+    __table_args__ = (
+        UniqueConstraint("document_id", "well_id", "report_id", name="uq_document_links_target"),
+        # SQLite treats NULLs as distinct in UNIQUE constraints, so the
+        # well-level link (report_id NULL) needs its own partial unique index.
+        Index("uq_document_links_well_level", "document_id", "well_id", unique=True,
+              sqlite_where=sql_text("report_id IS NULL")),
+    )
+
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True)
+    page_no = Column(Integer)                             # optional anchor page of the document
+    note = Column(String(200))
+    linked_at = Column(DateTime, default=_now_utc, nullable=False)
+    linked_by = Column(String(100))
 
 
 # ----------------------------------------------------------------------

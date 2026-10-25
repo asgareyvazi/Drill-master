@@ -110,6 +110,9 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     # Document library (M44): written only by the reviewed document import.
     "documents": TablePolicy(write=(IMPORT,), delete=(IMPORT,)),
     "document_pages": TablePolicy(write=(IMPORT,), delete=(IMPORT,)),
+    # Document links (M45): curated with the library permission; they also
+    # leave with an audited report or well delete (report-child sweep).
+    "document_links": TablePolicy(write=(IMPORT,), delete=(IMPORT, DELETE_REPORTS, DELETE_WELL)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }

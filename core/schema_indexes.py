@@ -62,6 +62,8 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("daily_reports", ('section_id', 'report_date'), SECTION_SCOPE),
     ("daily_reports", ('well_id', 'report_date'), WELL_DATED),
     ("daily_reports", ('wellbore_id',), HIERARCHY),
+    ("document_links", ('report_id',), REPORT_CHILD),
+    ("document_links", ('well_id',), WELL_SCOPE),
     ("downhole_equipment", ('report_id',), REPORT_CHILD),
     ("downhole_equipment", ('well_id',), WELL_SCOPE),
     ("drilling_parameters", ('report_id',), REPORT_CHILD),

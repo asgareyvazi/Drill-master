@@ -15,8 +15,17 @@ Three separate steps, so nothing reaches the database without a decision:
 Search (``DocumentLibrary.search``) uses SQLite FTS5 in a private in-memory
 index rebuilt from ``document_pages`` when the library changes, so the
 operational schema holds only ordinary tables; without FTS5 it falls back to
-a LIKE scan.  Every hit carries file, page/location and the stored text it
-came from.  No network access is used anywhere in this module.
+a substring scan.  Every hit carries file, page/location, the line of the
+first match and a snippet of the stored text it came from.  No network
+access is used anywhere in this module.
+
+M45: the index holds a *normalised copy* of each page
+(``core.search_normalization``: Arabic/Persian yeh and kaf, digits,
+half-space, harakat, tatweel) and queries are normalised the same way.  The
+stored text is never rewritten; snippets and highlights are mapped back to
+the original characters.  The normalisation version is part of the index
+signature, so documents imported before a rule change are re-indexed from
+their stored originals on the next search (``rebuild_index`` forces it).
 
 OCR is optional (RapidOCR + onnxruntime, see requirements-optional.txt).  It
 is imported lazily; when absent, scanned pages are reported as having no text
@@ -35,6 +44,11 @@ import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
+
+from core.search_normalization import (
+    NORMALIZATION_VERSION, find_spans, fts_match_expression, line_of, make_snippet, normalize, parse_query,
+    query_terms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -421,12 +435,26 @@ class DocumentLibrary:
         from core.database import Document, DocumentPage
         session = self.db.create_session()
         try:
+            from core.database import DocumentLink
             counts = dict(session.query(DocumentPage.document_id, func.count(DocumentPage.id))
                           .group_by(DocumentPage.document_id).all())
+            links = dict(session.query(DocumentLink.document_id, func.count(DocumentLink.id))
+                         .group_by(DocumentLink.document_id).all())
             return [{"id": d.id, "file_name": d.file_name, "kind": d.kind, "page_count": d.page_count,
                      "stored_pages": counts.get(d.id, 0), "status": d.status, "imported_at": d.imported_at,
-                     "imported_by": d.imported_by, "size_bytes": d.size_bytes}
+                     "imported_by": d.imported_by, "size_bytes": d.size_bytes, "links": links.get(d.id, 0)}
                     for d in session.query(Document).order_by(Document.imported_at.desc(), Document.id.desc())]
+        finally:
+            session.close()
+
+    def document(self, document_id: int):
+        """{'id', 'file_name', 'kind', 'page_count'} or None (for viewers opened by id)."""
+        from core.database import Document
+        session = self.db.create_session()
+        try:
+            d = session.get(Document, document_id)
+            return None if d is None else {"id": d.id, "file_name": d.file_name, "kind": d.kind,
+                                           "page_count": d.page_count}
         finally:
             session.close()
 
@@ -527,10 +555,11 @@ class DocumentLibrary:
             if document is None:
                 return False
             name, sha256 = document.file_name, document.sha256
+            links_removed = len(document.links)
             session.delete(document)
             session.add(AuditLog(action="document_delete", entity_type="document", entity_id=document_id,
                                  entity_name=name[:200], user_id=user_id, username=username,
-                                 details=json.dumps({"sha256": sha256})))
+                                 details=json.dumps({"sha256": sha256, "links_removed": links_removed})))
             session.commit()
             return True
         except Exception:
@@ -546,8 +575,8 @@ class DocumentLibrary:
         from core.database import DocumentPage
         session = self.db.create_session()
         try:
-            return tuple(session.query(func.count(DocumentPage.id), func.max(DocumentPage.id),
-                                       func.sum(func.length(DocumentPage.text))).one())
+            return (NORMALIZATION_VERSION,) + tuple(session.query(
+                func.count(DocumentPage.id), func.max(DocumentPage.id), func.sum(func.length(DocumentPage.text))).one())
         finally:
             session.close()
 
@@ -575,14 +604,26 @@ class DocumentLibrary:
             self.fts_available = False
             return None
         self.fts_available = True
-        connection.executemany("INSERT INTO page_fts(rowid, body) VALUES (?, ?)", self._all_pages())
+        # Normalised copy for matching only; the stored original is untouched.
+        connection.executemany("INSERT INTO page_fts(rowid, body) VALUES (?, ?)",
+                               ((page_id, normalize(text)) for page_id, text in self._all_pages()))
         connection.commit()
         self._index, self._index_signature = connection, signature
         return connection
 
+    def rebuild_index(self) -> dict:
+        """Drop and rebuild the search index from the stored originals."""
+        if self._index is not None:
+            self._index.close()
+        self._index, self._index_signature = None, None
+        index = self._ensure_index()
+        pages = index.execute("SELECT count(*) FROM page_fts").fetchone()[0] if index is not None else None
+        return {"pages": pages, "normalization_version": NORMALIZATION_VERSION, "fts": index is not None}
+
     @staticmethod
     def _terms(query: str) -> list:
-        return [t for t in re.findall(r"\w+", query or "", flags=re.UNICODE) if t][:12]
+        """Normalised query tokens (used for snippets and highlighting)."""
+        return query_terms(query)
 
     def _page_details(self, ids):
         from core.database import Document, DocumentPage
@@ -601,61 +642,51 @@ class DocumentLibrary:
 
     def search(self, query: str, limit: int = 20) -> dict:
         """{'status', 'method', 'hits', 'message'}; each hit names its file and page."""
-        terms = self._terms(query)
+        groups = parse_query(query)
+        terms = [t for group in groups for t in group]
         if not terms or sum(len(t) for t in terms) < 2:
             return {"status": "invalid_query", "method": None, "hits": [],
                     "message": "Enter at least two letters or digits"}
         index = self._ensure_index()
         if index is not None:
-            match = " ".join('"' + t.replace('"', '""') + '"*' for t in terms)
-            rows = index.execute(
-                "SELECT rowid, snippet(page_fts, 0, '[', ']', ' … ', 14) FROM page_fts WHERE page_fts MATCH ? "
-                "ORDER BY bm25(page_fts) LIMIT ?", (match, int(limit))).fetchall()
-            method = "SQLite FTS5 (in-memory index of reviewed pages)"
-            snippets = {rowid: snippet for rowid, snippet in rows}
-            order = [rowid for rowid, _ in rows]
+            rows = index.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH ? ORDER BY bm25(page_fts) LIMIT ?",
+                                 (fts_match_expression(groups), int(limit))).fetchall()
+            method = "SQLite FTS5 (in-memory index of reviewed pages, Persian/Arabic-normalised)"
+            order = [row[0] for row in rows]
         else:
-            method = "Substring scan (FTS5 unavailable in this SQLite build)"
-            order, snippets = self._like_search(terms, limit)
+            method = "Substring scan (FTS5 unavailable in this SQLite build, Persian/Arabic-normalised)"
+            order = self._scan_search(terms, limit)
         details = self._page_details(order)
         hits = []
         for rowid in order:
             row = details.get(rowid)
             if row is None:
                 continue
+            original = row[6]
+            spans = find_spans(original, terms)
             hits.append({"page_id": row[0], "document_id": row[1], "page_no": row[2], "location": row[3],
                          "method": row[4], "review_status": row[5], "file_name": row[7],
-                         "snippet": snippets.get(rowid) or _make_snippet(row[6], terms)})
+                         "line_no": line_of(original, spans[0][0]) if spans else None,
+                         "match_count": len(spans), "snippet": make_snippet(original, terms)})
         return {"status": "matched" if hits else "no_matches", "method": method, "hits": hits,
+                "terms": terms, "normalization_version": NORMALIZATION_VERSION,
                 "message": (f"{len(hits)} page(s) match" if hits else
                             "No matching text. Only reviewed, stored text is searchable; pages without a "
                             "text layer or unapproved OCR are not indexed.")}
 
-    def _like_search(self, terms, limit):
-        from core.database import DocumentPage
-        session = self.db.create_session()
-        try:
-            query = session.query(DocumentPage.id, DocumentPage.text)
-            for term in terms:
-                query = query.filter(DocumentPage.text.ilike(f"%{term}%"))
-            rows = query.order_by(DocumentPage.id).limit(int(limit)).all()
-            return [r[0] for r in rows], {r[0]: _make_snippet(r[1], terms) for r in rows}
-        finally:
-            session.close()
+    def _scan_search(self, terms, limit):
+        """Fallback without FTS5: pages where every term starts a word, using
+        the same normalisation as the index."""
+        hits = []
+        for page_id, text in sorted(self._all_pages()):
+            if all(find_spans(text, [term]) for term in terms):
+                hits.append(page_id)
+                if len(hits) >= int(limit):
+                    break
+        return hits
 
     def close(self):
         if self._index is not None:
             self._index.close()
             self._index = None
 
-
-def _make_snippet(text: str, terms, width: int = 90) -> str:
-    lowered = (text or "").lower()
-    positions = [lowered.find(t.lower()) for t in terms if lowered.find(t.lower()) >= 0]
-    if not positions:
-        return (text or "")[:width * 2]
-    start = max(min(positions) - width, 0)
-    piece = text[start:start + width * 2].replace("\n", " ")
-    for term in sorted(set(terms), key=len, reverse=True):
-        piece = re.sub(re.escape(term), lambda m: f"[{m.group(0)}]", piece, flags=re.IGNORECASE)
-    return ("… " if start else "") + piece + (" …" if start + width * 2 < len(text) else "")
