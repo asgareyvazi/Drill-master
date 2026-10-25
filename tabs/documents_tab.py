@@ -567,6 +567,9 @@ class DocumentsTab(QWidget):
     # ----------------------------------------------------------------- links
     def _refresh_links(self):
         document_id = self.current_document_id
+        if document_id != getattr(self, "_link_info_document_id", None):
+            self.link_info.setText("")                    # a message about another document is stale
+            self._link_info_document_id = document_id
         self.current_links = []
         self.links_table.setRowCount(0)
         if document_id is None:

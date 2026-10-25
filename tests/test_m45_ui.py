@@ -100,6 +100,19 @@ def test_link_dialog_suggests_but_links_only_after_confirmation(tab):
     assert widget.table.item(_row_of(widget.table, ids["docs"]["alpha"]), 6).text() == "1 link(s)"
 
 
+def test_link_message_does_not_follow_another_document(tab):
+    widget, db, ids = tab
+    _select(widget, ids["docs"]["alpha"])
+    dialog = widget.link_selected()
+    dialog.select_well(ids["alpha"])
+    widget.apply_link_dialog(dialog, True)
+    assert widget.link_info.text() == "Document linked."                       # same document: kept
+    assert widget.open_document(ids["docs"]["twin"]) is True
+    assert widget.link_info.text() == "" and "Not linked" in widget.link_status.text()
+    assert widget.open_document(ids["docs"]["alpha"]) is True
+    assert widget.link_info.text() == "" and "Linked" in widget.link_status.text()
+
+
 def test_cancelled_dialog_changes_nothing(tab):
     widget, db, ids = tab
     _select(widget, ids["docs"]["twin"])
