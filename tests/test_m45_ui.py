@@ -209,7 +209,9 @@ def test_search_result_opens_the_original_text_at_the_match(tab):
 def test_rebuild_index_reports_pages_and_version(tab):
     widget, _db, _ids = tab
     info = widget.rebuild_index()
-    assert info["pages"] == 5 and "normalisation v1" in widget.search_info.text()
+    from core.search_normalization import NORMALIZATION_VERSION
+    assert NORMALIZATION_VERSION == 2                     # M46: "_" separates tokens, Latin diacritics fold
+    assert info["pages"] == 5 and f"normalisation v{NORMALIZATION_VERSION}" in widget.search_info.text()
 
 
 def test_link_buttons_follow_the_role(tmp_path, app):

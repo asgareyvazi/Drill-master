@@ -47,7 +47,7 @@ from typing import Callable, Optional
 
 from core.search_normalization import (
     NORMALIZATION_VERSION, find_spans, fts_match_expression, line_of, make_snippet, normalize, parse_query,
-    query_terms,
+    query_terms, text_matches,
 )
 
 logger = logging.getLogger(__name__)
@@ -655,7 +655,7 @@ class DocumentLibrary:
             order = [row[0] for row in rows]
         else:
             method = "Substring scan (FTS5 unavailable in this SQLite build, Persian/Arabic-normalised)"
-            order = self._scan_search(terms, limit)
+            order = self._scan_search(groups, limit)
         details = self._page_details(order)
         hits = []
         for rowid in order:
@@ -674,12 +674,13 @@ class DocumentLibrary:
                             "No matching text. Only reviewed, stored text is searchable; pages without a "
                             "text layer or unapproved OCR are not indexed.")}
 
-    def _scan_search(self, terms, limit):
-        """Fallback without FTS5: pages where every term starts a word, using
-        the same normalisation as the index."""
+    def _scan_search(self, groups, limit):
+        """Fallback without FTS5: the same normalisation AND the same match
+        semantics as the index (word prefixes, exact phrases/identifiers,
+        half-space alternatives) - see ``text_matches``."""
         hits = []
         for page_id, text in sorted(self._all_pages()):
-            if all(find_spans(text, [term]) for term in terms):
+            if text_matches(text, groups):
                 hits.append(page_id)
                 if len(hits) >= int(limit):
                     break
