@@ -13,6 +13,9 @@ engineering calculation; it only presents ``WellTrajectory`` results.
   conversions only.
 * The VS azimuth is the closure azimuth of the last station unless the user
   enters one; the banner always states which.
+* M45: a "3D view" tab shows the same composed stations in 3D
+  (``core.trajectory_3d``; East/North/TVD-down, same units, equal scale by
+  default).  Picking a station there selects the same station everywhere.
 
 Survey reads for one well are small (one indexed query), so loading runs on
 the UI thread.
@@ -30,6 +33,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
+from core.trajectory_3d import scene_from_trajectory
 from core.well_trajectory import (
     ERROR, INSUFFICIENT_DATA, NO_DATA, READY, REVIEW_REQUIRED, compose_well_trajectory, dls_for_display,
     to_display_units,
@@ -123,6 +127,10 @@ class TrajectoryViewerTab(QWidget):
         else:
             self.plan_plot = self.section_plot = None
             self.view_tabs.addTab(QLabel("Plots need pyqtgraph (a core requirement)."), "Plots")
+        from tabs.trajectory_3d_view import Trajectory3DView
+        self.view3d = Trajectory3DView()
+        self.view_tabs.addTab(self.view3d, "3D view")
+        self.view3d.station_picked.connect(self.select_station)
         splitter.addWidget(self.view_tabs)
 
         side = QWidget()
@@ -205,7 +213,7 @@ class TrajectoryViewerTab(QWidget):
         if self.scope_combo.currentData() == "report" and not self.report_id:
             self.trajectory, self.stations = None, []
             self._set_banner(NO_DATA, "Select a daily report to use the report scope.")
-            self._clear()
+            self._clear("Select a daily report to use the report scope.")
             return
         vs_azimuth = self.vs_spin.value() if self.vs_mode_combo.currentData() == "user" else None
         try:
@@ -214,7 +222,7 @@ class TrajectoryViewerTab(QWidget):
             logger.warning("Trajectory viewer could not read surveys: %s", type(exc).__name__)
             self.trajectory, self.stations = None, []
             self._set_banner(ERROR, f"Survey stations could not be read ({type(exc).__name__}).")
-            self._clear()
+            self._clear("Survey stations could not be read; nothing is drawn.")
             return
         self.trajectory = compose_well_trajectory(rows, vs_azimuth=vs_azimuth)
         self.stations = list(self.trajectory.stations)
@@ -229,10 +237,11 @@ class TrajectoryViewerTab(QWidget):
             " border-radius: 4px; padding: 6px 10px; }")
         self.banner.setProperty("status", status)
 
-    def _clear(self):
+    def _clear(self, message: str = ""):
         for plot in (self.plan_plot, self.section_plot):
             if plot is not None:
                 plot.clear()
+        self.view3d.clear(message or "Select a well to view its trajectory.")
         self.table.setRowCount(0)
         self.issue_list.clear()
         for label in self.info_labels.values():
@@ -281,6 +290,8 @@ class TrajectoryViewerTab(QWidget):
         self._fill_table()
         if t.drawable and self.plan_plot is not None:
             self._draw(t)
+        # The 3D view draws only a drawable trajectory; otherwise it states why.
+        self.view3d.render(scene_from_trajectory(t, self.unit), equal_scale=self.aspect_check.isChecked())
         if self.selected_index is not None:       # keep the selection across unit/option changes
             self.select_station(self.selected_index)
 
@@ -379,6 +390,8 @@ class TrajectoryViewerTab(QWidget):
         self.station_selected.emit(index)
 
     def _highlight(self, index):
+        if self.trajectory is not None and self.trajectory.drawable:
+            self.view3d.highlight(index)
         if self.plan_plot is None or not self.trajectory or not self.trajectory.drawable:
             return
         s = self.stations[index]
