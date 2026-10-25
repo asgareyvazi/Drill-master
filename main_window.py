@@ -88,7 +88,14 @@ class HierarchyWorker(QThread):
     def run(self):
         try:
             if not self._cancelled:
-                result = self.db_manager.get_full_hierarchy()
+                # Own read-only connection (M46): on the application's shared
+                # StaticPool connection this read's reset-on-return rolled
+                # back a write the UI thread had in flight, which then
+                # "committed" nothing without an error.
+                from core.export_jobs import worker_database
+
+                with worker_database(self.db_manager) as db:
+                    result = db.get_full_hierarchy()
                 if not self._cancelled:
                     self.result = result
         except Exception as exc:

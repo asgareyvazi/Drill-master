@@ -63,11 +63,17 @@ loss.
 
 * **One shared connection per process.** The engine uses SQLAlchemy's
   `StaticPool` with `check_same_thread=False`: all sessions of a
-  `DatabaseManager`, including the `HierarchyWorker` background thread in
-  `main_window.py`, share one DB-API connection. Work on that connection is
-  serialised, not parallel. Concurrent access from several threads relies on
-  sessions not overlapping their use of the connection. Replacing the pool
-  (per-thread connections) would be a separate, tested change.
+  `DatabaseManager` share one DB-API connection, so two sessions that overlap
+  in time share ONE transaction. A session returned to the pool rolls that
+  connection back, which also discards another thread's uncommitted writes;
+  that thread's later commit then stores nothing and raises no error (M46
+  reproduction: `tests/test_hierarchy_worker_isolation_m46.py`). Therefore
+  only the UI thread uses the shared connection. Background readers use
+  `core.export_jobs.worker_database` (own read-only connection): the Export
+  Center worker, the Home KPI worker (`ReadOnlyQueryWorker`) and, since M46,
+  the `HierarchyWorker` in `main_window.py`. Writes from worker threads are
+  not supported. Replacing the pool (per-thread connections) would be a
+  separate, tested change.
 * **Several application instances** on the same database file are
   coordinated only by SQLite locking (busy timeout, then
   `database is locked`). There is no application-level single-instance lock.
