@@ -136,3 +136,22 @@ def test_generated_corpus_parity_between_fts5_and_the_scan():
         assert all(sn.find_spans(pages[i], terms) for i in fts), query
         checked += 1
     assert checked > 200
+
+
+@pytest.mark.skipif(not _fts5_available(), reason="this SQLite build has no FTS5")
+def test_latin_letters_with_a_non_ascii_base_are_not_folded_like_fts5():
+    """Ǣ/ǽ/Ǿ/Ǯ... decompose to Æ/æ/Ø/Ʒ plus a mark; FTS5 unicode61 does not
+    fold them to that base, so neither may the highlighter or the fallback
+    (mutation run M46: an unguarded fold diverged from the index here).
+    Known residual: U+1E9B (long s with dot) FTS5 folds to U+017F; not mirrored."""
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE VIRTUAL TABLE t USING fts5(body, tokenize='unicode61 remove_diacritics 2')")
+    for i, (char, base) in enumerate(zip("ǢǣǼǽǾǿǮǯ", "ÆæÆæØøƷʒ")):
+        assert sn.normalize(char) == char
+        page = f"SYNTHETIC {char}x"
+        con.execute("INSERT INTO t(rowid, body) VALUES (?, ?)", (i, sn.normalize(page)))
+        groups = sn.parse_query(f"{base}x")
+        fts = [r[0] for r in con.execute("SELECT rowid FROM t WHERE t MATCH ?", (sn.fts_match_expression(groups),))
+               if r[0] == i]
+        assert fts == [] and not sn.text_matches(page, groups), char
+        assert sn.text_matches(page, sn.parse_query(f"{char}x")), char

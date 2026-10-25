@@ -69,10 +69,7 @@ MUTANTS = [
            SEARCH_TESTS, "Latin letters with diacritics not folded"),
     Mutant("S-latin-ascii-guard", "core/search_normalization.py",
            "decomposed[0].isascii() and decomposed[0].isalpha()", "decomposed[0].isalpha()",
-           SEARCH_TESTS, "non-ASCII bases folded too (would merge alef forms if applied to Arabic ranges)",
-           equivalent="the fold tables only cover U+00C0-024F and U+1E00-1EFF, whose canonical "
-                      "decompositions all start with an ASCII letter or are not decomposable; "
-                      "the guard documents intent and protects future range additions"),
+           SEARCH_TESTS, "letters with a non-ASCII base (Ǣ->Æ, Ǿ->Ø, Ǯ->Ʒ) folded, unlike FTS5"),
     Mutant("S-token-underscore", "core/search_normalization.py",
            '_TOKEN = re.compile(r"[^\\W_]+", re.UNICODE)', '_TOKEN = re.compile(r"\\w+", re.UNICODE)',
            SEARCH_TESTS, "'_' part of a word again (v1)"),
