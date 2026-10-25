@@ -99,6 +99,7 @@ class Trajectory3DView(QWidget):
             self.figure = Figure(figsize=(6, 5), facecolor="white")
             self.canvas = canvas_class(self.figure)
             self.axes = self.figure.add_subplot(111, projection="3d")
+            self.figure.subplots_adjust(left=0.0, right=1.0, bottom=0.0, top=1.0)
             layout.addWidget(self.canvas, 1)
             self.canvas.mpl_connect("button_press_event", self._mouse_press)
             self.canvas.mpl_connect("button_release_event", self._mouse_release)
