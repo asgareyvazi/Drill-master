@@ -171,6 +171,16 @@ def synthetic(tmp_path_factory):
     db.engine.dispose()
 
 
+def _dispose(app, widget):
+    """Destroy a widget deterministically (close, deleteLater, flush), never at
+    an arbitrary garbage-collection point inside Qt event dispatch."""
+    from PySide6.QtCore import QCoreApplication, QEvent
+    widget.close()
+    widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
+
+
 @pytest.fixture
 def viewer(app, synthetic):
     from tabs.trajectory_viewer import TrajectoryViewerTab
@@ -180,7 +190,7 @@ def viewer(app, synthetic):
     widget.show()
     app.processEvents()
     yield widget
-    widget.close()
+    _dispose(app, widget)
 
 
 def _lines(view):
@@ -301,6 +311,7 @@ def test_single_station_is_not_drawn_in_3d(app):
     viewer.set_context(1, None)
     assert viewer.view3d.scene is None and len(viewer.view3d.axes.lines) == 0
     assert "At least two valid stations" in viewer.view3d.message.text()
+    _dispose(app, viewer)
 
 
 def test_without_an_interactive_canvas_nothing_is_presented_as_3d(app):
@@ -312,6 +323,7 @@ def test_without_an_interactive_canvas_nothing_is_presented_as_3d(app):
     scene = scene_from_trajectory(compose_well_trajectory(_rows(TURN_PROFILE)), "m")
     view.render(scene)
     assert view.scene is None and view.pick_at(0, 0) is None and view.highlighted_point() is None
+    _dispose(app, view)
 
 
 def test_static_agg_fallback_is_reported_as_not_interactive(app, monkeypatch):
@@ -354,4 +366,4 @@ def test_hidden_view_draws_when_shown(app):
     for _ in range(5):
         app.processEvents()
     assert drawn and not view._dirty                       # drawn once visible
-    view.close()
+    _dispose(app, view)
