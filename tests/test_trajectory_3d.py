@@ -367,3 +367,22 @@ def test_hidden_view_draws_when_shown(app):
         app.processEvents()
     assert drawn and not view._dirty                       # drawn once visible
     _dispose(app, view)
+
+
+def test_matplotlib_redraw_requests_cannot_outlive_the_canvas(app):
+    """Matplotlib's resize and rotation handlers call ``canvas.draw_idle``;
+    those requests must not survive the canvas either (Windows gate at
+    27c5ad5: 'already deleted' on fixture teardown)."""
+    import shiboken6
+
+    from tabs.trajectory_3d_view import Trajectory3DView
+    view = Trajectory3DView()
+    view.resize(600, 400)
+    view.show()
+    app.processEvents()
+    view.render(scene_from_trajectory(compose_well_trajectory(_rows(TURN_PROFILE)), "m"))
+    app.processEvents()
+    view.canvas.draw_idle()                               # what Matplotlib's handlers call
+    view.resize(700, 500)                                 # its resizeEvent requests a redraw too
+    shiboken6.delete(view)
+    app.processEvents()                                   # must not raise

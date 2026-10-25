@@ -10,8 +10,10 @@ vertical-section views already show) as a 3D path with station markers.
   panel, the table and the 2D highlights.
 * Drawing goes through a single-shot timer owned by this widget and only
   while the canvas is visible (a hidden view draws when it is shown).
-  Matplotlib's own ``draw_idle`` queues an unowned timer that can fire after
-  the canvas was destroyed ("Internal C++ object already deleted").
+  Matplotlib's own ``draw_idle`` (called by its resize and mouse-rotation
+  handlers) queues an unowned timer that can fire after the canvas was
+  destroyed ("Internal C++ object already deleted"), so this canvas's
+  ``draw_idle`` is routed to the owned timer as well.
 * Interactive 3D needs the Qt Matplotlib canvas.  When only the static Agg
   fallback (or no Matplotlib) is available the tab says so and draws nothing:
   a static picture is never presented as an interactive 3D view.
@@ -107,6 +109,7 @@ class Trajectory3DView(QWidget):
             from matplotlib.figure import Figure
             self.figure = Figure(figsize=(6, 5), facecolor="white")
             self.canvas = canvas_class(self.figure)
+            self.canvas.draw_idle = self._request_draw   # every redraw request uses the owned timer
             self.axes = self.figure.add_subplot(111, projection="3d")
             self.figure.subplots_adjust(left=0.0, right=1.0, bottom=0.0, top=1.0)
             layout.addWidget(self.canvas, 1)
