@@ -11,7 +11,9 @@ from sqlalchemy import text
 
 from core import search_normalization as sn
 from core.document_library import DocumentLibrary, extract_document
-from document_link_fixtures import ARABIC_KAF, ARABIC_TEXT, ARABIC_YEH, PERSIAN_KAF, PERSIAN_YEH, ZWNJ
+from document_link_fixtures import (
+    ARABIC_KAF, ARABIC_TEXT, ARABIC_YEH, PERSIAN_KAF, PERSIAN_YEH, ZWNJ, without_session_user,
+)
 from test_scope_attribution import _mgr
 
 
@@ -85,18 +87,19 @@ CORPUS = {
 
 @pytest.fixture
 def corpus(tmp_path):
-    db = _mgr()
-    library = DocumentLibrary(db)
-    ids = {}
-    for name, (content, encoding) in CORPUS.items():
-        path = tmp_path / name
-        path.write_bytes(content.encode(encoding))
-        outcome = library.import_reviewed(extract_document(path))
-        assert outcome.status == "imported", outcome.message
-        ids[name] = outcome.document_id
-    yield db, library, ids
-    library.close()
-    db.engine.dispose()
+    with without_session_user():
+        db = _mgr()
+        library = DocumentLibrary(db)
+        ids = {}
+        for name, (content, encoding) in CORPUS.items():
+            path = tmp_path / name
+            path.write_bytes(content.encode(encoding))
+            outcome = library.import_reviewed(extract_document(path))
+            assert outcome.status == "imported", outcome.message
+            ids[name] = outcome.document_id
+        yield db, library, ids
+        library.close()
+        db.engine.dispose()
 
 
 def _files(result):

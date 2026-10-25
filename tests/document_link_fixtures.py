@@ -17,10 +17,32 @@ World (``build_link_world``):
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import date
 
 from core.database import Company, DailyReport, Project, Section, Well
 from core.document_library import DocumentLibrary, extract_document
+from core.permissions import permissions
+
+
+
+@contextmanager
+def without_session_user():
+    """Run with no signed-in principal, then restore the previous one.
+
+    ``permissions`` is process-wide and some older test modules leave a user
+    set.  In an in-memory database without user rows, that leaked user id
+    makes the mandatory audit fail its user foreign key - the import is then
+    correctly rolled back, but the test would no longer test what it claims.
+    Tests that need a principal set (and restore) their own inside.
+    """
+    previous = permissions.user
+    permissions.set_user(None)
+    try:
+        yield
+    finally:
+        permissions.set_user(previous)
+
 
 ARABIC_YEH, PERSIAN_YEH = "\u064a", "\u06cc"
 ARABIC_KAF, PERSIAN_KAF = "\u0643", "\u06a9"

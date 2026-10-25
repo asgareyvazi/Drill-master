@@ -15,7 +15,7 @@ from core.database import DocumentLink, OwnershipIntegrityError
 from core.document_library import DocumentLibrary
 from core.document_links import DocumentLinkError, DocumentLinkService
 from core.permissions import permissions, session_user
-from document_link_fixtures import build_link_world, import_documents, write_documents
+from document_link_fixtures import build_link_world, import_documents, without_session_user, write_documents
 from synthetic_operations import make_file_database
 from test_scope_attribution import _mgr
 
@@ -41,11 +41,12 @@ def _audits(db, action=None):
 
 @pytest.fixture
 def world(tmp_path):
-    db = _mgr()
-    ids = build_link_world(db)
-    ids["docs"] = import_documents(db, write_documents(tmp_path / "docs"))
-    yield db, ids, DocumentLinkService(db)
-    db.engine.dispose()
+    with without_session_user():
+        db = _mgr()
+        ids = build_link_world(db)
+        ids["docs"] = import_documents(db, write_documents(tmp_path / "docs"))
+        yield db, ids, DocumentLinkService(db)
+        db.engine.dispose()
 
 
 # ------------------------------------------------------------ link + open

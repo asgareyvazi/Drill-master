@@ -20,7 +20,9 @@ from PySide6.QtWidgets import QApplication, QDialogButtonBox, QMessageBox  # noq
 
 from core.document_links import DocumentLinkService  # noqa: E402
 from core.permissions import permissions, session_user  # noqa: E402
-from document_link_fixtures import ARABIC_KAF, ARABIC_YEH, build_link_world, import_documents, write_documents  # noqa: E402
+from document_link_fixtures import (  # noqa: E402
+    ARABIC_KAF, ARABIC_YEH, build_link_world, import_documents, without_session_user, write_documents,
+)
 from synthetic_operations import make_file_database  # noqa: E402
 from test_scope_attribution import _mgr  # noqa: E402
 
@@ -32,11 +34,12 @@ def app():
 
 @pytest.fixture
 def world(app, tmp_path):
-    db = _mgr()
-    ids = build_link_world(db)
-    ids["docs"] = import_documents(db, write_documents(tmp_path / "docs"))
-    yield db, ids
-    db.engine.dispose()
+    with without_session_user():
+        db = _mgr()
+        ids = build_link_world(db)
+        ids["docs"] = import_documents(db, write_documents(tmp_path / "docs"))
+        yield db, ids
+        db.engine.dispose()
 
 
 @pytest.fixture
