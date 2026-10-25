@@ -162,6 +162,41 @@
       "path": "docs/mission-reports/m45-screenshots/m45_trajectory_plan_same_station.png",
       "sha256": "07e300808e3e9b7674233a21fb05aec434a67be0ab86c3d83a0209272e8120eb",
       "provenance": "reviewed M45: 2D plan view showing the same selected station; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m46-screenshots/m46_home_dashboard.png",
+      "sha256": "1be02f5c6e9355f4857ede3ccf0d7db184ca438998fde0f0d812789fc4acd6fa",
+      "provenance": "reviewed M46: Home operations dashboard with fixture KPIs and attention list; offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m46-screenshots/m46_search_identifier_precision.png",
+      "sha256": "1ecf61d1003bbfe4639f6dfdefb4a29c28efd4fa9fbb4f1e8afcb4be44142157",
+      "provenance": "reviewed M46: search v2: identifier query SYN-DEV-01 listing only the exact-identifier note (SYN-DEV-012 note not matched); offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m46-screenshots/m46_search_latin_diacritics.png",
+      "sha256": "1da7770666b301de77576771d7bc9c158b0a110ed14ef2fad4d52aa833ab64e8",
+      "provenance": "reviewed M46: search v2: query 'cafe' highlighting the stored original 'café'; offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m46-screenshots/m46_survey_editor_well_scope.png",
+      "sha256": "e85956f174391fd7dfbdbf0a878aef683d102f74e231c07d24a5c431bbf3bde3",
+      "provenance": "reviewed M46: survey editor of SYN-DONE-04 with no report selected listing only the well-level row (defect W1 fixed); offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m46-screenshots/m46_trajectory_3d_picked_station.png",
+      "sha256": "2bcdf56b0de7649f9da5bb463d23d2ca759fc605c4fceedcac364376e6d9ddc8",
+      "provenance": "reviewed M46: trajectory viewer 3D tab with a picked station, Well combo and viewer in agreement; offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m46-screenshots/m46_trajectory_plan_vs.png",
+      "sha256": "b784f5bbfb4648a5c4e5e8f2caaeefe7a4d3215cb1b2272fd176e9f2f456a4f7",
+      "provenance": "reviewed M46: trajectory viewer plan view with the same selected station; offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m46-screenshots/m46_trajectory_invalid_survey.png",
+      "sha256": "38d168c553f42f6afd3884d06b435ac2a128207474428119bdb2b8851e51ee2d",
+      "provenance": "reviewed M46: SYN-QA-03 review-required survey: excluded rows listed, only valid stations drawn; offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
     }
   ],
   "text_patterns": [
