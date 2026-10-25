@@ -117,6 +117,51 @@
       "path": "docs/mission-reports/m44-screenshots/after_documents_search_source.png",
       "sha256": "946afe33d22007a15ab57d2561bbd93d716c55864199860be4b226c5046702ec",
       "provenance": "reviewed M44: M44 document search with source page, generated SYN_* files; offscreen capture by tools/screenshots/capture_m44.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_link_dialog_suggestion_unconfirmed.png",
+      "sha256": "c4a66e18c9fa200a232926f92176cf7dd7b815aab73e8a0917c751551a193458",
+      "provenance": "reviewed M45: link dialog with an unconfirmed text suggestion, nothing selected; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_link_dialog_confirmed_choice.png",
+      "sha256": "eecfdf526adbaf84ba341338bdfec0991d0bf791289391b384199811e7ec07b1",
+      "provenance": "reviewed M45: link dialog after the user chose a well and report; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_documents_linked_status.png",
+      "sha256": "9fd0605640f187470848f9aec9beec5178038b2d66feaa34547201cad293727a",
+      "provenance": "reviewed M45: Documents tab with the confirmed link and link status; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_documents_persian_search.png",
+      "sha256": "085081c3a8134396c23afc03d37bb363e0e51a42a34ab7eae7008e523a12db62",
+      "provenance": "reviewed M45: Persian-form query matching Arabic-letter synthetic text, original shown; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_well_page_related_documents.png",
+      "sha256": "7f8eeaaa0356858f14f539d6b90adc604814929bfa043cfeff65c4fe376dae1c",
+      "provenance": "reviewed M45: Well Info page with its Related documents panel; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_report_page_related_documents.png",
+      "sha256": "c752b622a4f8e9afc2150b759ff5f1eb45732970e80a3bcce1ed56fd38b22776",
+      "provenance": "reviewed M45: Daily Report page with its Related documents panel; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_trajectory_3d_picked_station.png",
+      "sha256": "a169ab1b8d52c36c3488eeba5bcb0c2d758c43bf8607e6d40dc1677b8077563c",
+      "provenance": "reviewed M45: 3D survey view, isometric, picked station linked to the info panel; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_trajectory_3d_top_preset.png",
+      "sha256": "b81e8b5e51994db64523d08760f4dd246d785322914c1053f5e880825d1db7fc",
+      "provenance": "reviewed M45: 3D survey view, top preset; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m45-screenshots/m45_trajectory_plan_same_station.png",
+      "sha256": "07e300808e3e9b7674233a21fb05aec434a67be0ab86c3d83a0209272e8120eb",
+      "provenance": "reviewed M45: 2D plan view showing the same selected station; offscreen capture by tools/screenshots/capture_m45.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
     }
   ],
   "text_patterns": [
