@@ -79,6 +79,26 @@ class WellSuggestion:
     occurrences: int
 
 
+NOTE_MAX_LENGTH = 200
+_UNSET = object()
+
+
+def normalize_note(note) -> Optional[str]:
+    """The one stored form of a link note (M47).
+
+    Leading and trailing whitespace is removed (Python's Unicode definition:
+    spaces, tabs, CR/LF, no-break and other Unicode spaces, line/paragraph
+    separators); interior text is kept exactly. The result is cut to
+    ``NOTE_MAX_LENGTH`` characters. ``None``, ``""`` and whitespace-only notes
+    are stored as NULL - never as an empty string. Legacy rows that hold
+    ``""`` read back as ``None`` through the same function.
+    """
+    if note is None:
+        return None
+    text = str(note).strip()[:NOTE_MAX_LENGTH].strip()
+    return text or None
+
+
 def _principal_name():
     from core.permissions import permissions
     user = permissions.user
@@ -170,7 +190,7 @@ class DocumentLinkService:
                  "well_id": link.well_id, "well_name": well_name, "well_code": well_code,
                  "report_id": link.report_id, "report_number": number, "report_date": report_date,
                  "scope": SCOPE_REPORT if link.report_id else SCOPE_WELL, "page_no": link.page_no,
-                 "note": link.note, "linked_at": link.linked_at, "linked_by": link.linked_by}
+                 "note": normalize_note(link.note), "linked_at": link.linked_at, "linked_by": link.linked_by}
                 for link, file_name, kind, well_name, well_code, number, report_date in query]
 
     def links_for_document(self, document_id: int) -> list:
@@ -337,19 +357,28 @@ class DocumentLinkService:
             document, well, report = self._validate_target(session, document_id, well_id, report_id, page_no)
             if self._duplicate(session, document_id, well_id, report_id):
                 raise DocumentLinkError("duplicate")
+            stored_note = normalize_note(note)
             link = DocumentLink(document_id=document_id, well_id=well_id, report_id=report_id, page_no=page_no,
-                                note=(note or None) and note.strip()[:200], linked_by=_principal_name())
+                                note=stored_note, linked_by=_principal_name())
             session.add(link)
             session.flush()
             link_id = link.id
             self._audit(session, "document_link", document,
-                        {"link_id": link_id, **self._describe(well, report, page_no)})
+                        {"link_id": link_id, **self._describe(well, report, page_no),
+                         "note_chars": len(stored_note or "")})
             return link_id
         return self._run(operation)
 
     def update_link(self, link_id: int, well_id: int, report_id: Optional[int] = None,
-                    page_no: Optional[int] = None) -> None:
-        """Point an existing link at another well/report/page (audited with before and after)."""
+                    page_no: Optional[int] = None, note=_UNSET) -> None:
+        """Point an existing link at another well/report/page and/or change its
+        note (audited with before and after).
+
+        ``note`` omitted keeps the stored note. A note is compared and stored in
+        its normalised form (``normalize_note``), so whitespace-only edits and a
+        legacy ``""`` versus NULL are "unchanged". The audit records the note
+        length before and after, not its text.
+        """
         from core.database import DailyReport, DocumentLink, Well
 
         def operation(session):
@@ -357,17 +386,23 @@ class DocumentLinkService:
             if link is None:
                 raise DocumentLinkError("link_missing")
             document, well, report = self._validate_target(session, link.document_id, well_id, report_id, page_no)
-            if (link.well_id, link.report_id, link.page_no) == (well_id, report_id, page_no):
+            old_note = normalize_note(link.note)
+            new_note = old_note if note is _UNSET else normalize_note(note)
+            if (link.well_id, link.report_id, link.page_no, old_note) == (well_id, report_id, page_no, new_note):
                 raise DocumentLinkError("unchanged")
             if self._duplicate(session, link.document_id, well_id, report_id, exclude_id=link.id):
                 raise DocumentLinkError("duplicate")
             before = self._describe(session.get(Well, link.well_id),
                                     session.get(DailyReport, link.report_id) if link.report_id else None,
                                     link.page_no)
+            after = self._describe(well, report, page_no)
+            before["note_chars"], after["note_chars"] = len(old_note or ""), len(new_note or "")
             link.well_id, link.report_id, link.page_no = well_id, report_id, page_no
+            if link.note != new_note:
+                link.note = new_note  # also writes a legacy "" back as NULL with any change
             session.flush()
             self._audit(session, "document_link_change", document,
-                        {"link_id": link.id, "from": before, "to": self._describe(well, report, page_no)})
+                        {"link_id": link.id, "from": before, "to": after})
         self._run(operation)
 
     def remove_link(self, link_id: int) -> None:
