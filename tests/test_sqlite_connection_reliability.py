@@ -144,22 +144,75 @@ def test_a_connection_without_foreign_key_support_is_refused():
         sqlite_connection.configure(NoForeignKeys())
 
 
-def test_settings_are_reapplied_after_reconnection_and_shared_by_sessions(env):
+def test_file_sessions_have_own_configured_connections_reapplied_after_dispose(env):
+    """M47 replaces the old StaticPool assertion (one shared DB-API connection).
+
+    Two sessions held at the same time on a file database must have distinct
+    DB-API connections, and every connection - including the ones opened after
+    ``dispose()`` - must carry the verified settings.
+    """
     _, open_manager = env
     manager = open_manager()
     first = manager.create_session()
     second = manager.create_session()
     try:
-        # StaticPool: every session of one manager uses the same DB-API connection.
-        assert first.connection().connection.dbapi_connection is second.connection().connection.dbapi_connection
+        first_raw = first.connection().connection.dbapi_connection
+        second_raw = second.connection().connection.dbapi_connection
+        assert first_raw is not second_raw
+        for raw in (first_raw, second_raw):
+            settings = sqlite_connection.effective_settings(raw)
+            assert settings["foreign_keys"] == 1
+            assert settings["busy_timeout"] == 30_000
+            assert str(settings["journal_mode"]).lower() == "wal"
     finally:
         first.close()
         second.close()
-    manager.engine.dispose()  # forces a brand-new DB-API connection on next use
+    manager.engine.dispose()  # closes idle pooled connections; next use opens new ones
+    for raw in (first_raw, second_raw):
+        with pytest.raises(sqlite3.ProgrammingError):
+            raw.execute("SELECT 1")
+    with manager.session_scope() as session:
+        fresh = session.connection().connection.dbapi_connection
+        assert sqlite_connection.effective_settings(fresh)["foreign_keys"] == 1
+        assert session.execute(text("SELECT COUNT(*) FROM wells")).scalar() >= 0
     assert _settings(manager)["foreign_keys"] == 1
     assert _settings(manager)["busy_timeout"] == 30_000
-    with manager.session_scope() as session:
-        assert session.execute(text("SELECT COUNT(*) FROM wells")).scalar() >= 0
+
+
+def test_in_memory_manager_shares_one_connection_so_schema_and_data_are_visible(monkeypatch, tmp_path):
+    """The explicit in-memory contract (tests only): one shared connection.
+
+    Separate ``:memory:`` connections would be separate empty databases, so
+    the in-memory engine must keep sharing one connection. This says nothing
+    about file-backed concurrency safety.
+    """
+    for key, value in {"DRILLMASTER_ENV": "test", "DRILLMASTER_DATA_DIR": str(tmp_path),
+                       "DRILLMASTER_DB_PATH": ":memory:", "DRILLMASTER_AI_IMPORT": "0"}.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("DRILLMASTER_ENVIRONMENT", raising=False)
+    manager = DatabaseManager()
+    assert manager.initialize(), manager.last_diagnostic
+    try:
+        assert type(manager.engine.pool).__name__ == "StaticPool"
+        first, second = manager.create_session(), manager.create_session()
+        try:
+            assert first.connection().connection.dbapi_connection is \
+                second.connection().connection.dbapi_connection
+            assert sqlite_connection.effective_settings(
+                first.connection().connection.dbapi_connection)["foreign_keys"] == 1
+        finally:
+            first.close()
+            second.close()
+        from core.authorization import system_scope
+        with system_scope():
+            with manager.session_scope() as session:
+                session.execute(text("CREATE TABLE m47_memory_probe (v INTEGER)"))
+                session.execute(text("INSERT INTO m47_memory_probe VALUES (47)"))
+        with manager.session_scope() as session:  # another session sees schema and data
+            assert session.execute(text("SELECT v FROM m47_memory_probe")).scalar() == 47
+            assert session.execute(text("SELECT COUNT(*) FROM users")).scalar() >= 1
+    finally:
+        manager.close()
 
 
 # ---------------------------------------------------------------- transactions

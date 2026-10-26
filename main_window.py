@@ -1260,9 +1260,17 @@ class MainWindow(QMainWindow):
     def _start_hierarchy_worker(self, generation):
         if self._hierarchy_worker is not None:
             raise RuntimeError("hierarchy worker already active")
+        from core.export_jobs import shares_single_connection
+
         worker = HierarchyWorker(self.db_manager, generation=generation)
-        worker.finished.connect(self._on_hierarchy_worker_finished)
         self._hierarchy_worker = worker
+        if shares_single_connection(self.db_manager):
+            # In-memory (test) database: one shared connection must never be
+            # used by a second thread, so the read runs here (M47).
+            worker.run()
+            QTimer.singleShot(0, self, lambda: self._on_hierarchy_worker_finished(worker))
+            return
+        worker.finished.connect(self._on_hierarchy_worker_finished)
         worker.start()
 
     def _stop_hierarchy_worker(self):
@@ -1276,10 +1284,11 @@ class MainWindow(QMainWindow):
                 # finished slot runs; do not clear the reference prematurely.
                 pass
 
-    def _on_hierarchy_worker_finished(self):
+    def _on_hierarchy_worker_finished(self, worker=None):
         from core.cache_manager import cache
 
-        worker = self.sender()
+        if not isinstance(worker, HierarchyWorker):
+            worker = self.sender()
         if worker is None or worker is not self._hierarchy_worker:
             return
         self._hierarchy_worker = None

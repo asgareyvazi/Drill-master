@@ -615,9 +615,16 @@ class ExportWidget(DrillTabBase):
         worker.completed.connect(on_completed)
         if on_failed is not None:
             worker.failed.connect(on_failed)
-        worker.finished.connect(self._on_export_finished)
         self._export_worker = worker
         self._set_export_busy(True)
+        from core.export_jobs import shares_single_connection
+        if shares_single_connection(self.db):
+            # In-memory (test) database: never query its one shared connection
+            # from a worker thread; run the jobs here (M47).
+            worker.run()
+            self._on_export_finished()
+            return True
+        worker.finished.connect(self._on_export_finished)
         worker.start()
         return True
 

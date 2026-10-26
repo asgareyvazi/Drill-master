@@ -2722,27 +2722,14 @@ class DatabaseManager:
                 Path(self.db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
             from core import sqlite_connection
 
-            timeout_ms = sqlite_connection.busy_timeout_ms()
-            self.engine = create_engine(
-                f"sqlite:///{self.db_path}",
-                connect_args={"check_same_thread": False, "timeout": timeout_ms / 1000},
-                poolclass=StaticPool,
-                echo=False,
-                hide_parameters=True,  # account hashes must not appear in SQL exception parameters
-                pool_pre_ping=True,
-            )
-
-            from sqlalchemy import event
-
-            @event.listens_for(self.engine, "connect")
-            def set_sqlite_pragma(dbapi_connection, connection_record):
-                # Every DB-API connection the engine opens (initial, after
-                # dispose, after a failed pre-ping) is configured and verified.
-                connection_record.info["sqlite_settings"] = sqlite_connection.configure(
-                    dbapi_connection, timeout_ms=timeout_ms)
-
             from core import db_maintenance
-            # Restore needs to refuse new checkouts and drain open transactions.
+
+            timeout_ms = sqlite_connection.busy_timeout_ms()
+            # Restore must refuse new connections/checkouts and drain the ones
+            # in use; the gate exists before the engine so it can guard the
+            # pool's connection creator.
+            gate = db_maintenance.gate_for(self)
+            self.engine = self._create_engine(gate, timeout_ms)
             db_maintenance.install_gate(self)
 
             self.Session = sessionmaker(bind=self.engine, autoflush=False, autocommit=False,
@@ -2778,6 +2765,83 @@ class DatabaseManager:
 
         finally:
             self._bootstrap_override = None  # first-run UI secrets are not retained on the manager
+
+    def _create_engine(self, gate, timeout_ms: int):
+        """One engine per manager: a real pool for a file, one connection for ``:memory:``.
+
+        File-backed (M47): ``QueuePool`` - each session checks out its own
+        DB-API connection, so one session's rollback, close or failed flush
+        cannot affect another's transaction, and no connection is used by two
+        threads at once. Every new connection is opened by
+        ``sqlite_connection.connect`` (settings applied and verified, fail
+        closed) inside ``gate.connecting()`` so restore can refuse it.
+
+        In-memory (tests only): every ``:memory:`` connection is a separate
+        empty database, so one shared connection (``StaticPool``) is the only
+        way the schema and data are visible to all sessions. That engine is
+        not safe for concurrent use and is never evidence of file-backed
+        concurrency behaviour.
+        """
+        from sqlalchemy import event
+        from sqlalchemy.pool import QueuePool
+
+        from core import sqlite_connection
+
+        common = {"echo": False, "pool_pre_ping": True,
+                  # account hashes must not appear in SQL exception parameters
+                  "hide_parameters": True}
+        if self.db_path == ":memory:":
+            engine = create_engine(
+                "sqlite:///:memory:",
+                connect_args={"check_same_thread": False, "timeout": timeout_ms / 1000},
+                poolclass=StaticPool, **common)
+
+            @event.listens_for(engine, "connect")
+            def configure_memory(dbapi_connection, connection_record):
+                connection_record.info["sqlite_settings"] = sqlite_connection.configure(
+                    dbapi_connection, timeout_ms=timeout_ms)
+            return engine
+
+        path = self.db_path
+
+        def open_connection():
+            with gate.connecting():
+                return sqlite_connection.connect(path, timeout_ms=timeout_ms, check_same_thread=False)
+
+        engine = create_engine(f"sqlite:///{path}", creator=open_connection, poolclass=QueuePool,
+                               **sqlite_connection.pool_settings(), **common)
+
+        @event.listens_for(engine, "connect")
+        def record_settings(dbapi_connection, connection_record):
+            # Every DB-API connection (initial, after dispose, after a failed
+            # pre-ping) was configured by open_connection; keep the read-back.
+            connection_record.info["sqlite_settings"] = sqlite_connection.effective_settings(
+                dbapi_connection)
+
+        @event.listens_for(engine, "checkout")
+        def require_foreign_keys(dbapi_connection, connection_record, connection_proxy):
+            # Fail closed: a pooled connection that no longer enforces foreign
+            # keys (e.g. a migration's PRAGMA foreign_keys=OFF that could not
+            # be undone) is discarded and replaced, never reused.
+            if dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                from sqlalchemy.exc import DisconnectionError
+
+                raise DisconnectionError("pooled SQLite connection lost foreign-key enforcement")
+        return engine
+
+    def connection_diagnostics(self) -> dict:
+        """Pool and maintenance-gate counts for logs and tests (no SQL, no data)."""
+        engine = self.engine
+        pool = getattr(engine, "pool", None)
+        info = {"pool": type(pool).__name__ if pool is not None else None}
+        for name in ("checkedout", "checkedin", "overflow", "size"):
+            method = getattr(pool, name, None)
+            if callable(method):
+                info[name] = method()
+        gate = getattr(self, "_maintenance_gate", None)
+        if gate is not None:
+            info["gate"] = gate.snapshot()
+        return info
 
     @staticmethod
     def _quote_sqlite_identifier(value: str) -> str:

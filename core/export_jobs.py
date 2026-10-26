@@ -12,8 +12,8 @@ Contract
 * Jobs carry plain identifiers, paths and arguments only. No ORM object or
   session crosses a thread boundary.
 * ``worker_database`` gives the worker its own *read-only* SQLite connection
-  (``mode=ro``) instead of the application's shared ``StaticPool``
-  connection, which the UI thread may be using inside its own transaction.
+  (``mode=ro``) instead of a connection from the application's pool, so a
+  background read can never write.
   The connection is registered with the restore maintenance gate, so a
   restore drains and refuses it like any other connection, and the
   authorization state is carried over, so the global session hooks apply.
@@ -214,11 +214,28 @@ def run_jobs(
     return BatchResult(tuple(outcomes))
 
 
+def shares_single_connection(db_manager) -> bool:
+    """True when the manager's engine is one shared connection (in-memory tests).
+
+    ``StaticPool`` (the explicit in-memory engine) hands every session the same
+    DB-API connection; ``SingletonThreadPool`` (SQLAlchemy's default for a bare
+    ``sqlite://`` engine) gives each thread a *different* empty database. A
+    worker thread must not query either; callers run such reads on the
+    calling thread instead (M47).
+    """
+    from sqlalchemy.pool import SingletonThreadPool, StaticPool
+
+    pool = getattr(getattr(db_manager, "engine", None), "pool", None)
+    return isinstance(pool, (StaticPool, SingletonThreadPool))
+
+
 def has_isolated_reader(db_manager) -> bool:
     """True when :func:`worker_database` gives a worker its own connection.
 
     In-memory databases (tests) share one ``StaticPool`` connection; a worker
     thread must not query it, so callers run such reads synchronously.
+    File-backed managers use a real pool (M47); the worker view adds the
+    ``mode=ro`` guarantee that a background read can never write.
     """
     path = getattr(db_manager, "db_path", None)
     engine = getattr(db_manager, "engine", None)
@@ -238,25 +255,37 @@ def worker_database(db_manager):
     """Yield a manager view with its own read-only connection for a worker."""
     path = getattr(db_manager, "db_path", None)
     if not has_isolated_reader(db_manager):
+        if shares_single_connection(db_manager) and threading.current_thread() is not threading.main_thread():
+            # Fail closed: on a shared in-memory connection this read would run
+            # inside (and reset) the UI thread's transaction (M46 H1).
+            raise RuntimeError("an in-memory database cannot be read from a worker thread")
         yield db_manager
         return
 
-    from sqlalchemy import create_engine, event
+    from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import NullPool
 
-    from core import sqlite_connection
+    from core import db_maintenance, sqlite_connection
+
+    gate = getattr(db_manager, "_maintenance_gate", None)
+
+    def open_read_only():
+        # Restore refuses the connection itself, not only the checkout, and
+        # counts it while it is being opened (M47).
+        if gate is None:
+            return sqlite_connection.connect(path, read_only=True)
+        with gate.connecting():
+            return sqlite_connection.connect(path, read_only=True)
 
     engine = create_engine(
         "sqlite://",
-        creator=lambda: sqlite_connection.connect(path, read_only=True),
+        creator=open_read_only,
         poolclass=NullPool,
         hide_parameters=True,
     )
-    gate = getattr(db_manager, "_maintenance_gate", None)
     if gate is not None:
-        event.listen(engine, "checkout", gate.on_checkout)
-        event.listen(engine, "checkin", gate.on_checkin)
+        db_maintenance.watch_engine(gate, engine)
     view = copy.copy(db_manager)
     view.engine = engine
     view.Session = sessionmaker(bind=engine, autoflush=False, autocommit=False,

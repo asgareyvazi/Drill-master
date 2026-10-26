@@ -34,9 +34,9 @@ explicit confirmation. Sequence (each step must succeed before the next):
 2. Stage a copy beside the live database (same file system). An older
    supported schema is migrated on the STAGED copy only, then re-verified.
 3. Journal ``restore_started`` (sidecar file; failure aborts).
-4. Maintenance: new database checkouts are refused, in-flight transactions
-   are drained (bounded wait, otherwise abort) and the shared connection is
-   disposed.
+4. Maintenance: new database connections and checkouts are refused,
+   connections in use are drained (bounded wait, otherwise abort) and the
+   idle pooled connections are disposed.
 5. Pre-restore safety copy of the live database, verified; failure aborts.
 6. Exclusivity: WAL checkpoint and switch to ``journal_mode=DELETE``, which
    SQLite only allows when no other connection (e.g. another application
@@ -472,28 +472,83 @@ class _ProcessLock:
 # ---------------------------------------------------------------- maintenance gate
 
 class MaintenanceGate:
-    """Counts checked-out engine connections and can refuse new checkouts."""
+    """Tracks every engine connection in use and can refuse new ones (M47).
+
+    Two things are counted:
+
+    * connections being *opened* (``connecting``) - the window in which a new
+      DB-API connection is created and configured, which may switch the
+      database to WAL;
+    * connections *checked out* of a pool, keyed by the pool's connection
+      record. A record is only counted after a checkout was accepted, so the
+      ``checkin`` SQLAlchemy fires for a refused checkout (it invalidates and
+      returns the record) is not matched and cannot lower the count. The
+      count therefore never goes negative and never drops while another
+      session still holds a connection.
+
+    ``close`` refuses both new connections and new checkouts and waits
+    (bounded) until nothing is in use; on timeout it reopens and raises
+    ``MaintenanceBusy`` - nothing was changed. The gate is created once per
+    manager and is never reset: a re-initialized engine joins the same
+    accounting and connections of a previous engine stay counted until they
+    are returned.
+    """
 
     def __init__(self):
         self._condition = threading.Condition()
-        self.active = 0
+        self._held: dict = {}       # pool connection record -> accepted checkouts
+        self._connecting = 0
         self.closed = False
+        self.refused = 0            # diagnostics: refused connects/checkouts
 
-    def on_checkout(self, *_args) -> None:
+    @property
+    def active(self) -> int:
+        with self._condition:
+            return self._connecting + sum(self._held.values())
+
+    def _refuse(self):
+        self.refused += 1
+        raise MaintenanceActive("database maintenance (restore) in progress; try again shortly")
+
+    @contextlib.contextmanager
+    def connecting(self):
+        """Wrap the creation of a new DB-API connection (pool ``creator``)."""
         with self._condition:
             if self.closed:
-                raise MaintenanceActive("database maintenance (restore) in progress; try again shortly")
-            self.active += 1
+                self._refuse()
+            self._connecting += 1
+        try:
+            yield
+        finally:
+            with self._condition:
+                self._connecting -= 1
+                self._condition.notify_all()
 
-    def on_checkin(self, *_args) -> None:
+    def on_checkout(self, _dbapi_connection, connection_record, *_args) -> None:
         with self._condition:
-            self.active = max(0, self.active - 1)
+            if self.closed:
+                self._refuse()
+            self._held[connection_record] = self._held.get(connection_record, 0) + 1
+
+    def on_checkin(self, _dbapi_connection, connection_record, *_args) -> None:
+        with self._condition:
+            count = self._held.get(connection_record, 0)
+            if count <= 0:
+                return  # a refused checkout: it was never counted
+            if count == 1:
+                del self._held[connection_record]
+            else:
+                self._held[connection_record] = count - 1
             self._condition.notify_all()
 
     def close(self, drain_timeout: float) -> None:
         with self._condition:
+            if self.closed:
+                raise MaintenanceBusy("another database maintenance operation is in progress")
             self.closed = True
-            if not self._condition.wait_for(lambda: self.active == 0, timeout=drain_timeout):
+            drained = self._condition.wait_for(
+                lambda: self._connecting == 0 and not self._held, timeout=drain_timeout)
+            if not drained:
                 self.closed = False
                 self._condition.notify_all()
                 raise MaintenanceBusy("database transactions did not finish in time; nothing was changed")
@@ -503,19 +558,38 @@ class MaintenanceGate:
             self.closed = False
             self._condition.notify_all()
 
+    def snapshot(self) -> dict:
+        """Counts only (no SQL, no data) for diagnostics."""
+        with self._condition:
+            return {"checked_out": sum(self._held.values()), "connecting": self._connecting,
+                    "closed": self.closed, "refused": self.refused}
 
-def install_gate(manager) -> MaintenanceGate:
-    """Attach the maintenance gate to ``manager.engine`` (called by initialize)."""
-    from sqlalchemy import event
 
+def gate_for(manager) -> MaintenanceGate:
+    """The manager's one gate, created on first use and never replaced."""
     gate = getattr(manager, "_maintenance_gate", None)
     if gate is None:
         gate = MaintenanceGate()
         manager._maintenance_gate = gate
-    gate.open()
-    gate.active = 0
-    event.listen(manager.engine, "checkout", gate.on_checkout)
-    event.listen(manager.engine, "checkin", gate.on_checkin)
+    return gate
+
+
+def watch_engine(gate: MaintenanceGate, engine) -> None:
+    """Count ``engine``'s pool checkouts in ``gate`` (refused while closed)."""
+    from sqlalchemy import event
+
+    event.listen(engine, "checkout", gate.on_checkout)
+    event.listen(engine, "checkin", gate.on_checkin)
+
+
+def install_gate(manager) -> MaintenanceGate:
+    """Attach the manager's gate to ``manager.engine`` (called by initialize).
+
+    The gate's state is not changed: it is not reopened and its count is not
+    reset (a restore in progress keeps refusing; held connections stay counted).
+    """
+    gate = gate_for(manager)
+    watch_engine(gate, manager.engine)
     return gate
 
 
