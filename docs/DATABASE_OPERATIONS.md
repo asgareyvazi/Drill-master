@@ -2,8 +2,10 @@
 
 How DrillMaster opens and configures its SQLite database, and what that
 means for operators. Source of truth: `core/sqlite_connection.py` and
-`DatabaseManager.initialize` in `core/database.py`. Tests:
-`tests/test_sqlite_connection_reliability.py`.
+`DatabaseManager.initialize` and `_create_engine` in `core/database.py`,
+`MaintenanceGate` in `core/db_maintenance.py` and `worker_database` in
+`core/export_jobs.py`. Tests: `tests/test_sqlite_connection_reliability.py`
+and `tests/test_sqlite_pool_isolation_m47.py` (file-backed, M47).
 
 ## Connection settings
 
@@ -59,21 +61,118 @@ operating-system crash, but the database remains consistent (not corrupt).
 is a deliberate trade-off. Regular verified backups are the protection against
 loss.
 
+## Connection pool and session ownership (M47)
+
+### File-backed databases: one DB-API connection per session
+
+Until M46 the engine used SQLAlchemy's `StaticPool` for the database file too:
+every session of a `DatabaseManager` shared ONE DB-API connection, so two
+sessions that overlapped in time shared one transaction. A session returned to
+the pool rolled that connection back and silently discarded another session's
+uncommitted writes, and that session's later commit stored nothing and raised
+no error.
+
+Since M47 a file-backed engine uses `QueuePool` with a `creator`:
+
+* Each session checks out its **own** DB-API connection for the length of its
+  transaction and returns it on commit, rollback or close. A rollback, close
+  or failed flush in one session never touches another session's work.
+* Every new DB-API connection is opened by `sqlite_connection.connect`, which
+  applies and verifies the settings above. That includes the first
+  connection, connections opened after `engine.dispose()` and replacements
+  for connections discarded by the pre-ping.
+* A `checkout` listener re-checks `PRAGMA foreign_keys` on every checkout.
+  A pooled connection that no longer enforces foreign keys is discarded and
+  replaced, never reused (fail closed).
+* Connections use `check_same_thread=False` only because the pool hands a
+  connection to one thread at a time. A connection is never used by two
+  threads at once.
+* No `scoped_session` or thread-local session is used. A session belongs to
+  the code that created it, normally one `with db.session_scope()` block
+  (unit of work), and ORM objects are not passed between threads. Workers
+  receive IDs or plain data and return plain results through Qt signals.
+
+| Setting | Variable | Default | Range | Meaning |
+|---|---|---|---|---|
+| Pool size | `DRILLMASTER_DB_POOL_SIZE` | `5` | `1`..`32` | Idle connections kept open. The same number again may be opened as overflow (`max_overflow` = size). |
+| Pool timeout | `DRILLMASTER_DB_POOL_TIMEOUT_S` | `30` | `1`..`600` | How long a session waits for a free **pool slot** when all `2 x size` connections are checked out. |
+| Busy timeout | `DRILLMASTER_DB_BUSY_TIMEOUT_MS` | `30000` | `100`..`600000` | How long a connection waits for a **SQLite lock** held by another connection. |
+
+Invalid or out-of-range values are ignored with a logged warning and the
+default is used.
+
+**Pool timeout versus busy timeout.** They are independent waits:
+
+* the pool timeout applies before a connection is handed out, and fails with
+  SQLAlchemy's `TimeoutError` ("QueuePool limit ... reached");
+* the busy timeout applies inside SQLite once the connection is in use, and
+  fails with `OperationalError: database is locked`.
+
+A save can therefore wait for both in turn.
+
+### SQLite allows one writer at a time
+
+WAL lets any number of readers run alongside **one** writer. While one
+session holds an uncommitted write (after its first flush), another session's
+write waits up to the busy timeout and then fails with `database is locked`.
+This applies across sessions, threads, `DatabaseManager` instances and
+processes.
+
+* The waiting statement never reaches constraint checks, so nothing of it is
+  written.
+* The failing session must roll back. Its unit of work is discarded as a
+  whole; there is no partial write.
+* A later retry succeeds once the lock is free.
+* Callers report a save as successful only after `commit()` returned. For
+  example, `save_well` returns `False` when the database is locked.
+* Readers never see uncommitted rows of another session (no dirty reads).
+
+All of this is covered by file-backed tests (two managers on one file,
+`Barrier`/`Event` synchronisation, bounded joins).
+
+### In-memory databases (tests only)
+
+`:memory:` keeps `StaticPool`. A SQLite in-memory database exists only inside
+its one connection, so a pool of separate connections would give every
+session a different, empty database. All sessions of an in-memory manager
+therefore share one connection and one transaction, so **in-memory tests can
+never prove file-backed isolation**. The M47 isolation tests are all
+file-backed.
+
+* `core.export_jobs.shares_single_connection(db)` detects this case
+  (`StaticPool` or `SingletonThreadPool`).
+* `worker_database` refuses a worker thread on such a manager with
+  `RuntimeError` (fail closed) instead of reading inside the UI thread's
+  transaction.
+* The hierarchy refresh (`MainWindow._start_hierarchy_worker`) and the Export
+  Center (`ExportWidget._start_export`) run the same work synchronously on the
+  calling thread when the manager shares a single connection.
+
+### Background workers
+
+| Worker | Database access |
+|---|---|
+| `HierarchyWorker` (main window), Home KPI `ReadOnlyQueryWorker`, Export Center `ExportWorker` | `worker_database`: its own `mode=ro` connection (`NullPool`), counted by the maintenance gate. It cannot write. |
+| Database maintenance worker (backup or restore dialog) | The manager's pool; one service call per worker. |
+| `BackupScheduler` | Direct `sqlite3` backup API through `sqlite_connection.connect`, under the cross-process backup lock. |
+| `ExtractionWorker` (documents), `FunctionWorker` (Excel import, smart template) | No database access on the thread. Results are applied on the UI thread. |
+
+A cancelled worker stops between items. Read-only workers have nothing to
+undo, and write paths run on the UI thread inside one unit of work.
+
+### Diagnostics
+
+`DatabaseManager.connection_diagnostics()` returns the pool class, the
+`checkedout`, `checkedin`, `overflow` and `size` counts, and the maintenance
+gate snapshot (`checked_out`, `connecting`, `closed`). It runs no SQL and
+returns no data. The isolation tests use it to prove that every connection
+is returned at teardown.
+
 ## Known limitations
 
-* **One shared connection per process.** The engine uses SQLAlchemy's
-  `StaticPool` with `check_same_thread=False`: all sessions of a
-  `DatabaseManager` share one DB-API connection, so two sessions that overlap
-  in time share ONE transaction. A session returned to the pool rolls that
-  connection back, which also discards another thread's uncommitted writes;
-  that thread's later commit then stores nothing and raises no error (M46
-  reproduction: `tests/test_hierarchy_worker_isolation_m46.py`). Therefore
-  only the UI thread uses the shared connection. Background readers use
-  `core.export_jobs.worker_database` (own read-only connection): the Export
-  Center worker, the Home KPI worker (`ReadOnlyQueryWorker`) and, since M46,
-  the `HierarchyWorker` in `main_window.py`. Writes from worker threads are
-  not supported. Replacing the pool (per-thread connections) would be a
-  separate, tested change.
+* **Writes from worker threads are not supported.** Background threads only
+  read, through `worker_database` (`mode=ro`); see "Connection pool and
+  session ownership" above.
 * **Several application instances** on the same database file are
   coordinated only by SQLite locking (busy timeout, then
   `database is locked`). There is no application-level single-instance lock.
@@ -244,9 +343,20 @@ Source of truth: `RestoreService` in `core/db_maintenance.py`. Tests:
    database, on the same file system.
 3. Journal `restore_started`. If this cannot be written, the restore aborts.
 4. Maintenance state:
-   * new database sessions are refused with `MaintenanceActive`;
-   * open transactions are given 15 s to finish, otherwise the restore aborts;
-   * the connection pool is disposed.
+   * new connections and checkouts are refused with `MaintenanceActive`.
+     This covers the manager's pool and every `worker_database` reader.
+     A refused connection is never opened, so the settings are never applied
+     to the file that is about to be replaced;
+   * a second maintenance operation is refused with `MaintenanceBusy`;
+   * connections that are checked out, or are being opened, are given 15 s
+     (`drain_timeout`) to be returned. Otherwise the restore aborts, the gate
+     reopens and nothing is changed;
+   * the connection pool is disposed, which closes the idle connections.
+
+   The gate counts each pooled connection record separately, so with
+   several connections the count cannot leak or go negative. A refused
+   checkout is never counted, and `initialize` never resets or reopens a gate
+   during a restore.
 5. Pre-restore safety copy: a normal verified backup of the current database
    (`drillmaster_prerestore_*`). If it fails, the restore aborts.
 6. Exclusivity check: WAL checkpoint, then `journal_mode=DELETE`. SQLite only
@@ -287,6 +397,13 @@ The outcome is also written to the restored database's `audit_logs`.
   A failure to write the outcome event or the audit row never changes the
   outcome. It is reported as `journal_complete=False` or
   `audit_recorded=False` and logged.
+* **Known case:** the audit row is written by a separate connection. If the
+  thread that called `restore` itself still holds an uncommitted write, the
+  restore aborts at the drain step, because that connection is never
+  returned. The audit then waits for the busy timeout behind that write and
+  is reported as `audit_recorded=False`, and the journal records
+  `restore_failed`. The live database stays valid, and the pending write can
+  still be committed or rolled back. This case is covered by a test.
 * **Limits:** the journal is a plain append-only text file. Anyone with
   write access to the backup directory can alter or delete it. It is
   evidence, **not** tamper-proof, and neither is the database audit table.
@@ -370,7 +487,8 @@ performed by the project so far.
 
 ## Diagnostics
 
-`sqlite_connection.effective_settings(connection)` returns the read-back
+`DatabaseManager.connection_diagnostics()` reports the pool and gate counts
+(see above). `sqlite_connection.effective_settings(connection)` returns the read-back
 values of `foreign_keys`, `busy_timeout`, `journal_mode` and `synchronous` for
 a raw connection. The reliability tests use it to verify the settings on new,
 reconnected and pooled connections.

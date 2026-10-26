@@ -57,6 +57,10 @@ REQUIRED_MODULES = (
     "tests/test_hierarchy_worker_isolation_m46.py",
     "tests/test_document_links_audit_m46.py",
     "tests/test_trajectory_3d_lifecycle_m46.py",
+    # M47: file-backed pool isolation, maintenance gate drain, span/fold/note contracts.
+    "tests/test_sqlite_connection_reliability.py",
+    "tests/test_sqlite_pool_isolation_m47.py",
+    "tests/test_search_closure_m47.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 
