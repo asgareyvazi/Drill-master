@@ -366,6 +366,42 @@ def test_h1_real_hierarchy_worker_during_a_pending_write(env):
     assert _rows(path) == ["SYN-M47-H1C", "SYN-M47-H1F"] and _integrity_ok(path)
 
 
+def test_the_hierarchy_worker_connection_cannot_write(env, monkeypatch):
+    """Qt offscreen. With M47 every session has its own connection, so the M46
+    H1 test can no longer tell whether the worker reads through
+    ``worker_database``. The property that still tells them apart is that the
+    worker's connection is ``mode=ro``: a background read can never write.
+    The probe tries a real ORM write through the worker's own manager view."""
+    pytest.importorskip("PySide6.QtCore")
+    from main_window import HierarchyWorker
+
+    path, open_manager = env
+    manager = open_manager()
+    attempts = []
+    real = DatabaseManager.get_full_hierarchy
+
+    def probing(self):
+        session = self.create_session()
+        try:
+            session.add(Company(name="SYNTHETIC READ-ONLY PROBE", code="SYN-M47-RO"))
+            session.commit()
+            attempts.append("written")
+        except OperationalError as error:
+            session.rollback()
+            attempts.append("readonly" if "readonly" in str(error).lower() else "other")
+        finally:
+            session.close()
+        return real(self)
+
+    monkeypatch.setattr(DatabaseManager, "get_full_hierarchy", probing)
+    worker = HierarchyWorker(manager)
+    worker.start()
+    assert worker.wait(JOIN * 1000), "hierarchy worker did not finish within the bound"
+    assert worker.error is None and worker.result is not None
+    assert attempts == ["readonly"]
+    assert "SYN-M47-RO" not in _rows(path) and _integrity_ok(path)
+
+
 def test_two_readers_proceed_during_an_active_writer_and_see_its_snapshot(env):
     path, open_manager = env
     manager = open_manager()

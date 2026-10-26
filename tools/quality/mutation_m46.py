@@ -101,7 +101,11 @@ MUTANTS = [
     Mutant("H1-shared-connection", "main_window.py",
            "                with worker_database(self.db_manager) as db:\n                    result = db.get_full_hierarchy()",
            "                result = self.db_manager.get_full_hierarchy()",
-           ["tests/test_hierarchy_worker_isolation_m46.py"], "worker reads on the shared connection again"),
+           # M47 gave every session its own connection, so the M46 test alone can no longer see this
+           # mutant (no data is lost any more); the read-only probe in the M47 module still does.
+           ["tests/test_hierarchy_worker_isolation_m46.py",
+            "tests/test_sqlite_pool_isolation_m47.py::test_the_hierarchy_worker_connection_cannot_write"],
+           "worker reads on the shared connection again"),
     # ---------------------------------------------------------------- links: atomicity and authorization
     Mutant("L-audit-swallowed", "core/document_links.py",
            '            raise DocumentLinkError("audit_failed", type(exc).__name__) from exc', "            return",
