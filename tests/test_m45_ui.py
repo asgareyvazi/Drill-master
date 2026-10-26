@@ -210,7 +210,7 @@ def test_rebuild_index_reports_pages_and_version(tab):
     widget, _db, _ids = tab
     info = widget.rebuild_index()
     from core.search_normalization import NORMALIZATION_VERSION
-    assert NORMALIZATION_VERSION == 2                     # M46: "_" separates tokens, Latin diacritics fold
+    assert NORMALIZATION_VERSION == 3                     # M47: simple case folding in FTS5 order (M46 v2)
     assert info["pages"] == 5 and f"normalisation v{NORMALIZATION_VERSION}" in widget.search_info.text()
 
 

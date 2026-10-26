@@ -59,8 +59,9 @@ MUTANTS = [
     Mutant("T1-snapshot", "tests/conftest.py", "    previous = permissions._user\n", "    previous = None\n",
            ["tests/test_test_isolation_m46.py"], "restores 'nobody' instead of the previous principal"),
     # ---------------------------------------------------------------- S1-S3 search v2
-    Mutant("S-version", "core/search_normalization.py", "NORMALIZATION_VERSION = 2\n", "NORMALIZATION_VERSION = 1\n",
-           SEARCH_TESTS, "index signature not bumped: v1 indexes would be reused"),
+    # M47 bumped the signature to 3 (P3-B fold order); the mutant follows the current value.
+    Mutant("S-version", "core/search_normalization.py", "NORMALIZATION_VERSION = 3\n", "NORMALIZATION_VERSION = 2\n",
+           SEARCH_TESTS, "index signature not bumped: v2 indexes would be reused"),
     Mutant("S-combining", "core/search_normalization.py",
            ",\n                      *(chr(c) for c in range(0x0300, 0x0370))])", "])",
            SEARCH_TESTS, "combining diacritics U+0300-036F kept"),

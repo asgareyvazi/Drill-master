@@ -89,15 +89,18 @@ def test_hostile_and_degenerate_queries_are_plain_words(corpus):  # noqa: F811
     assert len(library.list_documents()) == 7                             # nothing was executed as SQL
 
 
-def test_a_v1_index_is_rebuilt_under_v2(corpus):  # noqa: F811
+def test_an_older_index_is_rebuilt_under_the_current_version(corpus):  # noqa: F811
+    # M47 bumped the rules to v3 (simple case folding, FTS5 order); an index
+    # built under v1 or v2 must be rebuilt, never reused.
     _db, library, _ids = corpus
     library.search("SYNTHETIC")
     current = library._index_signature
-    assert current[0] == sn.NORMALIZATION_VERSION == 2
-    stale = library._index
-    library._index_signature = (1,) + tuple(current[1:])                  # what a v1 build had cached
-    library.search("SYNTHETIC")
-    assert library._index is not stale and library._index_signature == current
+    assert current[0] == sn.NORMALIZATION_VERSION == 3
+    for older in (1, 2):
+        stale = library._index
+        library._index_signature = (older,) + tuple(current[1:])           # what an older build had cached
+        library.search("SYNTHETIC")
+        assert library._index is not stale and library._index_signature == current
 
 
 def _fts5_available():
@@ -143,7 +146,8 @@ def test_latin_letters_with_a_non_ascii_base_are_not_folded_like_fts5():
     """Ǣ/ǽ/Ǿ/Ǯ... decompose to Æ/æ/Ø/Ʒ plus a mark; FTS5 unicode61 does not
     fold them to that base, so neither may the highlighter or the fallback
     (mutation run M46: an unguarded fold diverged from the index here).
-    Known residual: U+1E9B (long s with dot) FTS5 folds to U+017F; not mirrored."""
+    U+1E9B (long s with dot) was a known residual here; M47 closes it - see
+    tests/test_search_closure_m47.py."""
     con = sqlite3.connect(":memory:")
     con.execute("CREATE VIRTUAL TABLE t USING fts5(body, tokenize='unicode61 remove_diacritics 2')")
     for i, (char, base) in enumerate(zip("ǢǣǼǽǾǿǮǯ", "ÆæÆæØøƷʒ")):

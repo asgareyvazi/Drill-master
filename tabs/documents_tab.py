@@ -32,7 +32,7 @@ from core.document_library import (
     extract_batch, ocr_status,
 )
 from core.document_links import DocumentLinkError, DocumentLinkService
-from core.search_normalization import find_spans, line_of
+from core.search_normalization import find_spans, line_of, utf16_offset
 from tabs.document_link_dialog import LinkDocumentDialog
 from tabs.related_documents import link_target_text
 
@@ -534,8 +534,10 @@ class DocumentsTab(QWidget):
         spans = find_spans(text, terms)
         for start, end in spans:
             cursor = QTextCursor(self.viewer.document())
-            cursor.setPosition(start)
-            cursor.setPosition(end, QTextCursor.KeepAnchor)
+            # Spans are Python (code point) offsets; Qt positions count UTF-16
+            # units, which differ after any character outside the BMP.
+            cursor.setPosition(utf16_offset(text, start))
+            cursor.setPosition(utf16_offset(text, end), QTextCursor.KeepAnchor)
             selection = QTextEdit.ExtraSelection()
             selection.cursor, selection.format = cursor, fmt
             selections.append(selection)
@@ -719,7 +721,10 @@ class DocumentsTab(QWidget):
             return
         self.last_search = result
         self.results.clear()
-        self._search_terms = tuple(result.get("terms") or self.library._terms(query))
+        # Query GROUPS, not a flat token list (M47): "SYN-DEV-01" must highlight
+        # as one adjacent-token phrase, not "SYN" inside "SYNTHETIC".
+        self._search_terms = tuple(tuple(group) for group in
+                                   (result.get("groups") or self.library._groups(query)))
         for hit in result["hits"]:
             line = f", line {hit['line_no']}" if hit.get("line_no") else ""
             item = QListWidgetItem(f"{hit['file_name']} — {hit['location']}{line}  [{hit['review_status']}]\n"

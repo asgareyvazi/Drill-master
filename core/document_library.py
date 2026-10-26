@@ -622,8 +622,13 @@ class DocumentLibrary:
 
     @staticmethod
     def _terms(query: str) -> list:
-        """Normalised query tokens (used for snippets and highlighting)."""
+        """Normalised query tokens, flat (kept for callers that list terms)."""
         return query_terms(query)
+
+    @staticmethod
+    def _groups(query: str) -> list:
+        """Normalised query groups - the input of ``find_spans`` for highlighting."""
+        return parse_query(query)
 
     def _page_details(self, ids):
         from core.database import Document, DocumentPage
@@ -663,13 +668,16 @@ class DocumentLibrary:
             if row is None:
                 continue
             original = row[6]
-            spans = find_spans(original, terms)
+            # Group-aware spans (M47): an identifier highlights only as the
+            # whole adjacent-token phrase, never its parts inside other words.
+            spans = find_spans(original, groups)
             hits.append({"page_id": row[0], "document_id": row[1], "page_no": row[2], "location": row[3],
                          "method": row[4], "review_status": row[5], "file_name": row[7],
                          "line_no": line_of(original, spans[0][0]) if spans else None,
-                         "match_count": len(spans), "snippet": make_snippet(original, terms)})
+                         "match_count": len(spans), "snippet": make_snippet(original, groups)})
         return {"status": "matched" if hits else "no_matches", "method": method, "hits": hits,
-                "terms": terms, "normalization_version": NORMALIZATION_VERSION,
+                "terms": terms, "groups": [list(group) for group in groups],
+                "normalization_version": NORMALIZATION_VERSION,
                 "message": (f"{len(hits)} page(s) match" if hits else
                             "No matching text. Only reviewed, stored text is searchable; pages without a "
                             "text layer or unapproved OCR are not indexed.")}
