@@ -51,3 +51,6 @@ release/
 # Also matches spaced names such as "12 - DDR ..." (M43 continuation).
 [0-9]*DDR*.xls*
 [0-9]*DDR*.pdf
+
+# M49 Knowledge Assistant: optional embedding cache (user data, never committed)
+knowledge_cache/

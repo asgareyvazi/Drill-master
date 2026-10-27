@@ -570,13 +570,22 @@ class DocumentLibrary:
 
     # ------------------------------------------------------------ search
     def _signature(self):
+        """Changes whenever the stored pages may have changed.
+
+        Count / max id / total length alone miss a delete + re-import that
+        reuses the page id (SQLite reuses the top rowid) with the same text
+        length (M49).  Every import and delete writes a ``document`` audit row
+        in the same transaction, so its latest id closes that gap.
+        """
         from sqlalchemy import func
 
-        from core.database import DocumentPage
+        from core.database import AuditLog, DocumentPage
         session = self.db.create_session()
         try:
+            audit = session.query(func.max(AuditLog.id)).filter(AuditLog.entity_type == "document").scalar()
             return (NORMALIZATION_VERSION,) + tuple(session.query(
-                func.count(DocumentPage.id), func.max(DocumentPage.id), func.sum(func.length(DocumentPage.text))).one())
+                func.count(DocumentPage.id), func.max(DocumentPage.id),
+                func.sum(func.length(DocumentPage.text))).one()) + (audit,)
         finally:
             session.close()
 
