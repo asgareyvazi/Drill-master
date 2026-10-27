@@ -3,21 +3,24 @@ Advanced Analysis and Monitoring Tab for Drilling Software
 PySide6 Version – Fully refactored with SelectionManager integration
 """
 import os
+import html as html_lib
 import numpy as np
-from datetime import datetime, date
+from datetime import datetime
 from sqlalchemy import func, desc
 from core.text_utils import fmt_num
 import logging
 logger = logging.getLogger(__name__)
-import warnings
-warnings.filterwarnings("ignore")
+# No process-wide warning filter and no global Matplotlib backend switch here:
+# importing a tab must not change how the rest of the application warns or
+# renders. Charts use the Figure API directly (no pyplot state) with the canvas
+# chosen by core.matplotlib_widgets.select_figure_canvas.
 
-from PySide6.QtCore import QDateTime, QTime, QTimer, Qt
+from PySide6.QtCore import QDate, QDateTime, QTime, QTimer, Qt
 from PySide6.QtGui import QColor, QTextDocument
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QGridLayout, QGroupBox,
-    QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton, QScrollArea, QTabWidget,
-    QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+    QAbstractItemView, QApplication, QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QFileDialog,
+    QFrame, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton,
+    QScrollArea, QTabWidget, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
 )
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from core.common_widgets import safe_replace_chart
@@ -25,23 +28,34 @@ from core.common_widgets import safe_replace_chart
 from core.managers import ExportManager
 
 import matplotlib
-try:
-    import matplotlib
-    _current_backend = matplotlib.get_backend()
-    if _current_backend.lower() in ('agg', ''):
-        matplotlib.use('Qt5Agg')
-except Exception:  # silent-ok: optional backend preference; matplotlib keeps its default backend
-    pass
-
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from core.matplotlib_widgets import select_figure_canvas
+from core import analysis_evidence as ev
+from core.cost_semantics import canonical_variance, format_money
+from core.engineering.result import EngineeringError
 
 FigureCanvas, MATPLOTLIB_QT_OK = select_figure_canvas()
 
 
+class _LoadError:
+    """A failed read: shown as a read error with Retry, never as "No data"."""
+
+    def __init__(self, exc):
+        self.kind = type(exc).__name__
+        self.detail = str(exc)
+
+    def text(self):
+        return f"Read error ({self.kind}) - use Refresh Now to retry"
+
+
+_STALE = object()  # a result whose selection changed while it was read
+
+
 try:
     import pyqtgraph as pg
+    # The package does not import its exporters; chart export needs them.
+    import pyqtgraph.exporters  # noqa: F401
     PYQTGRAPH_AVAILABLE = True
 except ImportError:
     PYQTGRAPH_AVAILABLE = False
@@ -55,7 +69,6 @@ except ImportError:
 from core.database import (
     DailyReport, TimeLog24H,
     DrillingParameters, MudReport,
-    SafetyReport
 )
 from core.base_tab import DrillTabBase
 from core.data_quality import DataQualityService
@@ -95,6 +108,72 @@ def _analysis_plot_widget():
         axis.setTextPen(pg.mkPen(_CHART_FOREGROUND))
     return widget
 
+
+def _scope_text(widget):
+    """Human scope label from a widget's current well/wellbore attributes."""
+    bore = getattr(widget, "current_wellbore_id", None)
+    if not bore:
+        return "Whole well"
+    name = getattr(widget, "current_wellbore_name", None)
+    return f"Wellbore {name or '#' + str(bore)}"
+
+
+def _exclusion_text(excluded):
+    if not excluded:
+        return "Excluded observations: none"
+    counts = {}
+    for row in excluded:
+        label = f"{row.state.replace('_', ' ')}: {row.reason}"
+        counts[label] = counts.get(label, 0) + 1
+    return "Excluded observations: " + "; ".join(f"{n} x {label}" for label, n in sorted(counts.items()))
+
+
+def _qss_rgba(hex_rgb, alpha_hex):
+    """Qt style sheets read 8-digit hex as #AARRGGBB, not CSS #RRGGBBAA.
+
+    "#3498DB" + "30" would be parsed as alpha 0x34 with colour #98DB30 (a
+    green card for a blue KPI). An explicit rgba() is unambiguous.
+    """
+    h = hex_rgb.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r}, {g}, {b}, {int(alpha_hex, 16)})"
+
+
+def _plot_projection(plot, result, actual, colors, names, unit=""):
+    """Plot actual / fitted / projection only for an assessed projection."""
+    plot.clear()
+    if unit:
+        plot.setLabel("left", unit)
+    if result["status"] != "assessed":
+        # The chart itself states the outcome: an empty default axis would read
+        # as "no data" or as a broken chart, which is a different state.
+        plot.setTitle(f"{names[1]}: NOT ASSESSED - see the reason below the chart")
+        return
+    plot.setTitle(f"{names[1]} (linear fit; a projection, not a guarantee)")
+    plot.setLabel("bottom", "Calendar day (day 1 = first valid date)")
+    xs = result["x"]
+    plot.plot(xs, actual, pen=pg.mkPen(colors[0], width=3),
+              symbol='o', symbolSize=8, symbolBrush=colors[0], name=names[0])
+    plot.plot(xs, result["fitted"], pen=pg.mkPen(colors[1], width=2, style=Qt.DashLine), name="Trend line")
+    plot.plot([p["day"] for p in result["projection"]], [p["value"] for p in result["projection"]],
+              pen=pg.mkPen(colors[2], width=2), symbol='d', symbolSize=9,
+              symbolBrush=colors[2], name=names[1])
+
+
+def _trend_words(result, unit, noun):
+    if result["status"] != "assessed":
+        return ""
+    slope = result["slope"]
+    if slope > 0.1:
+        direction = "rising"
+    elif slope < -0.1:
+        direction = "falling"
+    else:
+        direction = "flat"
+    return (f"\n{noun} trend is {direction} ({slope:+.3f} {unit}/day). "
+            "This describes the recorded series only; no cause is assessed.")
+
+
 class AnalysisWidget(DrillTabBase):
     """Advanced Professional Analysis and Monitoring Dashboard – PySide6 Version"""
 
@@ -121,10 +200,20 @@ class AnalysisWidget(DrillTabBase):
         self.quality_label.setToolTip("Completeness and time-log coverage for the selected report")
         self.quality_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
 
-        # Data caches
+        # Data caches. Keys carry every scope dimension plus the data revision
+        # (see _cache_key), so a cached value can only be reused for the same
+        # well/bore/section/report and unchanged source data.
         self.data_cache = {}
         self.cache_time = {}
         self.cache_timeout = 30000  # 30 seconds
+        self._data_rev = None
+        # Selection generation: bumped on every scope change; a result read
+        # for an older generation is discarded instead of painted.
+        self._generation = 0
+        self._last_kpis = None
+        self._evidence_rows = []
+        self._evidence_meta = None
+        self._load_errors = []  # names of reads that failed in the current update
         
         self.kpi_cards = []
         # Chart data storage
@@ -146,7 +235,9 @@ class AnalysisWidget(DrillTabBase):
         # pyqtgraph's global config is shared by every tab and is left alone.
 
         # Auto-update timer
-        self.update_timer = QTimer()
+        # Parented: the timer dies with the widget and cannot fire into a
+        # destroyed page.
+        self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.auto_update_data)
 
         # Export directory
@@ -198,8 +289,11 @@ class AnalysisWidget(DrillTabBase):
 
         # ---- HEADER SECTION ----
         header_widget = QWidget()
+        # Box rules are scoped by object name: a bare "QWidget" rule cascades
+        # its padding/margin into every child label and clips the KPI values.
+        header_widget.setObjectName("analysisHeader")
         header_widget.setStyleSheet("""
-            QWidget {
+            QWidget#analysisHeader {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #2c3e50, stop:1 #34495e);
                 border-radius: 12px;
@@ -209,19 +303,15 @@ class AnalysisWidget(DrillTabBase):
         """)
         header_layout = QGridLayout(header_widget)
 
-        self.status_label = QLabel("🔴 No well selected")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                font-size: 16px;
-                font-weight: bold;
-                color: #e74c3c;
-                padding: 8px;
-            }
-        """)
+        self.status_label = QLabel()
+        self._set_status("🔴 No well selected", "error")
+        # One cell per widget (status, well, quality, plan, intelligence, scope
+        # on rows 0-5; KPI cards right; controls on row 6). Shared cells used to
+        # paint the well/controls rows over the quality and plan labels.
         header_layout.addWidget(self.status_label, 0, 0, 1, 2)
-        header_layout.addWidget(self.quality_label, 1, 0, 1, 2)
-        header_layout.addWidget(self.plan_variance_label, 2, 0, 1, 2)
-        header_layout.addWidget(self.intelligence_label, 3, 0, 1, 2)
+        header_layout.addWidget(self.quality_label, 2, 0, 1, 2)
+        header_layout.addWidget(self.plan_variance_label, 3, 0, 1, 2)
+        header_layout.addWidget(self.intelligence_label, 4, 0, 1, 2)
 
         self.well_label = QLabel("🌍 Well: Not Selected")
         self.well_label.setStyleSheet("font-size: 14px; color: #bdc3c7;")
@@ -231,10 +321,10 @@ class AnalysisWidget(DrillTabBase):
         self.scope_label = QLabel("🌐 Scope: Whole Well")
         self.scope_label.setStyleSheet(
             "font-weight: bold; padding: 5px; color: #7f8c8d;")
-        header_layout.addWidget(self.scope_label, 4, 0, 1, 2)
+        header_layout.addWidget(self.scope_label, 5, 0, 1, 2)
 
         self.kpi_cards_widget = self.create_enhanced_kpi_cards()
-        header_layout.addWidget(self.kpi_cards_widget, 0, 2, 2, 3)
+        header_layout.addWidget(self.kpi_cards_widget, 0, 2, 4, 3)
 
         # Monitoring controls
         control_widget = QWidget()
@@ -276,7 +366,7 @@ class AnalysisWidget(DrillTabBase):
 
         refresh_btn = QPushButton("🔄 Refresh Now")
         refresh_btn.setStyleSheet(self.get_button_style("primary", large=True))
-        refresh_btn.clicked.connect(self.update_all_data)
+        refresh_btn.clicked.connect(self.refresh_now)
         control_layout.addWidget(refresh_btn)
 
         clear_cache_btn = QPushButton("🗑️ Clear Cache")
@@ -284,7 +374,7 @@ class AnalysisWidget(DrillTabBase):
         clear_cache_btn.clicked.connect(self.clear_cache)
         control_layout.addWidget(clear_cache_btn)
 
-        header_layout.addWidget(control_widget, 2, 0, 1, 5)
+        header_layout.addWidget(control_widget, 6, 0, 1, 5)
         layout.addWidget(header_widget)
 
         # Help message (hidden when a well is selected)
@@ -298,7 +388,7 @@ class AnalysisWidget(DrillTabBase):
                 color: #7f8c8d;
                 font-style: italic;
                 padding: 25px;
-                background: #ecf0f110;
+                background: rgba(236, 240, 241, 16);
                 border-radius: 8px;
                 margin: 10px;
             }
@@ -339,12 +429,14 @@ class AnalysisWidget(DrillTabBase):
         self.performance_tab = self.create_performance_tab()
         self.daily_tab = self.create_daily_tab()
         self.analytics_tab = self.create_analytics_tab()
+        self.evidence_tab = self.create_evidence_tab()
 
         self.analysis_tabs.addTab(self.time_depth_tab, "📈 Time vs Depth")
         self.analysis_tabs.addTab(self.npt_tab, "⏱️ NPT Analysis")
         self.analysis_tabs.addTab(self.performance_tab, "⚡ Performance")
         self.analysis_tabs.addTab(self.daily_tab, "📅 Daily Monitor")
         self.analysis_tabs.addTab(self.analytics_tab, "📊 Advanced Analytics")
+        self.analysis_tabs.addTab(self.evidence_tab, "🔎 Evidence")
 
         self.analysis_tabs.setVisible(False)
         layout.addWidget(self.analysis_tabs)
@@ -454,30 +546,71 @@ class AnalysisWidget(DrillTabBase):
                 }}
             """,
         }
-        return styles.get(button_type, styles["default"])
+        # A disabled action (e.g. drill-down on an ambiguous evidence row) must
+        # look disabled: without this rule the gradient keeps it looking clickable.
+        disabled = """
+                QPushButton:disabled {
+                    background: #4d5656;
+                    color: #95a5a6;
+                }
+            """
+        return styles.get(button_type, styles["default"]) + disabled
 
     def create_enhanced_kpi_cards(self):
         widget = QWidget()
         layout = QHBoxLayout(widget)
+        # No fabricated starting values: a card shows its state ("—" with no
+        # selection) until a real value for the current scope is read.
         kpi_data = [
-            {"icon": "🎯", "title": "Current Depth", "value": "0", "unit": "m", "color": "#3498DB", "trend": "↗️ +0.0m"},
-            {"icon": "📅", "title": "Rig Days", "value": "0", "unit": "days", "color": "#2ECC71", "trend": "Day 0"},
-            {"icon": "⚡", "title": "Avg ROP", "value": "0.0", "unit": "m/hr", "color": "#E74C3C", "trend": "↗️ +0.0"},
-            {"icon": "⏱️", "title": "Total NPT", "value": "0.0", "unit": "hrs", "color": "#F39C12", "trend": "↘️ 0%"},
+            ("current_depth", {"icon": "🎯", "title": "Current Depth", "color": "#3498DB"}),
+            ("rig_days", {"icon": "📅", "title": "Rig Days", "color": "#2ECC71"}),
+            ("avg_rop", {"icon": "⚡", "title": "Avg ROP", "color": "#E74C3C"}),
+            ("total_npt", {"icon": "⏱️", "title": "Total NPT", "color": "#F39C12"}),
         ]
-        for kpi in kpi_data:
-            card = self.create_kpi_card_modern(**kpi)
+        for key, kpi in kpi_data:
+            card = self.create_kpi_card_modern(value="—", unit="", trend="No well selected", **kpi)
+            card.metric_key = key
+            card.metric_value = ev.MetricValue(ev.STATE_NO_SELECTION, unit=ev.KPI_DEFINITIONS[key][1])
+            card.setToolTip(ev.kpi_tooltip(key))
             layout.addWidget(card)
             self.kpi_cards.append(card)
         return widget
 
+    _STATUS_COLOURS = {"ok": "#2ecc71", "warn": "#f39c12", "error": "#e74c3c"}
+
+    def _set_status(self, text, level):
+        """Status text plus a colour that carries the state (emoji may not render)."""
+        self.status_label.setText(text)
+        self.status_label.setStyleSheet(
+            "QLabel { font-size: 16px; font-weight: bold; padding: 8px; color: %s; }"
+            % self._STATUS_COLOURS[level])
+
+    def _set_kpi_card(self, card, mv, trend=""):
+        """Show one main KPI: number + unit only for a real value, else its state."""
+        card.metric_value = mv
+        card.value_label.setText(f"<b>{mv.number_text()}</b>")
+        card.unit_label.setText(mv.unit if mv.has_value else "")
+        if card.trend_label is not None:
+            card.trend_label.setText(trend)
+        card.value_label.setToolTip(mv.reason)
+
+    def _set_stat_card(self, card, mv):
+        """Show one stat card; the unit is the card's own, never parsed back."""
+        card.metric_value = mv
+        unit = card.unit if mv.has_value else ""
+        card.value_label.setText(f"<b>{mv.number_text()}</b> {unit}".rstrip())
+        card.value_label.setToolTip(mv.reason)
+
     def create_kpi_card_modern(self, icon, title, value, unit, color, trend=""):
         card = QFrame()
+        # Scoped by object name: QLabel derives from QFrame, so a bare "QFrame"
+        # rule would pad and border every label inside the card and clip it.
+        card.setObjectName("kpiCard")
         card.setStyleSheet(f"""
-            QFrame {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {color}30, stop:1 {color}10);
+            QFrame#kpiCard {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 {_qss_rgba(color, "30")}, stop:1 {_qss_rgba(color, "10")});
                 border-radius: 10px;
-                border: 2px solid {color}40;
+                border: 2px solid {_qss_rgba(color, "40")};
                 padding: 12px;
                 margin: 5px;
             }}
@@ -509,6 +642,7 @@ class AnalysisWidget(DrillTabBase):
             layout.addWidget(trend_label)
 
         card.value_label = value_label
+        card.unit_label = unit_label
         card.trend_label = trend_label if trend else None
         return card
 
@@ -561,16 +695,23 @@ class AnalysisWidget(DrillTabBase):
         
         self.daily_gain_plot = _analysis_plot_widget()
         self.daily_gain_plot.setBackground("#1e1e1e")
-        self.daily_gain_plot.setLabel("left", "Change since prior known report (m)", color="#ffffff", size=12)
+        # The full definition does not fit a 150 px axis; keep it as a tooltip.
+        self.daily_gain_plot.setLabel("left", "Gain (m)", color="#ffffff", size=12)
+        self.daily_gain_plot.setToolTip("Gain (m): depth change since the prior known report")
         self.daily_gain_plot.setLabel("bottom", "Days", color="#ffffff", size=12)
         self.daily_gain_plot.showGrid(x=True, y=True, alpha=0.3)
+        self.daily_gain_plot.setMinimumHeight(110)   # room for the axis title
         self.daily_gain_plot.setMaximumHeight(150)
         chart_layout.addWidget(self.daily_gain_plot)
         main_layout.addWidget(chart_container)
         
         # === جدول ===
         table_widget = QWidget()
-        table_widget.setStyleSheet("background: #2c3e50; border-radius: 8px; padding: 8px;")
+        # Scoped: an unscoped padding rule cascades into the header sections
+        # and clips their text.
+        table_widget.setObjectName("timeDepthTableBox")
+        table_widget.setStyleSheet(
+            "QWidget#timeDepthTableBox { background: #2c3e50; border-radius: 8px; padding: 8px; }")
         table_layout = QVBoxLayout(table_widget)
         table_layout.addWidget(QLabel("📋 Depth History"))
         
@@ -617,22 +758,28 @@ class AnalysisWidget(DrillTabBase):
         
         # Performance KPI Cards (6 cards in grid)
         kpi_widget = QWidget()
-        kpi_widget.setStyleSheet("background: #34495e; border-radius: 8px; padding: 12px;")
+        kpi_widget.setObjectName("perfKpiPanel")   # scoped: see init_ui header
+        kpi_widget.setStyleSheet("QWidget#perfKpiPanel { background: #34495e; border-radius: 8px; padding: 12px; }")
         kpi_layout = QGridLayout(kpi_widget)
         
+        # "Efficiency" used to be avg ROP / 20 m/hr x 100 — an invented target.
+        # The sixth card is now the defined productive-time share instead.
         perf_kpis = [
-            ("⚡", "Avg ROP", "0.0", "m/hr", "#1abc9c"),
-            ("🏆", "Best ROP", "0.0", "m/hr", "#e67e22"),
-            ("🔧", "Avg WOB", "0.0", "klb", "#3498db"),
-            ("🌀", "Avg RPM", "0", "rpm", "#9b59b6"),
-            ("💪", "Avg Torque", "0.0", "klb.ft", "#e74c3c"),
-            ("📈", "Efficiency", "0.0", "%", "#2ecc71"),
+            ("avg_rop", "⚡", "Avg ROP", "#1abc9c"),
+            ("best_rop", "🏆", "Best ROP", "#e67e22"),
+            ("avg_wob", "🔧", "Avg WOB", "#3498db"),
+            ("avg_rpm", "🌀", "Avg RPM", "#9b59b6"),
+            ("avg_torque", "💪", "Avg Torque", "#e74c3c"),
+            ("productive_percent", "📈", "Productive Time", "#2ecc71"),
         ]
-        
+
         self.perf_kpi_cards = []
-        for i, (icon, title, value, unit, color) in enumerate(perf_kpis):
+        for i, (key, icon, title, color) in enumerate(perf_kpis):
             row, col = divmod(i, 3)
-            card = self.create_stat_card(icon, title, value, unit, color)
+            card = self.create_stat_card(icon, title, "—", ev.KPI_DEFINITIONS[key][1], color)
+            card.metric_key = key
+            card.setToolTip(ev.kpi_tooltip(key))
+            self._set_stat_card(card, ev.MetricValue(ev.STATE_NO_SELECTION))
             kpi_layout.addWidget(card, row, col)
             self.perf_kpi_cards.append(card)
         
@@ -774,15 +921,22 @@ class AnalysisWidget(DrillTabBase):
         cost_layout = QVBoxLayout(cost_widget)
 
         cost_header = QHBoxLayout()
-        cost_header.addWidget(QLabel("💰 Bit Run Cost Comparison (cost/ft)"))
+        cost_header.addWidget(QLabel("💰 Bit Run Cost Comparison (cost/ft) — SCENARIO"))
         cost_header.addStretch()
         cost_layout.addLayout(cost_header)
+        scenario_note = QLabel(
+            "Scenario only: rig rate, trip time and bit cost are user-entered assumptions in "
+            "one currency of your choice, not recorded cost. Recorded cost is in Advanced "
+            "Analytics > Cost Analysis.")
+        scenario_note.setWordWrap(True)
+        scenario_note.setStyleSheet("color: #f1c40f; font-size: 11px;")
+        cost_layout.addWidget(scenario_note)
 
         cost_inputs = QHBoxLayout()
         self.cost_rig_rate = QDoubleSpinBox()
         self.cost_rig_rate.setRange(0, 1000000)
         self.cost_rig_rate.setValue(40000)
-        self.cost_rig_rate.setSuffix(" $/day")
+        self.cost_rig_rate.setSuffix(" /day (assumed)")
         self.cost_trip_h = QDoubleSpinBox()
         self.cost_trip_h.setRange(0, 100)
         self.cost_trip_h.setValue(6)
@@ -790,7 +944,7 @@ class AnalysisWidget(DrillTabBase):
         self.cost_bit_cost = QDoubleSpinBox()
         self.cost_bit_cost.setRange(0, 100000)
         self.cost_bit_cost.setValue(2000)
-        self.cost_bit_cost.setSuffix(" $")
+        self.cost_bit_cost.setSuffix(" (assumed)")
         cost_inputs.addWidget(QLabel("Rig rate:"))
         cost_inputs.addWidget(self.cost_rig_rate)
         cost_inputs.addWidget(QLabel("Trip:"))
@@ -817,8 +971,8 @@ class AnalysisWidget(DrillTabBase):
         self.cost_table = QTableWidget()
         self.cost_table.setColumnCount(6)
         self.cost_table.setHorizontalHeaderLabels(
-            ["Bit Run", "Footage (m)", "Hours", "Rig+Bit Cost ($)",
-             "Cost/ft ($/ft)", "vs Best"])
+            ["Bit Run", "Footage (m)", "Hours", "Scenario Rig+Bit Cost",
+             "Scenario Cost/ft", "vs Best"])
         self.cost_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.cost_table.setMaximumHeight(200)
         cost_layout.addWidget(self.cost_table)
@@ -841,18 +995,31 @@ class AnalysisWidget(DrillTabBase):
         
         # NPT Statistics Cards
         stats_widget = QWidget()
-        stats_widget.setStyleSheet("background: #34495e; border-radius: 8px; padding: 12px;")
+        stats_widget.setObjectName("nptStatsPanel")   # scoped: see init_ui header
+        stats_widget.setStyleSheet("QWidget#nptStatsPanel { background: #34495e; border-radius: 8px; padding: 12px; }")
         stats_layout = QGridLayout(stats_widget)
         
-        self.npt_total_card = self.create_stat_card("⏱️", "Total NPT", "0.0", "hours", "#e74c3c")
-        self.npt_percent_card = self.create_stat_card("📊", "NPT %", "0.0", "%", "#f39c12")
-        self.npt_daily_card = self.create_stat_card("📅", "Daily Avg", "0.0", "hours/day", "#3498db")
-        self.npt_category_card = self.create_stat_card("🔥", "Top Category", "-", "category", "#9b59b6")
+        self.npt_total_card = self.create_stat_card("⏱️", "Total NPT", "—", "hours", "#e74c3c")
+        self.npt_percent_card = self.create_stat_card("📊", "NPT %", "—", "% of recorded time", "#f39c12")
+        self.npt_daily_card = self.create_stat_card("📅", "Daily Avg", "—", "hours/day", "#3498db")
+        self.npt_category_card = self.create_stat_card("🔥", "Top Category", "—", "", "#9b59b6")
+        self.npt_total_card.setToolTip(ev.kpi_tooltip("total_npt"))
+        self.npt_percent_card.setToolTip(ev.kpi_tooltip("npt_percent"))
+        self.npt_daily_card.setToolTip(ev.kpi_tooltip("npt_daily_avg"))
+        self.npt_category_card.setToolTip(
+            "NPT code (TimeLog24H.main_code) with the most NPT hours in the scope. "
+            "Rows without a code are shown as '" + ev.UNCLASSIFIED_NPT + "', never remapped.")
+        self.npt_coverage_label = QLabel("Time coverage: —")
+        self.npt_coverage_label.setWordWrap(True)
+        self.npt_coverage_label.setToolTip(
+            "A report date is fully covered when its time-log rows all have a valid duration "
+            "and an NPT/productive flag and add up to >= 95% of 24 h (no more than 24 h).")
         
         stats_layout.addWidget(self.npt_total_card, 0, 0)
         stats_layout.addWidget(self.npt_percent_card, 0, 1)
         stats_layout.addWidget(self.npt_daily_card, 1, 0)
         stats_layout.addWidget(self.npt_category_card, 1, 1)
+        stats_layout.addWidget(self.npt_coverage_label, 2, 0, 1, 2)
         main_layout.addWidget(stats_widget)
         
         # NPT Pie Chart
@@ -926,10 +1093,11 @@ class AnalysisWidget(DrillTabBase):
     def create_stat_card(self, icon, title, value, unit, color):
         """Create a statistical card widget."""
         card = QFrame()
+        card.setObjectName("statCard")   # scoped: see create_kpi_card_modern
         card.setStyleSheet(
             f"""
-            QFrame {{
-                background: {color}20;
+            QFrame#statCard {{
+                background: {_qss_rgba(color, "20")};
                 border-left: 4px solid {color};
                 border-radius: 6px;
                 padding: 10px;
@@ -948,6 +1116,7 @@ class AnalysisWidget(DrillTabBase):
         layout.addWidget(value_label)
 
         card.value_label = value_label
+        card.unit = unit
         return card
     
     def create_daily_tab(self):
@@ -964,8 +1133,9 @@ class AnalysisWidget(DrillTabBase):
         # Today's Summary Panel (gradient background)
         today_widget = QWidget()
         today_widget.setMinimumHeight(280)
+        today_widget.setObjectName("todaySummary")   # scoped: see init_ui header
         today_widget.setStyleSheet("""
-            QWidget {
+            QWidget#todaySummary {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #1a2980, stop:1 #26d0ce);
                 border-radius: 10px;
@@ -1215,6 +1385,257 @@ class AnalysisWidget(DrillTabBase):
         scroll.setWidget(content)
         return scroll
 
+    # ==================== EVIDENCE (metric -> trend -> source report) ====================
+    def create_evidence_tab(self):
+        """Evidence-linked workflow inside the Analysis page.
+
+        Scope -> date range -> metric -> dated trend (unit, scope, source) ->
+        pick a point -> open its daily report (only through an explicit,
+        unambiguous report_id) -> source rows with their data state -> typed
+        CSV/XLSX export built from the same dataset as the chart and table.
+        """
+        content = QWidget()
+        layout = QVBoxLayout(content)
+
+        controls = QHBoxLayout()
+        controls.addWidget(QLabel("Metric:"))
+        self.evidence_metric = QComboBox()
+        for key, (title, unit, _definition) in ev.EVIDENCE_METRICS.items():
+            self.evidence_metric.addItem(f"{title} ({unit})", key)
+        controls.addWidget(self.evidence_metric)
+        controls.addWidget(QLabel("Scope:"))
+        self.evidence_level = QComboBox()
+        self.evidence_level.addItem("Selected well / wellbore", ev.SCOPE_WELL)
+        self.evidence_level.addItem("Selected section", ev.SCOPE_SECTION)
+        self.evidence_level.addItem("Selected daily report", ev.SCOPE_REPORT)
+        controls.addWidget(self.evidence_level)
+        self.evidence_range_check = QCheckBox("Date range:")
+        controls.addWidget(self.evidence_range_check)
+        self.evidence_from = QDateEdit()
+        self.evidence_to = QDateEdit()
+        for edit in (self.evidence_from, self.evidence_to):
+            edit.setCalendarPopup(True)
+            edit.setDisplayFormat("yyyy-MM-dd")
+            edit.setDate(QDate.currentDate())
+            edit.setEnabled(False)
+        controls.addWidget(self.evidence_from)
+        controls.addWidget(QLabel("to"))
+        controls.addWidget(self.evidence_to)
+        self.evidence_range_check.toggled.connect(self.evidence_from.setEnabled)
+        self.evidence_range_check.toggled.connect(self.evidence_to.setEnabled)
+        controls.addStretch()
+        layout.addLayout(controls)
+
+        actions = QHBoxLayout()
+        self.evidence_load_btn = QPushButton("🔄 Show Evidence")
+        self.evidence_open_btn = QPushButton("📄 Open Source Report")
+        self.evidence_open_btn.setEnabled(False)
+        self.evidence_csv_btn = QPushButton("📤 Export CSV")
+        self.evidence_xlsx_btn = QPushButton("📤 Export XLSX")
+        for button in (self.evidence_load_btn, self.evidence_open_btn,
+                       self.evidence_csv_btn, self.evidence_xlsx_btn):
+            button.setStyleSheet(self.get_button_style("info"))
+            actions.addWidget(button)
+        actions.addStretch()
+        layout.addLayout(actions)
+        self.evidence_load_btn.clicked.connect(self.refresh_evidence)
+        self.evidence_open_btn.clicked.connect(self.open_evidence_report)
+        self.evidence_csv_btn.clicked.connect(lambda: self.export_evidence("csv"))
+        self.evidence_xlsx_btn.clicked.connect(lambda: self.export_evidence("xlsx"))
+        self.evidence_metric.currentIndexChanged.connect(lambda _i: self.refresh_evidence())
+        self.evidence_level.currentIndexChanged.connect(lambda _i: self.refresh_evidence())
+
+        self.evidence_state_label = QLabel("Evidence: select a well")
+        self.evidence_state_label.setWordWrap(True)
+        self.evidence_state_label.setStyleSheet("font-weight: bold; padding: 4px; color: #ecf0f1;")
+        layout.addWidget(self.evidence_state_label)
+
+        self.evidence_plot = pg.PlotWidget(
+            background=_CHART_BACKGROUND, axisItems={"bottom": pg.DateAxisItem(orientation="bottom")})
+        for name in ("left", "bottom"):
+            axis = self.evidence_plot.getPlotItem().getAxis(name)
+            axis.setPen(pg.mkPen(_CHART_FOREGROUND))
+            axis.setTextPen(pg.mkPen(_CHART_FOREGROUND))
+        self.evidence_plot.setMinimumHeight(260)
+        self.evidence_plot.setTitle("No well selected", color="#95a5a6")
+        layout.addWidget(self.evidence_plot)
+
+        self.evidence_table = QTableWidget()
+        self.evidence_table.setColumnCount(8)
+        self.evidence_table.setHorizontalHeaderLabels(
+            ["Date", "Value", "Unit", "State", "Reason", "Report ID", "Wellbore ID", "Source"])
+        self.evidence_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.evidence_table.horizontalHeader().setStretchLastSection(True)
+        self.evidence_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.evidence_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.evidence_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.evidence_table.itemSelectionChanged.connect(self._on_evidence_selection)
+        layout.addWidget(self.evidence_table)
+        return content
+
+    def _evidence_range(self):
+        if not self.evidence_range_check.isChecked():
+            return None, None
+        start = self.evidence_from.date().toPython()
+        end = self.evidence_to.date().toPython()
+        return (start, end) if start <= end else (end, start)
+
+    def update_evidence(self):
+        self.refresh_evidence()
+
+    def refresh_evidence(self):
+        """Read and show the evidence rows for metric x scope x date range."""
+        self._evidence_rows = []
+        self._evidence_meta = None
+        self._evidence_highlight = None        # removed by clear() below
+        self.evidence_open_btn.setEnabled(False)
+        self.evidence_plot.clear()
+        self.evidence_table.setRowCount(0)
+        if not self.current_well_id:
+            self.evidence_state_label.setText("Evidence: select a well")
+            self.evidence_plot.setTitle("No well selected", color="#95a5a6")
+            return
+        metric_key = self.evidence_metric.currentData()
+        title, unit, definition = ev.EVIDENCE_METRICS[metric_key]
+        scope = self._analysis_scope(self.evidence_level.currentData())
+        problem = scope.problem()
+        if problem:
+            self.evidence_state_label.setText(f"Evidence: NOT ASSESSED - {problem}")
+            self.evidence_plot.setTitle(f"NOT ASSESSED - {problem}", color="#95a5a6")
+            return
+        start, end = self._evidence_range()
+        self.evidence_state_label.setText("Evidence: loading…")
+        rows = self._fetch_cached(
+            f"evidence:{metric_key}:{scope.key()}",
+            lambda session: ev.evidence_for_metric(session, scope, metric_key))
+        if rows is _STALE:
+            return
+        if isinstance(rows, _LoadError):
+            self.evidence_state_label.setText("Evidence: " + rows.text())
+            self.evidence_plot.setTitle(rows.text(), color="#e74c3c")
+            return
+        rows = ev.filter_range(rows, start, end)
+        range_text = f"{start} to {end}" if start else "all dates"
+        self._evidence_rows = rows
+        self._evidence_meta = ev.export_metadata(
+            scope.label(), metric_key, unit, definition, range_text,
+            {"well_id": scope.well_id, "wellbore_id": scope.wellbore_id,
+             "section_id": scope.section_id if scope.level != ev.SCOPE_WELL else None,
+             "report_id": scope.report_id if scope.level == ev.SCOPE_REPORT else None,
+             "rows": len(rows),
+             "valid_rows": sum(1 for r in rows if r.state == ev.STATE_VALUE)})
+        if not rows:
+            self.evidence_state_label.setText(
+                f"Evidence: No data - {title} has no rows for {scope.label()} ({range_text})")
+            self.evidence_plot.setTitle("No data in this scope and range", color="#95a5a6")
+            return
+        valid_idx = [i for i, r in enumerate(rows) if r.state == ev.STATE_VALUE and r.value is not None]
+        valid = [rows[i] for i in valid_idx]
+        self.evidence_state_label.setText(
+            f"Evidence: {title} [{unit}] | {scope.label()} | {range_text} | "
+            f"{len(valid)} valid of {len(rows)} rows | source: {rows[0].source.split('#')[0]}")
+        self.evidence_plot.setTitle(f"{title} [{unit}] - {scope.label()}", color="#ffffff")
+        self.evidence_plot.setLabel("left", f"{title} ({unit})")
+        if valid:
+            stamps = [datetime(r.date.year, r.date.month, r.date.day).timestamp() for r in valid]
+            self.evidence_plot.plot(stamps, [r.value for r in valid],
+                                    pen=pg.mkPen('#3498db', width=2))
+            scatter = pg.ScatterPlotItem(
+                x=stamps, y=[r.value for r in valid], size=10, brush=pg.mkBrush('#f1c40f'),
+                data=valid_idx)
+            scatter.sigClicked.connect(self._on_evidence_point_clicked)
+            self.evidence_plot.addItem(scatter)
+        self.evidence_table.setRowCount(len(rows))
+        for i, row in enumerate(rows):
+            cells = [str(row.date), "—" if row.value is None else f"{row.value:.2f}", row.unit,
+                     row.state, row.reason, "" if row.report_id is None else str(row.report_id),
+                     "" if row.wellbore_id is None else str(row.wellbore_id), row.source]
+            for col, text in enumerate(cells):
+                self.evidence_table.setItem(i, col, QTableWidgetItem(text))
+
+    def _on_evidence_point_clicked(self, _item, points, *_args):
+        if len(points):
+            self.select_evidence_row(points[0].data())
+
+    def select_evidence_row(self, index):
+        if 0 <= index < self.evidence_table.rowCount():
+            self.evidence_table.selectRow(index)
+
+    def _selected_evidence(self):
+        rows = self.evidence_table.selectionModel().selectedRows() if self.evidence_table.selectionModel() else []
+        if not rows:
+            return None
+        index = rows[0].row()
+        return self._evidence_rows[index] if index < len(self._evidence_rows) else None
+
+    def _on_evidence_selection(self):
+        row = self._selected_evidence()
+        self._highlight_evidence_point(row)
+        enabled = row is not None and row.drilldown_report_id is not None
+        self.evidence_open_btn.setEnabled(enabled)
+        if row is not None:
+            self.evidence_open_btn.setToolTip(
+                f"Open daily report #{row.report_id}" if enabled else row.drilldown_reason())
+
+    def _highlight_evidence_point(self, row):
+        """Ring the selected row's point; rows without a value get no marker."""
+        old = getattr(self, "_evidence_highlight", None)
+        if old is not None:
+            self.evidence_plot.removeItem(old)
+            self._evidence_highlight = None
+        if row is None or row.state != ev.STATE_VALUE or row.value is None or row.date is None:
+            return
+        stamp = datetime(row.date.year, row.date.month, row.date.day).timestamp()
+        self._evidence_highlight = pg.ScatterPlotItem(
+            x=[stamp], y=[row.value], size=20, symbol="o",
+            pen=pg.mkPen("#e74c3c", width=3), brush=pg.mkBrush(0, 0, 0, 0))
+        self.evidence_plot.addItem(self._evidence_highlight)
+
+    def open_evidence_report(self):
+        """Open the selected point's daily report — only via its explicit report_id."""
+        row = self._selected_evidence()
+        if row is None or row.drilldown_report_id is None:
+            return False
+        session = self.db.create_session()
+        try:
+            report = session.get(DailyReport, row.drilldown_report_id)
+            if report is None or report.well_id != self.current_well_id:
+                self.show_error("The source report no longer belongs to this well")
+                return False
+            ids = (report.well_id, report.wellbore_id, report.section_id, report.id)
+        finally:
+            session.close()
+        well_id, wellbore_id, section_id, report_id = ids
+        payload = {"id": report_id, "well_id": well_id, "wellbore_id": wellbore_id,
+                   "section_id": section_id}
+        self.sel_manager.select_full_context(
+            well_id, section_id, report_id, well_data={"name": self.current_well_name},
+            report_data=payload, wellbore_id=wellbore_id,
+            wellbore_data={"id": wellbore_id, "well_id": well_id} if wellbore_id else None)
+        return True
+
+    def export_evidence(self, fmt, filename=None):
+        """Typed export of the shown evidence rows (never the table's text)."""
+        if not self._evidence_rows or not self._evidence_meta:
+            self.show_warning("No evidence rows to export for this scope")
+            return None
+        if filename is None:
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export Evidence", f"evidence_{self._evidence_meta['metric']}_{stamp}.{fmt}",
+                "Excel Files (*.xlsx)" if fmt == "xlsx" else "CSV Files (*.csv)")
+            if not filename:
+                return None
+        try:
+            writer = ev.export_xlsx if fmt == "xlsx" else ev.export_csv
+            count = writer(filename, self._evidence_rows, self._evidence_meta)
+        except Exception as exc:
+            logger.error("Evidence export failed: %s", type(exc).__name__, exc_info=True)
+            self.show_error(f"Export failed: {type(exc).__name__}")
+            return None
+        self.show_success(f"Exported {count} evidence rows to {os.path.basename(filename)}")
+        return filename
+
     def _copy_results_to_clipboard(self):
         """Copy analysis results to clipboard"""
         text = self.results_text.toPlainText()
@@ -1228,6 +1649,7 @@ class AnalysisWidget(DrillTabBase):
         self.cache_time.clear()
 
     def get_cached_data(self, key, get_data_func):
+        """Return a cached value or read it; a failed read is never cached."""
         now = QDateTime.currentMSecsSinceEpoch()
         if key in self.data_cache and (now - self.cache_time[key] < self.cache_timeout):
             return self.data_cache[key]
@@ -1235,6 +1657,55 @@ class AnalysisWidget(DrillTabBase):
         self.data_cache[key] = data
         self.cache_time[key] = now
         return data
+
+    def _cache_key(self, name):
+        """Every dimension that changes a result: scope, section, report, data revision."""
+        return (f"{name}|{self._scope_key()}|section={getattr(self, 'current_section_id', None)}"
+                f"|report={getattr(self, 'current_report_id', None)}|rev={self._data_rev}")
+
+    def _fetch_cached(self, name, reader):
+        """Read ``reader(session)`` for the current scope through the cache.
+
+        Returns the value, a ``_LoadError`` (read failed; not cached, shown as
+        an error with Retry) or ``_STALE`` when the selection changed while the
+        value was being read (the caller must not paint it).
+        """
+        generation = self._generation
+
+        def fetch():
+            session = self.db.create_session()
+            try:
+                return reader(session)
+            finally:
+                session.close()
+
+        try:
+            value = self.get_cached_data(self._cache_key(name), fetch)
+        except Exception as exc:
+            logger.error("Analysis read failed (%s): %s", name, type(exc).__name__, exc_info=True)
+            value = _LoadError(exc)
+        if generation != self._generation:
+            return _STALE
+        if isinstance(value, _LoadError):
+            # Painted per card/chart as "Read error"; also reported in the page
+            # status so a handled read failure is never summarised as "Updated".
+            self._load_errors.append(name.split(":")[0])
+        return value
+
+    def _read_revision(self):
+        session = self.db.create_session()
+        try:
+            return ev.data_revision(session, self.current_well_id)
+        finally:
+            session.close()
+
+    def _analysis_scope(self, level=ev.SCOPE_WELL):
+        return ev.AnalysisScope(
+            well_id=self.current_well_id,
+            wellbore_id=getattr(self, "current_wellbore_id", None),
+            section_id=getattr(self, "current_section_id", None),
+            report_id=getattr(self, "current_report_id", None),
+            level=level)
 
     def _report_date_unambiguous(self, session, report):
         """True when (well_id, report_date) maps to exactly ONE DailyReport.
@@ -1283,8 +1754,14 @@ class AnalysisWidget(DrillTabBase):
         (DrillingParameters.report_id -> DailyReport.wellbore_id) so a
         parameter row is attributed to exactly the bore its report belongs to.
         """
+        from core.operations_intelligence import canonical_params_clause
+
         q = session.query(DrillingParameters).filter(
             DrillingParameters.well_id == self.current_well_id)
+        if not self.current_wellbore_id:
+            # Whole well: the same legacy-row rule as the canonical service, so
+            # best ROP / midpoints / series can never count a date twice.
+            q = q.filter(canonical_params_clause(DrillingParameters))
         if self.current_wellbore_id:
             q = (q.join(DailyReport, DrillingParameters.report_id == DailyReport.id)
                   .filter(DailyReport.wellbore_id == self.current_wellbore_id))
@@ -1311,10 +1788,14 @@ class AnalysisWidget(DrillTabBase):
         if not well_id:
             return dict.fromkeys(['current_depth','total_days','avg_rop','total_npt',
                                   'npt_percentage','best_rop','avg_wob','avg_rpm',
-                                  'avg_torque','efficiency','daily_gain'], None)
+                                  'avg_torque','efficiency','daily_gain','reports'], None)
 
         # ---- Shared metrics: canonical source of truth (scope-aware) ----
         canonical = self._canonical_scope_kpis()
+        if canonical.get("error"):
+            # The canonical service caught a read failure and returned empty
+            # KPIs; surfacing them would turn an error into "No data".
+            raise RuntimeError(f"canonical KPI read failed: {canonical['error']}")
         cur_depth = canonical.get("current_depth")
         total_days = canonical.get("rig_days")
         avg_rop = canonical.get("average_rop")
@@ -1325,23 +1806,20 @@ class AnalysisWidget(DrillTabBase):
 
         # ---- W12-specific reductions (not in the canonical KPI contract) ----
         # All scoped to the same bore/well so they can never mix bores.
-        best_rop = self._scope_params_query(session)\
-            .with_entities(func.max(DrillingParameters.avg_rop)).scalar()
+        # Best ROP shares the canonical validity rule (finite, >= 0): a stored
+        # inf or negative rate must not become the "best" run.
+        best_rop = ev.summarize_rop(
+            v for (v,) in self._scope_params_query(session)
+            .with_entities(DrillingParameters.avg_rop).all())["best"]
 
-        wob_vals = self._scope_params_query(session)\
-            .with_entities(DrillingParameters.wob_min, DrillingParameters.wob_max).all()
-        wob_mids = [(wmin+wmax)/2 for wmin,wmax in wob_vals if wmin is not None and wmax is not None]
-        avg_wob = float(np.mean(wob_mids)) if wob_mids else None
+        def _mean_mid(low_col, high_col):
+            mids = ev.midpoint_series(
+                self._scope_params_query(session).with_entities(low_col, high_col).all())
+            return (sum(mids) / len(mids)) if mids else None
 
-        rpm_vals = self._scope_params_query(session)\
-            .with_entities(DrillingParameters.rpm_min, DrillingParameters.rpm_max).all()
-        rpm_mids = [(rmin+rmax)/2 for rmin,rmax in rpm_vals if rmin is not None and rmax is not None]
-        avg_rpm = float(np.mean(rpm_mids)) if rpm_mids else None
-
-        tq_vals = self._scope_params_query(session)\
-            .with_entities(DrillingParameters.torque_min, DrillingParameters.torque_max).all()
-        tq_mids = [(tmin+tmax)/2 for tmin,tmax in tq_vals if tmin is not None and tmax is not None]
-        avg_torque = float(np.mean(tq_mids)) if tq_mids else None
+        avg_wob = _mean_mid(DrillingParameters.wob_min, DrillingParameters.wob_max)
+        avg_rpm = _mean_mid(DrillingParameters.rpm_min, DrillingParameters.rpm_max)
+        avg_torque = _mean_mid(DrillingParameters.torque_min, DrillingParameters.torque_max)
 
         # Calendar-rate endpoints must be unique and belong to the same bore.
         # A bare first() silently chose among multiple sections/bores on a day.
@@ -1368,7 +1846,14 @@ class AnalysisWidget(DrillTabBase):
             'avg_rpm': avg_rpm,
             'avg_torque': avg_torque,
             'efficiency': efficiency,
-            'daily_gain': daily_gain
+            'daily_gain': daily_gain,
+            # Secondary, canonical facts used by the card subtitles (trend
+            # lines are shown only when these are valid).
+            'daily_progress': canonical.get("daily_progress"),
+            'weighted_rop': canonical.get("weighted_rop"),
+            # Number of daily reports in the scope: 0 shows "No daily reports
+            # in this scope" instead of per-card "No data".
+            'reports': len(reports),
         }
 
     def get_today_data(self, session):
@@ -1449,11 +1934,11 @@ class AnalysisWidget(DrillTabBase):
                         .order_by(DrillingParameters.report_date).all()
 
         def _mid(lo, hi):
-            # Midpoint only when BOTH bounds are known; a single known bound is
-            # NOT half a value. Unknown stays None (rendered "—"), never 0.
-            if lo is None or hi is None:
-                return None
-            return (lo + hi) / 2
+            # Midpoint only when BOTH bounds are valid numbers (finite, >= 0);
+            # a single known bound is NOT half a value. Unknown stays None
+            # (rendered "—"), never 0. Same rule as calculate_kpis.
+            mids = ev.midpoint_series([(lo, hi)])
+            return mids[0] if mids else None
 
         return [{
             'date': p.report_date,
@@ -1472,7 +1957,8 @@ class AnalysisWidget(DrillTabBase):
 
     def get_time_depth_data(self, session):
         well_id = self.current_well_id
-        if not well_id: return []
+        if not well_id:
+            return []
         reports = self._scope_reports_query(session)\
                          .order_by(DailyReport.report_date).all()
         data = []
@@ -1509,9 +1995,10 @@ class AnalysisWidget(DrillTabBase):
         if not well_id:
             return {'entries': [], 'categories': {}, 'total_npt': None,
                     'npt_percentage': None, 'total_hours': None,
-                    'unknown_npt_count': 0}
+                    'unknown_npt_count': 0, 'report_dates': None,
+                    'coverage': ev.npt_coverage_summary([]), 'days': []}
         npt_q = session.query(TimeLog24H, DailyReport).join(DailyReport)\
-                          .filter(DailyReport.well_id == well_id, TimeLog24H.is_npt == True)
+                          .filter(DailyReport.well_id == well_id, TimeLog24H.is_npt.is_(True))
         if self.current_wellbore_id:
             npt_q = npt_q.filter(DailyReport.wellbore_id == self.current_wellbore_id)
         npt_rows = npt_q.order_by(DailyReport.report_date, TimeLog24H.time_from).all()
@@ -1525,7 +2012,7 @@ class AnalysisWidget(DrillTabBase):
             # None so the row can render as "—" rather than "0.00". A stored
             # 0.0 is a real fact and is summed/displayed as 0.0.
             h = log.duration
-            cat = log.main_code or "Unknown"
+            cat = (log.main_code or "").strip() or ev.UNCLASSIFIED_NPT
             if h is None:
                 unknown_count += 1
             else:
@@ -1548,10 +2035,18 @@ class AnalysisWidget(DrillTabBase):
         if self.current_wellbore_id:
             th_q = th_q.filter(DailyReport.wellbore_id == self.current_wellbore_id)
         metrics = summarize_time_logs(th_q.all())
+        scope = ev.AnalysisScope(well_id=well_id,
+                                 wellbore_id=getattr(self, "current_wellbore_id", None))
+        days = ev.npt_daily_series(*ev.load_npt_inputs(session, scope))
         return {'entries': entries, 'categories': cats, 'total_npt': metrics["npt_hours"],
                 'npt_percentage': metrics["npt_percent"], 'total_hours': metrics["total_hours"],
                 'known_npt_hours': metrics["known_npt_hours"],
-                'unknown_npt_count': unknown_count}
+                'unknown_npt_count': unknown_count,
+                # Same scope as the NPT rows: distinct report dates (the
+                # daily-average denominator) and per-date time coverage.
+                'report_dates': len({d.date for d in days}),
+                'coverage': ev.npt_coverage_summary(days),
+                'days': days}
 
     # ---- Scope helpers ----
     def _scope_key(self):
@@ -1587,52 +2082,75 @@ class AnalysisWidget(DrillTabBase):
         return service.analyze_well(self.current_well_id).get("kpis", {})
 
     # ---- Data update methods ----
+    @staticmethod
+    def _is_number(value):
+        return ev.classify_number(value, allow_negative=True)[0] == ev.STATE_VALUE
+
     def update_kpi_data(self):
-        if not self.current_well_id: return
-        def fetch():
-            session = self.db.create_session()
-            try: return self.calculate_kpis(session)
-            finally: session.close()
-        kpis = self.get_cached_data(f'kpis_{self._scope_key()}', fetch)
-        cards = self.kpi_cards_widget.findChildren(QFrame)
-        
-        if len(self.kpi_cards) >= 4:
-            self.kpi_cards[0].value_label.setText(f"<b>{fmt_num(kpis['current_depth'], 1, default=None)}</b> m")
-            self.kpi_cards[1].value_label.setText(f"<b>{kpis['total_days']}</b> days")
-            self.kpi_cards[2].value_label.setText(f"<b>{fmt_num(kpis['avg_rop'], 1, default=None)}</b> m/hr")
-            self.kpi_cards[3].value_label.setText(f"<b>{fmt_num(kpis['total_npt'], 1, default=None)}</b> hrs")
-            
+        """Main KPI cards: real value + unit, No data, or Read error — never a 0 placeholder."""
+        if not self.current_well_id:
+            return
+        kpis = self._fetch_cached("kpis", self.calculate_kpis)
+        if kpis is _STALE:
+            return
+        if isinstance(kpis, _LoadError):
+            self._last_kpis = None
+            for card in self.kpi_cards:
+                self._set_kpi_card(card, ev.MetricValue(ev.STATE_ERROR, reason=kpis.detail),
+                                   kpis.text())
+            return
+        self._last_kpis = kpis
+        if len(self.kpi_cards) < 4:
+            return
+        units = [ev.KPI_DEFINITIONS[k][1] for k in ("current_depth", "rig_days", "avg_rop", "total_npt")]
+        if kpis.get("reports") == 0:
+            none = [ev.MetricValue(ev.STATE_MISSING, unit=u, reason="no daily reports in this scope")
+                    for u in units]
+            for card, mv in zip(self.kpi_cards, none):
+                self._set_kpi_card(card, mv, "No daily reports in this scope")
+            return
+        npt_missing = ("NPT unknown: no time logs in this scope, or a row lacks a valid "
+                       "duration or NPT flag")
+        values = [
+            ev.metric(kpis["current_depth"], units[0], 1, allow_negative=False,
+                      missing_reason="no report with a recorded depth in this scope"),
+            ev.metric(kpis["total_days"], units[1], 0, allow_negative=False,
+                      missing_reason="no daily reports in this scope"),
+            ev.metric(kpis["avg_rop"], units[2], 1, allow_negative=False,
+                      missing_reason="no valid DrillingParameters.avg_rop in this scope"),
+            ev.metric(kpis["total_npt"], units[3], 1, allow_negative=False,
+                      missing_reason=npt_missing),
+        ]
+        progress, weighted, pct = (kpis.get("daily_progress"), kpis.get("weighted_rop"),
+                                   kpis.get("npt_percentage"))
+        trends = [
+            f"Δ last day: {progress:+.1f} m" if self._is_number(progress) else "Δ last day: not assessed",
+            "Distinct report dates" if values[1].has_value else "",
+            f"Footage-weighted: {weighted:.1f} m/hr" if self._is_number(weighted)
+            else "Footage-weighted: not assessed",
+            f"{pct:.1f}% of recorded time" if self._is_number(pct) else "NPT %: not assessed",
+        ]
+        for card, mv, trend in zip(self.kpi_cards, values, trends):
+            self._set_kpi_card(card, mv, trend)
 
     def update_time_depth_data(self):
         if not self.current_well_id:
             return
-
-        def fetch():
-            session = self.db.create_session()
-            try:
-                return self.get_time_depth_data(session)
-            except Exception as e:
-                logger.error(f"Time depth fetch error: {e}")
-                return []
-            finally:
-                session.close()
-
-        data = self.get_cached_data(f'td_{self._scope_key()}', fetch)
-
-        if not data:
-            # ✅ نمایش پیام به جای crash
+        data = self._fetch_cached("td", self.get_time_depth_data)
+        if data is _STALE:
+            return
+        if isinstance(data, _LoadError) or not data:
+            failed = isinstance(data, _LoadError)
             self.time_depth_plot.clear()
             self.time_depth_plot.setTitle(
-                "No daily reports found",
-                color="#95a5a6"
-            )
+                data.text() if failed else "No daily reports in this scope",
+                color="#e74c3c" if failed else "#95a5a6")
             self.daily_gain_plot.clear()
             self.time_depth_table.setRowCount(0)
+            self.chart_data['time_depth'] = None
             return
-
-        days = [d['day'] for d in data]
-        depths = [d['depth'] for d in data]
-        gains = [d['gain'] for d in data]
+        self.time_depth_plot.setTitle(
+            "Depth at 24:00 (m) vs report day", color="#ffffff")
 
         # Plot only KNOWN depths — a missing depth is a gap in the series, not a
         # data point at 0 m. Fabricating 0 would draw a false plunge to surface.
@@ -1654,18 +2172,17 @@ class AnalysisWidget(DrillTabBase):
                 and len(set(depth_days)) > 1
                 and hasattr(self, 'td_show_trend')
                 and self.td_show_trend.isChecked()):
-            try:
-                z = np.polyfit(depth_days, depth_vals, 1)
+            fit = ev.least_squares(depth_days, depth_vals)
+            if fit is not None:
+                slope, intercept = fit
                 self.time_depth_plot.plot(
-                    depth_days, np.polyval(z, depth_days),
+                    depth_days, [slope * x + intercept for x in depth_days],
                     pen=pg.mkPen(
                         color="#e74c3c", width=2,
                         style=Qt.DashLine
                     ),
                     name="Trend Line"
                 )
-            except Exception as exc:  # a degenerate fit (e.g. one distinct day) only loses the trend line
-                logger.warning("Time-depth trend line not drawn: %s", type(exc).__name__)
 
         self.daily_gain_plot.clear()
         if gain_vals:
@@ -1704,213 +2221,191 @@ class AnalysisWidget(DrillTabBase):
             'data': data
         }
 
-
     def update_npt_data(self):
         if not self.current_well_id:
             return
-
-        def fetch():
-            session = self.db.create_session()
-            try:
-                return self.get_npt_data(session)
-            except Exception as e:
-                logger.error(f"NPT fetch error: {e}")
-                return {
-                    'entries': [],
-                    'categories': {},
-                    'total_npt': None,
-                    'npt_percentage': None,
-                    'total_hours': None,
-                    'unknown_npt_count': 0
-                }
-            finally:
-                session.close()
-
-        data = self.get_cached_data(
-            f'npt_{self._scope_key()}', fetch
-        )
-
-        self.update_stat_card_value(
-            self.npt_total_card, fmt_num(data['total_npt'], 1, default=None)
-        )
-        self.update_stat_card_value(
-            self.npt_percent_card, fmt_num(data['npt_percentage'], 1, default=None)
-        )
-
-        session = self.db.create_session()
-        total_days = session.query(DailyReport).filter_by(
-            well_id=self.current_well_id
-        ).count()
-        session.close()
-
-        daily_avg = (
-            data['total_npt'] / total_days
-            if total_days and data['total_npt'] is not None else None
-        )
-        self.update_stat_card_value(
-            self.npt_daily_card, fmt_num(daily_avg, 1, default=None)
-        )
-
-        top_cat = (
-            max(data['categories'], key=data['categories'].get)
-            if data['categories'] else "None"
-        )
-        self.update_stat_card_value(self.npt_category_card, top_cat)
-
-        # ✅ NPT Table با بررسی None
-        self.npt_table.setRowCount(len(data['entries']))
-        for i, e in enumerate(data['entries']):
-            self.npt_table.setItem(
-                i, 0, QTableWidgetItem(str(e['date']))
-            )
-
-            # ✅ بررسی None برای time objects
-            time_from = e.get('from')
-            time_to = e.get('to')
-
-            if time_from and hasattr(time_from, 'strftime'):
-                self.npt_table.setItem(
-                    i, 1,
-                    QTableWidgetItem(time_from.strftime("%H:%M"))
-                )
-            else:
-                self.npt_table.setItem(
-                    i, 1,
-                    QTableWidgetItem(str(time_from or ""))
-                )
-
-            if time_to and hasattr(time_to, 'strftime'):
-                self.npt_table.setItem(
-                    i, 2,
-                    QTableWidgetItem(time_to.strftime("%H:%M"))
-                )
-            else:
-                self.npt_table.setItem(
-                    i, 2,
-                    QTableWidgetItem(str(time_to or ""))
-                )
-
-            self.npt_table.setItem(
-                i, 3,
-                QTableWidgetItem(
-                    "—" if e['hours'] is None else f"{e['hours']:.2f}")
-            )
-            self.npt_table.setItem(
-                i, 4, QTableWidgetItem(e['category'])
-            )
-            self.npt_table.setItem(
-                i, 5, QTableWidgetItem(e['description'])
-            )
-
-        # ✅ Pie Chart با محافظت
-        self.npt_pie_plot.clear()
-        if data['categories']:
-            self.draw_npt_pie_chart(data['categories'])
-
-        self.chart_data['npt'] = data
-
-    def draw_npt_pie_chart(self, categories):
-        if not categories:
+        data = self._fetch_cached("npt", self.get_npt_data)
+        if data is _STALE:
+            return
+        cards = (self.npt_total_card, self.npt_percent_card, self.npt_daily_card)
+        if isinstance(data, _LoadError):
+            error = ev.MetricValue(ev.STATE_ERROR, reason=data.detail)
+            for card in cards:
+                self._set_stat_card(card, error)
+            self._set_category_card(ev.STATE_TEXT[ev.STATE_ERROR], data.detail)
+            self.npt_coverage_label.setText("Time coverage: " + data.text())
+            self.npt_table.setRowCount(0)
+            self._replace_npt_pie(None, data.text())
+            self.chart_data['npt'] = None
             return
 
+        missing = ("NPT unknown: no time logs in this scope, or a row lacks a valid "
+                   "duration or NPT flag")
+        total = data['total_npt']
+        self._set_stat_card(self.npt_total_card, ev.metric(total, "", 1, missing_reason=missing))
+        self._set_stat_card(self.npt_percent_card,
+                            ev.metric(data['npt_percentage'], "", 1, missing_reason=missing))
+        dates = data.get('report_dates')
+        daily = total / dates if total is not None and dates else None
+        self._set_stat_card(self.npt_daily_card, ev.metric(
+            daily, "", 1, missing_reason=missing if total is None else "no report dates in this scope"))
+
+        categories = data['categories']
+        if categories:
+            self._set_category_card(max(categories, key=categories.get), "")
+        elif total == 0.0:
+            self._set_category_card("No NPT recorded", "recorded time contains no NPT rows")
+        else:
+            self._set_category_card(ev.STATE_TEXT[ev.STATE_MISSING], missing)
+
+        cov = data.get('coverage') or ev.npt_coverage_summary([])
+        others = ", ".join(f"{state.replace('_', ' ')} {count}"
+                           for state, count in sorted(cov["by_state"].items())
+                           if state != ev.STATE_VALUE)
+        self.npt_coverage_label.setText(
+            f"Time coverage: {cov['covered_days']} of {cov['days']} report dates fully covered "
+            f"(>= {ev.COVERAGE_SUFFICIENT_PERCENT:.0f}% of 24 h)" + (f"; {others}" if others else ""))
+
+        self.npt_table.setRowCount(len(data['entries']))
+        for i, e in enumerate(data['entries']):
+            self.npt_table.setItem(i, 0, QTableWidgetItem(str(e['date'])))
+            for col, value in ((1, e.get('from')), (2, e.get('to'))):
+                text = value.strftime("%H:%M") if value and hasattr(value, 'strftime') else str(value or "")
+                self.npt_table.setItem(i, col, QTableWidgetItem(text))
+            self.npt_table.setItem(i, 3, QTableWidgetItem(
+                "—" if e['hours'] is None else f"{e['hours']:.2f}"))
+            self.npt_table.setItem(i, 4, QTableWidgetItem(e['category']))
+            self.npt_table.setItem(i, 5, QTableWidgetItem(e['description']))
+
+        self._replace_npt_pie(categories or None)
+        self.chart_data['npt'] = data
+
+    def _set_category_card(self, text, tooltip):
+        import html
+        self.npt_category_card.value_label.setText(f"<b>{html.escape(str(text))}</b>")
+        self.npt_category_card.value_label.setToolTip(tooltip)
+
+    def draw_npt_pie_chart(self, categories):
+        self._replace_npt_pie(categories or None)
+
+    def _replace_npt_pie(self, categories, placeholder="No NPT categories in this scope"):
+        """Swap the NPT pie; with nothing to draw show a placeholder.
+
+        The previous canvas is always removed first, so a well without NPT can
+        never keep showing the previous well's pie. The figure is a plain
+        ``Figure`` (no pyplot registry), deleted with its canvas.
+        """
+        old = getattr(self, "_npt_pie_canvas", None)
+        container = self.npt_pie_plot.parentWidget()
+        layout = container.layout() if container is not None else None
+        if old is not None:
+            if layout is not None:
+                layout.removeWidget(old)
+            old.setParent(None)
+            old.deleteLater()
+            self._npt_pie_canvas = None
+        self.npt_pie_plot.clear()
+        positive = {k: v for k, v in (categories or {}).items() if v and v > 0}
+        if not positive and categories:
+            placeholder = "NPT recorded as 0 h in every category"
+        canvas = self._npt_pie_canvas_for(positive) if positive and layout is not None else None
+        if canvas is None:
+            self.npt_pie_plot.setTitle(placeholder, color="#95a5a6")
+            self.npt_pie_plot.show()
+            return
+        self.npt_pie_plot.hide()
+        layout.addWidget(canvas)
+        self._npt_pie_canvas = canvas
+
+    def _npt_pie_canvas_for(self, categories):
         try:
-            fig, ax = plt.subplots(figsize=(5, 4), facecolor='#1e1e1e')
+            fig = Figure(figsize=(5, 4), facecolor='#1e1e1e')
+            ax = fig.add_subplot(111)
             ax.set_facecolor('#1e1e1e')
-            
             labels = list(categories.keys())
-            sizes = list(categories.values())
-            colors = plt.cm.Set3(range(len(labels)))
-            
-            wedges, texts, autotexts = ax.pie(
-                sizes, labels=labels, autopct='%1.1f%%',
-                colors=colors, textprops={'color': 'white', 'fontsize': 8},
-                wedgeprops={'edgecolor': 'white', 'linewidth': 0.5}
-            )
-            ax.set_title('NPT by Category', color='white', fontsize=12)
+            colors = matplotlib.colormaps["Set3"](range(len(labels)))
+            _wedges, _texts, percents = ax.pie(
+                list(categories.values()), labels=labels, autopct='%1.1f%%', colors=colors,
+                textprops={'color': 'white', 'fontsize': 8},
+                wedgeprops={'edgecolor': 'white', 'linewidth': 0.5})
+            for text in percents:          # inside pastel (Set3) wedges: dark text
+                text.set_color('#1e1e1e')
+            ax.set_title('NPT hours by code (share of NPT)', color='white', fontsize=12)
             fig.tight_layout()
-            
-            canvas = FigureCanvas(fig)
-            
-            if hasattr(self, 'npt_pie_plot') and self.npt_pie_plot:
-                parent_widget = self.npt_pie_plot.parent()
-                parent_layout = parent_widget.layout() if parent_widget else None
-                
-                if parent_layout:
-                    parent_layout.removeWidget(self.npt_pie_plot)
-                    self.npt_pie_plot.hide()
-                    
-                    if hasattr(self, '_npt_pie_canvas') and self._npt_pie_canvas:
-                        parent_layout.removeWidget(self._npt_pie_canvas)
-                        self._npt_pie_canvas.setParent(None)
-                        self._npt_pie_canvas.deleteLater()
+            return FigureCanvas(fig)
+        except Exception as exc:
+            logger.error("NPT pie chart not drawn: %s", type(exc).__name__, exc_info=True)
+            return None
 
-                    parent_layout.addWidget(canvas)
-                    self._npt_pie_canvas = canvas
-            
-            plt.close(fig)
-            
-        except Exception as e:
-            logger.error(f"Error drawing NPT pie chart: {e}")
-
+    def _set_productive_card(self):
+        if len(self.perf_kpi_cards) < 6:
+            return
+        kpis = self._last_kpis
+        if kpis is None:
+            mv = ev.MetricValue(ev.STATE_NOT_ASSESSED, reason="main KPI read unavailable")
+        else:
+            mv = ev.metric(kpis.get('efficiency'), "", 1,
+                           missing_reason="NPT % unknown for this scope")
+        self._set_stat_card(self.perf_kpi_cards[5], mv)
 
     def update_performance_data(self):
         if not self.current_well_id:
             return
-
-        def fetch():
-            session = self.db.create_session()
-            try:
-                return self.get_performance_data(session)
-            except Exception as e:
-                logger.error(f"Performance fetch error: {e}")
-                return []
-            finally:
-                session.close()
-
-        data = self.get_cached_data(
-            f'perf_{self._scope_key()}', fetch
-        )
-
-        if not data:
-            # ✅ پاک کردن نمودار و جدول
+        data = self._fetch_cached("perf", self.get_performance_data)
+        if data is _STALE:
+            return
+        if isinstance(data, _LoadError) or not data:
+            failed = isinstance(data, _LoadError)
             self.performance_plot.clear()
             self.performance_plot.setTitle(
-                "No drilling parameters found",
-                color="#95a5a6"
-            )
+                data.text() if failed else "No drilling parameters in this scope",
+                color="#e74c3c" if failed else "#95a5a6")
             self.performance_table.setRowCount(0)
-            for i in range(len(self.perf_kpi_cards)):
-                self.update_perf_kpi_card(i, "0")
+            state = (ev.MetricValue(ev.STATE_ERROR, reason=data.detail) if failed else
+                     ev.MetricValue(ev.STATE_MISSING, reason="no DrillingParameters rows in this scope"))
+            for card in self.perf_kpi_cards[:5]:
+                self._set_stat_card(card, state)
+            self._set_productive_card()
+            self.chart_data['performance'] = None
+            self.update_dexponent_data([])
+            self._update_cost_comparison()
             return
 
-        rops = [d['rop'] for d in data if d['rop']]
-        wob = [d['wob'] for d in data if d['wob']]
-        rpm = [d['rpm'] for d in data if d['rpm']]
-        torque = [d['torque'] for d in data if d['torque']]
+        rop = ev.summarize_rop(d['rop'] for d in data)
+        rop_reason = (f"no valid ROP rows ({rop['missing_count']} missing, "
+                      f"{rop['invalid_count']} invalid)")
 
-        # Absent parameter data is unknown, not zero: report "—" rather than a
-        # fabricated 0.0 for a well with no recorded values of that parameter.
-        avg_rop = float(np.mean(rops)) if rops else None
-        best_rop = max(rops) if rops else None
-        avg_wob = float(np.mean(wob)) if wob else None
-        avg_rpm = float(np.mean(rpm)) if rpm else None
-        avg_torque = float(np.mean(torque)) if torque else None
-        eff = (avg_rop / 20 * 100) if avg_rop else None
+        def _average(key):
+            values = [d[key] for d in data if ev.classify_number(d[key])[0] == ev.STATE_VALUE]
+            return sum(values) / len(values) if values else None
 
-        self.update_perf_kpi_card(0, fmt_num(avg_rop, 1, default=None))
-        self.update_perf_kpi_card(1, fmt_num(best_rop, 1, default=None))
-        self.update_perf_kpi_card(2, fmt_num(avg_wob, 1, default=None))
-        self.update_perf_kpi_card(3, fmt_num(avg_rpm, 0, default=None))
-        self.update_perf_kpi_card(4, fmt_num(avg_torque, 1, default=None))
-        self.update_perf_kpi_card(5, fmt_num(eff, 1, default=None))
+        reasons = "no row with both bounds recorded"
+        cards = [
+            ev.metric(rop["average"], "", 1, missing_reason=rop_reason),
+            ev.metric(rop["best"], "", 1, missing_reason=rop_reason),
+            ev.metric(_average('wob'), "", 1, missing_reason=reasons),
+            ev.metric(_average('rpm'), "", 0, missing_reason=reasons),
+            ev.metric(_average('torque'), "", 1, missing_reason=reasons),
+        ]
+        for card, mv in zip(self.perf_kpi_cards, cards):
+            self._set_stat_card(card, mv)
+        self._set_productive_card()
 
         self.performance_plot.clear()
-        if len(data) > 1:
-            # Normalise only over KNOWN values; a missing point is a gap in the
-            # series (NaN), never a fabricated 0 that would distort the curve.
-            days = list(range(1, len(data) + 1))
-            rops_all = [d['rop'] for d in data]
-            wob_all = [d['wob'] for d in data]
+        self.performance_plot.setTitle(
+            "ROP and WOB, each normalised to its scope maximum (= 100%)", color="#ffffff")
+        dated = [d for d in data if d['date'] is not None]
+        if len(dated) > 1:
+            # x = calendar day since the first record (same-date rows share x);
+            # a missing/invalid value is a gap (NaN), never a fabricated 0.
+            first = dated[0]['date']
+            days = [(d['date'] - first).days + 1 for d in dated]
+
+            def _valid(v):
+                return v if ev.classify_number(v)[0] == ev.STATE_VALUE else None
+
+            rops_all = [_valid(d['rop']) for d in dated]
+            wob_all = [_valid(d['wob']) for d in dated]
             known_rop = [r for r in rops_all if r is not None]
             known_wob = [w for w in wob_all if w is not None]
             max_rop = max(known_rop) if known_rop and max(known_rop) > 0 else 1
@@ -1921,12 +2416,12 @@ class AnalysisWidget(DrillTabBase):
 
             self.performance_plot.plot(
                 days, _norm(rops_all, max_rop),
-                pen=pg.mkPen('#1abc9c', width=3), name="ROP (norm)",
+                pen=pg.mkPen('#1abc9c', width=3), name="ROP (% of max)",
                 connect="finite",
             )
             self.performance_plot.plot(
                 days, _norm(wob_all, max_wob),
-                pen=pg.mkPen('#3498db', width=3), name="WOB (norm)",
+                pen=pg.mkPen('#3498db', width=3), name="WOB (% of max)",
                 connect="finite",
             )
 
@@ -1947,7 +2442,7 @@ class AnalysisWidget(DrillTabBase):
         self.chart_data['performance'] = data
         self.update_dexponent_data(data)
         self._update_cost_comparison()
-        
+
     def update_dexponent_data(self, data):
         """d-exponent per bit run from stored DrillingParameters.
 
@@ -2006,9 +2501,12 @@ class AnalysisWidget(DrillTabBase):
                 color="#95a5a6")
 
     def _update_cost_comparison(self):
-        """Cost/ft per stored bit run (Bourgoyne); single rig/trip/bit inputs.
+        """SCENARIO cost/ft per stored bit run (Bourgoyne) from user-entered inputs.
 
         Footage = depth_out − depth_in (m → ft); rotating time = hours_on_bottom.
+        The rig rate, trip time and bit cost are assumptions typed by the user
+        in one currency of their choice; no currency is invented and nothing
+        here is recorded cost.
         """
         from core.engineering.engines.bit_performance import BitPerformanceEngine
         if not self.current_well_id:
@@ -2016,13 +2514,13 @@ class AnalysisWidget(DrillTabBase):
             self.cost_table.setRowCount(1)
             self.cost_table.setItem(0, 0, QTableWidgetItem("NOT ASSESSED: select a well"))
             return
-        def fetch():
-            session = self.db.create_session()
-            try:
-                return self.get_performance_data(session)
-            finally:
-                session.close()
-        data = self.get_cached_data(f'perf_{self._scope_key()}', fetch)
+        data = self._fetch_cached("perf", self.get_performance_data)
+        if data is _STALE:
+            return
+        if isinstance(data, _LoadError):
+            self.cost_table.setRowCount(1)
+            self.cost_table.setItem(0, 0, QTableWidgetItem(data.text()))
+            return
         rig_rate = self.cost_rig_rate.value()
         trip_h = self.cost_trip_h.value()
         bit_cost = self.cost_bit_cost.value()
@@ -2048,30 +2546,47 @@ class AnalysisWidget(DrillTabBase):
                 results.append((d['bit_run'], footage_ft, d['hours_on_bottom'],
                                 r.values['total_cost'], r.values['cost_per_ft']))
 
+        if not results:
+            self.cost_table.setRowCount(1)
+            self.cost_table.setItem(0, 0, QTableWidgetItem(
+                "NOT ASSESSED: no bit run with depth in/out and on-bottom hours"))
+            return
         self.cost_table.setRowCount(len(results))
         best = min((x[4] for x in results), default=None)
         for i, (name, footage, hrs, total, cft) in enumerate(results):
             self.cost_table.setItem(i, 0, QTableWidgetItem(name))
             self.cost_table.setItem(i, 1, QTableWidgetItem(f"{footage / 3.28084:.0f}"))
             self.cost_table.setItem(i, 2, QTableWidgetItem(f"{hrs:.1f}"))
-            self.cost_table.setItem(i, 3, QTableWidgetItem(f"${total:,.0f}"))
-            ci = QTableWidgetItem(f"${cft:.2f}")
+            self.cost_table.setItem(i, 3, QTableWidgetItem(f"{total:,.0f}"))
+            ci = QTableWidgetItem(f"{cft:.2f}")
             ci.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if best is not None and abs(cft - best) < 1e-9:
                 ci.setForeground(QColor("#2ecc71"))
-                ci.setToolTip("Cheapest run")
+                ci.setToolTip("Cheapest run under the entered scenario")
             self.cost_table.setItem(i, 4, ci)
             self.cost_table.setItem(i, 5, QTableWidgetItem(
                 "✅ best" if best is not None and abs(cft - best) < 1e-9 else ""))
 
+    def _recent_reports(self, session):
+        rows = []
+        for r in self._scope_reports_query(session).order_by(desc(DailyReport.report_date)).limit(10).all():
+            act = session.query(TimeLog24H.main_code).filter_by(report_id=r.id)\
+                         .order_by(desc(TimeLog24H.duration)).first()
+            rows.append((r.report_date, r.rig_day, r.depth_2400,
+                         act[0] if act and act[0] else "—"))
+        return rows
+
     def update_daily_data(self):
-        if not self.current_well_id: return
-        def fetch():
-            session = self.db.create_session()
-            try: return self.get_today_data(session)
-            finally: session.close()
-        today = self.get_cached_data(f'today_{self._scope_key()}', fetch)
-        if today:
+        if not self.current_well_id:
+            return
+        today = self._fetch_cached("today", self.get_today_data)
+        if today is _STALE:
+            return
+        if isinstance(today, _LoadError):
+            for indicator in self.today_indicators.values():
+                indicator.setText(ev.STATE_TEXT[ev.STATE_ERROR])
+                indicator.setToolTip(today.text())
+        elif today:
             # Unknown values render as "—" (via fmt_num default=None), never 0.
             self.today_indicators['depth_meter'].setText(fmt_num(today['depth'], 1, default=None))
             self.today_indicators['rop_meter'].setText(fmt_num(today['rop'], 1, default=None))
@@ -2087,413 +2602,327 @@ class AnalysisWidget(DrillTabBase):
         else:
             for indicator in self.today_indicators.values():
                 indicator.setText("—")
-        session = self.db.create_session()
-        recent_q = self._scope_reports_query(session)
-        recent = recent_q.order_by(desc(DailyReport.report_date)).limit(10).all()
+        recent = self._fetch_cached("recent", self._recent_reports)
+        if recent is _STALE:
+            return
+        if isinstance(recent, _LoadError):
+            self.recent_reports_table.setRowCount(1)
+            self.recent_reports_table.setItem(0, 0, QTableWidgetItem(recent.text()))
+            return
         self.recent_reports_table.setRowCount(len(recent))
-        for i, r in enumerate(recent):
-            act = session.query(TimeLog24H.main_code).filter_by(report_id=r.id)\
-                         .order_by(desc(TimeLog24H.duration)).first()
-            main_act = act[0] if act and act[0] else "—"
+        for i, (report_date, rig_day, depth, main_act) in enumerate(recent):
             # Presentation truth: an unknown rig-day/depth renders "—", a real
             # reported 0 renders "0"/"0.0". Never collapse None into a fake 0.
-            self.recent_reports_table.setItem(i, 0, QTableWidgetItem(str(r.report_date)))
-            self.recent_reports_table.setItem(i, 1, QTableWidgetItem(
-                _fmt_rig_day(r.rig_day)))
-            self.recent_reports_table.setItem(i, 2, QTableWidgetItem(
-                _fmt_recent_depth(r.depth_2400)))
+            self.recent_reports_table.setItem(i, 0, QTableWidgetItem(str(report_date)))
+            self.recent_reports_table.setItem(i, 1, QTableWidgetItem(_fmt_rig_day(rig_day)))
+            self.recent_reports_table.setItem(i, 2, QTableWidgetItem(_fmt_recent_depth(depth)))
             self.recent_reports_table.setItem(i, 3, QTableWidgetItem(main_act))
-        session.close()
+
+    def _reset_analytics_chart(self):
+        """Neutral analytics chart: no items, title, unit labels or custom ticks.
+
+        Used before every analysis and on deselect: plot.clear() removes the
+        items only, so a previous analysis' title/labels/ticks would otherwise
+        keep describing a chart (or a well) they no longer belong to.
+        """
+        self.analytics_plot.clear()
+        self.analytics_plot.setTitle(None)
+        self.analytics_plot.setLabel("left", "Value")
+        self.analytics_plot.setLabel("bottom", "Parameter")
+        self.analytics_plot.getPlotItem().getAxis("bottom").setTicks(None)
 
     def run_advanced_analysis(self):
         if not self.current_well_id:
             QMessageBox.warning(self, "No Data", "Please select a well first")
             return
+        kind = self.analytics_type.currentText()
+        handler = {
+            "ROP Prediction": self.analyze_rop_prediction,
+            "NPT Forecasting": self.analyze_npt_forecasting,
+            "Cost Analysis": self.analyze_cost,
+            "Risk Assessment": self.analyze_risk,
+        }.get(kind)
+        if handler is None:
+            return
+        self._reset_analytics_chart()
         session = self.db.create_session()
         try:
-            t = self.analytics_type.currentText()
-            if t == "ROP Prediction": self.analyze_rop_prediction(session)
-            elif t == "NPT Forecasting": self.analyze_npt_forecasting(session)
-            elif t == "Cost Analysis": self.analyze_cost(session)
-            elif t == "Risk Assessment": self.analyze_risk(session)
+            handler(session)
+        except Exception as exc:
+            # An error is reported as an error — never an empty or stale result.
+            logger.error("Advanced analysis '%s' failed: %s", kind, type(exc).__name__, exc_info=True)
+            self.analytics_plot.clear()
+            self.analytics_plot.setTitle(f"{kind}: ERROR - no result (see below)")
+            self.results_text.setText(
+                f"{kind}: read/processing error ({type(exc).__name__}). No result is shown; "
+                "use Refresh Now to retry.")
         finally:
             session.close()
 
+    def _scope_text(self):
+        return _scope_text(self)
+
+    def _plot_projection(self, result, actual, colors, names):
+        _plot_projection(self.analytics_plot, result, actual, colors, names)
+
     def analyze_rop_prediction(self, session):
-        """Analyze ROP prediction with real data"""
+        """Transparent ROP projection: one valid observation per date, or NOT ASSESSED."""
         if not self.current_well_id:
             self.results_text.setText("No well selected")
             return
-        
-        # Real data from DrillingParameters, scoped to the active bore/well.
-        # A missing avg_rop (None) is UNKNOWN and is dropped from the regression
-        # input — it is NOT coerced to 0 (which would fabricate a data point and
-        # bias the trend). A genuine measured 0.0 is a valid observation and is
-        # kept. The engineering regression (np.polyfit) is unchanged.
-        params_list = self._scope_params_query(session)\
-            .order_by(DrillingParameters.report_date).all()
-
-        observations = [(p.report_date, p.avg_rop) for p in params_list if p.avg_rop is not None]
-        if len(observations) < 2:
+        params = self._scope_params_query(session)\
+            .order_by(DrillingParameters.report_date, DrillingParameters.id).all()
+        report_ids = {p.report_id for p in params if p.report_id is not None}
+        bores = dict(session.query(DailyReport.id, DailyReport.wellbore_id)
+                     .filter(DailyReport.id.in_(report_ids)).all()) if report_ids else {}
+        rows = [{"source_id": p.id, "date": p.report_date, "rop": p.avg_rop,
+                 "hours": p.hours_on_bottom, "report_id": p.report_id,
+                 "wellbore_id": bores.get(p.report_id)} for p in params]
+        series, excluded = ev.rop_daily_series(rows)
+        source = "DrillingParameters.avg_rop (canonical)"
+        if not series:
+            # Report-header ROP is used ONLY when no valid parameter ROP exists;
+            # each value is owned by its report (no well+date guessing).
             reports = self._scope_reports_query(session).order_by(DailyReport.report_date).all()
-            observations = [(r.report_date, r.rop_meter) for r in reports if r.rop_meter is not None]
-        if (len({d for d, _ in observations}) < 2
-                or any(d is None or not np.isfinite(float(v)) or v < 0 for d, v in observations)):
+            fallback = [{"source_id": r.id, "date": r.report_date, "rop": r.rop_meter,
+                         "report_id": r.id, "wellbore_id": r.wellbore_id} for r in reports]
+            fb_series, fb_excluded = ev.rop_daily_series(fallback, source_name="DailyReport.rop_meter")
+            if fb_series:
+                series, excluded = fb_series, excluded + fb_excluded
+                source = "DailyReport.rop_meter (fallback: no valid DrillingParameters ROP)"
+        result = ev.linear_projection([(o.date, o.value) for o in series], horizon=5)
+        _plot_projection(self.analytics_plot, result, [o.value for o in series], ('#3498db', '#e74c3c', '#2ecc71'),
+                              ("Actual ROP", "Projection"), unit="ROP (m/hr)")
+        if result["status"] != "assessed":
             self.analytics_plot.clear()
-            self.results_text.setText("ROP prediction NOT ASSESSED: need valid ROP observations on two distinct dates")
-            return
-        observations.sort(key=lambda row: row[0])
-        days = [(d - observations[0][0]).days + 1 for d, _ in observations]
-        x = np.array(days, dtype=float)
-        y = np.array([v for _, v in observations], dtype=float)
+        text = ev.describe_projection(result, "m/hr", "⚡ ROP PROJECTION")
+        text += f"\nScope: {_scope_text(self)}; source: {source}"
+        text += "\n" + _exclusion_text(excluded)
+        text += _trend_words(result, "m/hr", "ROP")
+        self.results_text.setText(text)
 
-        # Linear regression
-        z = np.polyfit(x, y, 1)
-        p = np.poly1d(z)
-        
-        # Predict next 5 days
-        future_x = list(range(days[-1] + 1, days[-1] + 6))
-        future_y = np.maximum(0, p(future_x))
-        
-        # Update chart
-        self.analytics_plot.clear()
-        self.analytics_plot.plot(x.tolist(), y.tolist(), 
-                                pen=pg.mkPen('#3498db', width=3), 
-                                symbol='o', symbolSize=8, 
-                                symbolBrush='#2980b9', name="Actual ROP")
-        self.analytics_plot.plot(x.tolist(), p(x).tolist(), 
-                                pen=pg.mkPen('#e74c3c', width=2, style=Qt.DashLine), 
-                                name="Trend Line")
-        self.analytics_plot.plot(future_x, future_y.tolist(), 
-                                pen=pg.mkPen('#2ecc71', width=2), 
-                                symbol='d', symbolSize=10, 
-                                symbolBrush='#27ae60', name="Predicted")
-        
-        # Results
-        avg_rop = np.mean(y)
-        std_rop = np.std(y)
-        slope = z[0]
-        
-        report = f"⚡ ROP PREDICTION ANALYSIS\n{'='*40}\n"
-        report += "Linear projection assumption from recorded observations on calendar dates; missing observations omitted, not zero.\n"
-        report += f"Data Points: {len(x)}\n"
-        report += f"Average ROP: {avg_rop:.2f} m/hr\n"
-        report += f"Std Dev: {std_rop:.2f} m/hr\n"
-        report += f"Trend Slope: {slope:.3f} m/hr per day\n\n"
-        report += "📈 Predictions:\n"
-        
-        for d, v in zip(future_x, future_y):
-            report += f"  Day {d}: {max(0, v):.2f} m/hr\n"
-        
-        if slope > 0.1:
-            report += "\n✅ ROP is improving"
-        elif slope < -0.1:
-            report += "\n⚠️ ROP is declining - check bit wear"
-        else:
-            report += "\n➡️ ROP is stable"
-        
-        self.results_text.setText(report)
-        
     def analyze_npt_forecasting(self, session):
-        """تحلیل واقعی NPT Forecasting"""
-        import numpy as np
-        
+        """NPT projection over coverage-valid report dates (zero-NPT days included)."""
         well_id = self.current_well_id
         if not well_id:
             self.results_text.setText("No well selected")
             return
-        
-        # داده واقعی NPT از دیتابیس
-        npt_data = self.get_npt_data(session)
-        entries = npt_data.get('entries', [])
-        
-        if (len({e['date'] for e in entries}) < 3
-                or any(e.get('hours') is None or e.get('date') is None or not np.isfinite(float(e['hours'])) or e['hours'] < 0 for e in entries)):
-            self.analytics_plot.clear()
-            self.results_text.setText("NPT Forecasting: NOT ASSESSED (need complete NPT durations on at least 3 distinct dates)")
-            return
-        
-        # گروه‌بندی NPT بر اساس تاریخ
-        daily_npt = {}
-        for e in entries:
-            d = e['date']
-            daily_npt[d] = daily_npt.get(d, 0) + e['hours']
-        
-        dates = sorted(daily_npt.keys())
-        hours = [daily_npt[d] for d in dates]
-        days = [(d - dates[0]).days + 1 for d in dates]
-        
-        # محاسبه trend
-        x = np.array(days)
-        y = np.array(hours)
-        z = np.polyfit(x, y, 1)
-        slope = z[0]
-        
-        # پیش‌بینی 7 روز آینده
-        future_days = list(range(days[-1] + 1, days[-1] + 8))
-        future_npt = np.maximum(0, np.polyval(z, future_days))
-        
-        # نمودار
-        self.analytics_plot.clear()
-        self.analytics_plot.plot(days, hours, pen=pg.mkPen('#e74c3c', width=3),
-                                 symbol='o', symbolSize=6, symbolBrush='#c0392b',
-                                 name="Actual NPT")
-        self.analytics_plot.plot(days, np.polyval(z, days).tolist(),
-                                 pen=pg.mkPen('#f39c12', width=2, style=Qt.DashLine),
-                                 name="Trend")
-        self.analytics_plot.plot(future_days, future_npt.tolist(),
-                                 pen=pg.mkPen('#2ecc71', width=2),
-                                 symbol='d', symbolSize=8, symbolBrush='#27ae60',
-                                 name="Forecast")
-        
-        avg_npt = np.mean(hours)
-        total_npt = sum(hours)
-        
-        report = f"⏱️ NPT FORECASTING ANALYSIS\n{'='*40}\n"
-        report += "Linear projection assumption from observed NPT dates only; missing days are not zero observations.\n"
-        report += f"Data Points: {len(days)} days with NPT\n"
-        report += f"Total NPT: {total_npt:.1f} hours\n"
-        report += f"Average Daily NPT: {avg_npt:.2f} hours\n"
-        report += f"Trend Slope: {slope:.3f} hours/day\n\n"
-        report += "📈 7-Day Forecast:\n"
-        for d, v in zip(future_days, future_npt):
-            report += f"  Day {d}: {max(0, v):.2f} hours\n"
-        
-        if slope > 0.1:
-            report += "\n⚠️ NPT is INCREASING - investigate root causes"
-        elif slope < -0.1:
-            report += "\n✅ NPT is DECREASING - good trend"
-        else:
-            report += "\n➡️ NPT is STABLE"
-        
-        # Top categories
-        cats = npt_data.get('categories', {})
-        if cats:
-            report += "\n\n🔥 Top NPT Categories:\n"
-            sorted_cats = sorted(cats.items(), key=lambda x: x[1], reverse=True)
-            for cat, hrs in sorted_cats[:5]:
-                pct = (hrs / total_npt * 100) if total_npt > 0 else 0
-                report += f"  • {cat}: {hrs:.1f} hrs ({pct:.1f}%)\n"
-        
-        self.results_text.setText(report)
+        scope = ev.AnalysisScope(well_id=well_id, wellbore_id=getattr(self, "current_wellbore_id", None))
+        days = ev.npt_daily_series(*ev.load_npt_inputs(session, scope))
+        valid = [d for d in days if d.state == ev.STATE_VALUE]
+        result = ev.linear_projection([(d.date, d.npt_hours) for d in valid], horizon=7)
+        _plot_projection(self.analytics_plot, result, [d.npt_hours for d in valid], ('#e74c3c', '#f39c12', '#2ecc71'),
+                              ("NPT per covered day", "Projection"), unit="NPT (hours per covered day)")
+        text = ev.describe_projection(result, "hours", "⏱️ NPT PROJECTION")
+        text += (f"\nScope: {_scope_text(self)}; source: TimeLog24H via DailyReport "
+                 "(operational_time.summarize_time_logs per report date)")
+        zero_days = sum(1 for d in valid if d.npt_hours == 0)
+        text += (f"\nCoverage-valid report dates: {len(valid)} of {len(days)} "
+                 f"({zero_days} with a valid zero: full coverage and no NPT)")
+        text += "\n" + _exclusion_text([d.observation() for d in days if d.state != ev.STATE_VALUE])
+        text += _trend_words(result, "hours", "NPT")
+        totals = {}
+        for d in valid:
+            for code, hours in d.categories.items():
+                totals[code] = totals.get(code, 0.0) + hours
+        total = sum(totals.values())
+        if totals and total > 0:
+            text += "\n\nTop NPT codes (coverage-valid dates):"
+            for code, hours in sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:5]:
+                text += f"\n  • {code}: {hours:.1f} h ({hours / total * 100:.1f}% of NPT)"
+        self.results_text.setText(text)
 
     def analyze_cost(self, session):
-        """تحلیل هزینه واقعی"""
+        """Recorded cost (CostRecord) for the whole well via the canonical services."""
         well_id = self.current_well_id
         if not well_id:
             self.results_text.setText("No well selected")
             return
-        
-        # AUTHORITATIVE cost comes from persisted CostRecord.actual_cost via the
-        # canonical operations-intelligence service — the same number the report
-        # engine and W16 Summary show. No synthetic rig-day rate is treated as
-        # actual cost. Unknown stays unknown ("—"), never a fabricated 0.
+        # AUTHORITATIVE cost comes from persisted CostRecord via the canonical
+        # operations-intelligence service — the same numbers the report engine
+        # and W16 show. Cost is a WHOLE-WELL fact (CostRecord is well-scoped),
+        # so its NPT inputs are whole-well too and nothing is attributed to a
+        # selected wellbore. Unknown stays unknown, never a fabricated 0.
         from core.operations_intelligence import OperationsIntelligenceService
         from core.cost_semantics import allocate_npt_cost
-        # Cost is a WHOLE-WELL fact (CostRecord is well-scoped), so its NPT
-        # inputs must also be whole-well — never silently narrowed to the
-        # selected bore, which would allocate whole-well cost against one bore's
-        # NPT and misreport it.
         total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
-        canonical_kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
-        total_npt_hours = canonical_kpis.get("npt_hours")
-        npt_days = total_npt_hours / 24 if total_npt_hours is not None else None
-        npt_pct_value = canonical_kpis.get("npt_percent")
-
-        kpis = canonical_kpis
-        total_cost = kpis.get("total_cost")
-        cpm = kpis.get("cost_per_meter")
+        kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
+        if kpis.get("error"):
+            raise RuntimeError(f"canonical cost read failed: {kpis['error']}")
+        total_npt_hours = kpis.get("npt_hours")
         well_total_hours = kpis.get("total_hours")
-        npt_cost = allocate_npt_cost(total_cost, total_npt_hours, well_total_hours or None)
-        productive_cost = (
-            total_cost - npt_cost
-            if total_cost is not None and npt_cost is not None else None
-        )
+        total_cost = kpis.get("total_cost")
+        planned = kpis.get("total_planned_cost")
+        cpm = kpis.get("cost_per_meter")
+        currency = kpis.get("cost_currency")
+        status = kpis.get("cost_currency_status")
+        npt_note = ""
+        try:
+            npt_cost = allocate_npt_cost(total_cost, total_npt_hours, well_total_hours or None)
+        except EngineeringError as exc:
+            npt_cost, npt_note = None, f"NPT cost NOT ASSESSED: {exc}"
+        productive_cost = (total_cost - npt_cost
+                           if total_cost is not None and npt_cost is not None else None)
+        variance = canonical_variance(planned, total_cost)
+
+        not_summed = {"multi-currency": "not summed: several currencies",
+                      "unknown-currency": "not summed: currency missing on some lines"}.get(status)
 
         def money(v):
-            from core.cost_semantics import format_money
-            return format_money(v, kpis.get("cost_currency"))
+            # A mixed/unknown-currency total is not "currency unknown": the
+            # lines have currencies, they are just never added together.
+            if currency is None and not_summed:
+                return f"— ({not_summed})"
+            return format_money(v, currency)
 
-        # نمودار — only chart known values (skip unknowns instead of plotting 0)
+        # Chart only known values (unknowns are skipped, never plotted as 0).
         self.analytics_plot.clear()
         if total_cost is not None:
-            labels = ["Total"]
+            labels = ["Actual"]
             values = [total_cost / 1000]
-            if productive_cost is not None:
-                labels.append("Productive")
-                values.append(productive_cost / 1000)
-            if npt_cost is not None:
-                labels.append("NPT")
-                values.append(npt_cost / 1000)
+            for label, value in (("Estimate", planned), ("Productive", productive_cost), ("NPT", npt_cost)):
+                if value is not None:
+                    labels.append(label)
+                    values.append(value / 1000)
             x = list(range(1, len(values) + 1))
-            colors = ['#3498db', '#2ecc71', '#e74c3c'][:len(values)]
-            bargraph = pg.BarGraphItem(x=x, height=values, width=0.6, brushes=colors)
-            self.analytics_plot.addItem(bargraph)
-            self.analytics_plot.setLabel("bottom", "Category")
-            self.analytics_plot.setLabel("left", f"Cost (thousands {kpis.get('cost_currency') or 'currency unknown'})")
+            colors = ['#3498db', '#9b59b6', '#2ecc71', '#e74c3c'][:len(values)]
+            self.analytics_plot.addItem(pg.BarGraphItem(x=x, height=values, width=0.6, brushes=colors))
+            self.analytics_plot.setLabel("bottom", "Cost line")
+            self.analytics_plot.getPlotItem().getAxis("bottom").setTicks([list(zip(x, labels))])
+            self.analytics_plot.setLabel("left", f"Cost (thousands {currency})")
+            self.analytics_plot.setTitle(f"Recorded cost, whole well ({currency})")
+        else:
+            why = {"multi-currency": "several currencies are never summed (no FX conversion)",
+                   "unknown-currency": "currency missing on some lines",
+                   "no-records": "no cost recorded for this well"}.get(status, "no total available")
+            self.analytics_plot.setTitle(f"Cost: NOT CHARTED - {why}")
 
-        report = f"💰 COST ANALYSIS (actual, from recorded cost)\n{'='*40}\n"
-        report += "Scope: Whole Well (cost is recorded at well level)\n"
-        report += f"Recorded Reports: {total_days}\n"
-        report += f"Recorded Time (days): {fmt_num(well_total_hours / 24 if well_total_hours is not None else None, 1, default=None)}\n"
-        report += f"NPT Days: {fmt_num(npt_days, 1, default=None)} ({fmt_num(npt_pct_value, 1, default=None)}%)\n"
-        report += f"Productive Days: {fmt_num(kpis.get('productive_hours') / 24 if kpis.get('productive_hours') is not None else None, 1, default=None)}\n\n"
-        report += f"📊 Cost (from persisted CostRecord actuals):\n"
-        report += f"  Total Actual Cost: {money(total_cost)}\n"
-        report += f"  Productive Cost:   {money(productive_cost)}\n"
-        report += f"  NPT Cost:          {money(npt_cost)}\n"
-        report += f"  Cost per Meter:    {money(cpm)}/m\n"
+        status_text = {
+            "single-currency": f"single currency ({currency})",
+            "multi-currency": "several currencies - totals NOT aggregated (no FX conversion)",
+            "unknown-currency": "currency missing on some lines - totals NOT aggregated",
+            "no-records": "no cost recorded for this well",
+        }.get(status, str(status))
+        bore = getattr(self, "current_wellbore_id", None)
+        report = f"💰 COST ANALYSIS (recorded CostRecord lines)\n{'='*40}\n"
+        report += "Scope: Whole Well (cost is recorded per well)"
+        report += (f"; the selected wellbore #{bore} is NOT attributed a share\n" if bore else "\n")
+        report += f"Currency: {status_text}\n"
+        report += f"Recorded reports: {total_days}\n"
+        report += f"Recorded time (days): {fmt_num(well_total_hours / 24 if well_total_hours is not None else None, 1, default=None)}\n"
+        report += (f"NPT time (days): {fmt_num(total_npt_hours / 24 if total_npt_hours is not None else None, 1, default=None)}"
+                   f" ({fmt_num(kpis.get('npt_percent'), 1, default=None)}% of recorded time)\n\n")
+        report += f"  Actual (recorded) total:  {money(total_cost)}\n"
+        report += f"  Estimate (planned) total: {money(planned)}\n"
+        report += f"  Variance (planned - actual; + = under estimate): {money(variance)}\n"
+        report += f"  NPT cost (actual x NPT share of recorded time): {money(npt_cost)}\n"
+        report += f"  Productive cost (actual - NPT cost): {money(productive_cost)}\n"
+        report += f"  Cost per metre (actual / current well depth): {money(cpm)}/m\n"
+        groups = kpis.get("cost_groups") or []
+        if not_summed and groups:
+            report += "\n  Per currency (each group in its own currency, never converted or added):\n"
+            for g in groups:
+                cur = g.get("currency")
+                label = f"{cur or 'no currency'} / {g.get('category') or 'uncategorised'}"
+                report += (f"    {label}: actual {format_money(g.get('actual'), cur)}; "
+                           f"estimate {format_money(g.get('planned'), cur)}\n")
+        if npt_note:
+            report += f"\n{npt_note}\n"
         if total_cost is None:
-            report += "\n(Cost not aggregatable: missing amounts or mixed/unknown currencies. See source cost lines.)\n"
-
+            report += ("\nActual total NOT ASSESSED: no records, a missing amount, or mixed/unknown "
+                       "currencies (see the cost lines in W16).\n")
         self.results_text.setText(report)
 
     @staticmethod
     def _risk_scores(npt_pct, days_without_lti, has_safety_report):
-        """Rule-based risk assessment (NOT a physical measurement).
+        """Rule-based per-category scores (NOT a measurement, NOT a probability).
 
-        Returns a dict mapping each risk category to either an integer score
-        (1-10) or ``None`` when the input needed to assess it is UNKNOWN. A
-        missing input must resolve to UNKNOWN — never a fabricated 0-days / max
-        score. Equipment and Weather have no data source here, so they are
-        UNKNOWN (NOT ASSESSED) rather than a made-up constant asserting a fact.
-
-        This is a business rule, not an engineering formula: thresholds are
-        deliberately explicit so the caller can label the result as an
-        assessment, and so it is unit-testable without Qt.
+        Delegates to the canonical rule table in ``core.analysis_evidence``;
+        an unknown input yields ``None`` (NOT ASSESSED), never a fabricated score.
         """
-        scores = {}
-
-        # 1. NPT Risk. Unknown NPT (no recorded time) can't be scored -> UNKNOWN.
-        if npt_pct is None:
-            scores["NPT Risk"] = None
-        elif npt_pct > 30:
-            scores["NPT Risk"] = 9
-        elif npt_pct > 20:
-            scores["NPT Risk"] = 7
-        elif npt_pct > 10:
-            scores["NPT Risk"] = 5
-        else:
-            scores["NPT Risk"] = 3
-
-        # 2. Equipment Risk — no data source in this assessment -> NOT ASSESSED.
-        scores["Equipment"] = None
-
-        # 3. Weather Risk — no data source in this assessment -> NOT ASSESSED.
-        scores["Weather"] = None
-
-        # 4. Well Control Risk, derived from NPT; unknown NPT -> UNKNOWN.
-        if npt_pct is None:
-            scores["Well Control"] = None
-        else:
-            scores["Well Control"] = 6 if npt_pct > 15 else 3
-
-        # 5. Safety Risk. With NO safety report (or a NULL days-without-LTI) the
-        # LTI history is UNKNOWN — it must NOT be scored as the maximum-risk
-        # 0-days case. Only a real recorded value is scored.
-        if not has_safety_report or days_without_lti is None:
-            scores["Safety"] = None
-        else:
-            d = days_without_lti
-            scores["Safety"] = 2 if d > 90 else 5 if d > 30 else 8
-
-        return scores
+        return ev.risk_scores(npt_pct, days_without_lti, has_safety_report)
 
     def analyze_risk(self, session):
-        """Rule-based whole-well risk assessment (not a measurement)."""
+        """Rule-based whole-well risk screening with its evidence and rules."""
         well_id = self.current_well_id
         if not well_id:
             self.results_text.setText("No well selected")
             return
-        
-        # Risk is a WHOLE-WELL assessment (safety records are well-scoped), so
-        # its NPT input is well-level too — kept consistent with the safety
-        # dimension rather than silently narrowed to the selected bore.
         from core.operations_intelligence import OperationsIntelligenceService
-        canonical_kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
-        total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
-        npt_pct = canonical_kpis.get("npt_percent")
-        
-        # Use the same ambiguity-aware observation as Intelligence, not .first().
-        days_no_lti = canonical_kpis.get("safety_kpi", {}).get("days_without_lti")
-        risk_scores = self._risk_scores(npt_pct, days_no_lti, days_no_lti is not None)
+        kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
+        if kpis.get("error"):
+            raise RuntimeError(f"canonical risk inputs failed: {kpis['error']}")
+        npt_pct = kpis.get("npt_percent")
+        # Same ambiguity-aware observation as Intelligence, not .first().
+        days_no_lti = (kpis.get("safety_kpi") or {}).get("days_without_lti")
+        days = ev.npt_daily_series(*ev.load_npt_inputs(session, ev.AnalysisScope(well_id=well_id)))
+        coverage = ev.npt_coverage_summary(days)
+        assessment = ev.risk_assessment(npt_pct, coverage, days_no_lti)
+        first, last = session.query(func.min(DailyReport.report_date),
+                                    func.max(DailyReport.report_date))\
+            .filter(DailyReport.well_id == well_id).one()
 
-        # Only categories with a real (non-UNKNOWN) score are charted and count
-        # toward the overall score; UNKNOWN categories are reported as
-        # NOT ASSESSED, never plotted as a fabricated value.
-        assessed = {k: v for k, v in risk_scores.items() if v is not None}
-
-        # نمودار
+        charted = [c for c in assessment["criteria"] if c["assessed"] and not c["proxy"]]
         self.analytics_plot.clear()
-        categories = list(assessed.keys())
-        scores = list(assessed.values())
-        x = list(range(len(categories)))
-        
-        colors = []
-        for s in scores:
-            if s >= 7:
-                colors.append('#e74c3c')
-            elif s >= 4:
-                colors.append('#f39c12')
-            else:
-                colors.append('#2ecc71')
-        
-        if scores:
-            bargraph = pg.BarGraphItem(x=x, height=scores, width=0.6, brushes=colors)
-            self.analytics_plot.addItem(bargraph)
-        
-        # خط threshold
-        threshold = pg.InfiniteLine(pos=7, angle=0, pen=pg.mkPen('#e74c3c', width=2, style=Qt.DashLine))
-        self.analytics_plot.addItem(threshold)
-        
-        overall = sum(scores) / len(scores) if scores else None
-        
-        report = f"⚠️ RISK ASSESSMENT (rule-based, not a measurement)\n{'='*40}\n"
-        if overall is None:
-            report += "Overall Risk Score: NOT ASSESSED (insufficient data)\n\n"
+        if charted:
+            scores = [c["score"] for c in charted]
+            colors = ['#e74c3c' if s >= 7 else '#f39c12' if s >= 4 else '#2ecc71' for s in scores]
+            self.analytics_plot.addItem(pg.BarGraphItem(
+                x=list(range(len(scores))), height=scores, width=0.6, brushes=colors))
+            self.analytics_plot.addItem(pg.InfiniteLine(
+                pos=7, angle=0, pen=pg.mkPen('#e74c3c', width=2, style=Qt.DashLine)))
+            self.analytics_plot.setLabel("bottom", "Criterion (only assessed, non-proxy criteria are charted)")
+            self.analytics_plot.getPlotItem().getAxis("bottom").setTicks(
+                [[(i, c["name"]) for i, c in enumerate(charted)]])
+            self.analytics_plot.setLabel("left", "Rule score (0-10)")
+            self.analytics_plot.setTitle("Rule-based risk screening per criterion (not a probability)")
         else:
-            report += f"Overall Risk Score: {overall:.1f}/10 (assessed categories only)\n"
-            report += f"Risk Level: {'HIGH' if overall > 7 else 'MEDIUM' if overall > 4 else 'LOW'}\n\n"
-        report += "📊 Risk Breakdown:\n"
-        
-        for cat, score in risk_scores.items():
-            if score is None:
-                report += f"  {cat:20s}: NOT ASSESSED (insufficient data)\n"
-                continue
-            level = "🔴 HIGH" if score >= 7 else "🟡 MEDIUM" if score >= 4 else "🟢 LOW"
-            bar = "█" * score + "░" * (10 - score)
-            report += f"  {cat:20s}: [{bar}] {score}/10 {level}\n"
-        
-        report += f"\n📈 Key Metrics:\n"
-        report += "Scope: Whole Well (safety/NPT risk assessed at well level)\n"
-        report += f"  Recorded Reports: {total_days}\n"
-        report += f"  NPT Percentage: {fmt_num(npt_pct, 1, default=None)}%\n"
-        report += (
-            f"  Days without LTI: {days_no_lti}\n" if days_no_lti is not None
-            else "  Days without LTI: UNKNOWN (missing or ambiguous safety observation)\n"
-        )
-        
+            self.analytics_plot.setTitle("Risk: NOT ASSESSED - no criterion could be scored (see below)")
+
+        overall = assessment["overall"]
+        report = f"⚠️ RISK SCREENING (rule-based; NOT a probability or a measurement)\n{'='*40}\n"
+        report += "Scope: Whole Well (NPT and safety are assessed at well level)"
+        bore = getattr(self, "current_wellbore_id", None)
+        report += (f"; not narrowed to wellbore #{bore}\n" if bore else "\n")
+        report += f"Period: {first or '—'} to {last or '—'}\n"
+        if overall["assessed"]:
+            report += f"Overall level: {overall['level']} ({overall['reason']})\n"
+        else:
+            report += f"Overall level: NOT ASSESSED - {overall['reason']}\n"
+        report += f"Level rule: {assessment['level_rule']}\n\nCriteria:\n"
+        for c in assessment["criteria"]:
+            tag = " [proxy, not counted]" if c["proxy"] else (" [required]" if c["required"] else "")
+            if c["assessed"]:
+                report += f"  {c['name']}{tag}: {c['score']}/10 {c['level']}\n"
+            else:
+                report += f"  {c['name']}{tag}: NOT ASSESSED - {c['reason']}\n"
+            report += f"      rule: {c['rule']}\n"
+        report += "\nSources:\n"
+        report += (f"  NPT %: TimeLog24H via DailyReport (summarize_time_logs) = "
+                   f"{fmt_num(npt_pct, 1, default=None)}%; time coverage "
+                   f"{coverage['covered_days']} of {coverage['days']} report dates complete\n")
+        report += ("  Safety: SafetyReport (safety_semantics.safety_kpis), days without LTI = "
+                   + (f"{days_no_lti}\n" if days_no_lti is not None
+                      else "UNKNOWN (missing or ambiguous safety observation)\n"))
         self.results_text.setText(report)
-        
+
     def update_stat_card_value(self, card, new_val):
-        if hasattr(card, 'value_label'):
-            parts = card.value_label.text().split()
-            unit = parts[-1] if len(parts) >= 3 else ''
-            card.value_label.setText(f"<b>{new_val}</b> {unit}")
+        """Set a stat card's text; the unit is the card's own (never parsed back)."""
+        unit = getattr(card, "unit", "")
+        card.value_label.setText(f"<b>{new_val}</b> {unit}".rstrip())
 
     def update_perf_kpi_card(self, idx, new_val):
         if idx < len(self.perf_kpi_cards):
             self.update_stat_card_value(self.perf_kpi_cards[idx], new_val)
 
     def toggle_auto_update(self, state):
-        intervals = {0:5000, 1:10000, 2:30000, 3:60000, 4:300000}
-        if state == Qt.Checked:
-            self.update_timer.start(intervals.get(self.auto_update_interval.currentIndex(), 10000))
-            self.status_label.setText("🟢 Monitoring Active")
+        if state in (Qt.Checked, Qt.Checked.value, 2):
+            self.update_timer.start(self._auto_update_interval_ms())
+            self._set_status("🟢 Monitoring Active", "ok")
             self.update_all_data()
         else:
             self.update_timer.stop()
-            self.status_label.setText("🟡 Monitoring Paused")
+            self._set_status("🟡 Monitoring Paused", "warn")
 
     def load_milestones_data(self):
         """Milestones (FACT vs PLAN) per Section — scope-aware, no fabrication.
@@ -2622,7 +3051,8 @@ class AnalysisWidget(DrillTabBase):
         plan_days = [v if v is not None else float("nan") for v in plan_days]
         
         try:
-            fig, ax = plt.subplots(figsize=(10, 5), facecolor='#1e1e1e')
+            fig = Figure(figsize=(10, 5), facecolor='#1e1e1e')
+            ax = fig.add_subplot(111)
             ax.set_facecolor('#1e1e1e')
             
             x = np.arange(len(sections))
@@ -2671,7 +3101,6 @@ class AnalysisWidget(DrillTabBase):
                 safe_replace_chart(self.milestones_widget, canvas)
             else:
                 logger.warning("milestones_widget not available")
-            plt.close(fig)
         except Exception as e:
             logger.error(f"Error drawing milestones chart: {e}")
         
@@ -2683,7 +3112,11 @@ class AnalysisWidget(DrillTabBase):
             self.sel_manager, "current_wellbore_id", None)
         self.current_wellbore_name = None
         self.current_report_id = getattr(self.sel_manager, "current_report_id", None)
-        self.set_current_well(well_id, well_data.get('name', str(well_id)))
+        self.set_current_well(well_id, (well_data or {}).get('name', str(well_id)))
+
+    def on_selection_cleared(self):
+        """SelectionManager.clear(): nothing of the previous well may stay on screen."""
+        self._show_no_selection()
 
     def on_wellbore_changed(self, wellbore_id, wellbore_data):
         """Re-scope analytics to the selected wellbore (bore) and refresh.
@@ -2693,11 +3126,13 @@ class AnalysisWidget(DrillTabBase):
         Unknown-bore records are excluded from a bore-scoped view (never
         attributed to the selected bore).
         """
-        self.current_wellbore_id = wellbore_id
+        # wellbore_changed is Signal(int, ...): select_wellbore(None) arrives as 0.
+        self.current_wellbore_id = wellbore_id or None
         self.current_report_id = getattr(self.sel_manager, "current_report_id", None)
         self.current_section_id = getattr(self.sel_manager, "current_section_id", None)
         self.current_wellbore_name = (
             (wellbore_data or {}).get("name") if wellbore_data else None)
+        self._generation += 1
         self.clear_cache()
         self.update_scope_indicator()
         if self.current_well_id:
@@ -2723,7 +3158,7 @@ class AnalysisWidget(DrillTabBase):
                 "Analytics are scoped to this wellbore only. "
                 "Records with an unknown bore are excluded.")
             label.setStyleSheet(
-                "font-weight: bold; padding: 5px; color: #8e44ad;")
+                "font-weight: bold; padding: 5px; color: #bb8fce;")
         else:
             has_bores = False
             try:
@@ -2738,8 +3173,9 @@ class AnalysisWidget(DrillTabBase):
                 label.setToolTip(
                     "This well has multiple wellbores. Figures aggregate every "
                     "bore (original + sidetracks) plus any unknown-bore records.")
+                # Readable on the dark header (#2c3e50 text was invisible there).
                 label.setStyleSheet(
-                    "font-weight: bold; padding: 5px; color: #2c3e50;")
+                    "font-weight: bold; padding: 5px; color: #f5b041;")
             else:
                 label.setText("🌐 Scope: Whole Well")
                 label.setToolTip("Analytics for the whole well.")
@@ -2749,12 +3185,16 @@ class AnalysisWidget(DrillTabBase):
     def on_section_changed(self, section_id, section_data):
         self.current_section_id = section_id
         self.current_report_id = None
+        self._generation += 1
         self.clear_cache()
         self.update_data_quality()
         self.update_daily_data()
+        if PYQTGRAPH_AVAILABLE:
+            self.refresh_evidence()  # a section-level evidence view must follow
 
     def on_report_changed(self, report_id, report_data):
         self.current_report_id = report_id
+        self._generation += 1
         self.clear_cache()
         self.update_data_quality()
         self.update_plan_variance()
@@ -2827,35 +3267,156 @@ class AnalysisWidget(DrillTabBase):
             self.quality_label.setText("Data Quality: unavailable")
 
     def set_current_well(self, well_id, well_name):
+        # SelectionManager.well_changed is Signal(int, object): select_well(None)
+        # arrives here as 0. Any falsy id is "no well", never well "0".
+        if not well_id:
+            self._show_no_selection()
+            return
+        self._generation += 1
         self.current_well_id = well_id
         self.current_well_name = well_name
         self.clear_cache()
+        self._data_rev = None
+        self._last_kpis = None
+        self._evidence_rows = []
+        if not PYQTGRAPH_AVAILABLE:
+            return
         self.well_label.setText(f"🌍 Well: {well_name}")
-        self.status_label.setText("🟢 Ready for Analysis")
+        self._set_status("🟡 Loading…", "warn")
         self.help_label.setVisible(False)
         self.analysis_tabs.setVisible(True)
         self.bottom_widget.setVisible(True)
-        self.auto_update_check.setChecked(True)
+        # Start monitoring without the checkbox handler running a second,
+        # redundant full update of the same well.
+        if not self.auto_update_check.isChecked():
+            self.auto_update_check.blockSignals(True)
+            self.auto_update_check.setChecked(True)
+            self.auto_update_check.blockSignals(False)
+        self.update_timer.start(self._auto_update_interval_ms())
         self.update_scope_indicator()
         self.update_data_quality()
         self.update_plan_variance()
         self.update_intelligence()
         self.update_all_data()
 
+    def _auto_update_interval_ms(self):
+        intervals = {0: 5000, 1: 10000, 2: 30000, 3: 60000, 4: 300000}
+        return intervals.get(self.auto_update_interval.currentIndex(), 10000)
+
+    def _show_no_selection(self):
+        """Clear every value, chart and table to an explicit no-selection state."""
+        self._generation += 1
+        self.current_well_id = None
+        self.current_well_name = None
+        self.current_wellbore_id = None
+        self.current_wellbore_name = None
+        self.current_section_id = None
+        self.current_report_id = None
+        self.clear_cache()
+        self._data_rev = None
+        self._last_kpis = None
+        self._evidence_rows = []
+        self._evidence_meta = None
+        self.update_timer.stop()
+        for name, data in list(self.chart_data.items()):
+            self.chart_data[name] = None
+        self.quality_label.setText("Data Quality: —")
+        self.plan_variance_label.setText("Plan vs Actual: —")
+        self.intelligence_label.setText("Operations Intelligence: —")
+        if not PYQTGRAPH_AVAILABLE:
+            return
+        self.auto_update_check.blockSignals(True)
+        self.auto_update_check.setChecked(False)
+        self.auto_update_check.blockSignals(False)
+        self.well_label.setText("🌍 Well: Not Selected")
+        self._set_status("🔴 No well selected", "error")
+        self.scope_label.setText("🌐 Scope: —")
+        self.last_update_label.setText("Last update: --:--:--")
+        none = ev.MetricValue(ev.STATE_NO_SELECTION)
+        for card in self.kpi_cards:
+            self._set_kpi_card(card, none, "No well selected")
+        for card in (*self.perf_kpi_cards, self.npt_total_card, self.npt_percent_card,
+                     self.npt_daily_card):
+            self._set_stat_card(card, none)
+        self._set_category_card("—", "")
+        self.npt_coverage_label.setText("Time coverage: —")
+        for plot in (self.time_depth_plot, self.daily_gain_plot, self.performance_plot,
+                     self.dexponent_plot, self.analytics_plot, self.evidence_plot):
+            plot.clear()
+        for plot in (self.time_depth_plot, self.performance_plot, self.evidence_plot):
+            plot.setTitle("No well selected", color="#95a5a6")
+        self._reset_analytics_chart()
+        self._replace_npt_pie(None, "No well selected")
+        for table in (self.time_depth_table, self.npt_table, self.performance_table,
+                      self.dexponent_table, self.recent_reports_table, self.cost_table,
+                      self.evidence_table):
+            table.setRowCount(0)
+        for indicator in self.today_indicators.values():
+            indicator.setText("—")
+        self.results_text.setText("No well selected")
+        self.evidence_state_label.setText("Evidence: select a well")
+        self.evidence_open_btn.setEnabled(False)
+        if getattr(self, "milestones_widget", None) is not None:
+            safe_replace_chart(self.milestones_widget, QLabel("Milestones: no well selected"))
+        self.help_label.setVisible(True)
+        self.analysis_tabs.setVisible(False)
+        self.bottom_widget.setVisible(False)
+
+    def refresh_now(self):
+        """Refresh Now / Retry: re-read everything for the current scope (cache bypassed)."""
+        self.clear_cache()
+        self._data_rev = None
+        self.update_all_data()
+
+    def refresh(self):
+        # MainWindow.refresh_all_tabs() calls refresh(); the base load_data()
+        # is a no-op, which left this page on pre-change numbers.
+        self.refresh_now()
+
+    def load_data(self):
+        self.refresh_now()
+
+    def cleanup(self):
+        self._generation += 1
+        self.update_timer.stop()
+
     def update_all_data(self):
-        if not self.current_well_id: return
+        if not self.current_well_id or not PYQTGRAPH_AVAILABLE:
+            # Without PyQtGraph the page shows its notice and has no charts,
+            # cards or tables to paint.
+            return
+        generation = self._generation
         try:
-            self.update_kpi_data()
-            self.update_time_depth_data()
-            self.update_npt_data()
-            self.update_performance_data()
-            self.update_daily_data()
-            self.update_analytics()
-            self.load_milestones_data() 
-            self.last_update_label.setText(f"Last update: {QTime.currentTime().toString('HH:mm:ss')}")
-        except Exception as e:
-            self.status_label.setText("🔴 Error in data update")
-            logger.error(f"Update error: {e}")
+            revision = self._read_revision()
+        except Exception as exc:
+            logger.error("Analysis data revision unavailable: %s", type(exc).__name__, exc_info=True)
+            revision = None
+        if revision is None or revision != self._data_rev:
+            # Source data changed (or cannot be fingerprinted): no cached value
+            # of the old data may be reused.
+            self.clear_cache()
+            self._data_rev = revision
+        failed = []
+        self._load_errors = []
+        for step in (self.update_kpi_data, self.update_time_depth_data, self.update_npt_data,
+                     self.update_performance_data, self.update_daily_data, self.update_analytics,
+                     self.load_milestones_data, self.update_evidence):
+            if generation != self._generation:
+                return  # the selection changed meanwhile; its own update paints
+            try:
+                step()
+            except Exception as exc:
+                failed.append(step.__name__)
+                logger.error("Analysis update step %s failed: %s", step.__name__,
+                             type(exc).__name__, exc_info=True)
+        if generation != self._generation:
+            return
+        failed += [f"read {name}" for name in dict.fromkeys(self._load_errors)]
+        if failed:
+            self._set_status("🔴 Error in: " + ", ".join(failed) + " - use Refresh Now to retry", "error")
+        else:
+            self._set_status("🟢 Updated", "ok")
+        self.last_update_label.setText(f"Last update: {QTime.currentTime().toString('HH:mm:ss')}")
 
     def auto_update_data(self):
         if self.current_well_id and self.auto_update_check.isChecked():
@@ -2870,21 +3431,24 @@ class AnalysisWidget(DrillTabBase):
         """اکسپورت نمودار انتخابی"""
         return self.export_chart_image(chart_type)
 
-    def export_all_charts(self):
+    def export_all_charts(self, filename=None):
         if not self.current_well_id:
             QMessageBox.warning(self, "No Data", "Please select a well first")
             return
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Export Charts", f"analysis_charts_{timestamp}.pdf",
-            "PDF Files (*.pdf);;PNG Images (*.png)"
-        )
-        if not filename:
-            return
-        export_mgr = ExportManager(self)
-        if filename.endswith('.pdf'):
-            self.export_dashboard()
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export Charts", f"analysis_charts_{timestamp}.pdf",
+                "PDF Files (*.pdf);;PNG Images (*.png)"
+            )
+            if not filename:
+                return
+        if filename.lower().endswith('.pdf'):
+            # The chosen file name is honoured (previously a second dialog
+            # was opened and this name was discarded).
+            self.export_dashboard(filename)
         else:
+            export_mgr = ExportManager(self)
             base = filename.replace('.png', '')
             
             charts = [self.time_depth_plot, self.daily_gain_plot, self.performance_plot, self.npt_pie_plot]
@@ -2894,7 +3458,7 @@ class AnalysisWidget(DrillTabBase):
                 if export_mgr.export_image(plot, png_file):
                     saved_files.append(os.path.basename(png_file))
             self.show_success(f"Exported {len(saved_files)} chart images successfully")
-            QMessageBox.information(self, "Export Complete", f"Charts successfully exported:\n" + "\n".join(saved_files))
+            QMessageBox.information(self, "Export Complete", "Charts successfully exported:\n" + "\n".join(saved_files))
 
     def _export_charts_to_pdf(self, filename):
         """Export charts to PDF"""
@@ -2985,20 +3549,21 @@ class AnalysisWidget(DrillTabBase):
         except Exception as e:
             self.show_error(f"Export failed: {str(e)}")
             
-    def export_dashboard(self):
-        """اکسپورت داشبورد به PDF"""
+    def export_dashboard(self, filename=None):
+        """Export the dashboard report to PDF/HTML (the given filename is honoured)."""
         if not self.current_well_id:
             QMessageBox.warning(self, "No Data", "Please select a well first")
             return
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Export Dashboard",
-            f"dashboard_{self.current_well_name}_{timestamp}.pdf",
-            "PDF Files (*.pdf);;HTML Files (*.html)"
-        )
-        if not filename:
-            return
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export Dashboard",
+                f"dashboard_{self.current_well_name}_{timestamp}.pdf",
+                "PDF Files (*.pdf);;HTML Files (*.html)"
+            )
+            if not filename:
+                return
         
         try:
             html = self._generate_report_html()
@@ -3023,113 +3588,78 @@ class AnalysisWidget(DrillTabBase):
             QMessageBox.information(self, "Export", f"Dashboard exported to:\n{filename}")
             
         except Exception as e:
-            logger.error(f"Dashboard export error: {e}")
-            self.show_error(f"Export failed: {str(e)}")
+            logger.error("Dashboard export error: %s", type(e).__name__, exc_info=True)
+            self.show_error(f"Export failed: {type(e).__name__}")
 
-    def export_all_data(self):
-        """اکسپورت همه داده‌ها به Excel"""
+    def _typed_datasets(self):
+        """The datasets behind the charts/tables, typed (numbers, dates, None)."""
+        tables = {}
+        td = self.chart_data.get('time_depth') or {}
+        if td.get('data'):
+            tables['time_depth'] = (
+                ("date", "day", "depth_2400_m", "depth_change_m", "status"),
+                [(r['date'], r['day'], r['depth'], r['gain'], r['status']) for r in td['data']])
+        npt = self.chart_data.get('npt') or {}
+        if npt.get('entries'):
+            tables['npt'] = (
+                ("date", "from", "to", "hours", "npt_code", "description"),
+                [(e['date'], e.get('from'), e.get('to'), e['hours'], e['category'],
+                  e['description']) for e in npt['entries']])
+        perf = self.chart_data.get('performance') or []
+        if perf:
+            tables['performance'] = (
+                ("date", "bit_run", "avg_rop_m_hr", "wob_mid_klb", "rpm_mid", "torque_mid_klb_ft",
+                 "pump_pressure_mid_psi", "depth_out_m", "depth_in_m", "hours_on_bottom_h",
+                 "bit_size_in"),
+                [(d['date'], d['bit_run'], d['rop'], d['wob'], d['rpm'], d['torque'], d['pressure'],
+                  d['depth'], d['depth_in'], d['hours_on_bottom'], d['bit_size']) for d in perf])
+        if self._evidence_rows:
+            tables['evidence'] = (
+                ev.EXPORT_COLUMNS,
+                [tuple(getattr(r, c) for c in ev.EXPORT_COLUMNS) for r in self._evidence_rows])
+        return tables
+
+    def export_all_data(self, filename=None):
+        """Export the analysis datasets with types, units, IDs and metadata.
+
+        Built from the same typed datasets that feed the charts — never from
+        QTableWidget text, so a missing value stays empty and a real 0 stays 0.
+        """
         if not self.current_well_id:
             QMessageBox.warning(self, "No Data", "Please select a well first")
-            return
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Export All Analysis Data",
-            f"analysis_data_{self.current_well_name}_{timestamp}.xlsx",
-            "Excel Files (*.xlsx);;CSV Files (*.csv)"
-        )
-        if not filename:
-            return
-        
+            return None
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export All Analysis Data",
+                f"analysis_data_{timestamp}.xlsx",
+                "Excel Files (*.xlsx);;CSV Files (*.csv)"
+            )
+            if not filename:
+                return None
+        tables = self._typed_datasets()
+        if not tables:
+            self.show_warning("No analysis data to export for this scope")
+            return None
+        scope = self._analysis_scope()
+        metadata = ev.export_metadata(
+            scope.label(), "analysis datasets", "per column name", "see column names (unit suffix)",
+            "all dates in scope",
+            {"well_id": scope.well_id, "wellbore_id": scope.wellbore_id,
+             "tables": ", ".join(tables)})
         try:
-            if filename.endswith('.xlsx'):
-                try:
-                    import pandas as pd
-                    
-                    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-                        # Time Depth Data
-                        if self.time_depth_table.rowCount() > 0:
-                            td_data = self._table_to_dataframe(self.time_depth_table)
-                            td_data.to_excel(writer, sheet_name='Time_Depth', index=False)
-                        
-                        # NPT Data
-                        if self.npt_table.rowCount() > 0:
-                            npt_data = self._table_to_dataframe(self.npt_table)
-                            npt_data.to_excel(writer, sheet_name='NPT', index=False)
-                        
-                        # Performance Data
-                        if self.performance_table.rowCount() > 0:
-                            perf_data = self._table_to_dataframe(self.performance_table)
-                            perf_data.to_excel(writer, sheet_name='Performance', index=False)
-                        
-                        # Recent Reports
-                        if self.recent_reports_table.rowCount() > 0:
-                            reports_data = self._table_to_dataframe(self.recent_reports_table)
-                            reports_data.to_excel(writer, sheet_name='Recent_Reports', index=False)
-                    
-                    self.show_success(f"Data exported to: {os.path.basename(filename)}")
-                    QMessageBox.information(self, "Export", f"All data exported to:\n{filename}")
-                    
-                except ImportError:
-                    self.show_error("Install pandas: pip install pandas openpyxl")
+            if filename.lower().endswith('.xlsx'):
+                ev.export_tables_xlsx(filename, tables, metadata)
+                written = [filename]
             else:
-                # CSV fallback
-                tables = {
-                    'time_depth': self.time_depth_table,
-                    'npt': self.npt_table,
-                    'performance': self.performance_table,
-                }
-                base = filename.replace('.csv', '')
-                for name, table in tables.items():
-                    if table.rowCount() > 0:
-                        csv_file = f"{base}_{name}.csv"
-                        self._export_table_to_csv(table, csv_file)
-                
-                self.show_success("Data exported as CSV files")
-        
+                written = ev.export_tables_csv(filename, tables, metadata)
         except Exception as e:
-            logger.error(f"Data export error: {e}")
-            self.show_error(f"Export failed: {str(e)}")
+            logger.error("Data export error: %s", type(e).__name__, exc_info=True)
+            self.show_error(f"Export failed: {type(e).__name__}")
+            return None
+        self.show_success("Data exported: " + ", ".join(os.path.basename(f) for f in written))
+        return written
 
-    def _table_to_dataframe(self, table):
-        """تبدیل QTableWidget به pandas DataFrame"""
-        import pandas as pd
-        
-        headers = []
-        for col in range(table.columnCount()):
-            header = table.horizontalHeaderItem(col)
-            h = header.text() if header else f"Col_{col}"
-            # حذف emoji از header
-            h = ''.join(c for c in h if c.isalnum() or c in (' ', '_', '-', '(', ')', '/', '.'))
-            headers.append(h.strip())
-        
-        data = []
-        for row in range(table.rowCount()):
-            row_data = []
-            for col in range(table.columnCount()):
-                item = table.item(row, col)
-                row_data.append(item.text() if item else "")
-            data.append(row_data)
-        
-        return pd.DataFrame(data, columns=headers)
-
-    def _export_table_to_csv(self, table, filename):
-        """اکسپورت جدول به CSV"""
-        import csv
-        with open(filename, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            headers = []
-            for col in range(table.columnCount()):
-                header = table.horizontalHeaderItem(col)
-                headers.append(header.text() if header else f"Col_{col}")
-            writer.writerow(headers)
-            for row in range(table.rowCount()):
-                row_data = []
-                for col in range(table.columnCount()):
-                    item = table.item(row, col)
-                    row_data.append(item.text() if item else "")
-                writer.writerow(row_data)
-                
     def print_comprehensive_report(self):
         """Print comprehensive analysis report"""
         if not self.current_well_id:
@@ -3157,8 +3687,10 @@ class AnalysisWidget(DrillTabBase):
             self.show_error(f"Print failed: {str(e)}")
 
     def _generate_report_html(self):
-        """Generate HTML report"""
-        html = f"""
+        """HTML report from the typed datasets; every inserted text is escaped."""
+        esc = html_lib.escape
+        scope = self._analysis_scope() if self.current_well_id else None
+        parts = [f"""
         <html>
         <head>
             <style>
@@ -3175,56 +3707,52 @@ class AnalysisWidget(DrillTabBase):
         </head>
         <body>
             <h1>📊 DrillMaster Analysis Report</h1>
-            <p><b>Well:</b> {self.current_well_name or 'Unknown'}</p>
+            <p><b>Well:</b> {esc(str(self.current_well_name or 'Unknown'))}</p>
+            <p><b>Scope:</b> {esc(scope.label() if scope else 'No well selected')}</p>
             <p><b>Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-            
+            <p><i>{esc(ev.NULL_POLICY)}</i></p>
+
             <h2>📈 Key Performance Indicators</h2>
             <div>
-        """
-        
-        # KPI cards
-        kpi_labels = ["Current Depth", "Rig Days", "Avg ROP", "Total NPT"]
-        for i, label in enumerate(kpi_labels):
-            if i < len(self.kpi_cards) and hasattr(self.kpi_cards[i], 'value_label'):
-                value = self.kpi_cards[i].value_label.text()
-                html += f'<div class="kpi"><b>{label}:</b><br><span class="kpi-value">{value}</span></div>'
-        
-        html += """
+        """]
+        for card, key in zip(self.kpi_cards, ("current_depth", "rig_days", "avg_rop", "total_npt")):
+            title = ev.KPI_DEFINITIONS[key][0]
+            metric = getattr(card, "metric_value", None)
+            value = metric.text() if metric is not None else "—"
+            parts.append(f'<div class="kpi"><b>{esc(title)}:</b><br>'
+                         f'<span class="kpi-value">{esc(value)}</span></div>')
+        parts.append("""
             </div>
-            
             <h2>📋 Depth History</h2>
             <table>
-                <tr><th>Date</th><th>Days</th><th>Depth (m)</th><th>Daily Gain</th><th>Status</th></tr>
-        """
-        
-        # Table data
-        for row in range(min(20, self.time_depth_table.rowCount())):
-            html += "<tr>"
-            for col in range(self.time_depth_table.columnCount()):
-                item = self.time_depth_table.item(row, col)
-                html += f"<td>{item.text() if item else ''}</td>"
-            html += "</tr>"
-        
-        html += """
+                <tr><th>Date</th><th>Day</th><th>Depth at 24:00 (m)</th><th>Depth change (m)</th><th>Status</th></tr>
+        """)
+
+        def cell(value, digits=1):
+            if value is None:
+                return "—"
+            if isinstance(value, float):
+                return f"{value:.{digits}f}"
+            return esc(str(value))
+
+        td = self.chart_data.get('time_depth') or {}
+        for r in (td.get('data') or [])[:20]:
+            parts.append("<tr>" + "".join(f"<td>{cell(v)}</td>" for v in (
+                r['date'], r['day'], r['depth'], r['gain'], r['status'])) + "</tr>")
+        parts.append("""
             </table>
-            
-            <h2>⏱️ NPT Summary</h2>
+            <h2>⏱️ NPT by code</h2>
             <table>
-                <tr><th>Category</th><th>Hours</th></tr>
-        """
-        
-        for row in range(min(10, self.npt_table.rowCount())):
-            cat = self.npt_table.item(row, 4)
-            hours = self.npt_table.item(row, 3)
-            if cat and hours:
-                html += f"<tr><td>{cat.text()}</td><td>{hours.text()}</td></tr>"
-        
-        html += """
+                <tr><th>NPT code</th><th>Hours</th></tr>
+        """)
+        npt = self.chart_data.get('npt') or {}
+        for code, hours in sorted((npt.get('categories') or {}).items(),
+                                  key=lambda kv: kv[1], reverse=True)[:10]:
+            parts.append(f"<tr><td>{esc(str(code))}</td><td>{cell(hours)}</td></tr>")
+        parts.append("""
             </table>
             <p><i>Generated by DrillMaster</i></p>
         </body>
         </html>
-        """
-        
-        return html
-        
+        """)
+        return "".join(parts)

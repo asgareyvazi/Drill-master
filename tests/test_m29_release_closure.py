@@ -453,26 +453,33 @@ def test_rop_forecast_uses_calendar_dates_not_observation_ordinals(env):
     from tabs.w12_Analysis import AnalysisWidget
 
     db, ids = env
+    # M48: a projection needs >= 5 distinct dates (a line through 2 points has
+    # no residual and is not evidence of a trend). Irregular calendar gaps keep
+    # this test's point: x is the calendar day, never the observation ordinal.
     with db.session_scope() as s:
         s.add_all(
             [
-                DrillingParameters(well_id=ids["well"], report_date=date(2026, 1, 1), avg_rop=0),
-                DrillingParameters(well_id=ids["well"], report_date=date(2026, 1, 10), avg_rop=9),
+                DrillingParameters(well_id=ids["well"], report_date=date(2026, 1, day), avg_rop=day - 1)
+                for day in (1, 3, 6, 8, 10)
             ]
         )
-    plotted, messages = [], []
+    plotted, messages, titles = [], [], []
     stub = SimpleNamespace(
         current_well_id=ids["well"],
         _scope_params_query=lambda s: s.query(DrillingParameters).filter_by(well_id=ids["well"]),
         _scope_reports_query=lambda s: s.query(DailyReport).filter_by(well_id=ids["well"]),
-        analytics_plot=SimpleNamespace(clear=lambda: None, plot=lambda *a, **k: plotted.append(a)),
+        analytics_plot=SimpleNamespace(clear=lambda: None, plot=lambda *a, **k: plotted.append(a),
+                                       setTitle=titles.append,
+                                       setLabel=lambda axis, text, **k: titles.append((axis, text))),
         results_text=SimpleNamespace(setText=messages.append),
     )
     with db.session_scope() as s:
         AnalysisWidget.analyze_rop_prediction(stub, s)
-    assert plotted[0][0] == [1, 10] and plotted[0][1] == [0, 9]
+    assert plotted[0][0] == [1, 3, 6, 8, 10] and plotted[0][1] == [0, 2, 5, 7, 9]
     assert plotted[2][0] == [11, 12, 13, 14, 15]
     assert "1.000 m/hr per day" in messages[-1]
+    assert any(isinstance(x, str) and x.startswith("Projection") for x in titles)
+    assert ("bottom", "Calendar day (day 1 = first valid date)") in titles
 
 
 @pytest.mark.parametrize("rig_days", [None, 0])
