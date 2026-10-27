@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import resource
 import sys
 import time
 from pathlib import Path
@@ -46,6 +45,17 @@ from m49_knowledge_fixtures import corpus_db  # noqa: E402
 
 TOP_K = 5
 
+
+def peak_rss_mb():
+    """Peak resident memory of this process in MB where the platform reports
+    it (POSIX ``resource``; Linux reports KiB).  Elsewhere (Windows) the value
+    is "NOT MEASURED" - never an estimate."""
+    try:
+        import resource
+    except ImportError:
+        return "NOT MEASURED (no resource module on this platform)"
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return round(peak / (1024 * 1024 if sys.platform == "darwin" else 1024), 1)   # macOS reports bytes
 
 def _fold(value: str) -> str:
     return kr.fold(value)
@@ -195,7 +205,7 @@ def evaluate() -> dict:
         "index_build_ms": round(build_ms, 1), "chunks": len(index.chunks), "pages": len(snapshot.pages),
         "answer_latency_ms_median": round(sorted(latencies)[len(latencies) // 2], 2),
         "answer_latency_ms_max": round(max(latencies), 2),
-        "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1),
+        "peak_rss_mb": peak_rss_mb(),
         "semantic_retrieval": "NOT RUN (no local embedding model installed; registry unreachable)",
         "real_generation": "NOT RUN (no local LLM installed; registry unreachable)",
     }

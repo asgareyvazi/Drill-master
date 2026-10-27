@@ -60,3 +60,29 @@ def test_ratio_floors(result):
 def test_not_run_items_are_labelled(result):
     s = result["summary"]
     assert s["semantic_retrieval"].startswith("NOT RUN") and s["real_generation"].startswith("NOT RUN")
+
+
+POSIX_ONLY = ("resource", "fcntl", "termios", "pwd", "grp")
+M49_MODULES = ("core.local_llm", "core.knowledge_retrieval", "core.knowledge_answer", "tabs.knowledge_assistant",
+               "knowledge_eval_m49", "m49_fake_ollama", "m49_knowledge_fixtures", "m49_gold_questions",
+               "test_m49_local_llm", "test_m49_knowledge_retrieval", "test_m49_knowledge_answer",
+               "test_m49_knowledge_gold", "test_m49_knowledge_ui", "test_m49_cache_integrity")
+
+
+def test_m49_modules_import_without_posix_only_modules():
+    """Windows has no ``resource``/``fcntl``/...: a module-level import of one
+    aborted the whole Windows gate at collection (41e2485).  Import every M49
+    module in a fresh interpreter in which those modules are unavailable."""
+    import subprocess
+    code = ("import sys\n"
+            f"for name in {POSIX_ONLY!r}: sys.modules[name] = None\n"
+            f"sys.path[:0] = [{str(ROOT)!r}, {str(ROOT / 'tests')!r}, {str(ROOT / 'tools' / 'quality')!r}]\n"
+            "import importlib\n"
+            f"for module in {M49_MODULES!r}: importlib.import_module(module)\n"
+            "import knowledge_eval_m49 as ev\n"
+            "assert ev.peak_rss_mb().startswith('NOT MEASURED'), ev.peak_rss_mb()\n"
+            "print('ok')\n")
+    env = dict(__import__("os").environ, QT_QPA_PLATFORM="offscreen")
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8",
+                          env=env, timeout=120, cwd=str(ROOT))
+    assert done.returncode == 0 and done.stdout.strip().endswith("ok"), done.stderr[-2000:]
