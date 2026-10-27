@@ -138,7 +138,7 @@ def main(argv=None) -> int:
     shot("m49_source_opened")
 
     assistant()
-    panel.chat_model_combo.setEditText("qwen2.5:3b")
+    panel.chat_model_combo.setEditText("qwen2.5:1.5b")
     panel.check_model()                       # real check: nothing listens on 127.0.0.1:11434 here
     end = time.monotonic() + 15
     while panel.model_status is None and time.monotonic() < end:

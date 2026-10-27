@@ -240,47 +240,47 @@
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_assistant_no_documents.png",
-      "sha256": "ca950c2a12ec7e8ebb01cf5c31d467c2717e87c4488b55e1bbcf1b9393c4cf56",
+      "sha256": "9707a014a7c4694e0dc6bf24642fd5d3910035d2f02b90898ee8946bb090b7cf",
       "provenance": "reviewed M49: Knowledge Assistant with an empty library: explicit no-documents state; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_library_search_results.png",
-      "sha256": "1d899247d26486594d64ad1eda470fb3c00bc7b48243a967b1e82dcf54d68f4e",
+      "sha256": "17d6f65d8fc8c6ba60739e107348814c595c7f8958feae7d0cd0eeb017215c21",
       "provenance": "reviewed M49: Library & Search keyword results (FTS5) for a synthetic question; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_multi_source_answer.png",
-      "sha256": "f578aa6de8726dce8cc0fcd5eefc6faa6b39c6043e356ab920e0614a85bdf6d7",
+      "sha256": "473e25f8ff5a3cbdb614be11d847981eafb0ea79ca1eaa26b55530d3a50ab4cb",
       "provenance": "reviewed M49: extractive answer citing two synthetic documents with a value-conflict note and the evidence table; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_source_opened.png",
-      "sha256": "a4abfcc339226eb7ec11d8c36b5f60d9bfd7ccc8c2794da618bb55da2690df92",
+      "sha256": "6a7d1e8a88f983b0666a0095ad3dea880b839b7ccc5b107535c6520d2d3e0f10",
       "provenance": "reviewed M49: cited passage [S3] opened in the library viewer with the exact span highlighted; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_model_unavailable.png",
-      "sha256": "cdc557d5f8ce36883d5c3c8e0af0a189d59e51ec382555d9e002bc9a76e27ae1",
+      "sha256": "c062ea6b376683eff68e666d6941295df81fb30fad5c42fd7aebf9585e791e3a",
       "provenance": "reviewed M49: real local-model check with no server on 127.0.0.1:11434 (connection refused) and setup guidance; extractive answer still shown; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_insufficient_evidence.png",
-      "sha256": "59e7e24d4984a04fa8776b3e531272778c93604678f66939b75e2d89dafec99a",
+      "sha256": "3ff69329d24926e725437eb000961bd3c66a719c018319809b417d1a39754369",
       "provenance": "reviewed M49: insufficient evidence: terms absent from the scope vs terms present but not together; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_persian_answer.png",
-      "sha256": "9e8afcbbe5d4c2f07803f5777b80dc1776ac56207a5b43ad9947596f6bb1493e",
+      "sha256": "c416b7f19c5f97dd72f81e7c19a264e5ea58e558b4bfdbc499c6829b800fd27d",
       "provenance": "reviewed M49: Persian question (Arabic yeh) with a right-to-left extractive answer; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_injection_flagged.png",
-      "sha256": "beb951b22c218beba0cc1ed28bdd64357cded30287f13dfd47d5456e51f4bece",
+      "sha256": "95df0a8deca020bb8b67afe68c0d9583aa80e5991ca72d04572b57d44c1211a4",
       "provenance": "reviewed M49: source with instruction-like text flagged; only its factual sentence quoted; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     },
     {
       "path": "docs/mission-reports/m49-screenshots/m49_scope_well.png",
-      "sha256": "c130e2de654fb37163367fde85ad3bed839e321287fb5034cb68fd18cf688d40",
+      "sha256": "ce8c70db8e7265d9604122f199524c448d3a26083b66c0d599cdaf3b33443bcb",
       "provenance": "reviewed M49: well-scoped question: only the selected well's linked documents searched; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     }
   ],

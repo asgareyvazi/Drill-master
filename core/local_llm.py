@@ -64,7 +64,8 @@ SERVER_ERROR = "server_error"          # {"error": ...} from the server
 
 SETUP_GUIDANCE = (
     "Optional: install Ollama yourself (https://ollama.com, MIT licence), start it, pull a model "
-    "you have checked the licence of (for example `ollama pull qwen2.5:3b`), set "
+    "whose weights licence you have checked (for example `ollama pull qwen2.5:1.5b`, Apache-2.0 weights; "
+    "licences differ even within one family - qwen2.5:3b is research-only), set "
     "OLLAMA_NO_CLOUD=1 so it can only run local models, then press 'Check model'. "
     "Drill Master never downloads models and only talks to 127.0.0.1/localhost.")
 
