@@ -399,6 +399,128 @@ def data_change_is_picked_up_by_auto_update_and_refresh(ctx):
     assert ctx.kpi("current_depth").value == 760.0
 
 
+# ---------------------------------------------------------------------------
+# M49 - cache integrity: edits that change no count, id, sum or timestamp
+# ---------------------------------------------------------------------------
+
+def _raw_sql(ctx, statement, **params):
+    """Write like an external tool would: plain SQL, no ORM onupdate hooks."""
+    from sqlalchemy import text
+    s = ctx.db.create_session()
+    try:
+        s.execute(text(statement), params)
+        s.commit()
+    finally:
+        s.close()
+
+
+def _npt_view(ctx):
+    data = ctx.tab.chart_data.get("npt") or {}
+    return dict(data.get("categories") or {}), ctx.tab.npt_category_card.value_label.text()
+
+
+@scenario
+def m49_currency_only_change_updates_cost_analysis_without_refresh(ctx):
+    ctx.well("A")
+    ctx.tab.auto_update_check.setChecked(True)
+    text = ctx.analysis("Cost Analysis")
+    assert "actual EUR 500.00" in text
+    # Only the currency code changes: same row count, ids, amounts; raw SQL so
+    # CostRecord.updated_at (an ORM onupdate) does not move either.
+    _raw_sql(ctx, "UPDATE cost_records SET currency = 'GBP' WHERE well_id = :w AND currency = 'EUR'",
+             w=ctx.ids["A"])
+    ctx.tab.auto_update_data()                       # timer path, no Refresh / Run click
+    text = ctx.tab.results_text.toPlainText()
+    assert "actual GBP 500.00" in text and "EUR" not in text, text
+
+
+@scenario
+def m49_npt_code_only_change_updates_npt_view_without_refresh(ctx):
+    ctx.well("C")
+    ctx.tab.auto_update_check.setChecked(True)
+    categories, card = _npt_view(ctx)
+    assert categories == {"NPT-Z": 7.0} and "NPT-Z" in card, (categories, card)
+    # The code changes, the duration does not (TimeLog24H has no updated_at).
+    _raw_sql(ctx, "UPDATE time_logs_24h SET main_code = 'NPT-W' WHERE main_code = 'NPT-Z'")
+    ctx.tab.auto_update_data()
+    categories, card = _npt_view(ctx)
+    assert categories == {"NPT-W": 7.0} and "NPT-W" in card and "NPT-Z" not in card, (categories, card)
+
+
+@scenario
+def m49_refresh_and_auto_update_agree_with_a_cold_read(ctx):
+    ctx.well("C")
+    ctx.tab.auto_update_check.setChecked(True)
+    ctx.analysis("Cost Analysis")
+    _raw_sql(ctx, "UPDATE time_logs_24h SET main_code = 'NPT-V' WHERE main_code = 'NPT-Z'")
+    _raw_sql(ctx, "UPDATE cost_records SET currency = 'CAD' WHERE well_id = :w", w=ctx.ids["C"])
+    ctx.tab.auto_update_data()
+    auto = (_npt_view(ctx), ctx.tab.results_text.toPlainText())
+    ctx.tab.refresh()
+    forced = (_npt_view(ctx), ctx.tab.results_text.toPlainText())
+    cold = w12.AnalysisWidget(db_manager=ctx.db)     # a fresh page: nothing cached
+    try:
+        cold.on_well_changed(ctx.ids["C"], {"name": "SYN-C"})
+        cold.analytics_type.blockSignals(True)
+        cold.analytics_type.setCurrentText("Cost Analysis")
+        cold.analytics_type.blockSignals(False)
+        cold.update_all_data()
+        app.processEvents()
+        data = cold.chart_data.get("npt") or {}
+        reference = ((dict(data.get("categories") or {}), cold.npt_category_card.value_label.text()),
+                     cold.results_text.toPlainText())
+    finally:
+        cold.cleanup()
+        cold.deleteLater()
+    assert auto[0] == forced[0] == reference[0] and auto[0][0] == {"NPT-V": 7.0}, (auto[0], forced[0])
+    assert "CAD 7,000.00" in auto[1] and "CAD 7,000.00" in forced[1] and "CAD 7,000.00" in reference[1]
+
+
+@scenario
+def m49_cached_values_never_cross_into_a_new_scope(ctx):
+    t = ctx.tab
+    ctx.well("C")
+    assert ctx.kpi("avg_rop").value == 4.0 and "NPT-Z" in _npt_view(ctx)[1]
+    c_keys = set(t.data_cache)
+    assert c_keys, "well C must have populated the cache"
+    ctx.well("A")
+    assert ctx.kpi("avg_rop").value == 7.2 and ctx.kpi("current_depth").value == 300.0
+    categories, card = _npt_view(ctx)
+    assert "NPT-Z" not in categories and "NPT-Z" not in card, (categories, card)
+    scope_a = t._scope_key()
+    assert all(scope_a in key for key in t.data_cache if key not in c_keys), list(t.data_cache)
+    ctx.well("B")
+    ctx.bore("ST1")
+    assert ctx.kpi("avg_rop").value == 25.0                     # ST1 only: (20 + 30) / 2
+    ctx.well("C")
+    assert ctx.kpi("avg_rop").value == 4.0 and "NPT-Z" in _npt_view(ctx)[1]
+
+
+@scenario
+def m49_read_error_during_refresh_is_never_cached_or_shown_as_no_data(ctx):
+    t = ctx.tab
+    ctx.well("C")
+    t.auto_update_check.setChecked(True)
+    original = t.get_npt_data
+    calls = []
+
+    def failing(session):
+        calls.append(1)
+        raise RuntimeError("synthetic read failure")
+    t.get_npt_data = failing
+    try:
+        t.refresh()
+        card = t.npt_category_card.value_label.text()
+        assert "Read error" in t.npt_total_card.value_label.text() or "Read error" in card, card
+        assert "No data" not in card
+        assert not any(key.startswith("npt|") for key in t.data_cache), list(t.data_cache)
+        assert "Error" in t.status_label.text()
+    finally:
+        t.get_npt_data = original
+    t.auto_update_data()                             # no forced refresh: the error was not cached
+    assert _npt_view(ctx)[0] == {"NPT-Z": 7.0}
+    assert calls == [1]
+
 @scenario
 def cache_key_covers_section_report_and_revision(ctx):
     ctx.well("C")

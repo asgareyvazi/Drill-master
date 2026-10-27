@@ -21,6 +21,7 @@ definition cannot be evaluated the result is NOT ASSESSED with a reason.
 from __future__ import annotations
 
 import csv
+import hashlib
 import math
 from dataclasses import dataclass, field, asdict
 from datetime import date, datetime, timezone
@@ -868,33 +869,55 @@ EVIDENCE_METRICS = {
 }
 
 
+# Bumped whenever the digest input changes, so an old revision never equals a new one.
+DATA_REVISION_VERSION = 2
+
+
+def _rows_digest(query) -> str:
+    """Deterministic digest of every column of every row of ``query``.
+
+    The rows are read in primary-key order and each value is serialised with
+    ``repr`` (exact for floats, dates, booleans and None).  Any change to any
+    stored value - including a text-only change such as ``main_code`` or
+    ``currency`` that leaves counts, ids, sums and timestamps unchanged -
+    changes the digest, whatever path wrote it (ORM, bulk update, raw SQL).
+    """
+    digest = hashlib.blake2b(digest_size=16)
+    count = 0
+    for row in query:
+        digest.update(repr(tuple(row)).encode("utf-8", "surrogatepass"))
+        digest.update(b"\x1e")
+        count += 1
+    return f"{count}:{digest.hexdigest()}"
+
+
 def data_revision(session, well_id: int) -> tuple:
-    """A cheap fingerprint of the well's analysis inputs (cache invalidation)."""
-    from sqlalchemy import func
-    from core.database import (DailyReport, DrillingParameters, TimeLog24H, CostRecord,
-                               SafetyReport)
+    """Content fingerprint of every input of the well's analysis (cache key part).
 
-    def stats(q):
-        return tuple(q.one())
+    M49 replaces the M48 summary (row counts, max ids, ``updated_at``, value
+    sums), which missed edits that change none of those - e.g. only an NPT
+    code (``TimeLog24H`` has no ``updated_at``) or only a currency code.
+    Every table the Analysis page reads is digested in full for the well:
+    the well and its wellbores and sections, daily reports, drilling
+    parameters, mud reports, 24-h time logs, costs and safety reports.
+    """
+    from core.database import (CostRecord, DailyReport, DrillingParameters, MudReport, SafetyReport, Section,
+                               TimeLog24H, Well, Wellbore)
 
-    rep = stats(session.query(func.count(DailyReport.id), func.max(DailyReport.id),
-                              func.max(DailyReport.updated_at), func.sum(DailyReport.depth_2400))
-                .filter(DailyReport.well_id == well_id))
-    par = stats(session.query(func.count(DrillingParameters.id), func.max(DrillingParameters.id),
-                              func.max(DrillingParameters.updated_at),
-                              func.sum(DrillingParameters.avg_rop))
-                .filter(DrillingParameters.well_id == well_id))
-    log = stats(session.query(func.count(TimeLog24H.id), func.max(TimeLog24H.id),
-                              func.sum(TimeLog24H.duration),
-                              func.sum(func.coalesce(TimeLog24H.is_npt, 0)))
-                .join(DailyReport, TimeLog24H.report_id == DailyReport.id)
-                .filter(DailyReport.well_id == well_id))
-    cost = stats(session.query(func.count(CostRecord.id), func.max(CostRecord.id),
-                               func.sum(CostRecord.actual_cost))
-                 .filter(CostRecord.well_id == well_id))
-    safety = stats(session.query(func.count(SafetyReport.id), func.max(SafetyReport.id))
-                   .filter(SafetyReport.well_id == well_id))
-    return tuple(str(v) for v in rep + par + log + cost + safety)
+    def columns(model):
+        return [model.__table__.c[name] for name in model.__table__.c.keys()]
+
+    def own(model):
+        return session.query(*columns(model)).filter(model.well_id == well_id).order_by(model.id)
+
+    parts = [str(DATA_REVISION_VERSION),
+             _rows_digest(session.query(*columns(Well)).filter(Well.id == well_id))]
+    parts += [_rows_digest(own(model)) for model in
+              (Wellbore, Section, DailyReport, DrillingParameters, MudReport, CostRecord, SafetyReport)]
+    parts.append(_rows_digest(
+        session.query(*columns(TimeLog24H)).join(DailyReport, TimeLog24H.report_id == DailyReport.id)
+        .filter(DailyReport.well_id == well_id).order_by(TimeLog24H.id)))
+    return tuple(parts)
 
 
 def _cell(value, *, for_csv: bool):
