@@ -3261,7 +3261,7 @@ class AnalysisWidget(DrillTabBase):
             color = {"good": "#27ae60", "warning": "#f39c12", "critical": "#e74c3c"}.get(summary["status"], "#7f8c8d")
             self.quality_label.setText(f"Data Quality: {summary['score']:.1f}% ({summary['status']})")
             self.quality_label.setStyleSheet(f"font-weight: bold; padding: 5px; color: {color};")
-            self.quality_label.setToolTip("\\n".join(f"{m['name']}: {m['value']}% — {m['detail']}" for m in summary["metrics"]))
+            self.quality_label.setToolTip("\n".join(f"{m['name']}: {m['value']}% — {m['detail']}" for m in summary["metrics"]))
         except Exception as exc:
             logger.error("Data quality update failed: %s", exc, exc_info=True)
             self.quality_label.setText("Data Quality: unavailable")

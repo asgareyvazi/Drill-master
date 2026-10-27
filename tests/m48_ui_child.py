@@ -720,6 +720,12 @@ def e2e_performance_report_export_switch_well(ctx):
     t.evidence_open_btn.click()
     target = ctx.ids["C_reports"][2]
     assert ctx.sel.current_report_id == target and t.current_report_id == target
+    # The opened report gets its data-quality summary; the tooltip lists one
+    # metric per line (it used to show a literal backslash-n).
+    app.processEvents()
+    assert t.quality_label.text().startswith("Data Quality: ") and "—" not in t.quality_label.text()
+    tip = t.quality_label.toolTip()
+    assert "\\n" not in tip and len(tip.splitlines()) > 1, tip
     path = os.path.join(ctx.tmp, "flow1.csv")
     ctx.save_as(path)
     t.evidence_csv_btn.click()
