@@ -61,6 +61,8 @@ REQUIRED_MODULES = (
     "tests/test_sqlite_connection_reliability.py",
     "tests/test_sqlite_pool_isolation_m47.py",
     "tests/test_search_closure_m47.py",
+    "tests/test_m48_analysis_evidence.py",
+    "tests/test_m48_analysis_ui.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 

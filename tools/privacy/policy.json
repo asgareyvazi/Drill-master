@@ -197,6 +197,46 @@
       "path": "docs/mission-reports/m46-screenshots/m46_trajectory_invalid_survey.png",
       "sha256": "38d168c553f42f6afd3884d06b435ac2a128207474428119bdb2b8851e51ee2d",
       "provenance": "reviewed M46: SYN-QA-03 review-required survey: excluded rows listed, only valid stations drawn; offscreen Linux capture by tools/screenshots/capture_m46.py from a throw-away synthetic DB (SYN-*/SYNTHETIC FIELD/bootstrap Default records, generated SYN_* documents, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_kpi_cards_units.png",
+      "sha256": "fa8cf4695524d58350701df49f9bffc88c48d03fd5a9426d7172c85f70263b85",
+      "provenance": "reviewed M48: SYN-C KPI cards with units and Time vs Depth chart/table; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_npt_coverage_states.png",
+      "sha256": "1655ce4572ee25c9b7bfaac79e63b6c1df13ebd55308175a96da5f875c4aff64",
+      "provenance": "reviewed M48: SYN-A NPT cards, time-coverage line and NPT pie with an unclassified share; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_evidence_trend_point.png",
+      "sha256": "0601f48700d7f043259cc004a9a84d699396f83af34ebd2ad650105ef6e0ba53",
+      "provenance": "reviewed M48: SYN-C evidence ROP trend with the selected point ringed and its source row; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_evidence_ambiguous_disabled.png",
+      "sha256": "3e38351149792ab4b98cd449e35079dbb2082cc2b4622d4c76937bf69063beb6",
+      "provenance": "reviewed M48: SYN-B evidence depth rows: shared-date ambiguous row selected, drill-down disabled; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_projection_not_assessed.png",
+      "sha256": "9196e627e47018b37646e10b9c8c6340f583a2dcaacb99a5a32d516f691c8c96",
+      "provenance": "reviewed M48: SYN-A ROP projection NOT ASSESSED (too few dated observations) with exclusions; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_cost_mixed_currency.png",
+      "sha256": "69b778d1365159774cd37cffecfb5a8d597942cb919e6cb0572126eaefe3fd34",
+      "provenance": "reviewed M48: SYN-A cost analysis: several synthetic currencies, totals not summed, chart not drawn; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_risk_rule_based.png",
+      "sha256": "b59894542647bc89437a375389737ef66451f56279a3868da9b969c4ee20a3b9",
+      "provenance": "reviewed M48: SYN-C rule-based risk screening per criterion (not a probability); offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m48-screenshots/m48_no_selection.png",
+      "sha256": "bad8bf2395cb26ae1a52846966a72f2d9464b185c81f1e707378fabc1eefa950",
+      "provenance": "reviewed M48: no well selected: KPI cards show a dash and No well selected; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
     }
   ],
   "text_patterns": [
