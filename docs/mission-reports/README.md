@@ -22,6 +22,7 @@ Windows/operator acceptance, field validation and history purge are **not** esta
 | 2026-10-25 | [docs/mission-reports/M46_DEEP_AUDIT_REGRESSION_CLOSURE_REPORT.md](../../docs/mission-reports/M46_DEEP_AUDIT_REGRESSION_CLOSURE_REPORT.md) | M46 — Deep audit, regression closure (shared-connection rollback, search parity v2, survey editor scope, test isolation), verified push |
 | 2026-10-26 | [docs/mission-reports/M47_SQLITE_CONNECTION_ISOLATION_AND_SEARCH_CLOSURE_REPORT.md](../../docs/mission-reports/M47_SQLITE_CONNECTION_ISOLATION_AND_SEARCH_CLOSURE_REPORT.md) | M47 — SQLite connection isolation (per-session pool, maintenance-gate accounting), transaction safety, search span/fold v3 and link-note closure |
 | 2026-10-27 | [docs/mission-reports/M48_OPERATIONS_ANALYSIS_INTEGRITY_REPORT.md](../../docs/mission-reports/M48_OPERATIONS_ANALYSIS_INTEGRITY_REPORT.md) | M48 — Operations Analysis integrity (scoped stale-free KPIs, canonical ROP, NPT coverage, transparent projection, per-currency cost, rule-based risk, evidence tab with typed export) |
+| 2026-10-27 | [docs/mission-reports/M49_LOCAL_KNOWLEDGE_ASSISTANT_REPORT.md](../../docs/mission-reports/M49_LOCAL_KNOWLEDGE_ASSISTANT_REPORT.md) | M49 — Offline Knowledge Assistant (page-cited answers from approved pages, hybrid FTS5/RRF retrieval, loopback-only optional local model, gold QA, M48 analysis-cache content fingerprint) |
 
 ## Historical (superseded for current status; content unchanged)
 
