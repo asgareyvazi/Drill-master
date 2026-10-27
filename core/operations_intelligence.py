@@ -15,6 +15,28 @@ from core.operational_time import summarize_time_logs
 logger = logging.getLogger(__name__)
 
 
+def canonical_params_clause(model):
+    """Which DrillingParameters rows count for a WHOLE-WELL reduction.
+
+    Every row linked to a daily report (``report_id`` set) counts. A legacy row
+    without ``report_id`` is a fallback only when it is unambiguous: no linked
+    row of the same well exists on the same ``report_date``. Otherwise it is a
+    duplicate of that day's report data and counting both would double-count
+    the date (M48). Bore/section scopes resolve rows through the report chain
+    and never see legacy rows at all.
+    """
+    from sqlalchemy import and_, exists, or_
+    from sqlalchemy.orm import aliased
+
+    linked = aliased(model)
+    return or_(
+        model.report_id.isnot(None),
+        ~exists().where(and_(linked.well_id == model.well_id,
+                             linked.report_date == model.report_date,
+                             linked.report_id.isnot(None))),
+    )
+
+
 @dataclass
 class Insight:
     kind: str
@@ -40,7 +62,11 @@ class OperationsIntelligenceService:
             reports = session.query(DailyReport).filter_by(well_id=well_id).order_by(DailyReport.report_date).all()
 
             logs = session.query(TimeLog24H).join(DailyReport, TimeLog24H.report_id == DailyReport.id).filter(DailyReport.well_id == well_id).all()
-            params = session.query(DrillingParameters).filter_by(well_id=well_id).order_by(DrillingParameters.report_date).all()
+            # Legacy unlinked rows only as an unambiguous fallback (no same-date
+            # double counting); see canonical_params_clause.
+            params = (session.query(DrillingParameters).filter_by(well_id=well_id)
+                      .filter(canonical_params_clause(DrillingParameters))
+                      .order_by(DrillingParameters.report_date).all())
             mud_reports = session.query(MudReport).filter_by(well_id=well_id).order_by(MudReport.report_date).all()
             safety_reports = session.query(SafetyReport).filter_by(well_id=well_id).order_by(SafetyReport.report_date).all()
 
@@ -48,7 +74,10 @@ class OperationsIntelligenceService:
             total_hours = time_metrics["total_hours"]
             npt_hours = time_metrics["npt_hours"]
             depths = [float(item.depth_2400 or 0) for item in reports if item.depth_2400 is not None]
-            rops = [float(item.avg_rop) for item in params if item.avg_rop is not None]
+            # One ROP validity rule for every consumer: finite and >= 0; a real
+            # 0.0 counts, NaN/inf/negative rows are excluded (not averaged in).
+            from core.analysis_evidence import valid_rop_values
+            rops = valid_rop_values(item.avg_rop for item in params)
 
             def _range_series(items, minimum_name: str, maximum_name: str) -> list[float]:
                 """Read only the min/max fields defined by DrillingParameters.
@@ -153,6 +182,8 @@ class OperationsIntelligenceService:
                 "rig_days": rig_days,
                 "cost_per_meter": None if cost_per_meter is None else round(cost_per_meter, 2),
                 "total_cost": None if total_cost is None else round(total_cost, 2),
+                "total_planned_cost": (None if cost_summary["total_planned"] is None
+                                       else round(cost_summary["total_planned"], 2)),
                 "cost_currency": cost_summary["currency"],
                 "cost_currency_status": cost_summary["status"],
                 "cost_groups": cost_summary["groups"],
@@ -452,9 +483,8 @@ class OperationsIntelligenceService:
             # avg_rop here is the mean of stored per-DDR avg_rop within scope —
             # the same daily-average semantic used at Well level, kept DISTINCT
             # from footage-weighted ROP.
-            rops = [
-                float(p.avg_rop) for p in params if p.avg_rop is not None
-            ]
+            from core.analysis_evidence import valid_rop_values
+            rops = valid_rop_values(p.avg_rop for p in params)
             avg_rop = round(sum(rops) / len(rops), 2) if rops else None
 
             npt_percent = (round(time_metrics["npt_percent"], 2)
@@ -473,6 +503,8 @@ class OperationsIntelligenceService:
                 "npt_hours": npt_hours,
                 "npt_percent": npt_percent,
                 "productive_hours": productive_hours,
+                # Same definition as the well rollup: distinct report dates.
+                "rig_days": len({r.report_date for r in reports}),
             }
             return {
                 "scope": scope_field.replace("_id", ""),
