@@ -97,6 +97,71 @@ def test_status_when_nothing_listens_is_not_running():
     assert status.state == ll.NOT_RUNNING and "No local model server" in status.message
 
 
+def test_connect_not_accepted_in_time_on_loopback_is_not_running(monkeypatch):
+    """Windows does not refuse a closed loopback port at once (it retries the
+    SYN for ~2 s), so a short connect timeout used to say "timeout" (M49
+    Windows CI).  urllib reports connect/send failures as URLError; the
+    network layer is stubbed here so the classification is checked on every
+    platform."""
+    import urllib.error
+
+    adapter = ll.OllamaAdapter("http://127.0.0.1:9", "syn-chat", connect_timeout=1)
+
+    def refuse_slowly(*_args, **_kwargs):
+        raise urllib.error.URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(adapter._opener, "open", refuse_slowly)
+    status = adapter.status()
+    assert status.state == ll.NOT_RUNNING and not status.chat_ready
+    assert "No local model server accepted a connection" in status.message
+
+
+def test_a_listening_but_silent_server_is_a_timeout_not_not_running():
+    """The other side of the boundary, real sockets: the kernel accepts the
+    connection, nothing answers, so it is a hung server (TIMEOUT)."""
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(4)
+    try:
+        url = f"http://127.0.0.1:{listener.getsockname()[1]}"
+        started = time.monotonic()
+        status = ll.OllamaAdapter(url, "syn-chat", connect_timeout=0.5).status()
+    finally:
+        listener.close()
+    assert status.state == ll.TIMEOUT and time.monotonic() - started < 3
+
+
+def test_abort_never_waits_for_the_reading_thread():
+    """Cancel runs on the UI thread: it must not close the http.client
+    response (that needs the reader's lock - on Windows it blocked ~10 s),
+    only shut down and close the OS socket handle, which the peer sees."""
+    near, far = socket.socketpair()
+
+    class Response:
+        closed_by_caller = False
+
+        class fp:  # noqa: N801 - mirrors http.client: response.fp.raw._sock
+            class raw:  # noqa: N801
+                _sock = near
+
+        def close(self):
+            Response.closed_by_caller = True
+
+    handle = near.fileno()
+    started = time.monotonic()
+    ll._abort_response(Response())
+    elapsed = time.monotonic() - started
+    with pytest.raises(OSError):           # the OS handle itself is released (what wakes a Windows read)
+        socket.socket(fileno=handle).close()
+    far.settimeout(2)
+    try:
+        assert far.recv(1) == b""          # the connection really ended
+    finally:
+        far.close()
+    assert not Response.closed_by_caller and near.fileno() == -1 and elapsed < 0.5
+    ll._abort_response(Response())         # second abort (already closed) is harmless
+
+
 def test_malformed_model_list_is_a_protocol_error():
     with FakeOllama(tags_body="this is not json") as fake:
         assert ll.OllamaAdapter(fake.url, "syn-chat").status().state == ll.PROTOCOL_ERROR

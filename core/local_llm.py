@@ -27,6 +27,7 @@ Ollama API reference: docs/api.md of github.com/ollama/ollama (tag v0.40.11):
 """
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import json
 import os
@@ -177,16 +178,37 @@ class CancelToken:
 
 
 def _abort_response(response) -> None:
-    """Unblock a read in another thread: shut the socket down, then close."""
+    """Unblock a read in another thread without ever waiting for that thread.
+
+    Called from the UI thread.  It must not touch the ``http.client``
+    response: closing it needs the buffered reader's lock, which the reading
+    worker holds while it is blocked - on Windows that froze the caller until
+    the server sent more data (M49 Windows CI, ~10 s).  Only the OS socket is
+    used: ``shutdown`` wakes a blocked read on Linux/macOS but not on Windows;
+    closing the socket handle wakes it on Windows (Winsock: a blocking call -
+    including ``select`` - outstanding on a socket closed by another thread
+    fails with WSAEINTR).  The handle is detached first, so the Python socket
+    object holds -1 and can never reach a reused handle.  The worker then
+    fails its read, sees the token and reports CANCELLED, and closes the
+    response itself in its ``finally``.
+    """
     try:
         sock = response.fp.raw._sock  # http.client response -> socket.SocketIO -> socket
+    except AttributeError:  # silent-ok: response already closed (fp is None); nothing is blocked on it
+        return
+    try:
         sock.shutdown(socket.SHUT_RDWR)
-    except (AttributeError, OSError):  # silent-ok: best-effort socket shutdown on cancel; the socket may already be closed
+    except OSError:  # silent-ok: best-effort shutdown; the socket may already be closed or reset
         pass
     try:
-        response.close()
-    except OSError:  # silent-ok: best-effort close after shutdown; nothing left to release
-        pass
+        handle = sock.detach()
+    except OSError:  # silent-ok: already closed; detach has nothing to hand over
+        return
+    if handle is not None and handle >= 0:
+        try:
+            socket.close(handle)
+        except OSError:  # silent-ok: the handle was already released by the peer reset; nothing left to close
+            pass
 
 
 class OllamaAdapter:
@@ -226,7 +248,13 @@ class OllamaAdapter:
         except (urllib.error.URLError, ConnectionError) as exc:
             reason = getattr(exc, "reason", exc)
             if isinstance(reason, (socket.timeout, TimeoutError)):
-                raise LocalLLMError(TIMEOUT, "The local model server did not answer in time") from None
+                # urllib wraps only connect/send errors in URLError.  The host
+                # is always loopback, where a listening server - even a hung
+                # one - is accepted by the kernel at once; a connection not
+                # accepted in time means nothing listens (Windows retries the
+                # SYN to a closed port for ~2 s instead of refusing at once).
+                raise LocalLLMError(NOT_RUNNING, f"No local model server accepted a connection at {self.base_url} "
+                                                 f"within {timeout:g} s") from None
             raise LocalLLMError(NOT_RUNNING, "No local model server is running at "
                                              f"{self.base_url} ({type(reason).__name__})") from None
         except (socket.timeout, TimeoutError):
@@ -317,7 +345,7 @@ class OllamaAdapter:
                     line = response.readline(MAX_RESPONSE_BYTES)
                 except (socket.timeout, TimeoutError):
                     raise LocalLLMError(TIMEOUT, "The local model stopped sending data") from None
-                except (OSError, ValueError, AttributeError):
+                except (OSError, ValueError, AttributeError, http.client.HTTPException):
                     if cancel.cancelled:
                         raise LocalLLMError(CANCELLED, "Cancelled") from None
                     raise LocalLLMError(PROTOCOL_ERROR, "The model connection broke") from None

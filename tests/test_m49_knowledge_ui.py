@@ -317,6 +317,24 @@ def test_scope_change_during_generation_drops_the_late_result(app, world):
     assert panel.last_answer is None and panel.answer_view.toPlainText() == ""
 
 
+def test_a_result_already_queued_when_the_scope_changes_is_dropped(app, world):
+    """Deterministic version of the race: the worker has FINISHED and its
+    result signal is queued but not yet delivered when the user changes the
+    scope in the same UI turn.  Only the generation guard can drop it
+    (disconnecting the worker's signals does not remove an already-posted
+    queued call)."""
+    _tab, panel, ids, _db = world
+    panel.question_edit.setPlainText(KICK)
+    assert panel.ask()                                  # extractive: no model, finishes quickly
+    worker = panel.worker
+    assert worker is not None and worker.wait(10000)    # thread done; no events processed yet
+    _set_scope(panel, kr.SCOPE_DOCUMENT, ids["lessons"])
+    assert panel.current_state == "stale"
+    _wait(app, lambda: False, 0.5)                      # now deliver everything that was queued
+    assert panel.last_answer is None and panel.answer_view.toPlainText() == ""
+    assert panel.current_state == "stale" and panel.evidence_table.rowCount() == 0
+
+
 # ---------------------------------------------------------- presentation
 def test_injection_source_is_flagged_and_not_answered(app, world):
     _tab, panel, ids, _db = world
