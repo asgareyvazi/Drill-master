@@ -21,6 +21,7 @@ Windows/operator acceptance, field validation and history purge are **not** esta
 | 2026-10-25 | [docs/mission-reports/M45_DOCUMENT_TRACEABILITY_SEARCH_3D_REPORT.md](../../docs/mission-reports/M45_DOCUMENT_TRACEABILITY_SEARCH_3D_REPORT.md) | M45 — Document-to-well traceability, Persian/Arabic search normalisation and 3D survey view |
 | 2026-10-25 | [docs/mission-reports/M46_DEEP_AUDIT_REGRESSION_CLOSURE_REPORT.md](../../docs/mission-reports/M46_DEEP_AUDIT_REGRESSION_CLOSURE_REPORT.md) | M46 — Deep audit, regression closure (shared-connection rollback, search parity v2, survey editor scope, test isolation), verified push |
 | 2026-10-26 | [docs/mission-reports/M47_SQLITE_CONNECTION_ISOLATION_AND_SEARCH_CLOSURE_REPORT.md](../../docs/mission-reports/M47_SQLITE_CONNECTION_ISOLATION_AND_SEARCH_CLOSURE_REPORT.md) | M47 — SQLite connection isolation (per-session pool, maintenance-gate accounting), transaction safety, search span/fold v3 and link-note closure |
+| 2026-10-27 | [docs/mission-reports/M48_OPERATIONS_ANALYSIS_INTEGRITY_REPORT.md](../../docs/mission-reports/M48_OPERATIONS_ANALYSIS_INTEGRITY_REPORT.md) | M48 — Operations Analysis integrity (scoped stale-free KPIs, canonical ROP, NPT coverage, transparent projection, per-currency cost, rule-based risk, evidence tab with typed export) |
 
 ## Historical (superseded for current status; content unchanged)
 
