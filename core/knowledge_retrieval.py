@@ -41,12 +41,13 @@ from typing import Callable, Optional
 from core.search_normalization import NORMALIZATION_VERSION, normalize, tokens
 
 CHUNKER_VERSION = 1
-RETRIEVAL_VERSION = 1
+RETRIEVAL_VERSION = 2            # 2: size designations must match (M49 mutation review)
 RRF_K = 60
 CHUNK_TARGET_CHARS = 700
 LIST_DEPTH = 50                 # candidates taken from each ranked list
 SUFFICIENT_COVERAGE = 0.6       # IDF-weighted share of the question's content terms
 MIN_HIT_COVERAGE = 0.2          # passages below this are not shown as evidence
+SIZE_MISMATCH_CAP = 0.5         # a passage lacking a size the question names is never sufficient
 APPROVED_STATUSES = frozenset({"extracted", "approved", "edited"})
 
 SCOPE_ALL, SCOPE_WELL, SCOPE_REPORT, SCOPE_DOCUMENT = "all", "well", "report", "document"
@@ -304,6 +305,35 @@ def identifier_terms(question: str) -> frozenset:
     return frozenset(out)
 
 
+_VULGAR = {"½": "-1/2", "¼": "-1/4", "¾": "-3/4", "⅛": "-1/8", "⅜": "-3/8", "⅝": "-5/8", "⅞": "-7/8"}
+_INCH = r'(?:in\b|inch(?:es)?\b|"|″|اینچ)'
+# "17-1/2", "12 1/4", "9-5/8" (a fraction makes it a size even without a unit),
+# or a whole number of at most two digits followed by an inch unit ("6 in").
+_SIZE_FRACTION = re.compile(r"(?<![\d./-])(\d{1,2})(?:\s*-\s*|\s)(\d{1,2}/\d{1,2})(?![\d/])")
+_SIZE_WHOLE = re.compile(r"(?<![\d./-])(\d{1,2})\s*-?\s*" + _INCH)
+
+
+def size_designations(text: str) -> frozenset:
+    """Normalised size designations in ``text`` ("17-1/2", "6").
+
+    A question that names a hole/casing size asks about THAT size: a passage
+    about another size (12-1/4 in vs 17-1/2 in) must never be sufficient,
+    although its loose tokens ("1", "2") may occur in it.  Conservative on
+    purpose: whole numbers count only with an inch unit and at most two
+    digits, and never as the tail of a decimal or a longer number.
+    """
+    folded = fold(text or "")
+    for char, fraction in _VULGAR.items():
+        folded = folded.replace(char, fraction)
+    found = {f"{whole}-{fraction}" for whole, fraction in _SIZE_FRACTION.findall(folded)}
+    covered = {m.span() for m in _SIZE_FRACTION.finditer(folded)}
+    for match in _SIZE_WHOLE.finditer(folded):
+        start = match.start()
+        if not any(a <= start < b for a, b in covered):
+            found.add(match.group(1))
+    return frozenset(found)
+
+
 def _term_matches(term: str, word: str) -> bool:
     """Exact; word starts with the term (>= 3 chars); or a shared stem of
     ``max(4, len(term) - 2)`` characters for terms of 5+ characters
@@ -393,6 +423,9 @@ def rrf_fuse(ranked_lists: dict, k: int = RRF_K) -> list:
 
 
 # ------------------------------------------------------------ embeddings
+STORE_TABLES = frozenset({"vectors", "builds"})
+
+
 class EmbeddingStore:
     """Vectors keyed by (model, dimensions, chunker version, chunk sha).
 
@@ -409,6 +442,13 @@ class EmbeddingStore:
         self.path = path
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(path, check_same_thread=False)
+        foreign = {name for (name,) in self._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")} - STORE_TABLES
+        if foreign:
+            # Never create cache tables inside another database (for example
+            # the application database): the store owns its file exclusively.
+            self._conn.close()
+            raise ValueError(f"Refusing to use {Path(path).name!r} as the embedding cache: it holds other tables")
         self._conn.executescript(
             "CREATE TABLE IF NOT EXISTS vectors (model TEXT NOT NULL, dims INTEGER NOT NULL, chunker INTEGER NOT NULL,"
             " chunk_sha TEXT NOT NULL, vector BLOB NOT NULL, PRIMARY KEY (model, dims, chunker, chunk_sha));"
@@ -498,6 +538,7 @@ class RetrievalResult:
     unavailable: list             # [(component, reason)]
     best_coverage: float = 0.0
     missing_terms: list = field(default_factory=list)
+    absent_terms: list = field(default_factory=list)   # in NO passage of the scope (checked, no_evidence only)
     conflicts: list = field(default_factory=list)
     scope_documents: int = 0
     scope_pages: int = 0
@@ -521,6 +562,7 @@ class KnowledgeIndex:
                 self.chunks[chunk.chunk_id] = chunk
                 self.page_chunks[page.page_id].append(chunk.chunk_id)
         self._norm_tokens = {cid: words(c.text) for cid, c in self.chunks.items()}
+        self._size_cache = {}
         self._lock = threading.Lock()
         self._fts = self._build_fts()
         document_frequency = Counter()
@@ -582,8 +624,12 @@ class KnowledgeIndex:
     def _idf(self, term: str, strict: frozenset = frozenset()) -> float:
         """IDF over chunks (prefix-aware for 4+ characters).  A term found in no
         chunk weighs the corpus median - unless it is an identifier, which
-        keeps the maximum weight so a question about an unknown code or
-        number is never answered from loosely related text."""
+        keeps the maximum weight, so an unknown code or number pulls coverage
+        down hard.  This is a weight, not a veto: when the rest of a question
+        matches strongly ("BOP test pressure QX9") a passage can still be
+        sufficient - the answer then cites its document and page, and a well
+        is meant to be chosen with the scope selector.  Size designations are
+        a hard rule instead (see ``size_designations``)."""
         df = sum(count for word, count in self._df.items() if word.startswith(term)) if len(term) >= 4 else \
             self._df.get(term, 0)
         if df == 0 and term not in strict and not term.isdigit():
@@ -673,6 +719,25 @@ class KnowledgeIndex:
                 missing.append(term)
         return (covered / total if total else 0.0), missing
 
+    def _sizes(self, chunk_id: str) -> frozenset:
+        cached = self._size_cache.get(chunk_id)
+        if cached is None:
+            cached = self._size_cache[chunk_id] = size_designations(self.chunks[chunk_id].text)
+        return cached
+
+    def absent_terms(self, terms: list, expansions_by_term: dict, allowed: set) -> list:
+        """Question terms that occur in no passage of ``allowed`` - checked
+        with the same matching rule as :meth:`text_coverage`, so an
+        insufficient-evidence message never claims a word is missing when
+        some passage in scope contains it."""
+        present = set()
+        for cid in allowed:
+            _cov, missing = self.text_coverage(terms, expansions_by_term, self._norm_tokens[cid])
+            present.update(t for t in terms if t not in missing)
+            if len(present) == len(terms):
+                break
+        return [t for t in terms if t not in present]
+
     # ----------------------------------------------------------- retrieve
     def retrieve(self, question: str, scope: str = SCOPE_ALL, target: Optional[int] = None, *, top_k: int = 6,
                  query_vector: Optional[list] = None, use_ngram: bool = True, use_glossary: bool = True,
@@ -704,6 +769,7 @@ class KnowledgeIndex:
             result.status = "invalid_query"
             return result
         allowed = set(scoped)
+        sizes = size_designations(question)
         strict = identifier_terms(question)
         result.strict_terms = strict
         expansions = glossary_expansions(question) if use_glossary else []
@@ -739,6 +805,8 @@ class KnowledgeIndex:
             if seen_pages[chunk.page_id] >= 2:
                 continue            # dedupe: at most two passages per page
             cov, _missing = self.coverage(terms, expansions_by_term, chunk_id, strict)
+            if sizes and not sizes <= self._sizes(chunk_id):
+                cov = min(cov, SIZE_MISMATCH_CAP)   # about another size: shown as closest, never sufficient
             if cov < MIN_HIT_COVERAGE:
                 continue            # n-gram noise: shares letters but none of the question's terms
             hits.append(RetrievedChunk(chunk, self.snapshot.pages[chunk.page_id], score, ranks, cov))
@@ -749,9 +817,12 @@ class KnowledgeIndex:
         if hits:
             best = max(hits, key=lambda h: h.coverage)
             result.best_coverage = best.coverage
-            result.missing_terms = self.coverage(terms, expansions_by_term, best.chunk.chunk_id, strict)[1]
+            result.missing_terms = self.coverage(terms, expansions_by_term, best.chunk.chunk_id, strict)[1] + \
+                [f"{s} in" for s in sorted(sizes - self._sizes(best.chunk.chunk_id))]
         if not hits or result.best_coverage < SUFFICIENT_COVERAGE:
             result.status = "no_evidence"
+            result.absent_terms = self.absent_terms(terms, expansions_by_term, allowed) + \
+                [f"{s} in" for s in sorted(sizes) if not any(s in self._sizes(cid) for cid in allowed)]
         result.conflicts = find_conflicts([h for h in hits if h.coverage >= SUFFICIENT_COVERAGE], terms,
                                           expansions)
         return result
@@ -772,7 +843,7 @@ class KnowledgeIndex:
 def _number(text: str) -> Optional[float]:
     try:
         return float(text.replace(",", "."))
-    except ValueError:
+    except ValueError:  # silent-ok: not a number - None is this helper's documented result
         return None
 
 

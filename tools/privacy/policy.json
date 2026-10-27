@@ -237,6 +237,51 @@
       "path": "docs/mission-reports/m48-screenshots/m48_no_selection.png",
       "sha256": "bad8bf2395cb26ae1a52846966a72f2d9464b185c81f1e707378fabc1eefa950",
       "provenance": "reviewed M48: no well selected: KPI cards show a dash and No well selected; offscreen Linux capture by tools/screenshots/capture_m48.py from a throw-away synthetic DB (tests/m48_synthetic.py: SYN-M48/SYN-A/B/C plus bootstrap Default records, admin account); no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_assistant_no_documents.png",
+      "sha256": "ca950c2a12ec7e8ebb01cf5c31d467c2717e87c4488b55e1bbcf1b9393c4cf56",
+      "provenance": "reviewed M49: Knowledge Assistant with an empty library: explicit no-documents state; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_library_search_results.png",
+      "sha256": "1d899247d26486594d64ad1eda470fb3c00bc7b48243a967b1e82dcf54d68f4e",
+      "provenance": "reviewed M49: Library & Search keyword results (FTS5) for a synthetic question; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_multi_source_answer.png",
+      "sha256": "f578aa6de8726dce8cc0fcd5eefc6faa6b39c6043e356ab920e0614a85bdf6d7",
+      "provenance": "reviewed M49: extractive answer citing two synthetic documents with a value-conflict note and the evidence table; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_source_opened.png",
+      "sha256": "a4abfcc339226eb7ec11d8c36b5f60d9bfd7ccc8c2794da618bb55da2690df92",
+      "provenance": "reviewed M49: cited passage [S3] opened in the library viewer with the exact span highlighted; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_model_unavailable.png",
+      "sha256": "cdc557d5f8ce36883d5c3c8e0af0a189d59e51ec382555d9e002bc9a76e27ae1",
+      "provenance": "reviewed M49: real local-model check with no server on 127.0.0.1:11434 (connection refused) and setup guidance; extractive answer still shown; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_insufficient_evidence.png",
+      "sha256": "59e7e24d4984a04fa8776b3e531272778c93604678f66939b75e2d89dafec99a",
+      "provenance": "reviewed M49: insufficient evidence: terms absent from the scope vs terms present but not together; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_persian_answer.png",
+      "sha256": "9e8afcbbe5d4c2f07803f5777b80dc1776ac56207a5b43ad9947596f6bb1493e",
+      "provenance": "reviewed M49: Persian question (Arabic yeh) with a right-to-left extractive answer; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_injection_flagged.png",
+      "sha256": "beb951b22c218beba0cc1ed28bdd64357cded30287f13dfd47d5456e51f4bece",
+      "provenance": "reviewed M49: source with instruction-like text flagged; only its factual sentence quoted; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m49-screenshots/m49_scope_well.png",
+      "sha256": "c130e2de654fb37163367fde85ad3bed839e321287fb5034cb68fd18cf688d40",
+      "provenance": "reviewed M49: well-scoped question: only the selected well's linked documents searched; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     }
   ],
   "text_patterns": [

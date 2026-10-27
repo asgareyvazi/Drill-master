@@ -110,4 +110,11 @@ GOLD = [
          scope="all", target=None, expect="no_evidence", gold=[]),
     dict(id="Q38", lang="fa", kind="not-in-corpus", question="حجم مخزن تریپ در چاه SYN-KA-01 چقدر است؟",
          scope="all", target=None, expect="no_evidence", gold=[]),
+    # --- a size the documents never mention (added after the M49 mutation review:
+    #     BEFORE the size-designation rule both were answered "ready" with
+    #     another section's value - 12-1/4 in mud weight, 8-1/2 in kick tolerance)
+    dict(id="Q39", lang="en", kind="wrong-size", question="What is the planned mud weight for the 17-1/2 in section?",
+         scope="all", target=None, expect="no_evidence", gold=[]),
+    dict(id="Q40", lang="en", kind="wrong-size", question="What is the kick tolerance for the 6 in section?",
+         scope="all", target=None, expect="no_evidence", gold=[]),
 ]

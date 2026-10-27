@@ -63,6 +63,13 @@ REQUIRED_MODULES = (
     "tests/test_search_closure_m47.py",
     "tests/test_m48_analysis_evidence.py",
     "tests/test_m48_analysis_ui.py",
+    # M49: analysis cache content fingerprint, knowledge assistant (loopback fake model only).
+    "tests/test_m49_cache_integrity.py",
+    "tests/test_m49_local_llm.py",
+    "tests/test_m49_knowledge_retrieval.py",
+    "tests/test_m49_knowledge_answer.py",
+    "tests/test_m49_knowledge_gold.py",
+    "tests/test_m49_knowledge_ui.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 

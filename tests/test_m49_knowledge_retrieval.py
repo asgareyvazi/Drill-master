@@ -5,6 +5,7 @@ SYNTHETIC corpus: tests/m49_knowledge_fixtures.py (real reviewed-import path).
 from __future__ import annotations
 
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -390,3 +391,94 @@ def test_embedding_store_path_is_user_data_not_the_repository(tmp_path):
     class Mem:
         db_path = ":memory:"
     assert kr.default_embedding_store_path(Mem()) == ":memory:"
+
+
+def test_embedding_store_refuses_the_application_database(tmp_path):
+    """The cache owns its file: pointed at a database with the application's
+    schema it raises and leaves that database byte-for-byte unchanged; an
+    existing cache file still reopens with its vectors."""
+    import sqlite3
+
+    from sqlalchemy import create_engine
+
+    from core.database import Base
+    app_db = tmp_path / "drill.db"
+    engine = create_engine(f"sqlite:///{app_db}")
+    Base.metadata.create_all(engine)
+    engine.dispose()
+    before = app_db.read_bytes()
+    with pytest.raises(ValueError, match="holds other tables"):
+        kr.EmbeddingStore(str(app_db))
+    assert app_db.read_bytes() == before
+    conn = sqlite3.connect(app_db)
+    try:
+        names = {n for (n,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    finally:
+        conn.close()                       # a context manager would not close it (Windows file lock)
+    assert not names & kr.STORE_TABLES
+
+    cache = tmp_path / "knowledge_cache" / "embeddings-v1.sqlite"
+    store = kr.EmbeddingStore(str(cache))
+    store.put("m", [("sha1", [0.5, 0.25])])
+    store._conn.close()
+    reopened = kr.EmbeddingStore(str(cache))
+    assert set(reopened.get("m", ["sha1"])) == {"sha1"}
+    reopened._conn.close()
+
+
+def test_knowledge_corpus_signature_changes_after_delete_and_same_size_reimport():
+    """The knowledge index cache key must see a delete + re-import that reuses
+    the page id with the same text length and leaves the links unchanged
+    (page count / max id / total length alone collide - M44 defect class)."""
+    from core.document_library import PAGE_OK, READY, DocumentExtract, PageExtract
+    from document_link_fixtures import without_session_user
+    db = make_db()
+    library = DocumentLibrary(db)
+
+    def doc(word, sha):
+        return DocumentExtract(path="/syn", file_name=f"syn-{word}.txt", size_bytes=10, sha256=sha * 64, kind="text",
+                               page_count=1, status=READY,
+                               pages=[PageExtract(1, "lines 1-1", f"SYNTHETIC {word} note", "text-file", PAGE_OK)])
+    try:
+        with without_session_user():
+            first = library.import_reviewed(doc("alphax", "a")).document_id
+            before = kr.corpus_signature(db)
+            library.delete_document(first)
+            library.import_reviewed(doc("betayz", "b"))
+        after = kr.corpus_signature(db)
+        assert before[3:6] == after[3:6], "precondition: count / max page id / total length collide"
+        assert after != before
+        index = kr.KnowledgeIndex(kr.read_corpus(db))
+        assert index.retrieve("betayz").status == "ok" and index.retrieve("alphax").status != "ok"
+    finally:
+        library.close()
+        db.engine.dispose()
+
+
+def test_one_long_page_contributes_at_most_two_passages():
+    """Dedupe: a page with many matching paragraphs must not flood the
+    evidence list and push other documents out."""
+    from core.document_library import PAGE_OK, READY, DocumentExtract, PageExtract
+    from document_link_fixtures import without_session_user
+    db = make_db()
+    library = DocumentLibrary(db)
+    long_text = "\n\n".join(f"SYNTHETIC paragraph {i}: the kick tolerance review for interval {i} is recorded."
+                            for i in range(1, 9))
+    try:
+        with without_session_user():
+            long_id = library.import_reviewed(DocumentExtract(
+                path="/syn", file_name="syn-long.txt", size_bytes=10, sha256="c" * 64, kind="text", page_count=1,
+                status=READY, pages=[PageExtract(1, "lines 1-8", long_text, "text-file", PAGE_OK)])).document_id
+            other_id = library.import_reviewed(DocumentExtract(
+                path="/syn", file_name="syn-other.txt", size_bytes=10, sha256="d" * 64, kind="text", page_count=1,
+                status=READY, pages=[PageExtract(1, "lines 1-1", "SYNTHETIC kick tolerance note for the rig crew.",
+                                                 "text-file", PAGE_OK)])).document_id
+        index = kr.KnowledgeIndex(kr.read_corpus(db))
+        assert len(index.page_chunks) == 2 and max(len(v) for v in index.page_chunks.values()) == 8   # precondition
+        result = index.retrieve("kick tolerance review", top_k=6)
+        per_page = Counter(hit.page.page_id for hit in result.hits)
+        assert per_page and max(per_page.values()) <= 2
+        assert {hit.page.document_id for hit in result.hits} == {long_id, other_id}
+    finally:
+        library.close()
+        db.engine.dispose()

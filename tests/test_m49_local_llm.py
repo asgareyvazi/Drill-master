@@ -154,6 +154,18 @@ def test_chat_failures_are_states_never_empty_answers(chunks, state):
     assert info.value.state == state
 
 
+def test_a_tool_call_is_refused_even_when_the_stream_then_completes():
+    """The tool-call guard itself must fire - not just a later protocol error
+    from an unfinished stream."""
+    chunks = [{"message": {"content": "", "tool_calls": [{"function": {"name": "shell"}}]}, "done": False},
+              {"message": {"content": "Kick tolerance is 50 bbl [S1]."}, "done": False},
+              {"message": {"content": ""}, "done": True}]
+    with FakeOllama(chat_chunks=chunks) as fake:
+        with pytest.raises(ll.LocalLLMError) as info:
+            ll.OllamaAdapter(fake.url, "syn-chat").chat([{"role": "user", "content": "q"}])
+    assert info.value.state == ll.PROTOCOL_ERROR and "tool" in str(info.value)
+
+
 def test_missing_model_on_chat_is_model_missing():
     with FakeOllama(chat_status=404, chat_error="model 'syn-chat' not found") as fake:
         with pytest.raises(ll.LocalLLMError) as info:

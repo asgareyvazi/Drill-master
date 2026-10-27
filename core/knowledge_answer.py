@@ -254,8 +254,17 @@ def describe_no_evidence(retrieval: kr.RetrievalResult, evidence: list) -> tuple
         return [], []
     found = [f"{e.label}: {e.file_name}, page {e.page_no} (matches {e.coverage:.0%} of the key terms)"
              for e in evidence[:3] if e.coverage > 0]
-    missing = retrieval.missing_terms if evidence else retrieval.terms
-    not_found = [f"No passage contains: {', '.join(missing)}"] if missing else []
+    absent = list(retrieval.absent_terms)
+    not_found = [f"No passage in this scope contains: {', '.join(absent)}"] if absent else []
+    if evidence:
+        lacking = [t for t in retrieval.missing_terms if t not in absent]
+        if lacking:
+            not_found.append(f"Not in the closest passage (they occur elsewhere in this scope): {', '.join(lacking)}")
+    else:
+        present = [t for t in retrieval.terms if t not in absent]
+        if present:
+            not_found.append("Occur in this scope, but no passage matches enough of the question together: "
+                             + ", ".join(present))
     return found, not_found
 
 

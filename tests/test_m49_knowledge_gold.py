@@ -3,7 +3,7 @@
 Hard invariants are exact (0 scope violations, 0 identity / open errors,
 0 unapproved leaks, 0 answers to unanswerable questions, every conflict and
 injection case).  The two ratio floors are deliberately BELOW the measured
-values (measured at M49: Recall@5 1.0, state accuracy 36/38 = 0.947) so a
+values (measured at M49: Recall@5 1.0, state accuracy 38/40 = 0.95) so a
 legitimate tie change does not fail the gate, while a real regression does.
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ def test_gold_set_shape():
     assert langs == {"en", "fa", "mixed"}
     kinds = {q["kind"] for q in GOLD}
     for required in ("exact", "paraphrase", "arabic-letters", "english", "mixed", "scoped", "missing-page",
-                     "multi-doc", "not-in-corpus", "injection", "unapproved", "edited-page"):
+                     "multi-doc", "not-in-corpus", "injection", "unapproved", "edited-page", "wrong-size"):
         assert required in kinds, required
     assert any(q.get("conflict") for q in GOLD)
 

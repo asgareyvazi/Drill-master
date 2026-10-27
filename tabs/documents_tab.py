@@ -22,9 +22,9 @@ from typing import Optional
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QHeaderView,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPlainTextEdit, QProgressDialog, QPushButton,
-    QSplitter, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
+    QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout, QHeaderView, QLabel,
+    QLineEdit, QListWidget, QListWidgetItem, QMessageBox, QPlainTextEdit, QProgressDialog, QPushButton, QSplitter,
+    QTabWidget, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget
 )
 
 from core.document_library import (
@@ -34,6 +34,7 @@ from core.document_library import (
 from core.document_links import DocumentLinkError, DocumentLinkService
 from core.search_normalization import find_spans, line_of, utf16_offset
 from tabs.document_link_dialog import LinkDocumentDialog
+from tabs.knowledge_assistant import KnowledgeAssistantPanel
 from tabs.related_documents import link_target_text
 
 logger = logging.getLogger(__name__)
@@ -293,6 +294,13 @@ class DocumentsTab(QWidget):
         header.addWidget(self.import_button)
         layout.addLayout(header)
 
+        # M49: "Library & Search" (the M44-M47 page) and "Knowledge Assistant".
+        self.sections = QTabWidget()
+        self.sections.setObjectName("documentSections")
+        library_page = QWidget()
+        page_layout = QVBoxLayout(library_page)
+        page_layout.setContentsMargins(0, 6, 0, 0)
+
         search_row = QHBoxLayout()
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search reviewed document text (offline, local index)")
@@ -307,10 +315,10 @@ class DocumentsTab(QWidget):
         search_row.addWidget(self.search_edit, 1)
         search_row.addWidget(self.search_button)
         search_row.addWidget(self.rebuild_button)
-        layout.addLayout(search_row)
+        page_layout.addLayout(search_row)
         self.search_info = QLabel("")
         self.search_info.setWordWrap(True)
-        layout.addWidget(self.search_info)
+        page_layout.addWidget(self.search_info)
 
         splitter = QSplitter(Qt.Horizontal)
         left = QSplitter(Qt.Vertical)
@@ -370,7 +378,12 @@ class DocumentsTab(QWidget):
         right_layout.addWidget(self.viewer)
         splitter.addWidget(right)
         splitter.setSizes([620, 620])
-        layout.addWidget(splitter, 1)
+        page_layout.addWidget(splitter, 1)
+        self.sections.addTab(library_page, "Library && Search")
+        self.assistant = KnowledgeAssistantPanel(self.db_manager, self.library, self.link_service, self)
+        self.assistant.open_evidence_requested.connect(self.open_evidence)
+        self.sections.addTab(self.assistant, "Knowledge Assistant")
+        layout.addWidget(self.sections, 1)
 
     def _build_links_box(self):
         box = QWidget()
@@ -458,6 +471,8 @@ class DocumentsTab(QWidget):
         self.import_button.setEnabled(allowed and self.worker is None)
         self.import_button.setToolTip("" if allowed else "Your role cannot import documents")
         self._refresh_links()
+        if hasattr(self, "assistant"):
+            self.assistant.library_changed()       # an answer never outlives its documents/links
 
     def _selected_document_id(self):
         row = self.table.currentRow()
@@ -546,6 +561,31 @@ class DocumentsTab(QWidget):
         if selections:
             self.viewer.setTextCursor(selections[0].cursor)
             self.viewer.ensureCursorVisible()
+
+    def open_evidence(self, document_id, page_no, start, end) -> bool:
+        """Open a cited passage (M49): the library page, the stored page text
+        and the exact cited character span selected and highlighted."""
+        self.sections.setCurrentIndex(0)
+        if not self.open_document(int(document_id), int(page_no)):
+            return False
+        page = next((p for p in self._viewer_pages if p["page_no"] == int(page_no)), None)
+        text = self.viewer.toPlainText()
+        if page is None or not 0 <= start < end <= len(text):
+            self.viewer_title.setText(self.viewer_title.text() + " — the cited passage is no longer stored")
+            return False
+        fmt = QTextCharFormat()
+        fmt.setBackground(QColor("#b3e5fc"))
+        cursor = QTextCursor(self.viewer.document())
+        cursor.setPosition(utf16_offset(text, start))
+        cursor.setPosition(utf16_offset(text, end), QTextCursor.KeepAnchor)
+        selection = QTextEdit.ExtraSelection()
+        selection.cursor, selection.format = cursor, fmt
+        self.viewer.setExtraSelections([selection])
+        self.viewer.setTextCursor(cursor)
+        self.viewer.ensureCursorVisible()
+        self.cited_span = (int(document_id), int(page_no), start, end)
+        self.viewer_title.setText(self.viewer_title.text() + f" — cited passage, line {line_of(text, start)}")
+        return True
 
     def delete_selected(self):
         document_id = self._selected_document_id()
@@ -813,4 +853,6 @@ class DocumentsTab(QWidget):
         if self.worker is not None:
             self.worker.cancel()
             self.worker.wait(5000)
+        if hasattr(self, "assistant"):
+            self.assistant.cleanup()
         self.library.close()

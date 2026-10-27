@@ -382,6 +382,14 @@ RAW_DML_ALLOWLIST = {
     # M44 review: writes only into the library's private sqlite3 ":memory:" FTS5
     # index rebuilt from ORM reads; it never touches the application database.
     ("core/document_library.py", "_ensure_index"),
+    # M49 review: the knowledge index writes only into its own sqlite3 ":memory:"
+    # FTS5 index (built from a read-only corpus snapshot) and into the
+    # regenerable embedding cache file <data dir>/knowledge_cache/ - a separate
+    # SQLite file that refuses to open any database holding other tables
+    # (test_m49_knowledge_retrieval::test_embedding_store_refuses_the_application_database).
+    ("core/knowledge_retrieval.py", "_build_fts"),
+    ("core/knowledge_retrieval.py", "put"),
+    ("core/knowledge_retrieval.py", "mark_complete"),
 }
 
 

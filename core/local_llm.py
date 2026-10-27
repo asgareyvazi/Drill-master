@@ -181,11 +181,11 @@ def _abort_response(response) -> None:
     try:
         sock = response.fp.raw._sock  # http.client response -> socket.SocketIO -> socket
         sock.shutdown(socket.SHUT_RDWR)
-    except (AttributeError, OSError):
+    except (AttributeError, OSError):  # silent-ok: best-effort socket shutdown on cancel; the socket may already be closed
         pass
     try:
         response.close()
-    except OSError:
+    except OSError:  # silent-ok: best-effort close after shutdown; nothing left to release
         pass
 
 
@@ -355,7 +355,7 @@ class OllamaAdapter:
             cancel._detach()
             try:
                 response.close()
-            except OSError:
+            except OSError:  # silent-ok: best-effort close in finally; the result or error is already decided
                 pass
         return "".join(parts)
 
@@ -393,7 +393,7 @@ def _matches(name: str, names: list) -> bool:
 def _http_error_state(exc: urllib.error.HTTPError):
     try:
         detail = json.loads(exc.read(64 * 1024).decode("utf-8")).get("error", "")
-    except (OSError, ValueError, UnicodeDecodeError, AttributeError):
+    except (OSError, ValueError, UnicodeDecodeError, AttributeError):  # silent-ok: optional error detail; the state comes from the HTTP status code
         detail = ""
     finally:
         exc.close()
