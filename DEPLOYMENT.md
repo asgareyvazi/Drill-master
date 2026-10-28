@@ -147,12 +147,18 @@ The core package works without all optional AI/document components.
 
 ```powershell
 $env:DRILLMASTER_AI_IMPORT = "1"
-$env:DRILLMASTER_AI_MODEL = "qwen2.5:3b"
+$env:DRILLMASTER_AI_MODEL = "qwen2.5:7b-instruct"
 $env:DRILLMASTER_OLLAMA_URL = "http://127.0.0.1:11434"
 ```
 
 Install Ollama and download a selected Qwen model separately, under the
-operator's licensing and data-transfer policy. No Ollama executable, Qwen
+operator's licensing and data-transfer policy. Check the licence of the exact
+weights: Qwen2.5 sizes differ (the 3B and 72B weights are not Apache-2.0 and
+restrict commercial use), so `qwen2.5:3b` is deliberately not suggested. Only a
+loopback endpoint (127.0.0.1, localhost or [::1]) is accepted, and Ollama
+cloud/remote models (`:cloud` tags or models Ollama reports as remote) are
+refused by the importer and the Documents assistant: workbook cells and
+document text never leave the computer. No Ollama executable, Qwen
 weight, cloud credential, MinerU/magic-pdf package, or third-party binary is
 bundled. The capability reporter detects disabled/unavailable/model-missing
 states without network access unless an explicit probe is requested. Missing

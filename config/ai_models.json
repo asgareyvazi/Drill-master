@@ -1,40 +1,22 @@
 {
   "default_enabled": false,
+  "policy": "Local models only. core.ai_import_mapper accepts only a loopback endpoint and refuses Ollama cloud/remote models (':cloud' tags or remote_host/remote_model entries); workbook cells never leave this computer. No entry is recommended for quality: none was measured on import mapping.",
   "models": [
     {
       "name": "qwen2.5-local",
-      "label": "Qwen 2.5 Local",
+      "label": "Qwen 2.5 Local (operator alias)",
       "provider": "ollama",
       "model": "qwen2.5-local",
-      "description": "Recommended for Excel and drilling report mapping"
-    },
-    {
-      "name": "qwen2.5:3b",
-      "label": "Qwen 2.5 3B",
-      "provider": "ollama",
-      "model": "qwen2.5:3b",
-      "description": "Small local model"
+      "description": "A local alias the operator creates; the licence of the weights behind it applies",
+      "licence": "depends on the weights behind the alias"
     },
     {
       "name": "qwen2.5:7b-instruct",
       "label": "Qwen 2.5 7B Instruct",
       "provider": "ollama",
       "model": "qwen2.5:7b-instruct",
-      "description": "Higher quality local model"
-    },
-    {
-      "name": "minimax-m2.7:cloud",
-      "label": "MiniMax Cloud",
-      "provider": "ollama",
-      "model": "minimax-m2.7:cloud",
-      "description": "Requires Ollama Cloud access"
-    },
-    {
-      "name": "kimi-k2.6:cloud",
-      "label": "Kimi Cloud",
-      "provider": "ollama",
-      "model": "kimi-k2.6:cloud",
-      "description": "Requires Ollama Cloud access"
+      "description": "Local model; not measured on import mapping",
+      "licence": "Apache-2.0 (Qwen2.5 model card; the 3B and 72B sizes use other licences)"
     }
   ]
 }

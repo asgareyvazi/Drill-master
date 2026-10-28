@@ -33,6 +33,11 @@ KA = "core/knowledge_answer.py"
 T_RET = ["tests/test_m50_knowledge_retrieval.py", "tests/test_m50_knowledge_gold.py"]
 T_VER = ["tests/test_m50_verifier.py", "tests/test_m50_citation_navigation.py", "tests/test_m49_knowledge_answer.py"]
 DT = "tabs/documents_tab.py"
+V3D = "tabs/trajectory_3d_view.py"
+AIM = "core/ai_import_mapper.py"
+T_LEG = ["tests/test_m50_legacy_ai_importer.py", "tests/test_release_smoke.py"]
+T_3D = ["tests/test_m50_trajectory_3d_disposal.py", "tests/test_trajectory_3d.py",
+        "tests/test_trajectory_3d_lifecycle_m46.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------ P0: Analysis revision off the GUI thread
@@ -199,6 +204,49 @@ MUTANTS = [
            "item.start, item.end, item.text_version)",
            'item.start, item.end, "")',
            T_VER, "the panel stops sending the cited text version, so changed pages are highlighted"),
+    # ------------------------------------------------------------ P1: Windows 3D lifecycle (§8)
+    Mutant("W-destroyed-release-dropped", V3D,
+           "            self.destroyed.connect(functools.partial(",
+           "            (functools.partial(",
+           T_3D, "a destroyed view leaves its Qt canvas and widgets to a later garbage collection"),
+    Mutant("W-figure-keeps-qt-canvas", V3D,
+           "    base_canvas_class(figure)        # the figure now points at a plain, Qt-free canvas",
+           "    pass",
+           T_3D, "the figure <-> Qt canvas cycle survives the view"),
+    Mutant("W-canvas-attributes-kept", V3D,
+           "    vars(canvas).clear()             # drops draw_idle -> view",
+           "    pass  # drops draw_idle -> view",
+           T_3D, "canvas.draw_idle keeps the destroyed view alive for the garbage collector"),
+    Mutant("W-import-garbage-kept", V3D,
+           "        _import_garbage_collected = True\n        gc.collect()\n",
+           "        _import_garbage_collected = True\n",
+           T_3D, "Matplotlib's first-import cycles keep the first view for a later collection"),
+    # ------------------------------------------------------------ P1: legacy AI importer stays local (§7)
+    Mutant("L-remote-endpoint-accepted", AIM,
+           "            self.endpoint = validate_loopback_url(raw_endpoint)",
+           "            self.endpoint = raw_endpoint",
+           T_LEG, "workbook cells are posted to a remote DRILLMASTER_OLLAMA_URL"),
+    Mutant("L-cloud-model-listed", AIM,
+           "                (rejected if is_remote_model(item) else local).append(name)",
+           "                local.append(name)",
+           T_LEG, "an installed Ollama cloud model is listed as a local model"),
+    Mutant("L-cloud-selection-unchecked", AIM,
+           '        if is_remote_model({"name": self.model}):\n            self.last_status = "remote-rejected"',
+           '        if False:\n            self.last_status = "remote-rejected"',
+           T_LEG, "a ':cloud' selection reaches the server instead of being refused up front"),
+    Mutant("L-remote-flag-ignored", AIM,
+           "        if self.model in self.rejected_models:",
+           "        if False:",
+           T_LEG, "a model Ollama reports as remote is used when its name looks local"),
+    Mutant("L-redirect-and-proxy-followed", AIM,
+           "        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())",
+           "        self._opener = urllib.request.build_opener()",
+           T_LEG, "a redirect or an environment proxy carries the request off this computer"),
+    # ------------------------------------------------------------ P0: model / index states (§6)
+    Mutant("S-semantic-stale-shown-ready", "tabs/knowledge_assistant.py",
+           "        if self._semantic_signature is not None and signature != self._semantic_signature:",
+           "        if False:",
+           ["tests/test_m50_assistant_states.py"], "a semantic index built for other documents stays labelled ready"),
 ]
 
 

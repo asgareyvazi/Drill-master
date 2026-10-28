@@ -159,6 +159,8 @@ class KnowledgeAssistantPanel(QWidget):
         self._generation = 0
         self._index: Optional[kr.KnowledgeIndex] = None
         self._snapshot_signature = None
+        self._semantic_signature = None       # corpus the completed semantic index was built for
+        self._semantic_build_signature = None
         self._store: Optional[kr.EmbeddingStore] = None
         self.worker: Optional[AskWorker] = None
         self.status_worker: Optional[StatusWorker] = None
@@ -455,15 +457,23 @@ class KnowledgeAssistantPanel(QWidget):
     def library_changed(self):
         """Called by the Documents tab after import/delete/link changes."""
         self._fill_targets()
-        if self._index is not None:
+        if self._index is not None or self._semantic_signature is not None:
             try:
-                changed = kr.corpus_signature(self.db_manager) != self._snapshot_signature
+                signature = kr.corpus_signature(self.db_manager)
             except Exception as exc:
                 logger.warning("Corpus signature unavailable: %s", type(exc).__name__)
-                changed = True
-            if changed:
+                signature = None
+            self._semantic_out_of_date(signature)
+            if self._index is not None and signature != self._snapshot_signature:
                 self._index = None
                 self._invalidate("library")
+
+    def _semantic_out_of_date(self, signature) -> None:
+        """A semantic index built for other documents is never shown as ready (retrieval already refuses it)."""
+        if self._semantic_signature is not None and signature != self._semantic_signature:
+            self._semantic_signature = None
+            self.semantic_label.setText("Semantic index out of date: the documents changed after it was built, so "
+                                        "keyword retrieval is used until you build it again.")
 
     # ---------------------------------------------------------------- ask
     def _adapter(self):
@@ -489,6 +499,7 @@ class KnowledgeAssistantPanel(QWidget):
         self._set_state("searching")
         try:
             signature = kr.corpus_signature(self.db_manager)
+            self._semantic_out_of_date(signature)
             snapshot = None
             if self._index is None or signature != self._snapshot_signature:
                 snapshot = kr.read_corpus(self.db_manager)     # UI thread owns the session
@@ -691,6 +702,7 @@ class KnowledgeAssistantPanel(QWidget):
         store = self._embedding_store()
         index = kr.KnowledgeIndex(snapshot, embedding_store=store, embed_model=adapter.embed_model)
         self._index, self._snapshot_signature = index, snapshot.signature
+        self._semantic_signature, self._semantic_build_signature = None, snapshot.signature
         self._semantic_cancel = ll.CancelToken()
         self.semantic_worker = SemanticBuildWorker(index, adapter, store, self._semantic_cancel, self)
         self.semantic_worker.progress.connect(
@@ -706,6 +718,7 @@ class KnowledgeAssistantPanel(QWidget):
         self.build_semantic_button.setText("Build semantic index")
         state = result.get("state")
         if state == "complete":
+            self._semantic_signature = self._semantic_build_signature
             self.semantic_label.setText(f"Semantic retrieval ready: {result['total']} passages embedded locally.")
         elif state == "cancelled":
             self.semantic_label.setText(f"Semantic build cancelled at {result['done']}/{result['total']} - "

@@ -14,6 +14,11 @@ vertical-section views already show) as a 3D path with station markers.
   handlers) queues an unowned timer that can fire after the canvas was
   destroyed ("Internal C++ object already deleted"), so this canvas's
   ``draw_idle`` is routed to the owned timer as well.
+* Disposal is deterministic (M50 §8): when the view is destroyed the Python
+  reference cycles through its Qt canvas (figure <-> canvas, canvas -> view)
+  are cut, so the destroyed Qt wrappers are freed by reference counting at
+  that point - never by a later cyclic garbage collection that happens to run
+  inside unrelated Qt work (a native crash on the Windows gate).
 * Interactive 3D needs the Qt Matplotlib canvas.  When only the static Agg
   fallback (or no Matplotlib) is available the tab says so and draws nothing:
   a static picture is never presented as an interactive 3D view.
@@ -23,7 +28,10 @@ dependency; mplot3d ships with it, so no dependency is added.
 """
 from __future__ import annotations
 
+import functools
+import gc
 import logging
+import threading
 from typing import Optional
 
 from PySide6.QtCore import QTimer, Signal
@@ -44,8 +52,12 @@ PICK_TOLERANCE_PX = 8.0
 CLICK_MOVE_PX = 4.0
 
 
+_import_garbage_collected = False
+
+
 def _load_canvas():
     """(canvas class, interactive?, reason).  Separate for tests."""
+    global _import_garbage_collected
     try:
         from matplotlib.figure import Figure  # noqa: F401
         import mpl_toolkits.mplot3d  # noqa: F401  (registers the '3d' projection)
@@ -53,9 +65,29 @@ def _load_canvas():
         return None, False, f"Matplotlib 3D is not available ({type(exc).__name__})."
     from core.matplotlib_widgets import select_figure_canvas
     canvas_class, interactive = select_figure_canvas()
+    if not _import_garbage_collected and threading.current_thread() is threading.main_thread():
+        # Matplotlib's first import leaves exception <-> frame cycles (its parsers raise and catch
+        # while building) whose frames reach back through this call to the view being constructed.
+        # Collected now, once, on the GUI thread, they can never carry a later-destroyed view's Qt
+        # wrappers into a garbage collection that runs inside unrelated Qt work.
+        _import_garbage_collected = True
+        gc.collect()
     if canvas_class is None or not interactive:
         return None, False, "Interactive 3D needs the Qt Matplotlib canvas, which could not be loaded."
     return canvas_class, True, ""
+
+
+def _release_canvas_graph(base_canvas_class, figure, canvas, *_destroyed_args):
+    """Slot for the view's ``destroyed`` signal: cut the reference cycles that
+    would leave the Qt canvas wrapper to the cyclic garbage collector.
+
+    Qt emits ``destroyed`` before it deletes the child widgets, so this is pure
+    Python on purpose: no Qt call on objects that are being destroyed.  The
+    canvas class is bound at connect time (module globals may be gone when the
+    application object is torn down at exit).
+    """
+    base_canvas_class(figure)        # the figure now points at a plain, Qt-free canvas
+    vars(canvas).clear()             # drops draw_idle -> view, canvas.figure and any patched attribute
 
 
 class Trajectory3DView(QWidget):
@@ -116,6 +148,11 @@ class Trajectory3DView(QWidget):
             self.canvas.mpl_connect("button_press_event", self._mouse_press)
             self.canvas.mpl_connect("button_release_event", self._mouse_release)
             self.canvas.mpl_connect("scroll_event", self._scroll)
+            from matplotlib.backend_bases import FigureCanvasBase
+            # A plain function holding the figure and canvas (not the view), so the connection keeps
+            # no reference to the view; Qt drops it after emitting.
+            self.destroyed.connect(functools.partial(_release_canvas_graph, FigureCanvasBase, self.figure,
+                                                     self.canvas))
         else:
             self.unavailable_reason = reason
             layout.addStretch(1)

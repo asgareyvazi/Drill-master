@@ -76,6 +76,9 @@ REQUIRED_MODULES = (
     "tests/test_m50_knowledge_gold.py",
     "tests/test_m50_verifier.py",
     "tests/test_m50_citation_navigation.py",
+    "tests/test_m50_trajectory_3d_disposal.py",
+    "tests/test_m50_legacy_ai_importer.py",
+    "tests/test_m50_assistant_states.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 

@@ -3,6 +3,11 @@
 AI is opt-in and advisory only. Deterministic import validation remains the
 source of truth; an unavailable Ollama service produces a clear capability
 status and never blocks non-AI imports.
+
+Workbook cells never leave this computer (M50 §7, same policy as the M49
+assistant in ``core.local_llm``): the endpoint must be loopback, proxies and
+redirects are refused, and Ollama cloud/remote models (``:cloud`` tags or a
+``remote_host``/``remote_model`` entry) are neither listed nor used.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ import urllib.request
 from pathlib import Path
 
 from core.canonical_schema import CANONICAL_FIELDS
+from core.local_llm import LocalLLMError, _NoRedirect, is_remote_model, validate_loopback_url
 from core.runtime_config import ai_settings_path
 
 logger = logging.getLogger(__name__)
@@ -51,9 +57,14 @@ class AIImportMapper:
     """Capability-aware Ollama mapper; it never invents canonical values."""
 
     def __init__(self, endpoint=None, model=None, timeout=20):
-        self.endpoint = (
-            endpoint or os.getenv("DRILLMASTER_OLLAMA_URL", "http://127.0.0.1:11434")
-        ).rstrip("/")
+        raw_endpoint = (endpoint or os.getenv("DRILLMASTER_OLLAMA_URL", "http://127.0.0.1:11434")).rstrip("/")
+        try:
+            self.endpoint = validate_loopback_url(raw_endpoint)
+            self.endpoint_error = ""
+        except LocalLLMError as exc:       # a remote or malformed endpoint is never contacted
+            self.endpoint, self.endpoint_error = None, str(exc)
+        self.rejected_models = []          # installed, but they would run off this computer
+        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
         self.model = (
             model
             or os.getenv("DRILLMASTER_AI_MODEL", "")
@@ -78,20 +89,39 @@ class AIImportMapper:
         if not self.enabled:
             self.last_status = "disabled"
             return []
+        if self.endpoint is None:
+            self.last_status = "invalid-url"
+            return []
         try:
-            with urllib.request.urlopen(f"{self.endpoint}/api/tags", timeout=2) as response:
-                models = json.loads(response.read().decode()).get("models", [])
-            self.last_status = "ready"
-            return [item.get("name") for item in models if item.get("name")]
-        except (OSError, urllib.error.URLError, ValueError):
+            with self._opener.open(f"{self.endpoint}/api/tags", timeout=2) as response:
+                payload = json.loads(response.read().decode())
+        except (OSError, urllib.error.URLError, ValueError, LocalLLMError):
             self.last_status = "ollama-unavailable"
             return []
+        models = payload.get("models") if isinstance(payload, dict) else None
+        local, rejected = [], []
+        for item in models if isinstance(models, list) else []:
+            name = item.get("name") if isinstance(item, dict) else None
+            if name:
+                (rejected if is_remote_model(item) else local).append(name)
+        self.rejected_models = rejected
+        self.last_status = "ready"
+        return local
 
     def available(self):
         if not self.enabled:
             self.last_status = "disabled"
             return False
-        if self.model not in set(self.installed_models()):
+        if is_remote_model({"name": self.model}):
+            self.last_status = "remote-rejected"
+            return False
+        installed = set(self.installed_models())
+        if self.last_status != "ready":            # invalid-url / ollama-unavailable stay distinct
+            return False
+        if self.model in self.rejected_models:
+            self.last_status = "remote-rejected"
+            return False
+        if self.model not in installed:
             self.last_status = "model-not-installed"
             return False
         self.last_status = "available"
@@ -123,7 +153,7 @@ class AIImportMapper:
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with self._opener.open(request, timeout=self.timeout) as response:
                 payload = json.loads(response.read().decode())
             raw = payload.get("response", "{}")
             result = json.loads(raw) if isinstance(raw, str) else raw
@@ -131,7 +161,7 @@ class AIImportMapper:
             valid = [proposal for proposal in proposals if self._valid_proposal(proposal, fields)]
             self.last_status = f"ok:{len(valid)}"
             return valid
-        except (OSError, urllib.error.URLError, ValueError, TypeError):
+        except (OSError, urllib.error.URLError, ValueError, TypeError, AttributeError, LocalLLMError):
             self.last_status = "request-failed"
             logger.warning("Local AI import mapping unavailable")
             return []
