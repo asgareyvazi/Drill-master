@@ -78,7 +78,7 @@ MODE_TEXT = {
 }
 
 
-def render_diagnostics_html(answer, scope_text: str = "") -> str:
+def render_diagnostics_html(answer, scope_text: str = "", refinement=None) -> str:
     """How this answer was produced (M50 §9): methods, semantic availability and why, scope, passages,
     extractive vs generated, validation, conflicts and refusal.  Built only from the answer object;
     never repeats passage text.  Everything is escaped."""
@@ -102,6 +102,12 @@ def render_diagnostics_html(answer, scope_text: str = "") -> str:
         row("Semantic retrieval", esc("used" if "semantic" in retrieval.lists_used else
                                       (semantic or "not used")))
         scope = scope_text or retrieval.scope
+        row("Search terms", esc(", ".join(ka.display_terms(retrieval.terms)) or "none"))
+        if refinement:
+            added, replaced = refinement
+            row("Refined search", esc(f"with suggested technical terms: {', '.join(added)}"
+                                      + (f"; replacing: {', '.join(replaced)}" if replaced else "")
+                                      + "; same scope"))
         row("Scope", esc(f"{scope} - {retrieval.scope_documents} eligible document(s), "
                          f"{retrieval.scope_pages} reviewed page(s)"
                          + (f", page {retrieval.page_filter} only" if retrieval.page_filter else "")))
@@ -161,6 +167,41 @@ def render_answer_html(text: str) -> str:
         direction = ' dir="rtl" align="right"' if _is_rtl(line) else ""
         blocks.append(f"<p{direction}>{escaped}</p>")
     return "".join(blocks)
+
+
+def _dir(text: str) -> str:
+    return ' dir="rtl"' if _is_rtl(text) else ' dir="ltr"'
+
+
+def render_refinement_html(answer, scope_text: str = "") -> str:
+    """Query refinement after insufficient evidence (M51 §7): the scope searched, the question words found
+    and missing in it, the related but insufficient sources, semantic availability, and the in-scope
+    technical terms to retry with.  Built from the answer object only; every term is escaped and carries
+    its own direction so Persian and English terms render correctly side by side."""
+    retrieval = answer.retrieval
+    if answer.mode != "none" or answer.state != "no_evidence" or retrieval is None:
+        return ""
+    esc = html.escape
+
+    def terms_html(terms) -> str:
+        return ", ".join(f"<span{_dir(t)}>{esc(t)}</span>" for t in terms) or esc("none")
+
+    missing = set(retrieval.missing_terms) | set(retrieval.absent_terms)
+    found = ka.display_terms(t for t in retrieval.terms if t not in missing)
+    lacking = ka.display_terms(t for t in retrieval.terms if t in missing)
+    semantic = ("used" if "semantic" in retrieval.lists_used else
+                dict(retrieval.unavailable).get("semantic") or "not available - keyword and glossary search only")
+    related = [f"{e.label}: {e.file_name}, page {e.page_no}" for e in answer.evidence[:3] if e.coverage > 0]
+    rows = [("Searched scope", esc(f"{scope_text or retrieval.scope} - {retrieval.scope_documents} document(s), "
+                                   f"{retrieval.scope_pages} reviewed page(s)")),
+            ("Found in this scope", terms_html(found)),
+            ("Missing", terms_html(lacking)),
+            ("Related but not sufficient", terms_html(related)),
+            ("Semantic search", esc(semantic)),
+            ("Suggested technical terms", terms_html(answer.suggestions) if answer.suggestions else
+             esc("none - no glossary term or spelling in this scope matches the missing words"))]
+    body = "".join(f"<tr><td><b>{esc(name)}</b></td><td>{value}</td></tr>" for name, value in rows)
+    return f'<hr><p><b>{esc("Refine the question")}</b></p><table cellspacing="2">{body}</table>'
 
 
 def _reads_on_worker(db_manager) -> bool:
@@ -316,6 +357,9 @@ class KnowledgeAssistantPanel(QWidget):
         self.last_error: Optional[str] = None
         self.current_state = "idle"
         self._asked = None                      # (question, scope, target) of the shown answer
+        self._refine_base = None                # (question, scope, target, replaces) the suggestions belong to
+        self._refinement = None                 # (terms, replaced) of the running/shown refined search
+        self._last_request = None               # (question, scope, target, refinement) for Retry
         self._build()
         self._fill_targets()
         self._set_state("idle")
@@ -364,7 +408,7 @@ class KnowledgeAssistantPanel(QWidget):
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self.cancel)
         self.retry_button = QPushButton("Retry")
-        self.retry_button.clicked.connect(self.ask)
+        self.retry_button.clicked.connect(self.retry)
         self.clear_button = QPushButton("Clear")
         self.clear_button.clicked.connect(self.clear)
         self.use_model_check = QCheckBox("Write the answer with the local model")
@@ -392,6 +436,20 @@ class KnowledgeAssistantPanel(QWidget):
         self.answer_view.setOpenLinks(False)
         self.answer_view.anchorClicked.connect(self._citation_clicked)
         answer_layout.addWidget(self.answer_view, 1)
+        refine_row = QHBoxLayout()
+        refine_row.addWidget(QLabel("Suggested terms:"))
+        self.suggest_edit = QLineEdit()
+        self.suggest_edit.setObjectName("knowledgeSuggestions")
+        self.suggest_edit.setPlaceholderText("Shown after insufficient evidence - edit before searching")
+        self.suggest_edit.setToolTip("Technical terms found in the SAME scope for the words that blocked the "
+                                     "answer. Separate terms with commas. The scope is never changed.")
+        self.suggest_edit.textChanged.connect(self._suggestions_edited)
+        refine_row.addWidget(self.suggest_edit, 1)
+        self.suggest_button = QPushButton("Search with suggested technical terms")
+        self.suggest_button.setObjectName("knowledgeSuggestSearch")
+        self.suggest_button.clicked.connect(self.ask_refined)
+        refine_row.addWidget(self.suggest_button)
+        answer_layout.addLayout(refine_row)
         self.notes_label = QLabel("")
         self.notes_label.setWordWrap(True)
         self.notes_label.setTextFormat(Qt.PlainText)
@@ -577,6 +635,7 @@ class KnowledgeAssistantPanel(QWidget):
         self.ask_button.setEnabled(not busy)
         self.cancel_button.setEnabled(busy)
         self.retry_button.setEnabled(not busy and state in ("model_unavailable", "error", "cancelled"))
+        self._update_suggest_button()
         self.scope_combo.setEnabled(True)
 
     def _invalidate(self, reason):
@@ -591,6 +650,11 @@ class KnowledgeAssistantPanel(QWidget):
 
     def _clear_results(self):
         self.last_answer, self.last_error, self._asked = None, None, None
+        self._refine_base = None
+        self.suggest_edit.blockSignals(True)
+        self.suggest_edit.clear()
+        self.suggest_edit.blockSignals(False)
+        self._update_suggest_button()
         self.answer_view.clear()
         self.notes_label.clear()
         self.diagnostics_view.clear()
@@ -679,6 +743,43 @@ class KnowledgeAssistantPanel(QWidget):
             self._set_state("invalid_query", "type a question first")
             return False
         scope, target = self.current_scope()
+        return self._start(question, scope, target, None)
+
+    def retry(self):
+        """Repeat the last request exactly - a refined search stays refined, in the same scope."""
+        request = self._last_request
+        if request is None or request[1:3] != self.current_scope():
+            return self.ask()
+        return self._start(*request)
+
+    # ------------------------------------------------------ refinement (M51 §7)
+    def _refine_ready(self) -> bool:
+        return (self._refine_base is not None and self.worker is None
+                and bool(ka.refinement_terms(self.suggest_edit.text())))
+
+    def _update_suggest_button(self) -> None:
+        if hasattr(self, "suggest_button"):
+            self.suggest_button.setEnabled(self._refine_ready())
+
+    def _suggestions_edited(self, text) -> None:
+        self.suggest_edit.setAlignment(Qt.AlignRight if _is_rtl(text) else Qt.AlignLeft)
+        self._update_suggest_button()
+
+    def ask_refined(self):
+        """Search again with the (edited) suggested terms: same scope and target, the words they stand in for
+        replaced, every other word of the question kept; the old result is cleared first."""
+        if not self._refine_ready():
+            return False
+        question, scope, target, replaces = self._refine_base
+        if (scope, target) != self.current_scope():
+            self._invalidate("scope")            # never search a scope the suggestions were not made for
+            return False
+        terms = ka.refinement_terms(self.suggest_edit.text())
+        effective = ka.refined_question(question, terms, replaces)
+        return self._start(effective, scope, target, (terms, list(replaces)))
+
+    def _start(self, question, scope, target, refinement):
+        self._last_request = (question, scope, target, refinement)
         if self.worker is not None:
             self._stop_worker()
         self._clear_results()
@@ -712,7 +813,9 @@ class KnowledgeAssistantPanel(QWidget):
         self.worker.stage.connect(self._worker_stage)
         self.worker.done.connect(self._worker_done)
         self._asked = (question, scope, target)
+        self._refinement = refinement
         self.worker.start()
+        self._update_suggest_button()
         return True
 
     def _worker_stage(self, generation, stage):
@@ -723,6 +826,7 @@ class KnowledgeAssistantPanel(QWidget):
         worker = self.sender()
         if worker is self.worker:
             self.worker = None
+            self._update_suggest_button()
         if index is not None and generation == self._generation:
             self._index = index
             self._snapshot_signature = index.signature      # the corpus state this answer was read from
@@ -787,12 +891,14 @@ class KnowledgeAssistantPanel(QWidget):
                              "".join(f"<li>{html.escape(f)}</li>" for f in answer.found) + "</ul>")
             if answer.not_found:
                 parts.append("<ul>" + "".join(f"<li>{html.escape(f)}</li>" for f in answer.not_found) + "</ul>")
-        self.answer_view.setHtml("".join(parts))
-        self.notes_label.setText("\n".join(answer.notes))
         scope_text = self.scope_combo.currentText()
         if self.target_combo.isEnabled() and self.target_combo.currentText():
             scope_text += f": {self.target_combo.currentText()}"
-        self.diagnostics_view.setHtml(render_diagnostics_html(answer, scope_text))
+        parts.append(render_refinement_html(answer, scope_text))
+        self.answer_view.setHtml("".join(parts))
+        self.notes_label.setText("\n".join(answer.notes))
+        self.diagnostics_view.setHtml(render_diagnostics_html(answer, scope_text, self._refinement))
+        self._offer_suggestions(answer)
         self._fill_evidence(answer.evidence)
         detail = ""
         if answer.state == "ready" and answer.check is not None:
@@ -802,6 +908,16 @@ class KnowledgeAssistantPanel(QWidget):
         elif answer.state == "model_unavailable":
             detail = answer.model_state or ""
         self._set_state(answer.state if answer.state in STATE_STYLE else "error", detail)
+
+    def _offer_suggestions(self, answer) -> None:
+        """Fill the editable suggestion field for the question/scope this answer was produced for."""
+        self._refine_base = None
+        if answer.state == "no_evidence" and answer.suggestions and self._asked is not None:
+            self._refine_base = (*self._asked, list(answer.replaces))
+        self.suggest_edit.blockSignals(True)
+        self.suggest_edit.setText(", ".join(answer.suggestions) if self._refine_base else "")
+        self.suggest_edit.blockSignals(False)
+        self._suggestions_edited(self.suggest_edit.text())
 
     def _fill_evidence(self, evidence):
         self.evidence_table.setRowCount(len(evidence))

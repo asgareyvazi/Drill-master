@@ -162,6 +162,8 @@ class Answer:
     draft: str = ""                                 # a model draft that FAILED citation checks (not the answer)
     draft_check: Optional[CitationCheck] = None
     semantic_verified: bool = False                 # always False: there is no entailment check
+    suggestions: list = field(default_factory=list)  # in-scope terms to retry with (no_evidence, M51 §7)
+    replaces: list = field(default_factory=list)     # the question words those suggestions stand in for
 
     @property
     def verified(self) -> bool:
@@ -521,6 +523,41 @@ def constraint_reasons(retrieval: kr.RetrievalResult) -> list:
             for rule, labels in retrieval.constraints if rule in CONSTRAINT_TEXT and labels]
 
 
+REFINE_MAX_CHARS = 200
+_TERM_SPLIT = re.compile(r"[,،;؛\n]+")
+
+
+def refinement_terms(text: str) -> list:
+    """The user-edited suggestion field as a list of terms (comma / Persian comma / semicolon separated)."""
+    out = []
+    for part in _TERM_SPLIT.split(text or ""):
+        part = " ".join(part.split())
+        if part and part not in out:
+            out.append(part)
+    return out
+
+
+def _refinement(index: kr.KnowledgeIndex, retrieval: kr.RetrievalResult) -> dict:
+    suggestions, replaces = index.refinement(retrieval)
+    return {"suggestions": suggestions, "replaces": replaces}
+
+
+def refined_question(question: str, terms: list, replaces: list = ()) -> str:
+    """The question to search with the suggested terms (M51 §7).
+
+    Each question word in ``replaces`` (a word that blocked the answer and that a suggestion stands in
+    for) is dropped and ``terms`` are appended.  Every other word stays - the named well, sizes, numbers,
+    page and what is asked - so the hard rules still apply.  Scope is not part of the question and is
+    never changed.  With no terms the question is returned unchanged."""
+    extra = " ".join(terms)[:REFINE_MAX_CHARS].strip()
+    if not extra:
+        return question.strip()
+    dropped = {t for t in replaces if t and not any(ch.isdigit() for ch in t)}
+    kept = [token for token in question.split() if not (dropped and kr.words(token)
+                                                         and all(w in dropped for w in kr.words(token)))]
+    return f"{' '.join(kept)} {extra}".strip()
+
+
 def scope_notes(retrieval: kr.RetrievalResult) -> list:
     notes = []
     if retrieval.scope != kr.SCOPE_ALL:
@@ -565,7 +602,7 @@ def answer_question(index: kr.KnowledgeIndex, question: str, scope: str = kr.SCO
     if retrieval.status != "ok":
         found, not_found = describe_no_evidence(retrieval, evidence)
         return Answer(retrieval.status, "none", NO_EVIDENCE_TEXT[retrieval.status], evidence, retrieval,
-                      found=found, not_found=not_found, notes=notes)
+                      found=found, not_found=not_found, notes=notes, **_refinement(index, retrieval))
     extractive = extractive_answer(index, retrieval, evidence)
     if not extractive:
         # Only instruction-like text matched: it stays visible as flagged evidence, never as an answer.
@@ -574,7 +611,7 @@ def answer_question(index: kr.KnowledgeIndex, question: str, scope: str = kr.SCO
         notes.append("The only matching passages contain instruction-like text; they are shown as flagged "
                      "evidence and are not used as an answer.")
         return Answer("no_evidence", "none", NO_EVIDENCE_TEXT["no_evidence"], evidence, retrieval,
-                      found=found, not_found=not_found, notes=notes)
+                      found=found, not_found=not_found, notes=notes, **_refinement(index, retrieval))
     extractive_check = validate_citations(extractive, evidence, tuple(retrieval.conflicts), index.snapshot)
     if not use_model or adapter is None:
         return Answer("ready", "extractive", extractive, evidence, retrieval,

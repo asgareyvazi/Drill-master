@@ -28,6 +28,7 @@ Everything here is Qt-free and touches the database only in ``read_corpus``
 from __future__ import annotations
 
 import array
+import difflib
 import hashlib
 import math
 import re
@@ -50,6 +51,8 @@ CHUNK_TARGET_CHARS = 700
 LIST_DEPTH = 50                 # candidates taken from each ranked list
 SUFFICIENT_COVERAGE = 0.6       # IDF-weighted share of the question's content terms
 MIN_HIT_COVERAGE = 0.2          # passages below this are not shown as evidence
+SUGGESTION_LIMIT = 6            # refinement terms offered after insufficient evidence (M51 §7)
+SPELLING_CUTOFF = 0.8           # difflib ratio for an in-scope spelling of a question word
 SIZE_MISMATCH_CAP = 0.5         # a passage lacking a size the question names is never sufficient
 ANSWER_TYPE_CAP = 0.5           # ... or lacking the kind of quantity the question asks for
 IDENTITY_CAP = 0.5              # ... or from a document that is not about the well the question names (M51)
@@ -1243,6 +1246,58 @@ class KnowledgeIndex:
         result.conflicts = find_conflicts([h for h in hits if h.coverage >= SUFFICIENT_COVERAGE], terms,
                                           expansions)
         return result
+
+    # -------------------------------------------------------- refinement
+    def suggest_terms(self, retrieval: RetrievalResult, limit: int = SUGGESTION_LIMIT) -> list:
+        """The suggested terms only (see :meth:`refinement`)."""
+        return self.refinement(retrieval, limit)[0]
+
+    def refinement(self, retrieval: RetrievalResult, limit: int = SUGGESTION_LIMIT) -> tuple:
+        """Technical terms to retry an insufficient-evidence question with (M51 §7).
+
+        Lexical only: glossary alternatives of the question words that blocked
+        the answer, and close spellings of them.  A suggestion is offered only
+        when it occurs in a passage of the SAME scope (it can never point
+        outside it), and never contains a number or an entity code - it can
+        refine the wording, not change which well, report or value is asked
+        about.  The scope itself is not part of a suggestion.
+
+        Returns ``(suggestions, replaces)``: ``replaces`` are the question
+        words the suggestions stand in for (never numbers or code parts)."""
+        if retrieval.status != "no_evidence":
+            return [], []
+        allowed = self.candidate_chunks(retrieval.scope, retrieval.target, retrieval.page_filter)
+        if not allowed:
+            return [], []
+        code_parts = {part for code in retrieval.entity_codes for part in code}
+        asked = words(retrieval.question)
+        blocked = [t for t in dict.fromkeys([*retrieval.absent_terms, *retrieval.missing_terms])
+                   if t in retrieval.terms and len(t) >= 3 and not any(ch.isdigit() for ch in t)
+                   and t not in code_parts]                         # question words only, never type labels
+        scoped_toks = [self._norm_tokens[cid] for cid in allowed]
+        vocabulary = sorted({w for toks in scoped_toks for w in toks if len(w) >= 4 and w.isalpha()})
+        out, replaces = [], []
+
+        def offer(form: list, term: str) -> None:
+            label = " ".join(form)
+            if (len(out) < limit and label not in out and not _contains(asked, form)
+                    and not any(ch.isdigit() for ch in label) and not any(w in code_parts for w in form)
+                    and any(phrase_in(toks, form) for toks in scoped_toks)):
+                out.append(label)
+                if term not in replaces:
+                    replaces.append(term)
+
+        for term in blocked:
+            for forms in GLOSSARY:
+                # The concept is about this word: a one-word form of it, or a form the question contains.
+                if any(any(_term_matches(term, w) for w in form) and (len(form) == 1 or phrase_in(asked, form))
+                       for form in forms):
+                    for form in forms:
+                        offer(form, term)
+            for word in difflib.get_close_matches(term, vocabulary, n=2, cutoff=SPELLING_CUTOFF):
+                if word != term:
+                    offer([word], term)
+        return out, replaces
 
     def _with_heading_siblings(self, fused: list, allowed: set) -> list:
         """A retrieved page heading ("BOP pressure test procedure") brings the
