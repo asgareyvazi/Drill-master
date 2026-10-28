@@ -12,7 +12,9 @@ collection running inside whatever Qt work came next.
 
 These tests are deterministic: automatic collection is disabled, the view is
 disposed, then (1) the view and canvas must already be gone by reference
-counting and (2) an explicit collection must find no Qt wrapper at all.
+counting and (2) an explicit collection must find no Qt wrapper created by the
+test (wrappers that existed before it - other tests' widgets - are held and
+excluded, after their queued deletions are flushed).
 Offscreen Qt - NOT a native Windows desktop test.  SYNTHETIC trajectory.
 """
 import gc
@@ -41,9 +43,19 @@ def _scene():
 def _qt_wrappers_left_after(app, make, destroy, patch_draw=False):  # noqa: F811
     import shiboken6
 
+    from PySide6.QtCore import QCoreApplication, QEvent
+
     from tabs.trajectory_3d_view import Trajectory3DView
+    # Measure only what THIS test creates.  Earlier tests may leave deleteLater() events queued; processing
+    # them inside the window below turns their wrappers into cyclic garbage (seen in CI full-suite order:
+    # ExcelImportDialog, BitRecordTab, ...).  Flush them first, then hold every pre-existing wrapper so
+    # none can become garbage (or have its id reused) while this test runs.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
     gc.collect()
     gc.disable()
+    before = [o for o in gc.get_objects() if isinstance(o, shiboken6.Shiboken.Object)]
+    before_ids = {id(o) for o in before}
     try:
         widget = make()
         view = widget if isinstance(widget, Trajectory3DView) else widget.view3d
@@ -68,11 +80,13 @@ def _qt_wrappers_left_after(app, make, destroy, patch_draw=False):  # noqa: F811
         gc.set_debug(gc.DEBUG_SAVEALL)
         gc.collect()
         gc.set_debug(0)
-        wrappers = sorted({type(o).__name__ for o in gc.garbage if isinstance(o, shiboken6.Shiboken.Object)})
+        wrappers = sorted({type(o).__name__ for o in gc.garbage
+                           if isinstance(o, shiboken6.Shiboken.Object) and id(o) not in before_ids})
         return alive, wrappers
     finally:
         gc.set_debug(0)
         gc.garbage.clear()
+        del before
         gc.enable()
 
 
