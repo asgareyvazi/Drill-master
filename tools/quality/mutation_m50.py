@@ -28,6 +28,9 @@ EV = "core/analysis_evidence.py"
 GC = "core/qt_gc.py"
 APP = "app.py"
 T_ASYNC = ["tests/test_m50_analysis_async.py"]
+KR = "core/knowledge_retrieval.py"
+KA = "core/knowledge_answer.py"
+T_RET = ["tests/test_m50_knowledge_retrieval.py", "tests/test_m50_knowledge_gold.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------ P0: Analysis revision off the GUI thread
@@ -92,6 +95,63 @@ MUTANTS = [
            "        if count0 > self.threshold[0]:",
            "        if False:",
            T_ASYNC, "with automatic GC off, reference cycles are never reclaimed"),
+    # ------------------------------------------------------------ P0: retrieval v3 (each general rule)
+    Mutant("R-context-ignored", KR,
+           "            hit = term in context or any(phrase_in(toks, form) for form in forms)",
+           "            hit = any(phrase_in(toks, form) for form in forms)",
+           T_RET, "a well code named in the page header / file name no longer covers the page's chunks"),
+    Mutant("R-context-loose-parts", KR,
+           "            if _contains(self._page_tokens.get(page_id, []), list(code)) or \\",
+           "            if all(part in self._page_tokens.get(page_id, []) for part in code) or \\",
+           T_RET, "code parts scattered on the page (a date '05', a crew 'KE') count as the well code"),
+    Mutant("R-file-name-context-dropped", KR,
+           "                    _contains(self._name_tokens.get(page_id, []), list(code)):",
+           "                    False:",
+           T_RET, "a well code that only the file name states is ignored (Q19)"),
+    Mutant("R-absent-ignores-context", KR,
+           "            context = self.context_covered(self.chunks[cid].page_id, codes) if codes else frozenset()",
+           "            context = frozenset()",
+           T_RET, "the insufficient-evidence message claims a well code is missing that the file name states"),
+    Mutant("R-answer-type-cap-removed", KR,
+           "            if kinds and self.answer_type_missing(kinds, chunk_id):",
+           "            if False:",
+           T_RET, "a passage without the asked quantity (no time / temperature) can be sufficient"),
+    Mutant("R-frame-words-kept", KR,
+           "    kept = [t for t in terms if t not in frame_words]",
+           "    kept = list(terms)",
+           T_RET, "'how long ... take' keeps 'long'/'take' as required content words (Q09)"),
+    Mutant("R-named-quantity-not-required", KR,
+           "        if framed or any(phrase_in(terms, list(noun)) for noun in kind.nouns):",
+           "        if framed:",
+           T_RET, "'mud temperature in X' can be answered by a mud-weight passage"),
+    Mutant("R-sufficiency-rerank-removed", KR,
+           "        candidates.sort(key=lambda c: c[3] < SUFFICIENT_COVERAGE)",
+           "        candidates.sort(key=lambda c: 0)",
+           T_RET, "header-only passages push the answering passage out of the top k"),
+    Mutant("R-designation-read-as-value", KR,
+           '                if match.group(2) == "in" and _DESIGNATED.match(tail, match.end()):',
+           "                if False:",
+           T_RET, "'the 16 in section' is read as the quantity: real conflicts are missed"),
+    Mutant("R-glossary-m50-entries-removed", KR,
+           "mud pump | پمپ گل\nrepair | تعمیر\nduration | مدت | طول کشید\n",
+           "",
+           T_RET, "the M50 glossary entries are dropped: English pump-repair questions miss Persian reports"),
+    Mutant("R-glossary-daily-report-removed", KR,
+           "daily report | گزارش روزانه\n",
+           "",
+           T_RET, "'daily report' no longer reaches Persian daily reports"),
+    Mutant("R-version-not-bumped", KR,
+           "RETRIEVAL_VERSION = 3 ",
+           "RETRIEVAL_VERSION = 2 ",
+           T_RET, "retrieval rules changed but cached indexes keyed on the version are not invalidated"),
+    Mutant("A-sentence-inherits-any-size", KA,
+           "                                   context | (size_tokens if not kr.size_designations(s) else frozenset()))[0], i, s)",
+           "                                   context | size_tokens)[0], i, s)",
+           T_RET, "a sentence about another size (13-3/8 in LOT) is quoted for the asked size"),
+    Mutant("A-instruction-paragraph-leaks", KA,
+           "    sentences = [s.strip() for paragraph in _PARAGRAPHS.split(item.text) if not detect_instructions(paragraph)",
+           "    sentences = [s.strip() for paragraph in _PARAGRAPHS.split(item.text)",
+           T_RET, "the follow-on sentence of a detected instruction paragraph is quoted as an answer"),
 ]
 
 

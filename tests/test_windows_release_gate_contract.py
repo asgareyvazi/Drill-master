@@ -72,6 +72,8 @@ REQUIRED_MODULES = (
     "tests/test_m49_knowledge_ui.py",
     # M50: Analysis revision off the GUI thread (file DB, real worker), GUI-thread GC policy.
     "tests/test_m50_analysis_async.py",
+    "tests/test_m50_knowledge_retrieval.py",
+    "tests/test_m50_knowledge_gold.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 

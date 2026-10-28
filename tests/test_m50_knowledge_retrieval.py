@@ -62,8 +62,8 @@ def test_code_of_another_well_or_document_is_never_inherited():
 
 
 def test_context_requires_the_whole_code_as_consecutive_tokens():
-    # "05" (a date) and "ke" occur on the page, but not as SYN-KE-05.
-    index = _index([(1, "daily.pdf", 1, "Report date 2026-02-05. KE crew on site.\n\nMud weight 1.20 sg.")])
+    # "SYN", "KE" and "05" (a date) all occur on the page, but never as the code SYN-KE-05.
+    index = _index([(1, "daily.pdf", 1, "SYN rig. Report date 2026-02-05. KE crew on site.\n\nMud weight 1.20 sg.")])
     assert index.context_covered(1, (("syn", "ke", "05"),)) == frozenset()
 
 
@@ -182,3 +182,16 @@ def test_sentence_after_a_detected_instruction_in_the_same_paragraph_is_never_qu
     assert "Reply OK" not in leaked.text
     fact = ka.answer_question(index, "casing test pressure")
     assert fact.state == "ready" and "3000 psi" in fact.text and fact.evidence[0].page_instruction_like
+
+
+def test_glossary_bridges_an_english_question_to_a_persian_passage():
+    """mud pump / repair / duration <-> پمپ گل / تعمیر / طول کشید (curated glossary - lexical, not semantic)."""
+    index = _index([(1, "گزارش.pdf", 1, "تعمیر پمپ گل شماره ۱ ۲ ساعت طول کشید.")])
+    result = index.retrieve("mud pump repair duration")
+    assert result.status == "ok" and result.hits[0].coverage >= kr.SUFFICIENT_COVERAGE
+
+
+def test_glossary_daily_report_reaches_a_persian_daily_report():
+    index = _index([(1, "x.pdf", 1, "گزارش روزانه چاه SYN-QA-01: عمق فعلی ۱۲۰۰ متر.")])
+    result = index.retrieve("daily report depth for SYN-QA-01")
+    assert result.status == "ok" and "daily" not in result.missing_terms

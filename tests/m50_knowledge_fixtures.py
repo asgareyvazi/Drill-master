@@ -86,7 +86,7 @@ def build_m50_corpus(db) -> dict:
     ids = build_corpus(db)
     session = db.create_session()
     try:
-        project = session.query(Well).get(ids["well_a"]).project_id
+        project = session.get(Well, ids["well_a"]).project_id
         for key, name, code in (("well_e", "SYN-KE-05", "SYN-KE"), ("well_f", "SYN-KF-06", "SYN-KF")):
             well = Well(name=name, code=code, project_id=project)
             session.add(well)

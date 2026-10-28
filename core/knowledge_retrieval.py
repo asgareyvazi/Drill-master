@@ -85,9 +85,6 @@ pressure test | تست فشار | آزمایش فشار
 kick tolerance | تحمل فوران
 formation | سازند
 shale | شیل
-cause | root cause | reason | علت | دلیل
-section | hole section | بخش | مقطع
-shoe | کفشک
 mud pump | پمپ گل
 repair | تعمیر
 duration | مدت | طول کشید
