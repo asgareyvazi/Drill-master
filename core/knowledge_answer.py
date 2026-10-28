@@ -93,6 +93,7 @@ class Evidence:
     coverage: float
     instruction_like: bool        # flagged: this passage contains instruction-like text
     page_instruction_like: bool = False   # flagged: somewhere on this page
+    entities: tuple = ()          # entity codes (token tuples) this passage's document is about (M51)
 
 
 # (name, what passing means).  Each is True (passed), False (failed) or None (not applicable).
@@ -104,6 +105,8 @@ VALIDATION_DIMENSIONS = (
     ("quantity_relationship", "The cited passage links the same quantity to the value"),
     ("sizes_match", "Every hole/casing size named occurs in the cited passage"),
     ("conflicts_disclosed", "Every value of a detected conflict is stated"),
+    ("entities_match", "Every well / entity code named belongs to a cited passage's document"),
+    ("sources_current", "Every cited passage is still the stored text it was retrieved from"),
 )
 CITATION_PASSED_LABEL = "Citation checks passed"
 CITATION_FAILED_LABEL = "Citation checks failed"
@@ -178,7 +181,7 @@ def make_evidence(result: kr.RetrievalResult) -> list:
         out.append(Evidence(f"S{index}", page.document_id, page.file_name, page.page_id, page.page_no, page.location,
                             chunk.start, chunk.end, chunk.text, page.text_sha, page.review_status, page.method,
                             result.scope, hit.score, dict(hit.ranks), hit.coverage, detect_instructions(chunk.text),
-                            detect_instructions(page.text)))
+                            detect_instructions(page.text), tuple(hit.entities)))
     return out
 
 
@@ -214,8 +217,14 @@ def build_messages(question: str, evidence: list) -> list:
 
 
 # ------------------------------------------------------------- validation
+# An entity code ("SYN-KE-05") names a well, not a quantity: its digits are not numbers (M51; the code
+# itself is checked by the entities_match dimension).
+_ENTITY_CODE = re.compile(r"(?<![\w-])[^\W\d_]+(?:-[^\W_]+)*-\d+[^\W_]*(?![\w-])|(?<![\w-])[^\W\d_]+-[^\W_]*\d[^\W_]*(?![\w-])")
+
+
 def _numbers(text: str) -> set:
-    return {m.group(0).replace(",", ".") for m in _DIGITS.finditer(kr.fold(text))}
+    folded = _ENTITY_CODE.sub(" ", kr.fold(text))
+    return {m.group(0).replace(",", ".") for m in _DIGITS.finditer(folded)}
 
 
 def _strip_citations(sentence: str) -> str:
@@ -304,7 +313,7 @@ def _qualifying_span(folded: str, values: list, index: int) -> str:
     return folded[max(start, sentence_start):values[index][0]]
 
 
-def validate_citations(answer_text: str, evidence: list, conflicts: tuple = ()) -> CitationCheck:
+def validate_citations(answer_text: str, evidence: list, conflicts: tuple = (), snapshot=None) -> CitationCheck:
     """Citation checks of an answer against ``evidence`` - each a separate dimension
     (``VALIDATION_DIMENSIONS``); passing them is NOT semantic verification.
 
@@ -316,6 +325,12 @@ def validate_citations(answer_text: str, evidence: list, conflicts: tuple = ()) 
       l/min and 3200 psi as the standpipe pressure);
     * every hole/casing size a sentence names must occur in a cited passage;
     * when retrieval found a conflict, every conflicting value must be stated;
+    * every well / entity code a sentence names must belong to the document of
+      a passage it cites (M51: no value of another well);
+    * with ``snapshot`` (the current corpus), every cited passage must still be
+      the same stored text: same page id, document and text version and the
+      exact span - an edit after retrieval, a deletion, or a delete + re-import
+      that reuses the page id all fail (M51);
     * the bare ``INSUFFICIENT_EVIDENCE`` reply is accepted as "no answer".
     """
     text = (answer_text or "").strip()
@@ -356,6 +371,19 @@ def validate_citations(answer_text: str, evidence: list, conflicts: tuple = ()) 
             if number not in source_numbers:
                 check.fail("numbers_in_cited_source", f"Number {number} does not appear in the cited source(s)")
         _check_quantities(check, body, [labels[r].text for r in valid])
+        for code in kr.entity_codes(body):
+            check.mark("entities_match")
+            if not any(kr._contains(list(entity), list(code)) for r in valid for entity in labels[r].entities):
+                check.fail("entities_match", f"{kr.code_label(code)} is not what the cited source(s) are about")
+    if snapshot is not None:
+        for ref in dict.fromkeys(cited_all):
+            item = labels[ref]
+            page = snapshot.pages.get(item.page_id)
+            check.mark("sources_current")
+            if page is None or page.document_id != item.document_id:
+                check.fail("sources_current", f"[{ref}] {item.file_name} page {item.page_no} is no longer stored")
+            elif page.text_sha != item.text_version or page.text[item.start:item.end] != item.text:
+                check.fail("sources_current", f"[{ref}] {item.file_name} page {item.page_no} changed after retrieval")
     stated = {float(n) for n in _numbers(text)}
     for conflict in conflicts:
         check.mark("conflicts_disclosed")
@@ -547,7 +575,7 @@ def answer_question(index: kr.KnowledgeIndex, question: str, scope: str = kr.SCO
                      "evidence and are not used as an answer.")
         return Answer("no_evidence", "none", NO_EVIDENCE_TEXT["no_evidence"], evidence, retrieval,
                       found=found, not_found=not_found, notes=notes)
-    extractive_check = validate_citations(extractive, evidence, tuple(retrieval.conflicts))
+    extractive_check = validate_citations(extractive, evidence, tuple(retrieval.conflicts), index.snapshot)
     if not use_model or adapter is None:
         return Answer("ready", "extractive", extractive, evidence, retrieval,
                       citation_checks_passed=extractive_check.citation_checks_passed, check=extractive_check,
@@ -562,7 +590,7 @@ def answer_question(index: kr.KnowledgeIndex, question: str, scope: str = kr.SCO
         return Answer("model_unavailable", "extractive", extractive, evidence, retrieval,
                       citation_checks_passed=extractive_check.citation_checks_passed, check=extractive_check,
                       model_state=exc.state, model_message=str(exc), notes=notes)
-    check = validate_citations(generated, evidence, tuple(retrieval.conflicts))
+    check = validate_citations(generated, evidence, tuple(retrieval.conflicts), index.snapshot)
     if generated.strip() == INSUFFICIENT_TOKEN:
         found, not_found = describe_no_evidence(retrieval, evidence)
         return Answer("no_evidence", "generated", NO_EVIDENCE_TEXT["no_evidence"] + " (the local model found the "

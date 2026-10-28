@@ -743,6 +743,7 @@ class RetrievedChunk:
     score: float
     ranks: dict                   # list name -> rank in that list
     coverage: float               # IDF-weighted share of question terms in this chunk
+    entities: tuple = ()          # entity codes (token tuples) the chunk's document is about (M51 verifier)
 
 
 @dataclass
@@ -975,6 +976,23 @@ class KnowledgeIndex:
             self._identity_cache[key] = cached
         return cached
 
+    def document_entities(self, document_id: int) -> tuple:
+        """Entity codes a document is about: written in one of its approved pages or
+        its file name, or the name / code of a well it is linked to (sorted)."""
+        key = ("entities", document_id)
+        cached = self._identity_cache.get(key)
+        if cached is None:
+            found = set()
+            for pid in self._doc_pages.get(document_id, ()):
+                page = self.snapshot.pages[pid]
+                found.update(entity_codes(page.text))
+                found.update(entity_codes(page.file_name or ""))
+            for wid in self.snapshot.doc_wells.get(document_id, ()):
+                for label in self.snapshot.well_names.get(wid, ()):
+                    found.update(entity_codes(label or ""))
+            cached = self._identity_cache[key] = tuple(sorted(found))
+        return cached
+
     def names_other_entity(self, chunk_id: str, codes: tuple) -> bool:
         """The passage itself names another entity of the same family (or another
         known well) and not the asked one - e.g. a SYN-KG-07 sentence for a
@@ -1193,7 +1211,8 @@ class KnowledgeIndex:
             chunk = self.chunks[chunk_id]
             if seen_pages[chunk.page_id] >= 2:
                 continue            # dedupe: at most two passages per page
-            hits.append(RetrievedChunk(chunk, self.snapshot.pages[chunk.page_id], score, ranks, cov))
+            page = self.snapshot.pages[chunk.page_id]
+            hits.append(RetrievedChunk(chunk, page, score, ranks, cov, self.document_entities(page.document_id)))
             seen_pages[chunk.page_id] += 1
             if len(hits) >= top_k:
                 break
