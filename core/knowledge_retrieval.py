@@ -147,43 +147,88 @@ class CorpusSnapshot:
         raise ValueError(f"Unknown scope {scope!r}")
 
 
-def corpus_signature(db_manager) -> tuple:
-    """Cheap fingerprint that changes with any import, delete or link change.
+def _begin_read(session) -> None:
+    """Run every following query of ``session`` in ONE SQLite read transaction.
 
-    Pages are immutable after import (no page edit path exists); imports and
-    deletes always write a ``document_*`` audit row in the same transaction,
-    so ``max(audit id)`` catches a delete + re-import that reuses page ids.
-    Links are few and are digested completely.
+    pysqlite does not BEGIN for SELECT statements, so two queries of one
+    session can otherwise see two database states; the signature and the
+    snapshot of a corpus must describe the same state (M51).  Ended by the
+    session's close (rollback)."""
+    raw = session.connection().connection.dbapi_connection
+    if getattr(raw, "in_transaction", True) is False:
+        raw.execute("BEGIN")
+
+
+def _page_rows(session):
+    from core.database import Document, DocumentPage
+    return (session.query(DocumentPage.id, DocumentPage.document_id, Document.file_name, DocumentPage.page_no,
+                          DocumentPage.location, DocumentPage.text, DocumentPage.method,
+                          DocumentPage.review_status)
+            .join(Document, DocumentPage.document_id == Document.id)
+            .order_by(DocumentPage.document_id, DocumentPage.page_no, DocumentPage.id).all())
+
+
+def _content_digest(rows, documents) -> str:
+    """Digest of every stored page's identity, position, method, review status
+    and text version, and of every document name (M51).  A same-length text
+    edit, a review-status change or a delete + re-import that reuses ids with
+    different text all change it; identical content gives the same digest."""
+    digest = hashlib.blake2b(digest_size=16)
+    for page_id, doc_id, _name, page_no, location, text, method, status in rows:
+        digest.update(repr((page_id, doc_id, page_no, location, method, status)).encode("utf-8"))
+        digest.update(hashlib.sha256((text or "").encode("utf-8")).digest())
+    digest.update(repr(sorted(documents.items())).encode("utf-8"))
+    return digest.hexdigest()
+
+
+def corpus_signature(db_manager, session=None, content=None) -> tuple:
+    """Fingerprint of everything an answer depends on.
+
+    Counts / max page id / total length, the latest ``document_*`` audit id
+    (imports and deletes write one in the same transaction), a digest of every
+    link (create / change / remove) and - M51 - a digest of the content itself
+    (``_content_digest``): text version, review status, position and document
+    name of every stored page.  It reads every page, so it runs off the GUI
+    thread (``tabs/knowledge_assistant.py`` workers).  ``session`` /
+    ``content``: computed inside ``read_corpus``'s read transaction from the
+    rows it already read (no second read).
     """
     from sqlalchemy import func
 
-    from core.database import AuditLog, DocumentLink, DocumentPage
-    session = db_manager.create_session()
+    from core.database import AuditLog, Document, DocumentLink, DocumentPage
+    own = session is None
+    if own:
+        session = db_manager.create_session()
     try:
+        if own:
+            _begin_read(session)
         pages = tuple(session.query(func.count(DocumentPage.id), func.max(DocumentPage.id),
                                     func.sum(func.length(DocumentPage.text))).one())
         audit = session.query(func.max(AuditLog.id)).filter(AuditLog.entity_type == "document").scalar()
         links = session.query(DocumentLink.id, DocumentLink.document_id, DocumentLink.well_id,
                               DocumentLink.report_id).order_by(DocumentLink.id).all()
         link_digest = hashlib.blake2b(repr([tuple(r) for r in links]).encode(), digest_size=12).hexdigest()
-        return (NORMALIZATION_VERSION, CHUNKER_VERSION, RETRIEVAL_VERSION) + pages + (audit, link_digest)
+        if content is None:
+            content = _content_digest(_page_rows(session), dict(session.query(Document.id, Document.file_name).all()))
+        return (NORMALIZATION_VERSION, CHUNKER_VERSION, RETRIEVAL_VERSION) + pages + (audit, link_digest, content)
     finally:
-        session.close()
+        if own:
+            session.close()
 
 
 def read_corpus(db_manager) -> CorpusSnapshot:
-    """All stored pages that pass the approval rule, with their links."""
-    from core.database import Document, DocumentLink, DocumentPage
-    signature = corpus_signature(db_manager)
+    """All stored pages that pass the approval rule, with their links.
+
+    The signature and every row come from ONE read transaction (M51), so the
+    snapshot is coherent even while another connection writes."""
+    from core.database import Document, DocumentLink
     session = db_manager.create_session()
     try:
-        rows = (session.query(DocumentPage.id, DocumentPage.document_id, Document.file_name, DocumentPage.page_no,
-                              DocumentPage.location, DocumentPage.text, DocumentPage.method,
-                              DocumentPage.review_status)
-                .join(Document, DocumentPage.document_id == Document.id)
-                .order_by(DocumentPage.document_id, DocumentPage.page_no).all())
+        _begin_read(session)
+        rows = _page_rows(session)
         links = session.query(DocumentLink.document_id, DocumentLink.well_id, DocumentLink.report_id).all()
         documents = dict(session.query(Document.id, Document.file_name).all())
+        signature = corpus_signature(db_manager, session=session, content=_content_digest(rows, documents))
     finally:
         session.close()
     pages, excluded = {}, 0

@@ -4,11 +4,16 @@ A panel of the Documents tab.  It answers questions from the REVIEWED pages
 of the document library only, shows every passage it used (document, page,
 review status) and opens the cited passage in the library viewer.
 
-Threading (M47 session architecture): the UI thread reads the corpus
-snapshot from the database; workers get the snapshot / in-memory index and
-never touch a database session.  Every request carries a generation number;
-a result whose generation is no longer current (question, scope or library
-changed, Clear, Cancel) is dropped, so a stale answer is never shown.
+Threading (M47 session architecture, M51): on a file database the corpus
+signature and snapshot are read by the WORKER through
+``core.export_jobs.worker_database`` (its own read-only connection, one read
+transaction); the GUI thread never touches the database for the corpus.  The
+signature includes a digest of every page's text version and review status,
+so a same-length edit is never answered from the old index.  In-memory
+databases (tests; one shared connection) are read synchronously.  Every
+request carries a generation number; a result whose generation is no longer
+current (question, scope or library changed, Clear, Cancel) is dropped, so a
+stale answer is never shown.
 """
 from __future__ import annotations
 
@@ -158,20 +163,55 @@ def render_answer_html(text: str) -> str:
     return "".join(blocks)
 
 
+def _reads_on_worker(db_manager) -> bool:
+    """File database: corpus reads run on a worker's own read-only connection."""
+    from core.export_jobs import has_isolated_reader
+    try:
+        return has_isolated_reader(db_manager)
+    except Exception as exc:  # silent-ok: an unknown manager is read synchronously (old behaviour)
+        logger.debug("Isolated reader check failed: %s", type(exc).__name__)
+        return False
+
+
+def _read_corpus_on_worker(db_manager) -> "kr.CorpusSnapshot":
+    from core.export_jobs import worker_database
+    with worker_database(db_manager) as reader:
+        return kr.read_corpus(reader)
+
+
 class AskWorker(QThread):
-    """Builds the index if needed and answers one question (no DB access)."""
+    """Reads the corpus (file database), builds the index if needed and answers one question."""
 
     stage = Signal(int, str)
     done = Signal(int, object, object)          # generation, Answer | exception text, index
 
     def __init__(self, generation, snapshot, index, question, scope, target, adapter, use_model, cancel, parent=None,
-                 store=None):
+                 store=None, db_manager=None):
         super().__init__(parent)
         self.generation, self.snapshot, self.index = generation, snapshot, index
         self.question, self.scope, self.target = question, scope, target
         self.adapter, self.use_model, self.cancel_token, self.store = adapter, use_model, cancel, store
+        self.db_manager = db_manager            # set: read the corpus here (M51)
+        self.corpus_reads = 0
+
+    def _refresh_corpus(self) -> bool:
+        """One coherent read of the corpus; reuse the index when its signature still matches."""
+        try:
+            snapshot = _read_corpus_on_worker(self.db_manager)
+            self.corpus_reads += 1
+        except Exception as exc:  # an explicit read error, never "no documents"
+            logger.warning("Document pages could not be read: %s", type(exc).__name__)
+            self.done.emit(self.generation, f"{type(exc).__name__}: the document pages could not be read", None)
+            return False
+        if self.index is None or getattr(self.index, "signature", None) != snapshot.signature:
+            self.snapshot, self.index = snapshot, None
+        return True
 
     def run(self):
+        if self.db_manager is not None and not self._refresh_corpus():
+            return
+        if self.cancel_token is not None and self.cancel_token.cancelled:
+            return                              # cancelled while reading: nothing is shown
         try:
             if self.index is None:
                 self.index = kr.KnowledgeIndex(self.snapshot, embedding_store=self.store,
@@ -196,15 +236,47 @@ class StatusWorker(QThread):
         self.done.emit(self.generation, self.adapter.status())
 
 
-class SemanticBuildWorker(QThread):
-    progress = Signal(int, int)
-    done = Signal(object)
+class CorpusCheckWorker(QThread):
+    """The corpus signature after a library change, read off the GUI thread (M51)."""
 
-    def __init__(self, index, adapter, store, cancel, parent=None):
+    done = Signal(int, object, object)          # token, signature | None, error kind | None
+
+    def __init__(self, token, db_manager, parent=None):
         super().__init__(parent)
-        self.index, self.adapter, self.store, self.cancel_token = index, adapter, store, cancel
+        self.token, self.db_manager = token, db_manager
 
     def run(self):
+        from core.export_jobs import worker_database
+        try:
+            with worker_database(self.db_manager) as reader:
+                signature = kr.corpus_signature(reader)
+        except Exception as exc:
+            logger.warning("Corpus signature unavailable: %s", type(exc).__name__)
+            self.done.emit(self.token, None, type(exc).__name__)
+            return
+        self.done.emit(self.token, signature, None)
+
+
+class SemanticBuildWorker(QThread):
+    progress = Signal(int, int)
+    indexed = Signal(object)                    # the keyword index built from the worker's snapshot (M51)
+    done = Signal(object)
+
+    def __init__(self, index, adapter, store, cancel, parent=None, db_manager=None):
+        super().__init__(parent)
+        self.index, self.adapter, self.store, self.cancel_token = index, adapter, store, cancel
+        self.db_manager = db_manager
+
+    def run(self):
+        if self.index is None:
+            try:
+                snapshot = _read_corpus_on_worker(self.db_manager)
+            except Exception as exc:
+                logger.warning("Semantic index: pages could not be read: %s", type(exc).__name__)
+                self.done.emit({"state": "error", "message": f"pages could not be read ({type(exc).__name__})"})
+                return
+            self.index = kr.KnowledgeIndex(snapshot, embedding_store=self.store, embed_model=self.adapter.embed_model)
+            self.indexed.emit(self.index)
         try:
             self.done.emit(kr.build_semantic_index(self.index, self.adapter, self.store, cancel=self.cancel_token,
                                                    progress=lambda d, t: self.progress.emit(d, t)))
@@ -234,6 +306,8 @@ class KnowledgeAssistantPanel(QWidget):
         self.worker: Optional[AskWorker] = None
         self.status_worker: Optional[StatusWorker] = None
         self.semantic_worker: Optional[SemanticBuildWorker] = None
+        self.check_worker: Optional[CorpusCheckWorker] = None
+        self._check_token = 0
         self._cancel: Optional[ll.CancelToken] = None
         self._semantic_cancel: Optional[ll.CancelToken] = None
         self._old_workers = []
@@ -535,15 +609,52 @@ class KnowledgeAssistantPanel(QWidget):
         """Called by the Documents tab after import/delete/link changes."""
         self._fill_targets()
         if self._index is not None or self._semantic_signature is not None:
+            if _reads_on_worker(self.db_manager):
+                self._start_corpus_check()       # M51: the signature is read off the GUI thread
+                return
             try:
                 signature = kr.corpus_signature(self.db_manager)
             except Exception as exc:
                 logger.warning("Corpus signature unavailable: %s", type(exc).__name__)
                 signature = None
-            self._semantic_out_of_date(signature)
-            if self._index is not None and signature != self._snapshot_signature:
-                self._index = None
-                self._invalidate("library")
+            self._apply_library_signature(signature)
+
+    def _apply_library_signature(self, signature) -> None:
+        """An unreadable signature (None) counts as changed: nothing old is reused."""
+        self._semantic_out_of_date(signature)
+        if self._index is not None and signature != self._snapshot_signature:
+            self._index = None
+            self._invalidate("library")
+
+    def _start_corpus_check(self) -> None:
+        self._check_token += 1
+        if self.check_worker is not None:
+            self._retire(self.check_worker)
+        worker = CorpusCheckWorker(self._check_token, self.db_manager, parent=self)
+        worker.done.connect(self._corpus_checked)
+        self.check_worker = worker
+        worker.start()
+
+    def _corpus_checked(self, token, signature, _error):
+        worker = self.sender()
+        if worker is self.check_worker:
+            self.check_worker = None
+            worker.finished.connect(worker.deleteLater)
+        if token != self._check_token:
+            return                              # a newer library change superseded this check
+        self._apply_library_signature(signature)
+
+    def _retire(self, worker) -> None:
+        """Ignore a worker's result and keep it referenced until its thread ends."""
+        try:
+            worker.done.disconnect()
+        except (RuntimeError, TypeError):  # silent-ok: already disconnected
+            pass
+        if worker.isRunning():
+            self._old_workers.append(worker)
+            worker.finished.connect(lambda w=worker: self._forget(w))
+        else:
+            worker.deleteLater()
 
     def _semantic_out_of_date(self, signature) -> None:
         """A semantic index built for other documents is never shown as ready (retrieval already refuses it)."""
@@ -574,18 +685,21 @@ class KnowledgeAssistantPanel(QWidget):
         self._generation += 1
         generation = self._generation
         self._set_state("searching")
-        try:
-            signature = kr.corpus_signature(self.db_manager)
-            self._semantic_out_of_date(signature)
-            snapshot = None
-            if self._index is None or signature != self._snapshot_signature:
-                snapshot = kr.read_corpus(self.db_manager)     # UI thread owns the session
-                self._index, self._snapshot_signature = None, snapshot.signature
-        except Exception as exc:
-            logger.warning("Document pages could not be read: %s", type(exc).__name__)
-            self.last_error = f"{type(exc).__name__}: the document pages could not be read"
-            self._set_state("error", self.last_error)
-            return False
+        snapshot = None
+        on_worker = _reads_on_worker(self.db_manager)
+        if not on_worker:
+            # In-memory database (tests): one shared connection, read here.
+            try:
+                signature = kr.corpus_signature(self.db_manager)
+                self._semantic_out_of_date(signature)
+                if self._index is None or signature != self._snapshot_signature:
+                    snapshot = kr.read_corpus(self.db_manager)
+                    self._index, self._snapshot_signature = None, snapshot.signature
+            except Exception as exc:
+                logger.warning("Document pages could not be read: %s", type(exc).__name__)
+                self.last_error = f"{type(exc).__name__}: the document pages could not be read"
+                self._set_state("error", self.last_error)
+                return False
         adapter = self._adapter()
         use_model = self.use_model_check.isChecked() and self.use_model_check.isEnabled()
         store = self._embedding_store() if adapter.embed_model else None
@@ -593,7 +707,8 @@ class KnowledgeAssistantPanel(QWidget):
             self._index.embedding_store, self._index.embed_model = store, adapter.embed_model
         self._cancel = ll.CancelToken()
         self.worker = AskWorker(generation, snapshot, self._index, question, scope, target, adapter, use_model,
-                                self._cancel, parent=self, store=store)
+                                self._cancel, parent=self, store=store,
+                                db_manager=self.db_manager if on_worker else None)
         self.worker.stage.connect(self._worker_stage)
         self.worker.done.connect(self._worker_done)
         self._asked = (question, scope, target)
@@ -610,6 +725,8 @@ class KnowledgeAssistantPanel(QWidget):
             self.worker = None
         if index is not None and generation == self._generation:
             self._index = index
+            self._snapshot_signature = index.signature      # the corpus state this answer was read from
+            self._semantic_out_of_date(index.signature)
         if generation != self._generation:
             return                                  # stale: question/scope/library changed meanwhile
         if isinstance(outcome, str):
@@ -780,23 +897,35 @@ class KnowledgeAssistantPanel(QWidget):
         if self.semantic_worker is not None:
             self._semantic_cancel.cancel()
             return
-        try:
-            snapshot = kr.read_corpus(self.db_manager)
-        except Exception as exc:
-            self.semantic_label.setText(f"Semantic index not built: pages could not be read ({type(exc).__name__})")
-            return
         adapter = self._adapter()
         store = self._embedding_store()
-        index = kr.KnowledgeIndex(snapshot, embedding_store=store, embed_model=adapter.embed_model)
-        self._index, self._snapshot_signature = index, snapshot.signature
-        self._semantic_signature, self._semantic_build_signature = None, snapshot.signature
+        index, db_manager = None, None
+        if _reads_on_worker(self.db_manager):
+            db_manager = self.db_manager            # M51: the worker reads the pages and builds the index
+            self._semantic_signature = None
+            self.semantic_label.setText("Reading the reviewed pages for the semantic index…")
+        else:
+            try:
+                snapshot = kr.read_corpus(self.db_manager)
+            except Exception as exc:
+                self.semantic_label.setText(
+                    f"Semantic index not built: pages could not be read ({type(exc).__name__})")
+                return
+            index = kr.KnowledgeIndex(snapshot, embedding_store=store, embed_model=adapter.embed_model)
+            self._semantic_indexed(index)
         self._semantic_cancel = ll.CancelToken()
-        self.semantic_worker = SemanticBuildWorker(index, adapter, store, self._semantic_cancel, self)
+        self.semantic_worker = SemanticBuildWorker(index, adapter, store, self._semantic_cancel, self,
+                                                   db_manager=db_manager)
+        self.semantic_worker.indexed.connect(self._semantic_indexed)
         self.semantic_worker.progress.connect(
             lambda d, t: self.semantic_label.setText(f"Building semantic index… {d}/{t} passages (not ready yet)"))
         self.semantic_worker.done.connect(self._semantic_done)
         self.build_semantic_button.setText("Cancel semantic build")
         self.semantic_worker.start()
+
+    def _semantic_indexed(self, index):
+        self._index, self._snapshot_signature = index, index.signature
+        self._semantic_signature, self._semantic_build_signature = None, index.signature
 
     def _semantic_done(self, result):
         worker, self.semantic_worker = self.semantic_worker, None
@@ -819,7 +948,7 @@ class KnowledgeAssistantPanel(QWidget):
         self._stop_worker()
         if self._semantic_cancel is not None:
             self._semantic_cancel.cancel()
-        for worker in [self.semantic_worker, self.status_worker, *self._old_workers]:
+        for worker in [self.semantic_worker, self.status_worker, self.check_worker, *self._old_workers]:
             if worker is not None:
                 worker.wait(5000)
         if self._index is not None:
