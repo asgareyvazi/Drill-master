@@ -195,6 +195,9 @@ class Ctx:
         self.tab.analytics_type.setCurrentText("Cost Analysis")
         self.tab.analytics_type.blockSignals(False)
         self.tab.run_advanced_analysis()
+        # M51: on a file database the analysis inputs are read by the snapshot
+        # worker (the page shows "loading…" first); wait for that cycle.
+        self.idle()
         return self.tab.results_text.toPlainText()
 
     def snapshot(self):

@@ -15,7 +15,11 @@ logger = logging.getLogger(__name__)
 # renders. Charts use the Figure API directly (no pyplot state) with the canvas
 # chosen by core.matplotlib_widgets.select_figure_canvas.
 
+import copy
+import functools
+import inspect
 import threading
+import types
 
 from PySide6.QtCore import QDate, QDateTime, QThread, QTime, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QTextDocument
@@ -47,8 +51,23 @@ class _LoadError:
         self.kind = type(exc).__name__
         self.detail = str(exc)
 
+    @classmethod
+    def named(cls, kind, detail=""):
+        """An error known only by its kind (e.g. reported by the snapshot worker)."""
+        err = cls(RuntimeError(detail))
+        err.kind = kind
+        return err
+
     def text(self):
         return f"Read error ({self.kind}) - use Refresh Now to retry"
+
+
+class _PrefetchedReadError(Exception):
+    """Raised where a painter receives a read error from the snapshot worker."""
+
+    def __init__(self, load_error):
+        super().__init__(load_error.detail)
+        self.kind = load_error.kind
 
 
 _STALE = object()  # a result whose selection changed while it was read
@@ -124,6 +143,287 @@ class RevisionWorker(QThread):
 def _release_revision_worker(worker):
     _LIVE_REVISION_WORKERS.discard(worker)
     worker.deleteLater()
+
+
+# ---------------------------------------------------------------------------
+# M51: the whole read/compute stage of an update runs on a worker.
+# ``AnalysisSnapshotWorker`` computes the data revision and then runs every
+# reader of the cycle against a frozen copy of the page's scope
+# (``_FrozenScope``) on its own read-only connection.  The GUI paints the
+# values and the M50 "verify" revision (computed after the paint) proves no
+# write landed after the first revision; otherwise a new snapshot is read
+# (bounded by ``_MAX_RELOADS``).  Results are plain Python values (dicts,
+# lists, dataclasses of numbers and text) or ``_LoadError``; no session, ORM
+# object, QObject or chart item crosses threads.  The GUI only paints them.
+# ---------------------------------------------------------------------------
+_MISSING = object()          # no prefetched value under this name
+_SCOPE_STATE_KEYS = ("current_well_id", "current_wellbore_id", "current_wellbore_name",
+                     "current_section_id", "current_report_id")
+
+
+class _Prefetched:
+    """A value read by the snapshot worker, passed where a session used to go."""
+    __slots__ = ("value",)
+
+    def __init__(self, value):
+        self.value = value
+
+    def get(self):
+        if isinstance(self.value, _LoadError):
+            raise _PrefetchedReadError(self.value)
+        return self.value
+
+
+def _take_prefetched(owner, name):
+    store = getattr(owner, "_prefetched", None)
+    if not store:
+        return _MISSING
+    return store.pop(name, _MISSING)
+
+
+def _read_or_take(owner, name, reader):
+    """``reader(owner, session)``: the snapshot's value, a requested snapshot (worker mode) or a
+    synchronous read (in-memory databases and objects without a worker)."""
+    value = _take_prefetched(owner, name)
+    if value is not _MISSING:
+        return value
+    uses_worker = getattr(owner, "_uses_revision_worker", None)
+    if uses_worker is not None and uses_worker():
+        owner._request_snapshot(name)
+        return _STALE
+    session = owner.db.create_session()
+    try:
+        return reader(owner, session)
+    except Exception as exc:
+        logger.error("Analysis read failed (%s): %s", name, type(exc).__name__, exc_info=True)
+        return _LoadError(exc)
+    finally:
+        session.close()
+
+
+def _inputs(page, session, reader):
+    """Inputs of a painter: prefetched by the snapshot worker, or read now from ``session``."""
+    if isinstance(session, _Prefetched):
+        return session.get()
+    return reader(page, session)
+
+
+def _service(page):
+    service = getattr(page, "intelligence_service", None)
+    return service if service is not None else OperationsIntelligenceService(page.db)
+
+
+class _MemoService:
+    """The canonical intelligence service for one snapshot: each analysis is computed once."""
+
+    def __init__(self, db):
+        self._service = OperationsIntelligenceService(db)
+        self._memo = {}
+
+    def _call(self, method, key):
+        if (method, key) not in self._memo:
+            self._memo[(method, key)] = getattr(self._service, method)(key)
+        return copy.deepcopy(self._memo[(method, key)])
+
+    def analyze_well(self, well_id):
+        return self._call("analyze_well", well_id)
+
+    def analyze_wellbore(self, wellbore_id):
+        return self._call("analyze_wellbore", wellbore_id)
+
+    def analyze_section(self, section_id):
+        return self._call("analyze_section", section_id)
+
+
+# AnalysisWidget methods a worker may run: readers and the scope/query helpers they use.  Anything
+# else (widgets, painters) raises AttributeError in the worker, so a reader that touched the GUI
+# fails as a read error instead of crossing threads.
+_READER_METHODS = frozenset({
+    "calculate_kpis", "get_time_depth_data", "get_npt_data", "get_performance_data", "get_today_data",
+    "_recent_reports", "_canonical_scope_kpis", "_scope_reports_query", "_scope_params_query",
+    "_report_date_unambiguous", "_unique_legacy_row", "_scope_key", "_cache_key", "_analysis_scope",
+})
+
+
+class _FrozenScope:
+    """The page's scope copied at the start of a snapshot; readers run against it on the worker."""
+
+    def __init__(self, state, db, revision):
+        self.__dict__.update(dict.fromkeys(_SCOPE_STATE_KEYS))
+        self.__dict__.update(state)
+        self.db = db
+        self._data_rev = revision
+        self.intelligence_service = _MemoService(db)
+        self.quality_service = DataQualityService(db)
+
+    def __getattr__(self, name):
+        if name in _READER_METHODS:
+            static = inspect.getattr_static(AnalysisWidget, name)
+            if isinstance(static, staticmethod):
+                return static.__func__
+            return types.MethodType(getattr(AnalysisWidget, name), self)
+        raise AttributeError(f"{name} is not available to an Analysis worker")
+
+
+class AnalysisSnapshotWorker(QThread):
+    """The revision and then every reader of one update cycle, on a worker thread.
+
+    ``done(ticket, payload, error)``: ``payload`` is ``(revision, values)``; ``values`` maps a
+    reader name to its plain result or a ``_LoadError`` (a failed read is delivered as an error,
+    never as "No data").  ``error`` is None, ``"cancelled"`` or the exception type name of a
+    failed revision/connection (then ``payload`` is None).
+    """
+    done = Signal(object, object, object)
+
+    def __init__(self, db_manager, state, readers, cached_keys, ticket):
+        super().__init__()          # no parent: never destroyed with a running page
+        self.db_manager, self.state, self.readers = db_manager, dict(state), list(readers)
+        self.cached_keys, self.ticket = frozenset(cached_keys), ticket
+        self._cancel = threading.Event()
+
+    def cancel(self):
+        self._cancel.set()
+
+    def _revision(self, isolated):
+        session = isolated.create_session()
+        try:
+            return ev.data_revision(session, self.state["current_well_id"], cancelled=self._cancel.is_set)
+        finally:
+            session.close()
+
+    def _read_all(self, isolated, revision):
+        scope = _FrozenScope(self.state, isolated, revision)
+        values = {}
+        for name, read in self.readers:
+            if self._cancel.is_set():
+                raise ev.RevisionCancelled()
+            if AnalysisWidget._cache_key(scope, name) in self.cached_keys:
+                continue            # the page already holds this value for this exact revision
+            session = isolated.create_session()
+            try:
+                values[name] = read(scope, session)
+            except ev.RevisionCancelled:
+                raise
+            except Exception as exc:
+                logger.error("Analysis read failed (%s): %s", name.split(":")[0], type(exc).__name__)
+                values[name] = _LoadError(exc)
+            finally:
+                session.close()
+        return values
+
+    def run(self):
+        from core.export_jobs import worker_database
+        try:
+            with worker_database(self.db_manager) as isolated:     # own read-only engine (M47)
+                revision = self._revision(isolated)
+                values = self._read_all(isolated, revision)
+            self.done.emit(self.ticket, (revision, values), None)
+        except ev.RevisionCancelled:
+            self.done.emit(self.ticket, None, "cancelled")
+        except Exception as exc:
+            logger.error("Analysis snapshot failed: %s", type(exc).__name__)
+            self.done.emit(self.ticket, None, type(exc).__name__)
+
+
+# ---- readers that are not AnalysisWidget methods: (page, session) -> plain values ----------------
+def _read_quality(page, session):
+    return page.quality_service.summary(page.current_report_id)
+
+
+def _read_has_bores(page, session):
+    return bool(page.db.get_wellbores_by_well(page.current_well_id))
+
+
+def _read_plan(page, session):
+    return page.db.get_actual_vs_plan(page.current_well_id)
+
+
+def _read_intel(page, session):
+    return _service(page).analyze_well(page.current_well_id)
+
+
+def _read_evidence(scope, metric_key, page, session):
+    return ev.evidence_for_metric(session, scope, metric_key)
+
+
+def _read_milestones(page, session):
+    """("sections", names, fact_days, plan_days) | ("reports", [(date, depth, bore)]) | ("none",)."""
+    from core.actual_vs_plan import section_actual_days
+    from core.database import Section
+    # Sections in the active scope. Bore selected -> only that bore's sections
+    # (via Section.wellbore_id); otherwise the whole well.
+    sec_q = session.query(Section).filter(Section.well_id == page.current_well_id)
+    if page.current_wellbore_id:
+        sec_q = sec_q.filter(Section.wellbore_id == page.current_wellbore_id)
+    sections = sec_q.order_by(Section.depth_from).all()
+    if not sections:
+        # Report-derived milestones are whole-well only (report grouping is not section-scoped).
+        if page.current_wellbore_id:
+            return ("none",)
+        rows = session.query(DailyReport.report_date, DailyReport.depth_2400, DailyReport.wellbore_id)\
+            .filter(DailyReport.well_id == page.current_well_id).order_by(DailyReport.report_date).all()
+        return ("reports", [tuple(r) for r in rows])
+    return ("sections", [s.name for s in sections], [section_actual_days(session, s.id) for s in sections],
+            [s.planned_days for s in sections])
+
+
+def _rop_inputs(page, session):
+    """(series, excluded, source): one valid ROP observation per date (canonical, then fallback)."""
+    params = page._scope_params_query(session)\
+        .order_by(DrillingParameters.report_date, DrillingParameters.id).all()
+    report_ids = {p.report_id for p in params if p.report_id is not None}
+    bores = dict(session.query(DailyReport.id, DailyReport.wellbore_id)
+                 .filter(DailyReport.id.in_(report_ids)).all()) if report_ids else {}
+    rows = [{"source_id": p.id, "date": p.report_date, "rop": p.avg_rop,
+             "hours": p.hours_on_bottom, "report_id": p.report_id,
+             "wellbore_id": bores.get(p.report_id)} for p in params]
+    series, excluded = ev.rop_daily_series(rows)
+    source = "DrillingParameters.avg_rop (canonical)"
+    if not series:
+        # Report-header ROP is used ONLY when no valid parameter ROP exists;
+        # each value is owned by its report (no well+date guessing).
+        reports = page._scope_reports_query(session).order_by(DailyReport.report_date).all()
+        fallback = [{"source_id": r.id, "date": r.report_date, "rop": r.rop_meter,
+                     "report_id": r.id, "wellbore_id": r.wellbore_id} for r in reports]
+        fb_series, fb_excluded = ev.rop_daily_series(fallback, source_name="DailyReport.rop_meter")
+        if fb_series:
+            series, excluded = fb_series, excluded + fb_excluded
+            source = "DailyReport.rop_meter (fallback: no valid DrillingParameters ROP)"
+    return series, excluded, source
+
+
+def _npt_forecast_inputs(page, session):
+    scope = ev.AnalysisScope(well_id=page.current_well_id, wellbore_id=getattr(page, "current_wellbore_id", None))
+    return ev.npt_daily_series(*ev.load_npt_inputs(session, scope))
+
+
+def _cost_inputs(page, session):
+    well_id = page.current_well_id
+    total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
+    kpis = _service(page).analyze_well(well_id).get("kpis", {})
+    if kpis.get("error"):
+        raise RuntimeError(f"canonical cost read failed: {kpis['error']}")
+    return total_days, kpis
+
+
+def _risk_inputs(page, session):
+    well_id = page.current_well_id
+    kpis = _service(page).analyze_well(well_id).get("kpis", {})
+    if kpis.get("error"):
+        raise RuntimeError(f"canonical risk inputs failed: {kpis['error']}")
+    days = ev.npt_daily_series(*ev.load_npt_inputs(session, ev.AnalysisScope(well_id=well_id)))
+    first, last = session.query(func.min(DailyReport.report_date),
+                                func.max(DailyReport.report_date))\
+        .filter(DailyReport.well_id == well_id).one()
+    return kpis, days, first, last
+
+
+_ANALYTICS_INPUTS = {
+    "ROP Prediction": _rop_inputs,
+    "NPT Forecasting": _npt_forecast_inputs,
+    "Cost Analysis": _cost_inputs,
+    "Risk Assessment": _risk_inputs,
+}
 
 
 def _fmt_rig_day(value):
@@ -270,6 +570,13 @@ class AnalysisWidget(DrillTabBase):
         self._rev_seq = 0               # bumped per started revision; older results are ignored
         self._rev_worker = None
         self.concurrent_changes = 0     # writes detected while a cycle was loading (diagnostics)
+        # M51 snapshot: values read by AnalysisSnapshotWorker for the paint in progress.
+        self._prefetched = {}
+        self._painting_snapshot = False
+        self._snapshot_names = frozenset()   # readers of the latest snapshot
+        self._snapshot_wanted = False        # a view needs a value the latest snapshot lacks
+        self.missing_prefetch = 0            # values a snapshot paint needed but did not carry
+        self.snapshot_requests = 0           # snapshots requested by a view (combo change etc.)
         
         self.kpi_cards = []
         # Chart data storage
@@ -1727,6 +2034,7 @@ class AnalysisWidget(DrillTabBase):
         value was being read (the caller must not paint it).
         """
         generation = self._generation
+        key = self._cache_key(name)
 
         def fetch():
             session = self.db.create_session()
@@ -1735,11 +2043,27 @@ class AnalysisWidget(DrillTabBase):
             finally:
                 session.close()
 
-        try:
-            value = self.get_cached_data(self._cache_key(name), fetch)
-        except Exception as exc:
-            logger.error("Analysis read failed (%s): %s", name, type(exc).__name__, exc_info=True)
-            value = _LoadError(exc)
+        value = _take_prefetched(self, name)
+        if value is not _MISSING:
+            # Read by the snapshot worker for this revision (M51).
+            if not isinstance(value, _LoadError):
+                self.data_cache[key] = value
+                self.cache_time[key] = QDateTime.currentMSecsSinceEpoch()
+        elif key in self.data_cache and (
+                self._painting_snapshot or
+                QDateTime.currentMSecsSinceEpoch() - self.cache_time[key] < self.cache_timeout):
+            # The worker skips values the page already holds for this exact revision.
+            value = self.data_cache[key]
+        elif self._uses_revision_worker():
+            # File database: never read on the GUI thread; a snapshot paints it.
+            self._request_snapshot(name)
+            return _STALE
+        else:
+            try:
+                value = self.get_cached_data(key, fetch)
+            except Exception as exc:
+                logger.error("Analysis read failed (%s): %s", name, type(exc).__name__, exc_info=True)
+                value = _LoadError(exc)
         if generation != self._generation:
             return _STALE
         if isinstance(value, _LoadError):
@@ -2701,19 +3025,28 @@ class AnalysisWidget(DrillTabBase):
         if handler is None:
             return
         self._reset_analytics_chart()
-        session = self.db.create_session()
+        # M51: the inputs come from the cycle's snapshot (read on the worker) or
+        # the cache; on a file database nothing is read here - a missing input
+        # requests a snapshot.  In-memory databases read synchronously.
+        generation = self._generation
+        reader = _ANALYTICS_INPUTS[kind]
+        inputs = self._fetch_cached(f"analytics:{kind}", lambda session: reader(self, session))
+        if inputs is _STALE:
+            if generation == self._generation:
+                self.analytics_plot.setTitle(f"{kind}: loading…")
+                self.results_text.setText(f"{kind}: loading…")
+            return
         try:
-            handler(session)
+            handler(_Prefetched(inputs))
         except Exception as exc:
             # An error is reported as an error — never an empty or stale result.
-            logger.error("Advanced analysis '%s' failed: %s", kind, type(exc).__name__, exc_info=True)
+            name = getattr(exc, "kind", None) or type(exc).__name__
+            logger.error("Advanced analysis '%s' failed: %s", kind, name, exc_info=True)
             self.analytics_plot.clear()
             self.analytics_plot.setTitle(f"{kind}: ERROR - no result (see below)")
             self.results_text.setText(
-                f"{kind}: read/processing error ({type(exc).__name__}). No result is shown; "
+                f"{kind}: read/processing error ({name}). No result is shown; "
                 "use Refresh Now to retry.")
-        finally:
-            session.close()
 
     def _scope_text(self):
         return _scope_text(self)
@@ -2726,26 +3059,7 @@ class AnalysisWidget(DrillTabBase):
         if not self.current_well_id:
             self.results_text.setText("No well selected")
             return
-        params = self._scope_params_query(session)\
-            .order_by(DrillingParameters.report_date, DrillingParameters.id).all()
-        report_ids = {p.report_id for p in params if p.report_id is not None}
-        bores = dict(session.query(DailyReport.id, DailyReport.wellbore_id)
-                     .filter(DailyReport.id.in_(report_ids)).all()) if report_ids else {}
-        rows = [{"source_id": p.id, "date": p.report_date, "rop": p.avg_rop,
-                 "hours": p.hours_on_bottom, "report_id": p.report_id,
-                 "wellbore_id": bores.get(p.report_id)} for p in params]
-        series, excluded = ev.rop_daily_series(rows)
-        source = "DrillingParameters.avg_rop (canonical)"
-        if not series:
-            # Report-header ROP is used ONLY when no valid parameter ROP exists;
-            # each value is owned by its report (no well+date guessing).
-            reports = self._scope_reports_query(session).order_by(DailyReport.report_date).all()
-            fallback = [{"source_id": r.id, "date": r.report_date, "rop": r.rop_meter,
-                         "report_id": r.id, "wellbore_id": r.wellbore_id} for r in reports]
-            fb_series, fb_excluded = ev.rop_daily_series(fallback, source_name="DailyReport.rop_meter")
-            if fb_series:
-                series, excluded = fb_series, excluded + fb_excluded
-                source = "DailyReport.rop_meter (fallback: no valid DrillingParameters ROP)"
+        series, excluded, source = _inputs(self, session, _rop_inputs)
         result = ev.linear_projection([(o.date, o.value) for o in series], horizon=5)
         _plot_projection(self.analytics_plot, result, [o.value for o in series], ('#3498db', '#e74c3c', '#2ecc71'),
                               ("Actual ROP", "Projection"), unit="ROP (m/hr)")
@@ -2763,8 +3077,7 @@ class AnalysisWidget(DrillTabBase):
         if not well_id:
             self.results_text.setText("No well selected")
             return
-        scope = ev.AnalysisScope(well_id=well_id, wellbore_id=getattr(self, "current_wellbore_id", None))
-        days = ev.npt_daily_series(*ev.load_npt_inputs(session, scope))
+        days = _inputs(self, session, _npt_forecast_inputs)
         valid = [d for d in days if d.state == ev.STATE_VALUE]
         result = ev.linear_projection([(d.date, d.npt_hours) for d in valid], horizon=7)
         _plot_projection(self.analytics_plot, result, [d.npt_hours for d in valid], ('#e74c3c', '#f39c12', '#2ecc71'),
@@ -2799,12 +3112,8 @@ class AnalysisWidget(DrillTabBase):
         # and W16 show. Cost is a WHOLE-WELL fact (CostRecord is well-scoped),
         # so its NPT inputs are whole-well too and nothing is attributed to a
         # selected wellbore. Unknown stays unknown, never a fabricated 0.
-        from core.operations_intelligence import OperationsIntelligenceService
         from core.cost_semantics import allocate_npt_cost
-        total_days = session.query(DailyReport).filter_by(well_id=well_id).count()
-        kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
-        if kpis.get("error"):
-            raise RuntimeError(f"canonical cost read failed: {kpis['error']}")
+        total_days, kpis = _inputs(self, session, _cost_inputs)
         total_npt_hours = kpis.get("npt_hours")
         well_total_hours = kpis.get("total_hours")
         total_cost = kpis.get("total_cost")
@@ -2904,19 +3213,12 @@ class AnalysisWidget(DrillTabBase):
         if not well_id:
             self.results_text.setText("No well selected")
             return
-        from core.operations_intelligence import OperationsIntelligenceService
-        kpis = OperationsIntelligenceService(self.db).analyze_well(well_id).get("kpis", {})
-        if kpis.get("error"):
-            raise RuntimeError(f"canonical risk inputs failed: {kpis['error']}")
+        kpis, days, first, last = _inputs(self, session, _risk_inputs)
         npt_pct = kpis.get("npt_percent")
         # Same ambiguity-aware observation as Intelligence, not .first().
         days_no_lti = (kpis.get("safety_kpi") or {}).get("days_without_lti")
-        days = ev.npt_daily_series(*ev.load_npt_inputs(session, ev.AnalysisScope(well_id=well_id)))
         coverage = ev.npt_coverage_summary(days)
         assessment = ev.risk_assessment(npt_pct, coverage, days_no_lti)
-        first, last = session.query(func.min(DailyReport.report_date),
-                                    func.max(DailyReport.report_date))\
-            .filter(DailyReport.well_id == well_id).one()
 
         charted = [c for c in assessment["criteria"] if c["assessed"] and not c["proxy"]]
         self.analytics_plot.clear()
@@ -2994,51 +3296,27 @@ class AnalysisWidget(DrillTabBase):
         """
         if not self.current_well_id:
             return
-        
-        session = self.db.create_session()
+        # M51: read by _read_milestones (snapshot worker on file databases);
+        # this method only paints.
+        data = _read_or_take(self, "milestones", _read_milestones)
+        if data is _STALE:
+            return                      # a snapshot was requested; it repaints
         try:
-            from core.database import Section
-            from core.actual_vs_plan import section_actual_days
-
             self._update_milestones_scope_label()
-
-            # Sections in the active scope. Bore selected -> only that bore's
-            # sections (via Section.wellbore_id); otherwise the whole well.
-            sec_q = session.query(Section).filter(
-                Section.well_id == self.current_well_id)
-            if self.current_wellbore_id:
-                sec_q = sec_q.filter(Section.wellbore_id == self.current_wellbore_id)
-            sections = sec_q.order_by(Section.depth_from).all()
-            
-            if not sections:
-                # No sections in scope: fall back to report-derived milestones
-                # (whole-well only — report grouping is not section-scoped).
-                if not self.current_wellbore_id:
-                    self._load_milestones_from_reports(session)
-                else:
-                    self._draw_milestones_chart([], [], [])
-                return
-            
-            fact_data = []
-            plan_data = []
-            section_names = []
-            
-            for section in sections:
-                section_names.append(section.name)
-                
-                fact_data.append(section_actual_days(session, section.id))
-                plan_data.append(section.planned_days)
-
-            # رسم نمودار Milestones
-            self._draw_milestones_chart(section_names, fact_data, plan_data)
-            
+            if isinstance(data, _LoadError):
+                raise _PrefetchedReadError(data)
+            if data[0] == "sections":
+                self._draw_milestones_chart(data[1], data[2], data[3])
+            elif data[0] == "reports":
+                # No sections in scope: report-derived milestones (whole-well only).
+                self._load_milestones_from_reports(data[1])
+            else:
+                self._draw_milestones_chart([], [], [])
         except Exception as e:
             self._draw_milestones_chart([], [], [])
             if getattr(self, "milestones_scope_label", None) is not None:
                 self.milestones_scope_label.setText("FAILED to load milestones")
-            logger.error(f"Error loading milestones data: {e}")
-        finally:
-            session.close()
+            logger.error("Error loading milestones data: %s", getattr(e, "kind", None) or type(e).__name__)
 
     def _update_milestones_scope_label(self):
         """Reflect the milestones scope (bore-narrowed vs whole-well)."""
@@ -3057,15 +3335,18 @@ class AnalysisWidget(DrillTabBase):
         cannot establish one depth progression and remain NOT ASSESSED.
         """
         try:
-            from core.database import DailyReport
-            
-            reports = session.query(
-                DailyReport.report_date,
-                DailyReport.depth_2400,
-                DailyReport.wellbore_id
-            ).filter(
-                DailyReport.well_id == self.current_well_id
-            ).order_by(DailyReport.report_date).all()
+            if isinstance(session, list):
+                # M51: (date, depth, bore) rows already read by _read_milestones.
+                reports = [types.SimpleNamespace(report_date=d, depth_2400=depth, wellbore_id=bore)
+                           for d, depth, bore in session]
+            else:
+                reports = session.query(
+                    DailyReport.report_date,
+                    DailyReport.depth_2400,
+                    DailyReport.wellbore_id
+                ).filter(
+                    DailyReport.well_id == self.current_well_id
+                ).order_by(DailyReport.report_date).all()
             
             if not reports or len({r.wellbore_id for r in reports}) != 1:
                 self._draw_milestones_chart([], [], [])
@@ -3217,13 +3498,18 @@ class AnalysisWidget(DrillTabBase):
                 "font-weight: bold; padding: 5px; color: #bb8fce;")
         else:
             has_bores = False
-            try:
-                if self.current_well_id and self.db is not None:
-                    has_bores = bool(
-                        self.db.get_wellbores_by_well(self.current_well_id))
-            except Exception as exc:
-                logger.warning("Wellbore lookup failed; treating the well as single-bore: %s", type(exc).__name__)
-                has_bores = False
+            if self.current_well_id and self.db is not None:
+                # M51: read with the cycle's snapshot on file databases.
+                found = self._fetch_cached("bores", lambda session: _read_has_bores(self, session))
+                if found is _STALE:
+                    label.setText("🌐 Scope: Whole Well (checking wellbores…)")
+                    label.setToolTip("Checking whether this well has several wellbores.")
+                    label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
+                    return
+                if isinstance(found, _LoadError):
+                    logger.warning("Wellbore lookup failed; treating the well as single-bore: %s", found.kind)
+                else:
+                    has_bores = found
             if has_bores:
                 label.setText("🌐 Scope: Whole-Well Aggregate")
                 label.setToolTip(
@@ -3261,8 +3547,14 @@ class AnalysisWidget(DrillTabBase):
         if not self.current_well_id:
             self.plan_variance_label.setText("Plan vs Actual: —")
             return
+        metrics = self._fetch_cached("plan", lambda session: _read_plan(self, session))
+        if metrics is _STALE:
+            self.plan_variance_label.setText("Plan vs Actual: loading…")
+            return
+        if isinstance(metrics, _LoadError):
+            self.plan_variance_label.setText("Plan vs Actual: unavailable - " + metrics.text())
+            return
         try:
-            metrics = self.db.get_actual_vs_plan(self.current_well_id)
             depth = metrics["depth"]
             hours = metrics["hours"]
             def _metric_text(item, unit):
@@ -3290,11 +3582,17 @@ class AnalysisWidget(DrillTabBase):
         if not self.current_well_id:
             self.intelligence_label.setText("Operations Intelligence: —")
             return
+        # Operations Intelligence is a WHOLE-WELL analysis (analyze_well
+        # aggregates every bore); the label states the scope explicitly so
+        # it is never mistaken for the selected bore (§13).
+        result = self._fetch_cached("intel", lambda session: _read_intel(self, session))
+        if result is _STALE:
+            self.intelligence_label.setText("Operations Intelligence: loading…")
+            return
+        if isinstance(result, _LoadError):
+            self.intelligence_label.setText("Operations Intelligence: unavailable - " + result.text())
+            return
         try:
-            # Operations Intelligence is a WHOLE-WELL analysis (analyze_well
-            # aggregates every bore); the label states the scope explicitly so
-            # it is never mistaken for the selected bore (§13).
-            result = self.intelligence_service.analyze_well(self.current_well_id)
             insights = result.get("insights", [])
             if insights:
                 text = " | ".join(f"{item['severity'].upper()}: {item['message']}" for item in insights[:2])
@@ -3312,8 +3610,14 @@ class AnalysisWidget(DrillTabBase):
             self.quality_label.setText("Data Quality: —")
             self.quality_label.setStyleSheet("font-weight: bold; padding: 5px; color: #7f8c8d;")
             return
+        summary = self._fetch_cached("quality", lambda session: _read_quality(self, session))
+        if summary is _STALE:
+            self.quality_label.setText("Data Quality: loading…")
+            return
+        if isinstance(summary, _LoadError):
+            self.quality_label.setText("Data Quality: unavailable - " + summary.text())
+            return
         try:
-            summary = self.quality_service.summary(self.current_report_id)
             color = {"good": "#27ae60", "warning": "#f39c12", "critical": "#e74c3c"}.get(summary["status"], "#7f8c8d")
             self.quality_label.setText(f"Data Quality: {summary['score']:.1f}% ({summary['status']})")
             self.quality_label.setStyleSheet(f"font-weight: bold; padding: 5px; color: {color};")
@@ -3465,10 +3769,11 @@ class AnalysisWidget(DrillTabBase):
     def update_all_data(self):
         """Start one update cycle for the current scope.
 
-        File database (the application): the revision is computed by a
-        ``RevisionWorker``; the page shows "Updating…" and paints when it
-        arrives (``_on_revision``).  In-memory database (tests only; one
-        shared connection that a worker must not use): synchronous.
+        File database (the application): the revision AND every value of the
+        cycle are read by an ``AnalysisSnapshotWorker`` (M51); the page shows
+        "Updating…" and only paints when the snapshot arrives
+        (``_on_revision``).  In-memory database (tests only; one shared
+        connection that a worker must not use): synchronous.
         """
         if not self.current_well_id or not PYQTGRAPH_AVAILABLE:
             # Without PyQtGraph the page shows its notice and has no charts,
@@ -3482,7 +3787,7 @@ class AnalysisWidget(DrillTabBase):
             return              # a cycle for this exact scope is in flight (timer tick); it will paint
         self._cancel_revision()
         self._set_status("🟡 Updating…", "warn")
-        self._start_revision("before")
+        self._start_snapshot()
 
     def _update_all_data_sync(self):
         try:
@@ -3506,7 +3811,8 @@ class AnalysisWidget(DrillTabBase):
         self._load_errors = []
         for step in (self.update_kpi_data, self.update_time_depth_data, self.update_npt_data,
                      self.update_performance_data, self.update_daily_data, self.update_analytics,
-                     self.load_milestones_data, self.update_evidence):
+                     self.load_milestones_data, self.update_evidence, self.update_data_quality,
+                     self.update_plan_variance, self.update_intelligence, self.update_scope_indicator):
             if generation != self._generation:
                 return None  # the selection changed meanwhile; its own update paints
             try:
@@ -3525,6 +3831,76 @@ class AnalysisWidget(DrillTabBase):
         else:
             self._set_status("🟢 Updated", "ok")
         self.last_update_label.setText(f"Last update: {QTime.currentTime().toString('HH:mm:ss')}")
+        if self._snapshot_wanted:
+            # A view (evidence/analytics selector) changed during the cycle and
+            # needs a value this snapshot did not read: one more cycle.
+            self._snapshot_wanted = False
+            if self._uses_revision_worker() and self.current_well_id:
+                self.update_all_data()
+
+    # ---- M51 snapshot: every read of a cycle on a worker ------------------
+    def _scope_state(self):
+        return {k: getattr(self, k, None) for k in _SCOPE_STATE_KEYS}
+
+    def _snapshot_readers(self):
+        """(name, reader(scope, session)) for every value the current views paint."""
+        cls = AnalysisWidget
+        readers = [("kpis", cls.calculate_kpis), ("td", cls.get_time_depth_data),
+                   ("npt", cls.get_npt_data), ("perf", cls.get_performance_data),
+                   ("today", cls.get_today_data), ("recent", cls._recent_reports),
+                   ("milestones", _read_milestones), ("plan", _read_plan), ("intel", _read_intel),
+                   ("bores", _read_has_bores)]
+        if self.current_report_id:
+            readers.append(("quality", _read_quality))
+        kind = self.analytics_type.currentText()
+        if kind in _ANALYTICS_INPUTS:
+            readers.append((f"analytics:{kind}", _ANALYTICS_INPUTS[kind]))
+        metric_key = self.evidence_metric.currentData()
+        if metric_key in ev.EVIDENCE_METRICS:
+            scope = self._analysis_scope(self.evidence_level.currentData())
+            if not scope.problem():
+                readers.append((f"evidence:{metric_key}:{scope.key()}",
+                                functools.partial(_read_evidence, scope, metric_key)))
+        return readers
+
+    def _start_snapshot(self, reloads=0):
+        self._rev_seq += 1
+        ticket = (self._generation, self._rev_seq, "before", None, reloads)
+        readers = self._snapshot_readers()
+        self._snapshot_names = frozenset(name for name, _ in readers)
+        now = QDateTime.currentMSecsSinceEpoch()
+        cached = {key for key, t in self.cache_time.items() if now - t < self.cache_timeout}
+        snapshot = AnalysisSnapshotWorker(self.db, self._scope_state(), readers, cached, ticket)
+        snapshot.done.connect(self._on_revision)
+        snapshot.finished.connect(lambda w=snapshot: _release_revision_worker(w))
+        _LIVE_REVISION_WORKERS.add(snapshot)        # never destroyed while running
+        self._rev_worker = snapshot
+        snapshot.start()
+
+    def _request_snapshot(self, name):
+        """A view needs ``name`` and no snapshot carried it: read it off the GUI thread."""
+        self.snapshot_requests += 1
+        if self._painting_snapshot:
+            self.missing_prefetch += 1
+            if name in self._snapshot_names:
+                logger.warning("Analysis snapshot value %s requested twice in one paint", name.split(":")[0])
+            else:
+                self._snapshot_wanted = True     # the view changed meanwhile: one more cycle
+            return
+        worker = self._rev_worker
+        if worker is None or worker.ticket[0] != self._generation:
+            self.update_all_data()      # no cycle for this scope yet (selection just changed)
+        elif name not in self._snapshot_names:
+            self._snapshot_wanted = True
+
+    def _paint_snapshot(self, revision, values):
+        self._prefetched = dict(values)
+        self._painting_snapshot = True
+        try:
+            return self._paint_for_revision(revision)
+        finally:
+            self._painting_snapshot = False
+            self._prefetched = {}
 
     # ---- M50 asynchronous revision cycle ----------------------------------
     def _start_revision(self, phase, painted=None, reloads=0):
@@ -3565,7 +3941,15 @@ class AnalysisWidget(DrillTabBase):
                 self.update_all_data()
             return
         if phase == "before":
-            failed = self._paint_for_revision(None if error else revision)
+            # ``revision`` is the snapshot payload (revision, values).
+            payload = revision if isinstance(revision, tuple) else (revision, {})
+            revision, values = payload if not error else (None, {})
+            if error:
+                # Revision/connection failed: every view shows the read error;
+                # nothing is read on the GUI thread instead.
+                failure = _LoadError.named(error, "data revision unavailable")
+                values = {name: failure for name in self._snapshot_names}
+            failed = self._paint_snapshot(revision, values)
             if failed is None:
                 return
             if error:
@@ -3591,13 +3975,7 @@ class AnalysisWidget(DrillTabBase):
             return
         self.clear_cache()      # values cached during the load may belong to either state
         self._set_status("🟡 Data changed while loading - reloading…", "warn")
-        failed = self._paint_for_revision(revision)
-        if failed is None:
-            return
-        if failed:
-            self._finish_status(failed)
-            return
-        self._start_revision("verify", painted=revision, reloads=reloads + 1)
+        self._start_snapshot(reloads + 1)       # read again off the GUI thread (M51)
 
     def wait_until_idle(self, timeout_ms=15000) -> bool:
         """Process events until no revision is in flight (tests, screenshots, shutdown)."""
