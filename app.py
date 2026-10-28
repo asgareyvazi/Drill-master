@@ -171,6 +171,11 @@ class DrillMasterApp(QApplication):
 
     def __init__(self, argv):
         super().__init__(argv)
+        # M50: cyclic GC only on the GUI thread, before any worker can start
+        # (a collection on a worker thread destroyed GUI objects there and
+        # deadlocked; see core/qt_gc.py).
+        from core import qt_gc
+        qt_gc.install(self)
 
         self.setApplicationName(AppConfig.APP_NAME)
         self.setApplicationVersion(AppConfig.APP_VERSION)

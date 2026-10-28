@@ -873,7 +873,14 @@ EVIDENCE_METRICS = {
 DATA_REVISION_VERSION = 2
 
 
-def _rows_digest(query) -> str:
+class RevisionCancelled(Exception):
+    """``data_revision`` was cancelled by its caller (a newer selection or refresh)."""
+
+
+_CANCEL_CHECK_ROWS = 512
+
+
+def _rows_digest(query, cancelled=None) -> str:
     """Deterministic digest of every column of every row of ``query``.
 
     The rows are read in primary-key order and each value is serialised with
@@ -888,10 +895,12 @@ def _rows_digest(query) -> str:
         digest.update(repr(tuple(row)).encode("utf-8", "surrogatepass"))
         digest.update(b"\x1e")
         count += 1
+        if cancelled is not None and count % _CANCEL_CHECK_ROWS == 0 and cancelled():
+            raise RevisionCancelled()
     return f"{count}:{digest.hexdigest()}"
 
 
-def data_revision(session, well_id: int) -> tuple:
+def data_revision(session, well_id: int, cancelled=None) -> tuple:
     """Content fingerprint of every input of the well's analysis (cache key part).
 
     M49 replaces the M48 summary (row counts, max ids, ``updated_at``, value
@@ -900,7 +909,14 @@ def data_revision(session, well_id: int) -> tuple:
     Every table the Analysis page reads is digested in full for the well:
     the well and its wellbores and sections, daily reports, drilling
     parameters, mud reports, 24-h time logs, costs and safety reports.
+
+    M50: the Analysis page computes this off the UI thread (``RevisionWorker``
+    in ``tabs/w12_Analysis.py``).  ``cancelled`` (optional, no-argument
+    callable) is polled every 512 rows; when it returns true the scan stops
+    with ``RevisionCancelled``.  The digest itself is unchanged.
     """
+    if cancelled is not None and cancelled():
+        raise RevisionCancelled()
     from core.database import (CostRecord, DailyReport, DrillingParameters, MudReport, SafetyReport, Section,
                                TimeLog24H, Well, Wellbore)
 
@@ -911,12 +927,12 @@ def data_revision(session, well_id: int) -> tuple:
         return session.query(*columns(model)).filter(model.well_id == well_id).order_by(model.id)
 
     parts = [str(DATA_REVISION_VERSION),
-             _rows_digest(session.query(*columns(Well)).filter(Well.id == well_id))]
-    parts += [_rows_digest(own(model)) for model in
+             _rows_digest(session.query(*columns(Well)).filter(Well.id == well_id), cancelled)]
+    parts += [_rows_digest(own(model), cancelled) for model in
               (Wellbore, Section, DailyReport, DrillingParameters, MudReport, CostRecord, SafetyReport)]
     parts.append(_rows_digest(
         session.query(*columns(TimeLog24H)).join(DailyReport, TimeLog24H.report_id == DailyReport.id)
-        .filter(DailyReport.well_id == well_id).order_by(TimeLog24H.id)))
+        .filter(DailyReport.well_id == well_id).order_by(TimeLog24H.id), cancelled))
     return tuple(parts)
 
 

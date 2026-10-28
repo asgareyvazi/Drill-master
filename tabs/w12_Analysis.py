@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 # renders. Charts use the Figure API directly (no pyplot state) with the canvas
 # chosen by core.matplotlib_widgets.select_figure_canvas.
 
-from PySide6.QtCore import QDate, QDateTime, QTime, QTimer, Qt
+import threading
+
+from PySide6.QtCore import QDate, QDateTime, QThread, QTime, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QTextDocument
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QFileDialog,
@@ -73,6 +75,55 @@ from core.database import (
 from core.base_tab import DrillTabBase
 from core.data_quality import DataQualityService
 from core.operations_intelligence import OperationsIntelligenceService
+
+
+# ---------------------------------------------------------------------------
+# M50: the data revision (a digest of every in-scope row) is computed off the
+# UI thread.  The worker reads through core.export_jobs.worker_database: its
+# own read-only SQLite connection, opened and closed on the worker thread, so
+# no SQLAlchemy session or connection ever crosses threads (M47).  In-memory
+# databases (tests only) share one connection and are read synchronously.
+# ---------------------------------------------------------------------------
+_LIVE_REVISION_WORKERS = set()   # strong refs until each thread has finished
+
+
+class RevisionWorker(QThread):
+    """Compute ``ev.data_revision`` for one well on a worker thread.
+
+    ``done(ticket, revision, error)``: ``error`` is None, ``"cancelled"`` or
+    the exception type name (never a message, never row data).
+    """
+    done = Signal(object, object, object)
+
+    def __init__(self, db_manager, well_id, ticket):
+        super().__init__()          # no parent: never destroyed with a running page
+        self.db_manager, self.well_id, self.ticket = db_manager, well_id, ticket
+        self._cancel = threading.Event()
+
+    def cancel(self):
+        self._cancel.set()
+
+    def run(self):
+        from core.export_jobs import worker_database
+        try:
+            with worker_database(self.db_manager) as reader:
+                session = reader.create_session()
+                try:
+                    revision = ev.data_revision(session, self.well_id, cancelled=self._cancel.is_set)
+                finally:
+                    session.close()
+        except ev.RevisionCancelled:
+            self.done.emit(self.ticket, None, "cancelled")
+        except Exception as exc:
+            logger.error("Analysis data revision failed: %s", type(exc).__name__)
+            self.done.emit(self.ticket, None, type(exc).__name__)
+        else:
+            self.done.emit(self.ticket, revision, None)
+
+
+def _release_revision_worker(worker):
+    _LIVE_REVISION_WORKERS.discard(worker)
+    worker.deleteLater()
 
 
 def _fmt_rig_day(value):
@@ -214,6 +265,11 @@ class AnalysisWidget(DrillTabBase):
         self._evidence_rows = []
         self._evidence_meta = None
         self._load_errors = []  # names of reads that failed in the current update
+        # M50 asynchronous revision cycle (file databases): revision before ->
+        # load + paint -> revision after.  "Updated" only when both agree.
+        self._rev_seq = 0               # bumped per started revision; older results are ignored
+        self._rev_worker = None
+        self.concurrent_changes = 0     # writes detected while a cycle was loading (diagnostics)
         
         self.kpi_cards = []
         # Chart data storage
@@ -3283,6 +3339,10 @@ class AnalysisWidget(DrillTabBase):
             return
         self.well_label.setText(f"🌍 Well: {well_name}")
         self._set_status("🟡 Loading…", "warn")
+        if self._uses_revision_worker():
+            # The revision arrives asynchronously: never leave the previous
+            # well's numbers on screen under the new well's name meanwhile.
+            self._show_loading_values()
         self.help_label.setVisible(False)
         self.analysis_tabs.setVisible(True)
         self.bottom_widget.setVisible(True)
@@ -3303,9 +3363,21 @@ class AnalysisWidget(DrillTabBase):
         intervals = {0: 5000, 1: 10000, 2: 30000, 3: 60000, 4: 300000}
         return intervals.get(self.auto_update_interval.currentIndex(), 10000)
 
+    def _show_loading_values(self):
+        running = ev.MetricValue(ev.STATE_RUNNING)
+        for card in self.kpi_cards:
+            self._set_kpi_card(card, running, "")
+        for card in (*self.perf_kpi_cards, self.npt_total_card, self.npt_percent_card,
+                     self.npt_daily_card):
+            self._set_stat_card(card, running)
+        for plot in (self.time_depth_plot, self.daily_gain_plot, self.performance_plot,
+                     self.dexponent_plot, self.analytics_plot, self.evidence_plot):
+            plot.clear()
+
     def _show_no_selection(self):
         """Clear every value, chart and table to an explicit no-selection state."""
         self._generation += 1
+        self._cancel_revision()
         self.current_well_id = None
         self.current_well_name = None
         self.current_wellbore_id = None
@@ -3364,6 +3436,7 @@ class AnalysisWidget(DrillTabBase):
 
     def refresh_now(self):
         """Refresh Now / Retry: re-read everything for the current scope (cache bypassed)."""
+        self._cancel_revision()   # restart the cycle: an in-flight one may predate the change
         self.clear_cache()
         self._data_rev = None
         self.update_all_data()
@@ -3379,18 +3452,51 @@ class AnalysisWidget(DrillTabBase):
     def cleanup(self):
         self._generation += 1
         self.update_timer.stop()
+        # Tab disposal / app shutdown: stop and join the revision worker so no
+        # thread outlives the page (cancellation is polled every 512 rows).
+        self._cancel_revision(wait_ms=5000)
+
+    _MAX_RELOADS = 2   # reloads after a concurrent write before reporting "values may mix"
+
+    def _uses_revision_worker(self) -> bool:
+        from core.export_jobs import has_isolated_reader
+        return has_isolated_reader(self.db)
 
     def update_all_data(self):
+        """Start one update cycle for the current scope.
+
+        File database (the application): the revision is computed by a
+        ``RevisionWorker``; the page shows "Updating…" and paints when it
+        arrives (``_on_revision``).  In-memory database (tests only; one
+        shared connection that a worker must not use): synchronous.
+        """
         if not self.current_well_id or not PYQTGRAPH_AVAILABLE:
             # Without PyQtGraph the page shows its notice and has no charts,
             # cards or tables to paint.
             return
-        generation = self._generation
+        if not self._uses_revision_worker():
+            self._update_all_data_sync()
+            return
+        worker = self._rev_worker
+        if worker is not None and worker.ticket[0] == self._generation:
+            return              # a cycle for this exact scope is in flight (timer tick); it will paint
+        self._cancel_revision()
+        self._set_status("🟡 Updating…", "warn")
+        self._start_revision("before")
+
+    def _update_all_data_sync(self):
         try:
             revision = self._read_revision()
         except Exception as exc:
             logger.error("Analysis data revision unavailable: %s", type(exc).__name__, exc_info=True)
             revision = None
+        failed = self._paint_for_revision(revision)
+        if failed is not None:
+            self._finish_status(failed)
+
+    def _paint_for_revision(self, revision):
+        """Load and paint every view for ``revision``; None if the selection changed."""
+        generation = self._generation
         if revision is None or revision != self._data_rev:
             # Source data changed (or cannot be fingerprinted): no cached value
             # of the old data may be reused.
@@ -3402,7 +3508,7 @@ class AnalysisWidget(DrillTabBase):
                      self.update_performance_data, self.update_daily_data, self.update_analytics,
                      self.load_milestones_data, self.update_evidence):
             if generation != self._generation:
-                return  # the selection changed meanwhile; its own update paints
+                return None  # the selection changed meanwhile; its own update paints
             try:
                 step()
             except Exception as exc:
@@ -3410,13 +3516,98 @@ class AnalysisWidget(DrillTabBase):
                 logger.error("Analysis update step %s failed: %s", step.__name__,
                              type(exc).__name__, exc_info=True)
         if generation != self._generation:
-            return
-        failed += [f"read {name}" for name in dict.fromkeys(self._load_errors)]
+            return None
+        return failed + [f"read {name}" for name in dict.fromkeys(self._load_errors)]
+
+    def _finish_status(self, failed):
         if failed:
             self._set_status("🔴 Error in: " + ", ".join(failed) + " - use Refresh Now to retry", "error")
         else:
             self._set_status("🟢 Updated", "ok")
         self.last_update_label.setText(f"Last update: {QTime.currentTime().toString('HH:mm:ss')}")
+
+    # ---- M50 asynchronous revision cycle ----------------------------------
+    def _start_revision(self, phase, painted=None, reloads=0):
+        self._rev_seq += 1
+        ticket = (self._generation, self._rev_seq, phase, painted, reloads)
+        worker = RevisionWorker(self.db, self.current_well_id, ticket)
+        worker.done.connect(self._on_revision)
+        worker.finished.connect(lambda w=worker: _release_revision_worker(w))
+        _LIVE_REVISION_WORKERS.add(worker)
+        self._rev_worker = worker
+        worker.start()
+
+    def _cancel_revision(self, wait_ms=0):
+        """Invalidate (and stop) the revision in flight; its result is ignored."""
+        worker, self._rev_worker = self._rev_worker, None
+        self._rev_seq += 1
+        if worker is None:
+            return
+        worker.cancel()
+        try:
+            worker.done.disconnect(self._on_revision)
+        except (RuntimeError, TypeError):  # silent-ok: already disconnected (finished or page torn down)
+            pass
+        if wait_ms:
+            worker.wait(wait_ms)
+
+    def _on_revision(self, ticket, revision, error):
+        generation, seq, phase, painted, reloads = ticket
+        if seq != self._rev_seq:
+            return                                  # superseded by a newer request
+        self._rev_worker = None
+        if error == "cancelled":
+            return
+        if generation != self._generation or not self.current_well_id:
+            # The scope changed while hashing: never paint this result; run a
+            # fresh cycle for the new scope (if a well is still selected).
+            if self.current_well_id:
+                self.update_all_data()
+            return
+        if phase == "before":
+            failed = self._paint_for_revision(None if error else revision)
+            if failed is None:
+                return
+            if error:
+                failed.append(f"read data revision ({error})")
+            if failed:
+                self._finish_status(failed)
+                return
+            self._start_revision("verify", painted=revision, reloads=reloads)
+            return
+        # phase == "verify": a second revision after loading proves that no
+        # write was committed while the values were being read.
+        if error:
+            self._finish_status([f"verify data revision ({error})"])
+            return
+        if revision == painted:
+            self._finish_status([])
+            return
+        self.concurrent_changes += 1
+        logger.info("Analysis source data changed while loading; reloading")
+        if reloads >= self._MAX_RELOADS:
+            self._set_status("🟡 Data kept changing while loading - values may mix two states; "
+                             "use Refresh Now", "warn")
+            return
+        self.clear_cache()      # values cached during the load may belong to either state
+        self._set_status("🟡 Data changed while loading - reloading…", "warn")
+        failed = self._paint_for_revision(revision)
+        if failed is None:
+            return
+        if failed:
+            self._finish_status(failed)
+            return
+        self._start_revision("verify", painted=revision, reloads=reloads + 1)
+
+    def wait_until_idle(self, timeout_ms=15000) -> bool:
+        """Process events until no revision is in flight (tests, screenshots, shutdown)."""
+        from PySide6.QtWidgets import QApplication
+        deadline = QDateTime.currentMSecsSinceEpoch() + timeout_ms
+        while self._rev_worker is not None and QDateTime.currentMSecsSinceEpoch() < deadline:
+            QApplication.processEvents()
+            QThread.msleep(5)
+        QApplication.processEvents()
+        return self._rev_worker is None
 
     def auto_update_data(self):
         if self.current_well_id and self.auto_update_check.isChecked():

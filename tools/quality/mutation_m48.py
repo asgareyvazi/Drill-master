@@ -135,8 +135,10 @@ MUTANTS = [
            "            canonical = {}",
            UI, "the canonical service's error dict becomes 'No data'"),
     Mutant("E-status-hides-read-error", W12,
-           '        failed += [f"read {name}" for name in dict.fromkeys(self._load_errors)]\n',
-           "",
+           # M50: the read-error list moved into _paint_for_revision's return
+           # (shared by the synchronous and the worker path); same fault injected.
+           '        return failed + [f"read {name}" for name in dict.fromkeys(self._load_errors)]\n',
+           "        return failed\n",
            UI, "a handled read failure is summarised as 'Updated'"),
     # ------------------------------------------------------------ cache
     Mutant("W-cache-key-scope-only", W12,
