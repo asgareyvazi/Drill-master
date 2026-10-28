@@ -50,9 +50,26 @@ INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (
     r"\byou are now\b|\bact as\b|\bnew instructions?\b",
     r"\b(run|execute) (the )?(command|shell|script|code)\b|\brm -rf\b|powershell|cmd\.exe|os\.system|subprocess",
     r"</?\s*(system|assistant|source|instructions?)\s*>",
-    r"دستورات? (قبلی|بالا) را (نادیده|فراموش)",
-    r"(نادیده|فراموش) (بگیر|کن)",
-    r"(دستور|فرمان)\s*(سیستمی|شل|ترمینال)|اجرا کن",
+    r"\b(answer|reply to|respond to) (every|all|each|any) (question|questions|query|queries)\b",
+    r"\b(do not|don't|never) (cite|mention) (any |the )?(source|sources|citation|citations)\b",
+    r"\bwithout (citing|citations?|sources?)\b",
+    # Persian (M51: general patterns aimed at the assistant; an ordinary procedure - "ignore the previous
+    # readings", "run the test", "record the result" - is NOT flagged: the object must be the rules,
+    # the questions / answers, a command, a secret or files).
+    r"(دستور|دستورالعمل|قانون|قوانین|قواعد|راهنمایی|پیام|پرامپت)\S*\s+(\S+\s+){0,2}(را\s+)?(نادیده|فراموش)\s*(بگیر|کن)",
+    r"(نادیده|فراموش)\s*(بگیر|کن)\S*\s+(\S+\s+){0,2}(دستور|دستورالعمل|قانون|قوانین|قواعد)",
+    r"(به|برای)\s+(همه|تمام|هر)\s*(ی|ٔ)?\s*(سوال|سؤال|پرسش)",
+    r"(فقط|تنها)\s+(پاسخ|جواب)\s*(\S+\s+){0,4}(بده|بدهید|بنویس|بگو)|(فقط|تنها)\s+(بنویس|بگو)",
+    r"(رمز عبور|رمزعبور|گذرواژه|کلید|توکن|پرامپت|دستورات سیستم)\S*\s+(\S+\s+){0,3}(را\s+)?(نمایش|نشان|فاش|چاپ|افشا)",
+    r"(تو|شما)\s+(اکنون|الان|از این پس)\s+(\S+\s+){0,4}(هستی|هستید)",
+    r"(بدون|هیچ)\s+(ذکر\s+|آوردن\s+)?(منبع|منابع|ارجاع|استناد)",
+    r"(دستور(?!العمل)|فرمان|کد|اسکریپت)\S*\s+(\S+\s+){0,3}(را\s+)?اجرا\s*کن|(دستور|فرمان)\s*(سیستمی|شل|ترمینال)",
+    r"(فایل|پرونده|داده)\S*\s+(\S+\s+){0,2}(را\s+)?(حذف|پاک)\s*کن",
+    # Arabic (letters as typed or as folded: ي/ی, ك/ک, أ/ا)
+    r"(تجاهل|انس|إنس|اترك)\S*\s+(جم[يی]ع\s+|كل\s+|کل\s+)?(ال)?(تعل[يی]مات|اوامر|أوامر|قواعد|توج[يی]هات)",
+    r"([أا]جب|رد)\s+(فقط|دائما|دائماً)",
+    r"(اكشف|اکشف|[أا]ظهر|اعرض)\s+(\S+\s+){0,2}(كلمة|کلمة|موجه|التعل[يی]مات|المفتاح)",
+    r"[أا]نت\s+الآن|[أا]نت\s+الان",
 )]
 
 
@@ -374,8 +391,17 @@ def _best_sentences(index, item: Evidence, retrieval: kr.RetrievalResult, limit:
     size_tokens = frozenset(t for s in sizes for t in kr.words(s)) | \
         frozenset(t for t in retrieval.terms if t in kr.DESIGNATED_NOUNS) \
         if sizes and sizes <= kr.size_designations(item.text) else frozenset()
-    scored = [(index.text_coverage(retrieval.terms, by_term, kr.words(s), retrieval.strict_terms,
-                                   context | (size_tokens if not kr.size_designations(s) else frozenset()))[0], i, s)
+    # M51: the same context the passage was judged sufficient with - page heading / file-name words,
+    # and the noun of an asked quantity kind for a sentence that shows a value of that kind.
+    extra = ["\x00"] + index._context_words.get(item.page_id, [])
+    kinds = [k for k in kr.ANSWER_TYPES if k.name in retrieval.answer_types]
+
+    def shown(sentence: str) -> frozenset:
+        folded = kr.fold(sentence)
+        return frozenset(noun[0] for k in kinds if k.units.search(folded) for noun in k.nouns if len(noun) == 1)
+    scored = [(index.text_coverage(retrieval.terms, by_term, kr.words(s) + extra, retrieval.strict_terms,
+                                   context | shown(s) |
+                                   (size_tokens if not kr.size_designations(s) else frozenset()))[0], i, s)
               for i, s in enumerate(sentences)]
     best = max((score for score, _, _ in scored), default=0.0)
     if best <= 0:
@@ -403,8 +429,10 @@ def extractive_answer(index, retrieval: kr.RetrievalResult, evidence: list, max_
     lines = []
     for item in usable:
         sentences = _best_sentences(index, item, retrieval)
-        if not sentences and not item.instruction_like:   # matched only via n-grams: quote the passage start
-            sentences = [" ".join(item.text.split())[:300]]
+        if not sentences and not item.instruction_like:   # matched only via n-grams: quote the first sentence
+            # One sentence per citation (M51): several sentences in one quote fail claims_cited.
+            first = next((x.strip() for x in _SENTENCES.split(" ".join(item.text.split())) if x.strip()), "")
+            sentences = [first[:300]] if first else []
         for sentence in sentences:
             lines.append(f"• «{sentence}» [{item.label}]")
     return "\n".join(lines)
@@ -445,7 +473,24 @@ def describe_no_evidence(retrieval: kr.RetrievalResult, evidence: list) -> tuple
         if present:
             not_found.append("Occur in this scope, but no passage matches enough of the question together: "
                              + ", ".join(present))
+    not_found.extend(constraint_reasons(retrieval))
     return found, not_found
+
+
+CONSTRAINT_TEXT = {
+    "identity": "The question names {labels}; no reviewed document in this scope is about it (by its text, "
+                "file name or a confirmed link).",
+    "other_entity": "A passage matches the question but is about another well or entity, not {labels}; it is "
+                    "never used as the answer.",
+    "absent": "The question asks about {labels}, which no passage in this scope mentions; passages that match "
+              "only the other words are related but not sufficient.",
+}
+
+
+def constraint_reasons(retrieval: kr.RetrievalResult) -> list:
+    """Plain-language reasons for the hard rules (M51) that blocked an answer."""
+    return [CONSTRAINT_TEXT[rule].format(labels=", ".join(display_terms(labels)))
+            for rule, labels in retrieval.constraints if rule in CONSTRAINT_TEXT and labels]
 
 
 def scope_notes(retrieval: kr.RetrievalResult) -> list:

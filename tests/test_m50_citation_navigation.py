@@ -23,6 +23,10 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from m50_knowledge_fixtures import m50_corpus_db  # noqa: E402
 
 QUESTION = "mud weight for the 16 in section of SYN-KE-05"
+# Needs two passages from one page and one page number in several documents.  M51: a header chunk
+# that names only the well ("... for well SYN-KE-05.") is no longer evidence, so QUESTION alone now
+# cites one passage per page; this question still exercises same-page spans.
+MULTI_PASSAGE_QUESTION = "casing shoe depth and mud weight"
 
 
 @pytest.fixture(scope="module")
@@ -82,7 +86,7 @@ def _edit_page(db, page_id, transform):
 
 def test_every_citation_opens_its_exact_page_and_span(app, world):
     tab, panel, _ids, _db = world
-    _ask(app, panel, QUESTION)
+    _ask(app, panel, MULTI_PASSAGE_QUESTION)
     evidence = panel.last_answer.evidence
     pages = [e.page_id for e in evidence]
     assert len(pages) != len(set(pages)), "needs two passages from one page"

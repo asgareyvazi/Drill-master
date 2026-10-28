@@ -56,9 +56,13 @@ def test_code_of_another_well_or_document_is_never_inherited():
     result = index.retrieve("mud weight for SYN-QB-02")
     assert index.context_covered(1, (("syn", "qb", "02"),)) == frozenset()
     doc1 = [h for h in result.hits if h.page.document_id == 1]
-    assert all(h.coverage < kr.SUFFICIENT_COVERAGE for h in doc1)
+    assert doc1 and all(h.coverage < kr.SUFFICIENT_COVERAGE for h in doc1)
     # The other document's header names the well but shows no mud weight: never sufficient either.
-    assert result.status == "no_evidence" and "(density)" in result.missing_terms
+    # M51: sufficiency is measured on the topic terms, so the code-only header is not even a hit;
+    # the stated reason is the hard identity constraint the only mud-weight passage fails.
+    assert result.status == "no_evidence" and all(h.coverage < kr.SUFFICIENT_COVERAGE for h in result.hits)
+    assert not any(h.page.document_id == 2 and h.coverage >= kr.SUFFICIENT_COVERAGE for h in result.hits)
+    assert "SYN-QB-02" in result.missing_terms
 
 
 def test_context_requires_the_whole_code_as_consecutive_tokens():
@@ -162,7 +166,7 @@ def test_sentence_without_a_size_inherits_the_passage_size_but_not_one_naming_an
 
 
 def test_retrieval_version_bumped_for_cache_invalidation():
-    assert kr.RETRIEVAL_VERSION == 3
+    assert kr.RETRIEVAL_VERSION == 4      # M51: identity constraint, topic-only sufficiency, glossary
 
 
 @pytest.mark.parametrize("question", ["How long is the 9-5/8 in casing string?"])

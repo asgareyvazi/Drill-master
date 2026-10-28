@@ -8,7 +8,10 @@ best coverage, missing / absent terms, conflicts, the decision (answer
 state) and the reason the pipeline gives (notes).  No passage text is
 printed (ids, terms and numbers only).
 
-    python tools/quality/knowledge_forensics_m51.py N55 N59 ... [--json OUT]
+    python tools/quality/knowledge_forensics_m51.py N55 N59 ... [--json OUT]       # M50 set
+    python tools/quality/knowledge_forensics_m51.py --set m51 M038 ... [--json OUT]  # M51 DEV only
+
+M51 held-out ids are refused: that split is looked at only in aggregate.
 """
 from __future__ import annotations
 
@@ -27,12 +30,15 @@ from m50_gold_questions import GOLD_M50  # noqa: E402
 from m50_knowledge_fixtures import DOCS as DOCS_M50  # noqa: E402
 from m50_knowledge_fixtures import m50_corpus_db  # noqa: E402
 from m49_knowledge_fixtures import DOCS as DOCS_M49  # noqa: E402
+from m51_gold_questions import GOLD_M51  # noqa: E402
+from m51_knowledge_fixtures import DOCS as DOCS_M51  # noqa: E402
+from m51_knowledge_fixtures import m51_corpus_db  # noqa: E402
 
 TOP_K = 5
 
 
 def trace(index, ids, q) -> dict:
-    role_of = {ids[k]: k for k in list(DOCS_M49) + list(DOCS_M50) if k in ids}
+    role_of = {ids[k]: k for k in list(DOCS_M49) + list(DOCS_M50) + list(DOCS_M51) if k in ids}
     target = ids[q["target"]] if q.get("target") else None
     answer = ka.answer_question(index, q["question"], q["scope"], target, top_k=TOP_K)
     r = answer.retrieval
@@ -63,9 +69,13 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("ids", nargs="+")
     parser.add_argument("--json")
+    parser.add_argument("--set", default="m50", choices=("m50", "m51"))
     args = parser.parse_args(argv)
-    by_id = {q["id"]: q for q in GOLD_M50}
-    db, ids = m50_corpus_db()
+    gold = GOLD_M50 if args.set == "m50" else GOLD_M51
+    by_id = {q["id"]: q for q in gold}
+    if args.set == "m51" and any(by_id[i]["split"] != "dev" for i in args.ids):
+        parser.error("M51 held-out questions are looked at only in aggregate")
+    db, ids = (m50_corpus_db if args.set == "m50" else m51_corpus_db)()
     index = kr.KnowledgeIndex(kr.read_corpus(db))
     try:
         rows = [trace(index, ids, by_id[i]) for i in args.ids]

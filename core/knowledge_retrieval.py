@@ -41,8 +41,10 @@ from typing import Callable, Optional
 from core.search_normalization import NORMALIZATION_VERSION, normalize, tokens
 
 CHUNKER_VERSION = 1
-RETRIEVAL_VERSION = 3            # 2: size designations must match (M49 mutation review)
+RETRIEVAL_VERSION = 4            # 2: size designations must match (M49 mutation review)
                                  # 3: entity-code context, expected answer types, size-aware conflicts (M50)
+                                 # 4: well identity is a hard constraint, topic-only sufficiency, absent-term
+                                 #    veto, heading / file-name context, glossary concepts (M51)
 RRF_K = 60
 CHUNK_TARGET_CHARS = 700
 LIST_DEPTH = 50                 # candidates taken from each ranked list
@@ -50,6 +52,19 @@ SUFFICIENT_COVERAGE = 0.6       # IDF-weighted share of the question's content t
 MIN_HIT_COVERAGE = 0.2          # passages below this are not shown as evidence
 SIZE_MISMATCH_CAP = 0.5         # a passage lacking a size the question names is never sufficient
 ANSWER_TYPE_CAP = 0.5           # ... or lacking the kind of quantity the question asks for
+IDENTITY_CAP = 0.5              # ... or from a document that is not about the well the question names (M51)
+ABSENT_TERM_CAP = 0.5           # ... or when a question word occurs nowhere in scope (partial overlap, M51)
+HEADING_MAX_CHARS = 100         # a short first paragraph is the page heading (context for its chunks)
+# Generic nouns for the thing an entity code names: covered once the code's identity is established.
+ENTITY_NOUNS = frozenset({"well", "wellbore", "چاه"})
+# Words that name WHICH ASPECT of a quantity is asked ("size", "result", "average", a unit name) rather
+# than the topic: a passage may state the value without them, so their absence from the scope never
+# vetoes an answer (they still count in coverage).  Curated, explicit - not semantic.
+ATTRIBUTE_WORDS = frozenset("""
+size sizes large big small result results value amount achieved obtained reached reading readings average
+mean cause causes reason time times metres meters metre meter feet foot inches unit units
+اندازه نتیجه علت دلیل میانگین متوسط زمان واحد
+""".split())
 APPROVED_STATUSES = frozenset({"extracted", "approved", "edited"})
 
 SCOPE_ALL, SCOPE_WELL, SCOPE_REPORT, SCOPE_DOCUMENT = "all", "well", "report", "document"
@@ -61,34 +76,66 @@ STOPWORDS = frozenset("""
 a an and are as at be by can could did do does for from had has have how i if in into is it its of on or
 should than that the their there these this to was were what when where which who why will with would you
 your about any all much many according document documents page pages say says said tell me please show give
+apply applies applied applying use used using recorded occur occurs occurred happen happened value values
+between during after before within through since until each other same also only just been being
 از به با در که این آن را برای تا یا و است بود شد شود می‌شود میشود هست نیست چه چی چیست کدام کجا چرا
 چگونه چطور آیا هم نیز یک های ها بر روی طبق بنابر مطابق گفته شده سند اسناد صفحه چقدر چند مقدار
+داشته دارد دارند داشت بوده کرد کرده کردند شدند گردید گردیده انجام میشوند
+بین طی هنگام مورد درباره
 """.split())
 
 # Bilingual drilling glossary (English <-> Persian, plus common abbreviations).
 # Each line is one concept; a question containing any form also searches the
 # others.  This is a curated, explicit list - not "semantic" retrieval.
 GLOSSARY_LINES = """
-stuck pipe | pipe sticking | differential sticking | گیر لوله | گیرکردن لوله | گیر کردن رشته
-lost circulation | mud losses | loss of circulation | هرزروی | هرز روی گل | هرزروی گل
+stuck pipe | pipe sticking | differential sticking | گیر لوله | گیرکردن لوله | گیر کردن لوله | گیر کردن رشته
+lost circulation | mud losses | loss of circulation | losses | هرزروی | هرز روی گل | هرزروی گل
 mud weight | mud density | MW | وزن گل | وزن گل حفاری | چگالی گل
 kick | influx | well control | فوران | ورود سیال | کنترل چاه
-blowout preventer | BOP | فوران گیر | فورانگیر
+blowout preventer | BOP | فوران گیر | فورانگیر | بی او پی | بیاوپی
 casing | casing shoe | لوله جداری | جداری | کفشک جداری
 cement | cementing | سیمان | سیمانکاری
 drill bit | bit | مته
-rate of penetration | ROP | سرعت حفاری | نرخ نفوذ
+rate of penetration | ROP | سرعت حفاری | نرخ نفوذ | سرعت نفوذ
 weight on bit | WOB | وزن روی مته
 torque | گشتاور
 tripping | trip | مانور
 pressure test | تست فشار | آزمایش فشار
-kick tolerance | تحمل فوران
+kick tolerance | تحمل فوران | تحمل ضربه | تحمل کیک
 formation | سازند
 shale | شیل
 mud pump | پمپ گل
 repair | تعمیر
 duration | مدت | طول کشید
 daily report | گزارش روزانه
+standpipe pressure | SPP | فشار لوله ایستاده | فشار استندپایپ | فشار لوله عمودی
+flow rate | pump rate | circulation rate | دبی | دبی پمپ | دبی جریان | نرخ جریان | نرخ پمپاژ
+pump pressure | فشار پمپ
+maximum allowable annular surface pressure | MAASP | حداکثر فشار مجاز سطحی حلقوی | فشار مجاز سطحی حلقوی
+leak-off test | LOT | تست نشت | آزمایش نشت
+formation integrity test | FIT | تست یکپارچگی سازند | آزمایش یکپارچگی سازند
+equivalent circulating density | ECD | چگالی معادل در گردش | چگالی معادل گردشی
+total depth | final depth | TD | عمق نهایی | عمق کل
+depth | عمق
+midnight | نیمه شب | نیمهشب
+trip tank | مخزن تریپ | تریپ تانک | مخزن مانور
+top drive | تاپ درایو | تاپدرایو
+working pressure | فشار کاری
+function test | تست عملکرد | آزمایش عملکرد
+rotary speed | سرعت دورانی | سرعت چرخش | دور میز دوار
+drill string | رشته حفاری
+vibration | ارتعاش | لرزش
+frequency | فرکانس | بسامد
+liner | لاینر
+slurry | دوغاب
+top of cement | cement top | TOC | بالای سیمان | سر سیمان
+volume | حجم
+hose | شیلنگ
+replacement | replaced | changed | تعویض
+freed | free | آزاد
+procedure | روش اجرا | روش
+section | مقطع | بخش
+average | mean | میانگین | متوسط
 """.strip().splitlines()
 
 _SENTENCE_END = re.compile(r"(?<=[.!?؟۔;؛])\s+|\n+")
@@ -131,6 +178,7 @@ class CorpusSnapshot:
     signature: tuple
     documents: dict = field(default_factory=dict)  # document_id -> file name
     excluded_pages: int = 0                        # stored pages refused by the approval rule
+    well_names: dict = field(default_factory=dict)  # well_id -> (name, code): identity of linked wells (M51)
 
     def documents_in_scope(self, scope: str, target: Optional[int]) -> set:
         docs = set(self.documents)
@@ -168,16 +216,24 @@ def _page_rows(session):
             .order_by(DocumentPage.document_id, DocumentPage.page_no, DocumentPage.id).all())
 
 
-def _content_digest(rows, documents) -> str:
+def _well_rows(session) -> dict:
+    from core.database import Well
+    return {well_id: (name or "", code or "") for well_id, name, code in
+            session.query(Well.id, Well.name, Well.code).order_by(Well.id).all()}
+
+
+def _content_digest(rows, documents, wells=None) -> str:
     """Digest of every stored page's identity, position, method, review status
-    and text version, and of every document name (M51).  A same-length text
-    edit, a review-status change or a delete + re-import that reuses ids with
-    different text all change it; identical content gives the same digest."""
+    and text version, of every document name and of every well name / code
+    (M51; well identity is a retrieval constraint).  A same-length text edit, a
+    review-status change, a delete + re-import that reuses ids with different
+    text or a well rename all change it; identical content gives the same digest."""
     digest = hashlib.blake2b(digest_size=16)
     for page_id, doc_id, _name, page_no, location, text, method, status in rows:
         digest.update(repr((page_id, doc_id, page_no, location, method, status)).encode("utf-8"))
         digest.update(hashlib.sha256((text or "").encode("utf-8")).digest())
     digest.update(repr(sorted(documents.items())).encode("utf-8"))
+    digest.update(repr(sorted((wells or {}).items())).encode("utf-8"))
     return digest.hexdigest()
 
 
@@ -209,7 +265,8 @@ def corpus_signature(db_manager, session=None, content=None) -> tuple:
                               DocumentLink.report_id).order_by(DocumentLink.id).all()
         link_digest = hashlib.blake2b(repr([tuple(r) for r in links]).encode(), digest_size=12).hexdigest()
         if content is None:
-            content = _content_digest(_page_rows(session), dict(session.query(Document.id, Document.file_name).all()))
+            content = _content_digest(_page_rows(session), dict(session.query(Document.id, Document.file_name).all()),
+                                      _well_rows(session))
         return (NORMALIZATION_VERSION, CHUNKER_VERSION, RETRIEVAL_VERSION) + pages + (audit, link_digest, content)
     finally:
         if own:
@@ -228,7 +285,8 @@ def read_corpus(db_manager) -> CorpusSnapshot:
         rows = _page_rows(session)
         links = session.query(DocumentLink.document_id, DocumentLink.well_id, DocumentLink.report_id).all()
         documents = dict(session.query(Document.id, Document.file_name).all())
-        signature = corpus_signature(db_manager, session=session, content=_content_digest(rows, documents))
+        wells = _well_rows(session)
+        signature = corpus_signature(db_manager, session=session, content=_content_digest(rows, documents, wells))
     finally:
         session.close()
     pages, excluded = {}, 0
@@ -244,7 +302,7 @@ def read_corpus(db_manager) -> CorpusSnapshot:
         doc_wells[doc_id].add(well_id)
         if report_id is not None:
             doc_reports[doc_id].add(report_id)
-    return CorpusSnapshot(pages, dict(doc_wells), dict(doc_reports), signature, documents, excluded)
+    return CorpusSnapshot(pages, dict(doc_wells), dict(doc_reports), signature, documents, excluded, wells)
 
 
 # ----------------------------------------------------------------- chunking
@@ -356,6 +414,11 @@ def identifier_terms(question: str) -> frozenset:
     return frozenset(out)
 
 
+def code_label(code: tuple) -> str:
+    """'syn', 'kg', '07' -> 'SYN-KG-07' (display only)."""
+    return "-".join(code).upper()
+
+
 def entity_codes(question: str) -> tuple:
     """Codes that name one entity, as token tuples: hyphenated words that mix
     letters and digits ("SYN-KE-05" -> ("syn", "ke", "05")).  Size
@@ -405,9 +468,11 @@ ANSWER_TYPES = (
                          "طول کشید کشیده ثانیه دقیقه ساعت روز هفته".split()),
                (("duration",), ("مدت",)),
                re.compile(r"\d\s*" + _TIME_UNITS + r"(?![\w/])")),
-    AnswerType("frequency", (r"\bhow often\b", r"هر چند"), frozenset({"often"}), (("frequency",), ("interval",)),
+    AnswerType("frequency", (r"\bhow often\b", r"هر چند"), frozenset({"often", "هر", "تکرار"}),
+               (("frequency",), ("interval",)),
                re.compile(r"\bevery\b|\bper\b|\bonce\b|(?<!\w)هر\s")),
-    AnswerType("depth", (r"\bhow deep\b", r"چه عمقی"), frozenset({"deep", "عمقی"}), (("depth",), ("عمق",)),
+    AnswerType("depth", (r"\bhow deep\b", r"چه عمقی", r"\bhow many (?:metres|meters|feet)\b", r"چند متر(?! مکعب)"),
+               frozenset({"deep", "عمقی", "متر", "metres", "meters", "feet"}), (("depth",), ("عمق",)),
                re.compile(r"\d\s*(?:m|ft|feet|metres?|meters?|متر|فوت)(?![\w/])")),
     AnswerType("density", (r"\bhow heavy\b",), frozenset({"heavy"}),
                (("density",), ("چگالی",), ("mud", "weight"), ("وزن", "گل")),
@@ -417,8 +482,9 @@ ANSWER_TYPES = (
                re.compile(r"°|\bdeg(?:rees?|c|f)?\b|celsius|fahrenheit|درجه|سانتیگراد")),
     AnswerType("pressure", (), frozenset(), (("pressure",), ("فشار",)),
                re.compile(r"\d\s*(?:psi|bar|kpa|mpa)(?![\w/])")),
-    AnswerType("volume", (), frozenset(), (("volume",), ("حجم",)),
-               re.compile(r"\d\s*(?:bbl|m3|litres?|liters?|gal|بشکه|لیتر)(?![\w/])")),
+    AnswerType("volume", (r"\bhow many (?:barrels|bbl)\b", r"چند بشکه"), frozenset({"barrels", "bbl", "بشکه"}),
+               (("volume",), ("حجم",)),
+               re.compile(r"\d\s*(?:bbl|m3|litres?|liters?|gal|بشکه|لیتر|متر مکعب|مترمکعب)(?![\w/])")),
     AnswerType("power", (), frozenset(), (("power",), ("horsepower",), ("توان",)),
                re.compile(r"\d\s*(?:hp|kw)(?![\w/])")),
     AnswerType("torque", (), frozenset(), (("torque",), ("گشتاور",)),
@@ -479,15 +545,31 @@ def size_designations(text: str) -> frozenset:
     return frozenset(found)
 
 
+_EN_SUFFIXES = ("ing", "ed", "es", "s")
+
+
+def _en_stem(word: str) -> str:
+    """Strip one English inflection ('rating' / 'rated' -> 'rat', 'pumps' -> 'pump'); index-only."""
+    if word.isascii() and word.isalpha():
+        for suffix in _EN_SUFFIXES:
+            if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+                return word[:-len(suffix)]
+    return word
+
+
 def _term_matches(term: str, word: str) -> bool:
-    """Exact; word starts with the term (>= 3 chars); or a shared stem of
-    ``max(4, len(term) - 2)`` characters for terms of 5+ characters
-    ('tolerate' ~ 'tolerance', 'drilled' ~ 'drilling').  Digits match exactly."""
+    """Exact; word starts with the term (>= 3 chars); the same English stem
+    after one inflection ('rating' ~ 'rated', 'pumps' ~ 'pump', M51); or a
+    shared stem of ``max(4, len(term) - 2)`` characters for terms of 5+
+    characters ('tolerate' ~ 'tolerance', 'drilled' ~ 'drilling').  Digits
+    match exactly."""
     if word == term:
         return True
     if term.isdigit() or word.isdigit():
         return False
     if len(term) >= 3 and word.startswith(term):
+        return True
+    if _en_stem(term) == _en_stem(word) != term:
         return True
     stem = max(4, len(term) - 2)
     return len(term) >= 5 and len(word) >= stem and word[:stem] == term[:stem]
@@ -692,6 +774,11 @@ class RetrievalResult:
     strict_terms: frozenset = frozenset()
     entity_codes: tuple = ()      # codes whose parts may be covered by page / file-name context
     answer_types: tuple = ()      # names of the quantity kinds the question asks for
+    topic_terms: list = field(default_factory=list)    # terms without entity-code parts: sufficiency (M51)
+    constraints: list = field(default_factory=list)    # [(rule, [labels])] hard rules that blocked an answer:
+    #   ("identity", ["SYN-KH-08"]) no document in scope is about the named entity;
+    #   ("absent", [term, ...])     question words that occur in no passage in scope (partial overlap)
+    #   ("other_entity", ["SYN-KH-08"]) a passage would answer, but it is not about the named entity
 
 
 # ------------------------------------------------------------------ index
@@ -712,6 +799,17 @@ class KnowledgeIndex:
         self._folded = {cid: fold(c.text) for cid, c in self.chunks.items()}
         self._page_tokens = {pid: words(page.text) for pid, page in snapshot.pages.items()}
         self._name_tokens = {pid: words(page.file_name) for pid, page in snapshot.pages.items()}
+        self._doc_pages = defaultdict(list)
+        for pid, page in snapshot.pages.items():
+            self._doc_pages[page.document_id].append(pid)
+        self._context_words = {pid: self._page_context_words(page) for pid, page in snapshot.pages.items()}
+        # Chunks that are only the page heading (a short first paragraph followed by more text).
+        self._heading_chunks = {cids[0] for cids in self.page_chunks.values()
+                                if len(cids) > 1 and len(self.chunks[cids[0]].text) <= HEADING_MAX_CHARS}
+        self._chunk_codes = {cid: entity_codes(c.text) for cid, c in self.chunks.items()}
+        self._well_labels = {wid: [words(label) for label in labels if label]
+                             for wid, labels in snapshot.well_names.items()}
+        self._identity_cache = {}
         self._size_cache = {}
         self._lock = threading.Lock()
         self._fts = self._build_fts()
@@ -845,6 +943,81 @@ class KnowledgeIndex:
         return [cid for _, cid in sorted(scored)][:LIST_DEPTH]
 
     # ----------------------------------------------------------- coverage
+    @staticmethod
+    def _page_context_words(page: PageRecord) -> list:
+        """Tokens a page states for all of its chunks: its heading (a short first
+        paragraph followed by more text) and its document's file name ("SYN-KG-07
+        daily report.pdf").  Tokens with digits are replaced by a separator -
+        numbers are never inherited - and the parts are separated so that no
+        phrase spans two of them (M51 contextual chunk headers)."""
+        text = page.text or ""
+        paragraphs = [p.strip() for p in _PARAGRAPH.split(text) if p.strip()]
+        heading = paragraphs[0] if len(paragraphs) > 1 and len(paragraphs[0]) <= HEADING_MAX_CHARS else ""
+        out = []
+        for part in (heading, page.file_name or ""):
+            out.extend("\x00" if any(ch.isdigit() for ch in tok) else tok for tok in words(part))
+            out.append("\x00")
+        return out
+
+    def identity_established(self, document_id: int, code: tuple) -> bool:
+        """The document is about the entity ``code`` names: the whole code occurs in
+        one of its approved pages or its file name, or the document is linked to a
+        well whose name or code contains it (M51: explicit identity is a hard
+        constraint, checked per document because a page states its well once)."""
+        key = (document_id, code)
+        cached = self._identity_cache.get(key)
+        if cached is None:
+            sub = list(code)
+            cached = any(_contains(self._page_tokens.get(pid, []), sub) or _contains(self._name_tokens.get(pid, []), sub)
+                         for pid in self._doc_pages.get(document_id, ())) or \
+                any(_contains(label, sub) for wid in self.snapshot.doc_wells.get(document_id, ())
+                    for label in self._well_labels.get(wid, ()))
+            self._identity_cache[key] = cached
+        return cached
+
+    def names_other_entity(self, chunk_id: str, codes: tuple) -> bool:
+        """The passage itself names another entity of the same family (or another
+        known well) and not the asked one - e.g. a SYN-KG-07 sentence for a
+        SYN-KH-08 question inside a document that mentions both."""
+        found = self._chunk_codes.get(chunk_id, ())
+        if not found or any(_contains(self._norm_tokens[chunk_id], list(code)) for code in codes):
+            return False
+        families = {code[0] for code in codes}
+        labels = [label for wid_labels in self._well_labels.values() for label in wid_labels]
+        return any(other not in codes and (other[0] in families or any(_contains(label, list(other)) for label in labels))
+                   for other in found)
+
+    def identity_ok(self, chunk_id: str, codes: tuple) -> bool:
+        if not codes:
+            return True
+        document_id = self.snapshot.pages[self.chunks[chunk_id].page_id].document_id
+        return all(self.identity_established(document_id, code) for code in codes) and \
+            not self.names_other_entity(chunk_id, codes)
+
+    def chunk_context(self, chunk_id: str, terms: list, codes: tuple = (), kinds: tuple = (),
+                      sizes: frozenset = frozenset()) -> tuple:
+        """(extra tokens, covered terms) a chunk inherits (M51).
+
+        * page heading and file-name words (``_page_context_words``);
+        * entity-code parts, and generic entity nouns ("well", "چاه"), once the
+          document's identity is established;
+        * the single-word noun of an asked quantity kind when the chunk shows a
+          value of that kind ("power" / 1600 hp);
+        * the noun of a size designation ("hole", "section") when the chunk
+          names the asked size.
+        """
+        page_id = self.chunks[chunk_id].page_id
+        covered = set(self.context_covered(page_id, codes)) if codes else set()
+        if codes and self.identity_ok(chunk_id, codes):
+            covered.update(part for code in codes for part in code)
+            covered.update(t for t in terms if t in ENTITY_NOUNS)
+        for kind in kinds:
+            if kind.units.search(self._folded[chunk_id]):
+                covered.update(noun[0] for noun in kind.nouns if len(noun) == 1)
+        if sizes and sizes <= self._sizes(chunk_id):
+            covered.update(t for t in terms if t in DESIGNATED_NOUNS)
+        return self._context_words.get(page_id, []), frozenset(covered)
+
     def context_covered(self, page_id: int, codes: tuple) -> frozenset:
         """Parts of the entity ``codes`` whose whole code occurs, as exact
         consecutive tokens, in the page text or the document file name."""
@@ -856,9 +1029,10 @@ class KnowledgeIndex:
         return frozenset(out)
 
     def coverage(self, terms: list, expansions_by_term: dict, chunk_id: str, strict: frozenset = frozenset(),
-                 codes: tuple = ()) -> tuple:
-        context = self.context_covered(self.chunks[chunk_id].page_id, codes) if codes else frozenset()
-        return self.text_coverage(terms, expansions_by_term, self._norm_tokens[chunk_id], strict, context)
+                 codes: tuple = (), kinds: tuple = (), sizes: frozenset = frozenset()) -> tuple:
+        extra, context = self.chunk_context(chunk_id, terms, codes, kinds, sizes)
+        return self.text_coverage(terms, expansions_by_term, self._norm_tokens[chunk_id] + ["\x00"] + extra, strict,
+                                  context)
 
     def text_coverage(self, terms: list, expansions_by_term: dict, toks: list,
                       strict: frozenset = frozenset(), context: frozenset = frozenset()) -> tuple:
@@ -874,13 +1048,16 @@ class KnowledgeIndex:
         total, covered, missing = 0.0, 0.0, []
         for term in terms:
             weight = max(self._idf(term, strict), 0.1)
-            total += weight
             forms = units[term] if term in units else [[term]] + expansions_by_term.get(term, [])
             hit = term in context or any(phrase_in(toks, form) for form in forms)
             if hit:
                 covered += weight
+            elif term in ATTRIBUTE_WORDS and len(terms) > 1:
+                missing.append(term)    # reported, but names an aspect ("size", "average") a passage may
+                continue                # state the value without: not counted against coverage
             else:
                 missing.append(term)
+            total += weight
         return (covered / total if total else 0.0), missing
 
     def _sizes(self, chunk_id: str) -> frozenset:
@@ -890,19 +1067,22 @@ class KnowledgeIndex:
         return cached
 
     def answer_type_missing(self, kinds: tuple, chunk_id: str) -> list:
-        """Names of the asked-for quantity kinds the chunk does not show."""
+        """Names of the asked-for quantity kinds the chunk does not show.  A page
+        heading names a subject, never its value: it must show the unit (M51)."""
+        if chunk_id in self._heading_chunks:
+            return [k.name for k in kinds if not k.units.search(self._folded[chunk_id])]
         return [k.name for k in kinds
                 if not answer_type_shown(k, self._norm_tokens[chunk_id], self._folded[chunk_id])]
 
-    def absent_terms(self, terms: list, expansions_by_term: dict, allowed: set, codes: tuple = ()) -> list:
+    def absent_terms(self, terms: list, expansions_by_term: dict, allowed: set, codes: tuple = (),
+                     kinds: tuple = (), sizes: frozenset = frozenset()) -> list:
         """Question terms that occur in no passage of ``allowed`` - checked
-        with the same matching rule as :meth:`text_coverage` (entity-code
-        context included), so an insufficient-evidence message never claims a
-        word is missing when some passage in scope contains it."""
+        with the same matching rule and context as :meth:`coverage`, so an
+        insufficient-evidence message never claims a word is missing when some
+        passage in scope contains it."""
         present = set()
         for cid in allowed:
-            context = self.context_covered(self.chunks[cid].page_id, codes) if codes else frozenset()
-            _cov, missing = self.text_coverage(terms, expansions_by_term, self._norm_tokens[cid], context=context)
+            _cov, missing = self.coverage(terms, expansions_by_term, cid, codes=codes, kinds=kinds, sizes=sizes)
             present.update(t for t in terms if t not in missing)
             if len(present) == len(terms):
                 break
@@ -973,14 +1153,35 @@ class KnowledgeIndex:
         fused = rrf_fuse(lists)
         # Every fused id came from the allowed set; assert it anyway (scope is a security boundary).
         fused = [item for item in fused if item[0] in allowed]
+        fused = self._with_heading_siblings(fused, allowed)
         expansions_by_term = self._expansions_by_term(terms, expansions)
+        # M51: an entity code the question names is a hard constraint checked on its own (identity_ok),
+        # so sufficiency is measured on the TOPIC terms - a passage that only shares the well code with
+        # the question can no longer reach the threshold through the code's high IDF weight.
+        code_parts = {part for code in codes for part in code}
+        topic = [t for t in terms if t not in code_parts] or terms
+        topic_strict = frozenset(strict - code_parts) if topic is not terms else strict
+        result.topic_terms = topic
+        # Partial overlap: a question word that occurs in no passage in scope (glossary forms and
+        # context included) means no passage can answer it, however well the other words match.
+        absent_topic = [t for t in self.absent_terms(topic, expansions_by_term, allowed, codes, kinds, sizes)
+                        if not t.isdigit() and t not in ATTRIBUTE_WORDS]   # sizes have their own rule
+        if absent_topic:
+            result.constraints.append(("absent", absent_topic))
+        identity_failed = 0
         candidates = []
         for chunk_id, score, ranks in fused:
-            cov, _missing = self.coverage(terms, expansions_by_term, chunk_id, strict, codes)
+            cov, _missing = self.coverage(topic, expansions_by_term, chunk_id, topic_strict, codes, kinds, sizes)
             if sizes and not sizes <= self._sizes(chunk_id):
                 cov = min(cov, SIZE_MISMATCH_CAP)   # about another size: shown as closest, never sufficient
             if kinds and self.answer_type_missing(kinds, chunk_id):
                 cov = min(cov, ANSWER_TYPE_CAP)     # shows no quantity of the asked kind: never sufficient
+            if codes and not self.identity_ok(chunk_id, codes):
+                if cov >= SUFFICIENT_COVERAGE:
+                    identity_failed += 1            # would answer - but it is about another entity
+                cov = min(cov, IDENTITY_CAP)        # not about the named well: shown as closest, never sufficient
+            if absent_topic:
+                cov = min(cov, ABSENT_TERM_CAP)
             if cov < MIN_HIT_COVERAGE:
                 continue            # n-gram noise: shares letters but none of the question's terms
             candidates.append((chunk_id, score, ranks, cov))
@@ -998,18 +1199,48 @@ class KnowledgeIndex:
                 break
         result.hits = hits
         if hits:
-            best = max(hits, key=lambda h: h.coverage)
-            result.best_coverage = best.coverage
-            result.missing_terms = self.coverage(terms, expansions_by_term, best.chunk.chunk_id, strict, codes)[1] + \
+            result.best_coverage = max(h.coverage for h in hits)
+            # Explain from the best passage ABOUT the named entity when there is one: the other well's
+            # passage is never usable, so its gaps are not the reason (M51).
+            best = max(hits, key=lambda h: (self.identity_ok(h.chunk.chunk_id, codes), h.coverage))
+            result.missing_terms = self.coverage(topic, expansions_by_term, best.chunk.chunk_id, topic_strict, codes,
+                                                 kinds, sizes)[1] + \
                 [f"{s} in" for s in sorted(sizes - self._sizes(best.chunk.chunk_id))] + \
-                [f"({name})" for name in self.answer_type_missing(kinds, best.chunk.chunk_id)]
+                [f"({name})" for name in self.answer_type_missing(kinds, best.chunk.chunk_id)] + \
+                [code_label(code) for code in codes if not self.identity_ok(best.chunk.chunk_id, (code,))]
+        if identity_failed:
+            result.constraints.append(("other_entity", [code_label(code) for code in codes]))
+        if codes:
+            unmet = [code_label(code) for code in codes
+                     if not any(self.identity_established(self.snapshot.pages[self.chunks[cid].page_id].document_id,
+                                                          code) for cid in allowed)]
+            if unmet:
+                result.constraints.append(("identity", unmet))
         if not hits or result.best_coverage < SUFFICIENT_COVERAGE:
             result.status = "no_evidence"
-            result.absent_terms = self.absent_terms(terms, expansions_by_term, allowed, codes) + \
-                [f"{s} in" for s in sorted(sizes) if not any(s in self._sizes(cid) for cid in allowed)]
+            result.absent_terms = absent_topic + \
+                [f"{s} in" for s in sorted(sizes) if not any(s in self._sizes(cid) for cid in allowed)] + \
+                dict(result.constraints).get("identity", [])
         result.conflicts = find_conflicts([h for h in hits if h.coverage >= SUFFICIENT_COVERAGE], terms,
                                           expansions)
         return result
+
+    def _with_heading_siblings(self, fused: list, allowed: set) -> list:
+        """A retrieved page heading ("BOP pressure test procedure") brings the
+        other chunks of its page right after it: the facts sit under the
+        heading and need not repeat its words (M51).  Same page only, scope
+        kept (``allowed``); each sibling is marked with a ``heading`` rank."""
+        seen = {cid for cid, _s, _r in fused}
+        out = []
+        for chunk_id, score, ranks in fused:
+            out.append((chunk_id, score, ranks))
+            if chunk_id in self._heading_chunks:
+                best_rank = min(ranks.values()) if ranks else 0
+                for sibling in self.page_chunks[self.chunks[chunk_id].page_id]:
+                    if sibling not in seen and sibling in allowed:
+                        seen.add(sibling)
+                        out.append((sibling, score, {"heading": best_rank}))
+        return out
 
     @staticmethod
     def _expansions_by_term(terms: list, expansions: list) -> dict:
