@@ -126,7 +126,7 @@ MUTANTS = [
            "    if False:\n        notes.append(",
            T_ANS + T_UI, "the user is not told a source contains instruction-like text"),
     Mutant("A-absence-unchecked", KR,
-           "            result.absent_terms = self.absent_terms(terms, expansions_by_term, allowed)",
+           "            result.absent_terms = self.absent_terms(terms, expansions_by_term, allowed, codes)",
            "            result.absent_terms = list(terms)",
            T_ANS + T_UI, "insufficient evidence claims stored words are missing (screenshot-review defect)"),
     # ------------------------------------------------------------ retrieval guards

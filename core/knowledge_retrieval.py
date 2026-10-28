@@ -41,13 +41,15 @@ from typing import Callable, Optional
 from core.search_normalization import NORMALIZATION_VERSION, normalize, tokens
 
 CHUNKER_VERSION = 1
-RETRIEVAL_VERSION = 2            # 2: size designations must match (M49 mutation review)
+RETRIEVAL_VERSION = 3            # 2: size designations must match (M49 mutation review)
+                                 # 3: entity-code context, expected answer types, size-aware conflicts (M50)
 RRF_K = 60
 CHUNK_TARGET_CHARS = 700
 LIST_DEPTH = 50                 # candidates taken from each ranked list
 SUFFICIENT_COVERAGE = 0.6       # IDF-weighted share of the question's content terms
 MIN_HIT_COVERAGE = 0.2          # passages below this are not shown as evidence
 SIZE_MISMATCH_CAP = 0.5         # a passage lacking a size the question names is never sufficient
+ANSWER_TYPE_CAP = 0.5           # ... or lacking the kind of quantity the question asks for
 APPROVED_STATUSES = frozenset({"extracted", "approved", "edited"})
 
 SCOPE_ALL, SCOPE_WELL, SCOPE_REPORT, SCOPE_DOCUMENT = "all", "well", "report", "document"
@@ -83,6 +85,13 @@ pressure test | تست فشار | آزمایش فشار
 kick tolerance | تحمل فوران
 formation | سازند
 shale | شیل
+cause | root cause | reason | علت | دلیل
+section | hole section | بخش | مقطع
+shoe | کفشک
+mud pump | پمپ گل
+repair | تعمیر
+duration | مدت | طول کشید
+daily report | گزارش روزانه
 """.strip().splitlines()
 
 _SENTENCE_END = re.compile(r"(?<=[.!?؟۔;؛])\s+|\n+")
@@ -303,6 +312,100 @@ def identifier_terms(question: str) -> frozenset:
                 (len(raw) >= 2 and raw.isascii() and raw.isalpha() and raw.isupper()):
             out.update(parts)
     return frozenset(out)
+
+
+def entity_codes(question: str) -> tuple:
+    """Codes that name one entity, as token tuples: hyphenated words that mix
+    letters and digits ("SYN-KE-05" -> ("syn", "ke", "05")).  Size
+    designations (no letters) and plain numbers are not entity codes.
+
+    A page names its well once - often in a header paragraph or only in the
+    file name - while the facts sit in another chunk.  The parts of an entity
+    code therefore also count as covered for a chunk when the WHOLE code
+    occurs on the same page or in the document's file name (lexical
+    "contextual chunk headers").  Numbers and ordinary words are never
+    inherited: a value elsewhere on the page is not evidence for this chunk.
+    """
+    out = []
+    for piece in (question or "").split():
+        raw = piece.strip(".,;:!?؟()[]\"'«»،")
+        if "-" in raw and any(c.isdigit() for c in raw) and any(c.isalpha() for c in raw):
+            parts = tuple(words(raw))
+            if len(parts) > 1 and parts not in out:
+                out.append(parts)
+    return tuple(out)
+
+
+@dataclass(frozen=True)
+class AnswerType:
+    """A kind of quantity a question asks for, and how a passage shows it.
+
+    ``frames`` (regexes over the folded question, e.g. "how long") ask for the
+    quantity without naming it; their ``frame_words`` ("long", "take") are
+    then not content terms.  ``nouns`` name it ("temperature").  A passage
+    that has neither a noun nor a ``units`` match cannot answer the question
+    and is capped below sufficiency (``ANSWER_TYPE_CAP``) - the counterpart of
+    the size rule.  Conservative: only quantities with unambiguous units.
+    """
+    name: str
+    frames: tuple
+    frame_words: frozenset
+    nouns: tuple
+    units: re.Pattern
+
+
+_TIME_UNITS = r"(?:s|sec|secs|seconds?|min|mins|minutes?|h|hr|hrs|hours?|days?|weeks?|ثانیه|دقیقه|ساعت|روز|هفته)"
+ANSWER_TYPES = (
+    AnswerType("duration",
+               (r"\bhow long\b", r"\bhow much time\b", r"\bhow many (?:seconds|minutes|hours|days|weeks)\b",
+                r"چه مدت", r"چقدر طول", r"چند (?:ثانیه|دقیقه|ساعت|روز|هفته)"),
+               frozenset("long take takes took taken last lasts lasted time seconds minutes hours days weeks "
+                         "طول کشید کشیده ثانیه دقیقه ساعت روز هفته".split()),
+               (("duration",), ("مدت",)),
+               re.compile(r"\d\s*" + _TIME_UNITS + r"(?![\w/])")),
+    AnswerType("frequency", (r"\bhow often\b", r"هر چند"), frozenset({"often"}), (("frequency",), ("interval",)),
+               re.compile(r"\bevery\b|\bper\b|\bonce\b|(?<!\w)هر\s")),
+    AnswerType("depth", (r"\bhow deep\b", r"چه عمقی"), frozenset({"deep", "عمقی"}), (("depth",), ("عمق",)),
+               re.compile(r"\d\s*(?:m|ft|feet|metres?|meters?|متر|فوت)(?![\w/])")),
+    AnswerType("density", (r"\bhow heavy\b",), frozenset({"heavy"}),
+               (("density",), ("چگالی",), ("mud", "weight"), ("وزن", "گل")),
+               re.compile(r"\d\s*(?:sg|ppg|g/cc|kg/m3)(?![\w/])")),
+    AnswerType("temperature", (r"\bhow hot\b", r"چند درجه"), frozenset({"hot", "درجه"}),
+               (("temperature",), ("دما",), ("دمای",), ("حرارت",)),
+               re.compile(r"°|\bdeg(?:rees?|c|f)?\b|celsius|fahrenheit|درجه|سانتیگراد")),
+    AnswerType("pressure", (), frozenset(), (("pressure",), ("فشار",)),
+               re.compile(r"\d\s*(?:psi|bar|kpa|mpa)(?![\w/])")),
+    AnswerType("volume", (), frozenset(), (("volume",), ("حجم",)),
+               re.compile(r"\d\s*(?:bbl|m3|litres?|liters?|gal|بشکه|لیتر)(?![\w/])")),
+    AnswerType("power", (), frozenset(), (("power",), ("horsepower",), ("توان",)),
+               re.compile(r"\d\s*(?:hp|kw)(?![\w/])")),
+    AnswerType("torque", (), frozenset(), (("torque",), ("گشتاور",)),
+               re.compile(r"\d\s*(?:kft\.?lbf|ft\.?lbf|lbf\.?ft|kn\.?m|n\.m)")),
+)
+_SIZE_UNIT_WORDS = frozenset({"inch", "inches", "اینچ"})
+# Nouns a size designation names ("the 16 in SECTION"): part of the designation phrase.
+DESIGNATED_NOUNS = frozenset("section hole casing shoe liner bit string بخش مقطع حفره جداری لوله کفشک".split())
+
+
+def answer_types(question: str, terms: list) -> tuple:
+    """(types the question asks for, terms without frame words).
+
+    Frame words leave the terms only when their frame is present ("how long
+    did ... take"); if that would leave no term, the terms are kept."""
+    folded = fold(question or "")
+    found, frame_words = [], set()
+    for kind in ANSWER_TYPES:
+        framed = any(re.search(pattern, folded) for pattern in kind.frames)
+        if framed:
+            frame_words |= kind.frame_words
+        if framed or any(phrase_in(terms, list(noun)) for noun in kind.nouns):
+            found.append(kind)
+    kept = [t for t in terms if t not in frame_words]
+    return tuple(found), (kept or terms)
+
+
+def answer_type_shown(kind: AnswerType, toks: list, folded_text: str) -> bool:
+    return any(phrase_in(toks, list(noun)) for noun in kind.nouns) or bool(kind.units.search(folded_text))
 
 
 _VULGAR = {"½": "-1/2", "¼": "-1/4", "¾": "-3/4", "⅛": "-1/8", "⅜": "-3/8", "⅝": "-5/8", "⅞": "-7/8"}
@@ -545,6 +648,8 @@ class RetrievalResult:
     page_filter: Optional[int] = None
     corpus_signature: tuple = ()
     strict_terms: frozenset = frozenset()
+    entity_codes: tuple = ()      # codes whose parts may be covered by page / file-name context
+    answer_types: tuple = ()      # names of the quantity kinds the question asks for
 
 
 # ------------------------------------------------------------------ index
@@ -562,6 +667,9 @@ class KnowledgeIndex:
                 self.chunks[chunk.chunk_id] = chunk
                 self.page_chunks[page.page_id].append(chunk.chunk_id)
         self._norm_tokens = {cid: words(c.text) for cid, c in self.chunks.items()}
+        self._folded = {cid: fold(c.text) for cid, c in self.chunks.items()}
+        self._page_tokens = {pid: words(page.text) for pid, page in snapshot.pages.items()}
+        self._name_tokens = {pid: words(page.file_name) for pid, page in snapshot.pages.items()}
         self._size_cache = {}
         self._lock = threading.Lock()
         self._fts = self._build_fts()
@@ -695,16 +803,30 @@ class KnowledgeIndex:
         return [cid for _, cid in sorted(scored)][:LIST_DEPTH]
 
     # ----------------------------------------------------------- coverage
-    def coverage(self, terms: list, expansions_by_term: dict, chunk_id: str, strict: frozenset = frozenset()) -> tuple:
-        return self.text_coverage(terms, expansions_by_term, self._norm_tokens[chunk_id], strict)
+    def context_covered(self, page_id: int, codes: tuple) -> frozenset:
+        """Parts of the entity ``codes`` whose whole code occurs, as exact
+        consecutive tokens, in the page text or the document file name."""
+        out = set()
+        for code in codes:
+            if _contains(self._page_tokens.get(page_id, []), list(code)) or \
+                    _contains(self._name_tokens.get(page_id, []), list(code)):
+                out.update(code)
+        return frozenset(out)
+
+    def coverage(self, terms: list, expansions_by_term: dict, chunk_id: str, strict: frozenset = frozenset(),
+                 codes: tuple = ()) -> tuple:
+        context = self.context_covered(self.chunks[chunk_id].page_id, codes) if codes else frozenset()
+        return self.text_coverage(terms, expansions_by_term, self._norm_tokens[chunk_id], strict, context)
 
     def text_coverage(self, terms: list, expansions_by_term: dict, toks: list,
-                      strict: frozenset = frozenset()) -> tuple:
+                      strict: frozenset = frozenset(), context: frozenset = frozenset()) -> tuple:
         """(IDF-weighted share of ``terms`` present in ``toks``, missing terms).
 
         A multi-word glossary concept written in the question ("mud weight")
         is one unit: its words count only where one of the concept's forms
         occurs as a phrase, so the "weight" of "weight on bit" does not cover it.
+        ``context`` holds entity-code parts already established by the page or
+        file name (see :meth:`context_covered`); they count as present.
         """
         units = concept_units(terms)
         total, covered, missing = 0.0, 0.0, []
@@ -712,7 +834,7 @@ class KnowledgeIndex:
             weight = max(self._idf(term, strict), 0.1)
             total += weight
             forms = units[term] if term in units else [[term]] + expansions_by_term.get(term, [])
-            hit = any(phrase_in(toks, form) for form in forms)
+            hit = term in context or any(phrase_in(toks, form) for form in forms)
             if hit:
                 covered += weight
             else:
@@ -725,14 +847,20 @@ class KnowledgeIndex:
             cached = self._size_cache[chunk_id] = size_designations(self.chunks[chunk_id].text)
         return cached
 
-    def absent_terms(self, terms: list, expansions_by_term: dict, allowed: set) -> list:
+    def answer_type_missing(self, kinds: tuple, chunk_id: str) -> list:
+        """Names of the asked-for quantity kinds the chunk does not show."""
+        return [k.name for k in kinds
+                if not answer_type_shown(k, self._norm_tokens[chunk_id], self._folded[chunk_id])]
+
+    def absent_terms(self, terms: list, expansions_by_term: dict, allowed: set, codes: tuple = ()) -> list:
         """Question terms that occur in no passage of ``allowed`` - checked
-        with the same matching rule as :meth:`text_coverage`, so an
-        insufficient-evidence message never claims a word is missing when
-        some passage in scope contains it."""
+        with the same matching rule as :meth:`text_coverage` (entity-code
+        context included), so an insufficient-evidence message never claims a
+        word is missing when some passage in scope contains it."""
         present = set()
         for cid in allowed:
-            _cov, missing = self.text_coverage(terms, expansions_by_term, self._norm_tokens[cid])
+            context = self.context_covered(self.chunks[cid].page_id, codes) if codes else frozenset()
+            _cov, missing = self.text_coverage(terms, expansions_by_term, self._norm_tokens[cid], context=context)
             present.update(t for t in terms if t not in missing)
             if len(present) == len(terms):
                 break
@@ -770,6 +898,11 @@ class KnowledgeIndex:
             return result
         allowed = set(scoped)
         sizes = size_designations(question)
+        if sizes:   # the size rule enforces "12-1/4 in"; the unit word itself is not a content term
+            terms = [t for t in terms if t not in _SIZE_UNIT_WORDS] or terms
+        kinds, terms = answer_types(question, terms)
+        codes = entity_codes(question)
+        result.terms, result.entity_codes, result.answer_types = terms, codes, tuple(k.name for k in kinds)
         strict = identifier_terms(question)
         result.strict_terms = strict
         expansions = glossary_expansions(question) if use_glossary else []
@@ -799,16 +932,24 @@ class KnowledgeIndex:
         # Every fused id came from the allowed set; assert it anyway (scope is a security boundary).
         fused = [item for item in fused if item[0] in allowed]
         expansions_by_term = self._expansions_by_term(terms, expansions)
-        hits, seen_pages = [], Counter()
+        candidates = []
         for chunk_id, score, ranks in fused:
+            cov, _missing = self.coverage(terms, expansions_by_term, chunk_id, strict, codes)
+            if sizes and not sizes <= self._sizes(chunk_id):
+                cov = min(cov, SIZE_MISMATCH_CAP)   # about another size: shown as closest, never sufficient
+            if kinds and self.answer_type_missing(kinds, chunk_id):
+                cov = min(cov, ANSWER_TYPE_CAP)     # shows no quantity of the asked kind: never sufficient
+            if cov < MIN_HIT_COVERAGE:
+                continue            # n-gram noise: shares letters but none of the question's terms
+            candidates.append((chunk_id, score, ranks, cov))
+        # Sufficiency tiers: a passage that can answer is never pushed out of the top k by passages
+        # that cannot (e.g. a header naming only the well); fused order is kept inside each tier.
+        candidates.sort(key=lambda c: c[3] < SUFFICIENT_COVERAGE)
+        hits, seen_pages = [], Counter()
+        for chunk_id, score, ranks, cov in candidates:
             chunk = self.chunks[chunk_id]
             if seen_pages[chunk.page_id] >= 2:
                 continue            # dedupe: at most two passages per page
-            cov, _missing = self.coverage(terms, expansions_by_term, chunk_id, strict)
-            if sizes and not sizes <= self._sizes(chunk_id):
-                cov = min(cov, SIZE_MISMATCH_CAP)   # about another size: shown as closest, never sufficient
-            if cov < MIN_HIT_COVERAGE:
-                continue            # n-gram noise: shares letters but none of the question's terms
             hits.append(RetrievedChunk(chunk, self.snapshot.pages[chunk.page_id], score, ranks, cov))
             seen_pages[chunk.page_id] += 1
             if len(hits) >= top_k:
@@ -817,11 +958,12 @@ class KnowledgeIndex:
         if hits:
             best = max(hits, key=lambda h: h.coverage)
             result.best_coverage = best.coverage
-            result.missing_terms = self.coverage(terms, expansions_by_term, best.chunk.chunk_id, strict)[1] + \
-                [f"{s} in" for s in sorted(sizes - self._sizes(best.chunk.chunk_id))]
+            result.missing_terms = self.coverage(terms, expansions_by_term, best.chunk.chunk_id, strict, codes)[1] + \
+                [f"{s} in" for s in sorted(sizes - self._sizes(best.chunk.chunk_id))] + \
+                [f"({name})" for name in self.answer_type_missing(kinds, best.chunk.chunk_id)]
         if not hits or result.best_coverage < SUFFICIENT_COVERAGE:
             result.status = "no_evidence"
-            result.absent_terms = self.absent_terms(terms, expansions_by_term, allowed) + \
+            result.absent_terms = self.absent_terms(terms, expansions_by_term, allowed, codes) + \
                 [f"{s} in" for s in sorted(sizes) if not any(s in self._sizes(cid) for cid in allowed)]
         result.conflicts = find_conflicts([h for h in hits if h.coverage >= SUFFICIENT_COVERAGE], terms,
                                           expansions)
@@ -847,6 +989,9 @@ def _number(text: str) -> Optional[float]:
         return None
 
 
+_DESIGNATED = re.compile(r"\s*(?:" + "|".join(sorted(DESIGNATED_NOUNS)) + r")\b")
+
+
 def quantities(text: str, phrases: list) -> list:
     """[(phrase, value, unit)] for ``<phrase> ... <number> <unit>`` in one sentence."""
     out = []
@@ -862,6 +1007,8 @@ def quantities(text: str, phrases: list) -> list:
             # (?<![\d/.-]) skips the "4" of a size designation such as 12-1/4 in.
             for match in re.finditer(r"(?<![\d/.-])(\d+(?:[.,]\d+)?)\s*(" + "|".join(re.escape(u) for u in UNITS)
                                      + r")(?![\w/])", tail):
+                if match.group(2) == "in" and _DESIGNATED.match(tail, match.end()):
+                    continue        # "the 16 in section": names the section, it is not the quantity
                 value = _number(match.group(1))
                 if value is not None:
                     out.append((joined, value, match.group(2)))

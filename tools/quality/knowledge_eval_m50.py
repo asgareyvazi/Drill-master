@@ -43,8 +43,10 @@ from core import knowledge_retrieval as kr  # noqa: E402
 from core.document_library import DocumentLibrary  # noqa: E402
 from knowledge_eval_m49 import _identity_ok, _in_scope, _openable, _rank, peak_rss_mb  # noqa: E402
 from m49_gold_questions import GOLD as GOLD_M49  # noqa: E402
+from m49_knowledge_fixtures import DOCS as DOCS_M49  # noqa: E402
 from m49_knowledge_fixtures import corpus_db  # noqa: E402
 from m50_gold_questions import GOLD_M50  # noqa: E402
+from m50_knowledge_fixtures import DOCS as DOCS_M50  # noqa: E402
 from m50_knowledge_fixtures import m50_corpus_db  # noqa: E402
 
 TOP_K = 5
@@ -58,7 +60,8 @@ def _numbers(text: str) -> set:
 
 
 def run_set(questions: list, db, ids: dict) -> list:
-    role_of = {v: k for k, v in ids.items()}
+    # Document, well and report ids share one integer space: map document roles only.
+    role_of = {ids[k]: k for k in list(DOCS_M49) + list(DOCS_M50) if k in ids}
     index = kr.KnowledgeIndex(kr.read_corpus(db))
     library = DocumentLibrary(db)
     session = db.create_session()
@@ -94,9 +97,14 @@ def run_set(questions: list, db, ids: dict) -> list:
             row["refusal_expected"] = q["expect"] in REFUSALS
             for needle in q.get("include", []):
                 row["checks"][f"include {needle}"] = kr.fold(needle) in folded
+            row["excluded_in_closest"] = 0
             for needle in q.get("exclude", []):
-                ok = kr.fold(needle) not in folded and (q["kind"] == "injection" or kr.fold(needle) not in evidence_text)
-                row["checks"][f"exclude {needle}"] = ok
+                in_evidence = kr.fold(needle) in evidence_text
+                # A refusal shows the closest passages marked insufficient (M49 design): then a
+                # forbidden value is checked in the ANSWER and counted separately in the evidence.
+                lenient = q["kind"] == "injection" or answer.state in REFUSALS
+                row["checks"][f"exclude {needle}"] = kr.fold(needle) not in folded and (lenient or not in_evidence)
+                row["excluded_in_closest"] += int(in_evidence and answer.state in REFUSALS)
             if "conflict" in q:
                 row["checks"]["conflict"] = bool(answer.retrieval and answer.retrieval.conflicts) == q["conflict"]
             if q.get("injection"):
@@ -148,6 +156,7 @@ def aggregate(rows: list) -> dict:
         "wrong_size_false_answers": sum(r["state"] == "ready" for r in rows if r["kind"] == "wrong-size"),
         "number_unit_confusions": sum(not v for r in nu for k, v in r["checks"].items() if k.startswith("exclude")),
         "unsupported_numbers": sum(len(r["unsupported_numbers"]) for r in rows),
+        "excluded_value_in_closest_passages": sum(r["excluded_in_closest"] for r in rows),
         "fabricated_ids": sum(r["fabricated_ids"] for r in rows),
         "scope_violations": sum(r["scope_violations"] for r in rows),
         "identity_errors": sum(r["identity_errors"] for r in rows),

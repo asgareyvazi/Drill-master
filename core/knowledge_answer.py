@@ -205,7 +205,17 @@ def _best_sentences(index, item: Evidence, retrieval: kr.RetrievalResult, limit:
     # Instruction-like sentences are evidence (shown flagged), never part of an answer.
     sentences = [s.strip() for s in _SENTENCES.split(item.text) if s.strip() and not detect_instructions(s)]
     by_term = index._expansions_by_term(retrieval.terms, [e.split() for e in retrieval.expansions])
-    scored = [(index.text_coverage(retrieval.terms, by_term, kr.words(s), retrieval.strict_terms)[0], i, s)
+    # The well code a page states once (header / file name) applies to every sentence of that page.
+    context = index.context_covered(item.page_id, retrieval.entity_codes) if retrieval.entity_codes else frozenset()
+    # Likewise the size a paragraph names once ("the 12-1/4 in section ... The ECD must stay below
+    # 1.42 sg"), but only for sentences that name no size themselves: a sentence about another size
+    # ("at the 13-3/8 in shoe") never inherits the question's size.
+    sizes = kr.size_designations(retrieval.question)
+    size_tokens = frozenset(t for s in sizes for t in kr.words(s)) | \
+        frozenset(t for t in retrieval.terms if t in kr.DESIGNATED_NOUNS) \
+        if sizes and sizes <= kr.size_designations(item.text) else frozenset()
+    scored = [(index.text_coverage(retrieval.terms, by_term, kr.words(s), retrieval.strict_terms,
+                                   context | (size_tokens if not kr.size_designations(s) else frozenset()))[0], i, s)
               for i, s in enumerate(sentences)]
     best = max((score for score, _, _ in scored), default=0.0)
     if best <= 0:
