@@ -81,7 +81,7 @@ jobs:
           # pytest's exit code; the same two guards the build step uses are used here for the same reason.
           $ErrorActionPreference = "Continue"
           $PSNativeCommandUseErrorActionPreference = $false
-          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_db_backup_service.py tests/test_db_restore_service.py tests/test_db_maintenance_ui.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py tests/test_windows_release_evidence.py tests/test_well_trajectory.py tests/test_operations_dashboard.py tests/test_document_library.py tests/test_documents_tab.py tests/test_import_batch_isolation.py tests/test_document_links.py tests/test_search_normalization.py tests/test_trajectory_3d.py tests/test_test_isolation_m46.py tests/test_search_parity_m46.py tests/test_survey_editor_scope_m46.py tests/test_hierarchy_worker_isolation_m46.py tests/test_document_links_audit_m46.py tests/test_trajectory_3d_lifecycle_m46.py tests/test_sqlite_connection_reliability.py tests/test_sqlite_pool_isolation_m47.py tests/test_search_closure_m47.py tests/test_m48_analysis_evidence.py tests/test_m48_analysis_ui.py tests/test_m49_cache_integrity.py tests/test_m49_local_llm.py tests/test_m49_knowledge_retrieval.py tests/test_m49_knowledge_answer.py tests/test_m49_knowledge_gold.py tests/test_m49_knowledge_ui.py tests/test_m50_analysis_async.py tests/test_m50_knowledge_retrieval.py tests/test_m50_knowledge_gold.py tests/test_m50_verifier.py tests/test_m50_citation_navigation.py tests/test_m50_trajectory_3d_disposal.py tests/test_m50_legacy_ai_importer.py tests/test_m50_assistant_states.py "--junitxml=$testReport" 2>&1 | Tee-Object -FilePath $testLog
+          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_db_backup_service.py tests/test_db_restore_service.py tests/test_db_maintenance_ui.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py tests/test_windows_release_evidence.py tests/test_well_trajectory.py tests/test_operations_dashboard.py tests/test_document_library.py tests/test_documents_tab.py tests/test_import_batch_isolation.py tests/test_document_links.py tests/test_search_normalization.py tests/test_trajectory_3d.py tests/test_test_isolation_m46.py tests/test_search_parity_m46.py tests/test_survey_editor_scope_m46.py tests/test_hierarchy_worker_isolation_m46.py tests/test_document_links_audit_m46.py tests/test_trajectory_3d_lifecycle_m46.py tests/test_sqlite_connection_reliability.py tests/test_sqlite_pool_isolation_m47.py tests/test_search_closure_m47.py tests/test_m48_analysis_evidence.py tests/test_m48_analysis_ui.py tests/test_m49_cache_integrity.py tests/test_m49_local_llm.py tests/test_m49_knowledge_retrieval.py tests/test_m49_knowledge_answer.py tests/test_m49_knowledge_gold.py tests/test_m49_knowledge_ui.py tests/test_m50_analysis_async.py tests/test_m50_knowledge_retrieval.py tests/test_m50_knowledge_gold.py tests/test_m50_verifier.py tests/test_m50_citation_navigation.py tests/test_m50_trajectory_3d_disposal.py tests/test_m50_legacy_ai_importer.py tests/test_m50_assistant_states.py tests/test_m51_analysis_snapshot.py tests/test_m51_knowledge_corpus.py tests/test_m51_gold_labels.py tests/test_m51_answer_integrity.py tests/test_m51_verifier.py tests/test_m51_query_refinement.py tests/test_m51_gc_soak.py "--junitxml=$testReport" 2>&1 | Tee-Object -FilePath $testLog
           $pytestExit = $LASTEXITCODE
           $ErrorActionPreference = "Stop"
           # GitHub publishes at most ten annotations per step.  packaging/junit_report.py
@@ -96,6 +96,46 @@ jobs:
           }
           if ($pytestExit -ne 0) {
             throw "Windows release regression suite failed (pytest exit $pytestExit); every failing test is listed in the job summary and workflow annotations, and a run that left no JUnit report is annotated with its exit code and log tail"
+          }
+      - name: Repeated 3D and Analysis lifecycle (M51, isolated repetitions)
+        shell: pwsh
+        run: |
+          # M50 left an intermittent native crash in the 3D/Analysis lifecycle (PARTIAL).  The same real
+          # modules run again here, in the order the regression suite runs them, each repetition in a NEW
+          # interpreter with its own data root: real 3D view (Qt Matplotlib canvas), real Analysis workers,
+          # the GUI-thread garbage-collection soak.  Nothing is skipped, deselected or suppressed; any
+          # repetition that fails or dies fails the gate, and every repetition's result is published.
+          $repetitions = 3
+          $lifecycleModules = @('tests/test_trajectory_3d.py', 'tests/test_trajectory_3d_lifecycle_m46.py', 'tests/test_m50_analysis_async.py', 'tests/test_m50_trajectory_3d_disposal.py', 'tests/test_m51_gc_soak.py')
+          $failed = @()
+          $env:DRILLMASTER_ENV = 'test'
+          $env:DRILLMASTER_CRASH_BREADCRUMB = '1'
+          foreach ($repetition in 1..$repetitions) {
+            $repRoot = Join-Path $env:RUNNER_TEMP "DrillMaster-M51-lifecycle-$env:GITHUB_RUN_ID-$repetition"
+            New-Item -ItemType Directory -Path $repRoot -Force | Out-Null
+            $env:DRILLMASTER_DATA_DIR = Join-Path $repRoot 'data'
+            $env:DRILLMASTER_DB_PATH = Join-Path $repRoot 'data\acceptance.db'
+            $env:DRILLMASTER_LOG_DIR = Join-Path $repRoot 'logs'
+            $env:DRILLMASTER_BACKUP_DIR = Join-Path $repRoot 'backups'
+            $repReport = Join-Path $repRoot 'lifecycle.xml'
+            $repLog = Join-Path $repRoot 'lifecycle.log'
+            $repSummary = Join-Path $repRoot 'lifecycle-summary.md'
+            $repJson = Join-Path $repRoot 'lifecycle-report.json'
+            # Same reason as the regression step: stderr warnings must not end the pipeline before the report.
+            $ErrorActionPreference = "Continue"
+            $PSNativeCommandUseErrorActionPreference = $false
+            python -m pytest -ra -q -p no:cacheprovider @lifecycleModules "--junitxml=$repReport" 2>&1 | Tee-Object -FilePath $repLog
+            $lifecycleExit = $LASTEXITCODE
+            $ErrorActionPreference = "Stop"
+            python packaging\junit_report.py --junit "$repReport" --summary-out "$repSummary" --json-out "$repJson" --annotations --pytest-exit $lifecycleExit --pytest-log "$repLog"
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### M51 lifecycle repetition $repetition of $repetitions - pytest exit $lifecycleExit" -Encoding utf8
+            if (Test-Path -LiteralPath $repSummary) {
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $repSummary -Raw) -Encoding utf8
+            }
+            if ($lifecycleExit -ne 0) { $failed += "repetition $repetition (exit $lifecycleExit)" }
+          }
+          if ($failed.Count -gt 0) {
+            throw "Repeated 3D and Analysis lifecycle failed: $($failed -join ', ') of $repetitions isolated repetitions"
           }
       - name: Build portable bundle and installer; run frozen executable smoke
         id: build
