@@ -422,15 +422,22 @@ NO_EVIDENCE_TEXT = {
 }
 
 
+def display_terms(terms) -> list:
+    """Terms to show a user: a bare number is dropped when another listed term contains it
+    ("8" and "2" are parts of "8-1/2 in").  Display only - retrieval and coverage are unchanged."""
+    terms = list(terms)
+    return [t for t in terms if not (t.isdigit() and any(t != o and t in o for o in terms))]
+
+
 def describe_no_evidence(retrieval: kr.RetrievalResult, evidence: list) -> tuple:
     if retrieval.status != "no_evidence":
         return [], []
     found = [f"{e.label}: {e.file_name}, page {e.page_no} (matches {e.coverage:.0%} of the key terms)"
              for e in evidence[:3] if e.coverage > 0]
     absent = list(retrieval.absent_terms)
-    not_found = [f"No passage in this scope contains: {', '.join(absent)}"] if absent else []
+    not_found = [f"No passage in this scope contains: {', '.join(display_terms(absent))}"] if absent else []
     if evidence:
-        lacking = [t for t in retrieval.missing_terms if t not in absent]
+        lacking = display_terms(t for t in retrieval.missing_terms if t not in absent)
         if lacking:
             not_found.append(f"Not in the closest passage (they occur elsewhere in this scope): {', '.join(lacking)}")
     else:

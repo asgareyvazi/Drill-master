@@ -282,6 +282,41 @@
       "path": "docs/mission-reports/m49-screenshots/m49_scope_well.png",
       "sha256": "ce8c70db8e7265d9604122f199524c448d3a26083b66c0d599cdaf3b33443bcb",
       "provenance": "reviewed M49: well-scoped question: only the selected well's linked documents searched; offscreen Linux capture by tools/screenshots/capture_m49.py from a throw-away synthetic DB (tests/m49_knowledge_fixtures.py: SYN-* wells and documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m50-screenshots/m50_lexical_answer_diagnostics.png",
+      "sha256": "8390f1579f82ae6f2ed57e2ac9f9ebbb720ee08c47867f528e9a3ac410d5b475",
+      "provenance": "reviewed M50: extractive answer with the M50 diagnostics panel (methods, scope with eligible documents/pages, passages, per-dimension citation checks, 'Not semantically verified'); offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m50-screenshots/m50_semantic_unavailable_reason.png",
+      "sha256": "4025c396b4d366ed475eade70be58e72a8e7f6814716ec6a47dc5d0d81d09707",
+      "provenance": "reviewed M50: semantic retrieval unavailable with its reason after a real model check (embedding model 'bge-m3' entered, no server on 127.0.0.1:11434); keyword retrieval answer; offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m50-screenshots/m50_conflict_both_values.png",
+      "sha256": "18fe8bc242bebf441d5c132678ee03a14cb0b14dd593017e13099c285bde95ef",
+      "provenance": "reviewed M50: two synthetic sources give different mud weights; both values cited and the conflict listed in diagnostics; offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m50-screenshots/m50_refusal_insufficient_evidence.png",
+      "sha256": "10b7adf0fd01545fe24fb2d24c76e4d6b630c291d46e5e27c29979f82bac7ead",
+      "provenance": "reviewed M50: insufficient-evidence refusal for a wrong hole size: closest passages, missing term, no validation claimed; offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m50-screenshots/m50_model_unavailable.png",
+      "sha256": "7c32da868e62703d8b0df1f59ddc4fed29313178327f7478134dfcc874240ebf",
+      "provenance": "reviewed M50: real local-model check with no server on 127.0.0.1:11434 (connection refused); generation disabled; extractive answer and an instruction-like synthetic passage flagged as data; offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m50-screenshots/m50_scope_changed_mid_request.png",
+      "sha256": "0ea705ced1419c9bb1095d6c9a52529c1776f6640736962b329f1c7c53c1c1d2",
+      "provenance": "reviewed M50: scope changed while the answer worker ran: late result dropped, results cleared, 'press Ask' state; offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m50-screenshots/m50_analysis_updating_responsive.png",
+      "sha256": "7eb80c58c0b316ef5ad644518c1fb9aa89c2e8363e69519f3d191f73008a1d0d",
+      "provenance": "reviewed M50: Analysis page 'Updating...' state grabbed while the off-GUI-thread revision worker was running (asserted by the capture script); offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
     }
   ],
   "text_patterns": [

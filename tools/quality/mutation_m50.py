@@ -247,6 +247,27 @@ MUTANTS = [
            "        if self._semantic_signature is not None and signature != self._semantic_signature:",
            "        if False:",
            ["tests/test_m50_assistant_states.py"], "a semantic index built for other documents stays labelled ready"),
+    Mutant("S-embed-reason-misreported", "tabs/knowledge_assistant.py",
+           "            elif status.state not in (ll.READY, ll.NOT_CONFIGURED, ll.MODEL_MISSING, ll.REMOTE_REJECTED):",
+           "            elif False:",
+           ["tests/test_m50_assistant_states.py"], "a configured embedding model is reported by state when the server could not be asked"),
+    # ------------------------------------------------------------ §9 diagnostics
+    Mutant("D-number-fragments-listed", "core/knowledge_answer.py",
+           "    return [t for t in terms if not (t.isdigit() and any(t != o and t in o for o in terms))]",
+           "    return terms",
+           ["tests/test_m50_assistant_states.py"], "a refusal lists '8, 2' beside '8-1/2 in' as missing terms"),
+    Mutant("D-diagnostics-kept-when-stale", "tabs/knowledge_assistant.py",
+           "        self.diagnostics_view.clear()\n",
+           "        pass\n",
+           ["tests/test_m50_assistant_states.py"], "the diagnostics of an invalidated answer stay on screen"),
+    Mutant("D-semantic-claimed-used", "tabs/knowledge_assistant.py",
+           '        row("Semantic retrieval", esc("used" if "semantic" in retrieval.lists_used else',
+           '        row("Semantic retrieval", esc("used" if True else',
+           ["tests/test_m50_assistant_states.py"], "diagnostics say semantic retrieval was used when it did not run"),
+    Mutant("D-diagnostics-unescaped", "tabs/knowledge_assistant.py",
+           "    esc = html.escape\n",
+           "    esc = str\n",
+           ["tests/test_m50_assistant_states.py"], "document or model text is rendered as HTML in the diagnostics"),
 ]
 
 
