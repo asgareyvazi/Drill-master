@@ -55,7 +55,8 @@ def test_gold_set_shape():
 def test_hard_invariants_on_every_split(result):
     for split, s in result["summary"]["by_split"].items():
         for key in ("scope_violations", "identity_errors", "open_errors", "unapproved_leaks", "fabricated_ids",
-                    "unsupported_numbers", "number_unit_confusions", "wrong_size_false_answers"):
+                    "unsupported_numbers", "number_unit_confusions", "wrong_size_false_answers",
+                    "citation_check_failures"):
             assert s[key] == 0, (split, key, s[key])
 
 

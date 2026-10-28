@@ -989,8 +989,9 @@ def _number(text: str) -> Optional[float]:
 _DESIGNATED = re.compile(r"\s*(?:" + "|".join(sorted(DESIGNATED_NOUNS)) + r")\b")
 
 
-def quantities(text: str, phrases: list) -> list:
-    """[(phrase, value, unit)] for ``<phrase> ... <number> <unit>`` in one sentence."""
+def quantities(text: str, phrases: list, with_sizes: bool = False) -> list:
+    """[(phrase, value, unit)] for ``<phrase> ... <number> <unit>`` in one sentence; with ``with_sizes``
+    each tuple also carries the size designations that sentence names."""
     out = []
     normalized = fold(text)
     for sentence in re.split(r"[.!?؟\n;؛]+\s", normalized + " "):
@@ -1008,13 +1009,15 @@ def quantities(text: str, phrases: list) -> list:
                     continue        # "the 16 in section": names the section, it is not the quantity
                 value = _number(match.group(1))
                 if value is not None:
-                    out.append((joined, value, match.group(2)))
+                    out.append((joined, value, match.group(2), size_designations(sentence)) if with_sizes
+                               else (joined, value, match.group(2)))
                     break
     return out
 
 
 def find_conflicts(hits: list, terms: list, expansions: list) -> list:
-    """Different values for the same quantity+unit in different DOCUMENTS."""
+    """Different values for the same quantity+unit in different DOCUMENTS, for the same hole/casing
+    size: 1.08 sg for the 16 in section and 1.25 sg for the 12-1/4 in section do not disagree."""
     phrases = [list(e) for e in expansions] + [[t] for t in terms if not t.isdigit()]
     for forms in GLOSSARY:
         if any(_contains(terms, form) or (len(form) == 1 and form[0] in terms) for form in forms):
@@ -1022,10 +1025,11 @@ def find_conflicts(hits: list, terms: list, expansions: list) -> list:
     phrases = sorted({tuple(p) for p in phrases if p}, key=len, reverse=True)
     by_key = defaultdict(list)
     for hit in hits:
-        for phrase, value, unit in quantities(hit.chunk.text, [list(p) for p in phrases if len(p) > 1] or []):
-            by_key[(phrase, unit)].append((value, hit.chunk.chunk_id, hit.page.document_id))
+        for phrase, value, unit, sizes in quantities(hit.chunk.text, [list(p) for p in phrases if len(p) > 1] or [],
+                                                     with_sizes=True):
+            by_key[(phrase, unit, sizes)].append((value, hit.chunk.chunk_id, hit.page.document_id))
     conflicts = []
-    for (phrase, unit), values in by_key.items():
+    for (phrase, unit, _sizes), values in by_key.items():
         documents = {doc for _, _, doc in values}
         distinct = {value for value, _, _ in values}
         if len(documents) > 1 and len(distinct) > 1:

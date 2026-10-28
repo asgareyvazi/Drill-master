@@ -31,6 +31,8 @@ T_ASYNC = ["tests/test_m50_analysis_async.py"]
 KR = "core/knowledge_retrieval.py"
 KA = "core/knowledge_answer.py"
 T_RET = ["tests/test_m50_knowledge_retrieval.py", "tests/test_m50_knowledge_gold.py"]
+T_VER = ["tests/test_m50_verifier.py", "tests/test_m50_citation_navigation.py", "tests/test_m49_knowledge_answer.py"]
+DT = "tabs/documents_tab.py"
 
 MUTANTS = [
     # ------------------------------------------------------------ P0: Analysis revision off the GUI thread
@@ -152,6 +154,51 @@ MUTANTS = [
            "    sentences = [s.strip() for paragraph in _PARAGRAPHS.split(item.text) if not detect_instructions(paragraph)",
            "    sentences = [s.strip() for paragraph in _PARAGRAPHS.split(item.text)",
            T_RET, "the follow-on sentence of a detected instruction paragraph is quoted as an answer"),
+    # ------------------------------------------------------------ P0: verifier dimensions + citation navigation
+    Mutant("V-units-unchecked", KA,
+           "        if not occurrences:\n            other = sorted(",
+           "        if False:\n            other = sorted(",
+           T_VER, "1.42 ppg passes against a source that says 1.42 sg"),
+    Mutant("V-relationship-unchecked", KA,
+           "        if not any(_links(words, kr.words(_qualifying_span(src_folded[k], src_values[k], j)))",
+           "        if False and not any(_links(words, kr.words(_qualifying_span(src_folded[k], src_values[k], j)))",
+           T_VER, "'the flow rate is 3200 psi' passes because 3200 psi is the standpipe pressure"),
+    Mutant("V-generic-qualifier-links", KA,
+           "    return [w for w in kr.words(segment) if w not in kr.STOPWORDS and w not in _GENERIC_QUALIFIERS",
+           "    return [w for w in kr.words(segment) if w not in kr.STOPWORDS",
+           T_VER, "a shared 'planned' links the flow rate to the mud weight's value"),
+    Mutant("V-sizes-unchecked", KA,
+           "        for size in sorted(sizes - available):",
+           "        for size in []:",
+           T_VER, "an 8-1/2 in statement passes against a 12-1/4 in source"),
+    Mutant("V-conflict-undisclosed-accepted", KA,
+           "        if missing:\n            check.fail(\"conflicts_disclosed\"",
+           "        if False:\n            check.fail(\"conflicts_disclosed\"",
+           T_VER, "a draft stating one side of a conflict passes"),
+    Mutant("V-failed-draft-replaces-answer", KA,
+           "    if not check.citation_checks_passed:\n        # A failed draft never becomes the answer",
+           "    if False:\n        # A failed draft never becomes the answer",
+           T_VER, "a draft that failed the citation checks is returned as the answer (M49 behaviour)"),
+    Mutant("V-semantic-claimed", KA,
+           "    semantic_verified: bool = False                 # always False: there is no entailment check",
+           "    semantic_verified: bool = True                  # always False: there is no entailment check",
+           T_VER, "an answer claims semantic verification that does not exist"),
+    Mutant("V-conflict-sides-capped", KA,
+           "    usable = sorted(conflicting + strongest[:max(0, max_sources - len(conflicting))],",
+           "    usable = sorted((conflicting + strongest)[:max_sources],",
+           T_VER, "the source cap hides one side of a conflict (contradicts the M49 docstring)"),
+    Mutant("V-conflicts-across-sizes", KR,
+           "            by_key[(phrase, unit, sizes)].append((value, hit.chunk.chunk_id, hit.page.document_id))",
+           "            by_key[(phrase, unit, frozenset())].append((value, hit.chunk.chunk_id, hit.page.document_id))",
+           T_VER, "1.08 sg for 16 in and 1.25 sg for 12-1/4 in are reported as a conflict"),
+    Mutant("V-changed-page-highlighted", DT,
+           '        if text_sha and hashlib.sha256((page["text"] or "").encode("utf-8")).hexdigest() != text_sha:',
+           "        if False:",
+           T_VER, "a page edited after the answer is highlighted as if it were the cited text"),
+    Mutant("V-panel-drops-text-version", "tabs/knowledge_assistant.py",
+           "item.start, item.end, item.text_version)",
+           'item.start, item.end, "")',
+           T_VER, "the panel stops sending the cited text version, so changed pages are highlighted"),
 ]
 
 

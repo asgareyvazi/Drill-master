@@ -16,6 +16,7 @@ normalised; highlights are mapped onto the stored original text.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Optional
 
@@ -562,16 +563,26 @@ class DocumentsTab(QWidget):
             self.viewer.setTextCursor(selections[0].cursor)
             self.viewer.ensureCursorVisible()
 
-    def open_evidence(self, document_id, page_no, start, end) -> bool:
+    def open_evidence(self, document_id, page_no, start, end, text_sha: Optional[str] = None) -> bool:
         """Open a cited passage (M49): the library page, the stored page text
-        and the exact cited character span selected and highlighted."""
+        and the exact cited character span selected and highlighted.
+
+        ``text_sha`` is the sha256 of the page text the answer was built from
+        (M50): when the stored page has changed since, the span would point
+        into other text, so nothing is highlighted and the change is stated."""
         self.sections.setCurrentIndex(0)
+        self.cited_span = None
         if not self.open_document(int(document_id), int(page_no)):
             return False
         page = next((p for p in self._viewer_pages if p["page_no"] == int(page_no)), None)
         text = self.viewer.toPlainText()
         if page is None or not 0 <= start < end <= len(text):
             self.viewer_title.setText(self.viewer_title.text() + " — the cited passage is no longer stored")
+            return False
+        if text_sha and hashlib.sha256((page["text"] or "").encode("utf-8")).hexdigest() != text_sha:
+            self.viewer.setExtraSelections([])
+            self.viewer_title.setText(self.viewer_title.text() + " — this page has changed since the answer was "
+                                      "given; the cited passage cannot be shown exactly. Ask again.")
             return False
         fmt = QTextCharFormat()
         fmt.setBackground(QColor("#b3e5fc"))

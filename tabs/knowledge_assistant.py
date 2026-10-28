@@ -60,6 +60,22 @@ def _is_rtl(line: str) -> bool:
     return bool(rtl) and (not ltr or rtl.start() < ltr.start())
 
 
+def render_failed_draft_html(draft: str, check) -> str:
+    """A model draft that failed the citation checks: shown apart, every failed dimension listed, never as
+    the answer.  All document and model text is escaped."""
+    rows = []
+    for name, meaning in ka.VALIDATION_DIMENSIONS:
+        value = check.dimensions.get(name) if check is not None else None
+        mark = {True: "✓", False: "✗", None: "–"}[value]
+        rows.append(f"<li>{mark} {html.escape(meaning)}</li>")
+    problems = "".join(f"<li>{html.escape(p)}</li>" for p in (check.problems if check is not None else []))
+    return ('<hr><p style="color:#b71c1c"><b>MODEL DRAFT NOT USED</b> - the local model\'s draft failed the '
+            'citation checks, so the answer above is quoted from the documents instead.</p>'
+            f'<ul>{problems}</ul><p><small>Checks:</small></p><ul>{"".join(rows)}</ul>'
+            f'<p style="color:#757575"><i>Unverified model draft ({html.escape(ka.SEMANTIC_LABEL.lower())}, '
+            f'citation checks failed):</i></p><p style="color:#757575">{html.escape(draft)}</p>')
+
+
 def render_answer_html(text: str) -> str:
     """Escape everything, then turn [S1] / [S1, S2] into citation links."""
     blocks = []
@@ -133,7 +149,7 @@ class SemanticBuildWorker(QThread):
 class KnowledgeAssistantPanel(QWidget):
     """Question -> cited answer over the reviewed document pages."""
 
-    open_evidence_requested = Signal(int, int, int, int)     # document_id, page_no, start, end
+    open_evidence_requested = Signal(int, int, int, int, str)  # document_id, page_no, start, end, text sha256
 
     def __init__(self, db_manager, library=None, link_service=None, parent=None):
         super().__init__(parent)
@@ -544,21 +560,21 @@ class KnowledgeAssistantPanel(QWidget):
     def show_answer(self, answer: ka.Answer):
         self.last_answer = answer
         parts = []
-        if answer.mode == "generated" and not answer.verified and answer.state == "ready":
-            problems = "".join(f"<li>{html.escape(p)}</li>" for p in (answer.check.problems if answer.check else []))
-            parts.append('<p style="color:#b71c1c"><b>NOT VERIFIED</b> - the local model\'s draft below does not '
-                         f'pass the citation check. Do not use it without reading the sources.</p><ul>{problems}</ul>')
-            parts.append('<p style="color:#757575"><i>Model draft (not verified):</i></p>' + render_answer_html(answer.text))
-            extractive = ka.extractive_answer(self._index, answer.retrieval, answer.evidence) if self._index else ""
-            if extractive:
-                parts.append("<p><b>Quoted from the documents instead:</b></p>" + render_answer_html(extractive))
-        elif answer.state in ("ready", "model_unavailable"):
-            how = ("Written by the local model; every sentence is checked against the cited passages."
-                   if answer.mode == "generated" else "Quoted from the documents (extractive; no model used).")
-            parts.append(f'<p style="color:#2e7d32"><i>{html.escape(how)}</i></p>' + render_answer_html(answer.text))
+        check_line = ""
+        if answer.check is not None and answer.state in ("ready", "model_unavailable"):
+            check_line = (f'<p style="color:#555"><small>{html.escape(answer.check.label)} · '
+                          f'{html.escape(ka.SEMANTIC_LABEL)}</small></p>')
+        if answer.state in ("ready", "model_unavailable"):
+            how = ("Written by the local model; every sentence passed the citation checks against the cited "
+                   "passages. Read the passages before relying on it." if answer.mode == "generated"
+                   else "Quoted from the documents (extractive; no model used).")
+            parts.append(f'<p style="color:#2e7d32"><i>{html.escape(how)}</i></p>' + render_answer_html(answer.text)
+                         + check_line)
             if answer.state == "model_unavailable":
                 parts.insert(0, f'<p style="color:#b71c1c"><b>Local model unavailable:</b> '
                                 f'{html.escape(answer.model_message)}</p>')
+            if answer.draft:
+                parts.append(render_failed_draft_html(answer.draft, answer.draft_check))
         else:
             parts.append(f"<p><b>{html.escape(answer.text)}</b></p>")
             if answer.found:
@@ -569,8 +585,13 @@ class KnowledgeAssistantPanel(QWidget):
         self.answer_view.setHtml("".join(parts))
         self.notes_label.setText("\n".join(answer.notes))
         self._fill_evidence(answer.evidence)
-        detail = {"ready": "verified" if answer.verified else "NOT verified",
-                  "model_unavailable": answer.model_state or ""}.get(answer.state, "")
+        detail = ""
+        if answer.state == "ready" and answer.check is not None:
+            detail = f"{answer.check.label} · {ka.SEMANTIC_LABEL}"
+            if answer.draft:
+                detail = "extractive answer kept · model draft failed citation checks"
+        elif answer.state == "model_unavailable":
+            detail = answer.model_state or ""
         self._set_state(answer.state if answer.state in STATE_STYLE else "error", detail)
 
     def _fill_evidence(self, evidence):
@@ -607,7 +628,7 @@ class KnowledgeAssistantPanel(QWidget):
         if self.last_answer is None or not 0 <= row < len(self.last_answer.evidence):
             return False
         item = self.last_answer.evidence[row]
-        self.open_evidence_requested.emit(item.document_id, item.page_no, item.start, item.end)
+        self.open_evidence_requested.emit(item.document_id, item.page_no, item.start, item.end, item.text_version)
         return True
 
     # -------------------------------------------------------------- model

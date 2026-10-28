@@ -225,8 +225,12 @@ def test_generated_answer_verified_only_when_grounded(world):
                               use_model=True)
     assert (good.state, good.mode, good.verified) == ("ready", "generated", True)
     fake = ka.answer_question(index, KICK, adapter=Scripted("Kick tolerance is 50 bbl [S9]."), use_model=True)
-    assert (fake.state, fake.mode, fake.verified) == ("ready", "generated", False)
-    assert any("[S9]" in p for p in fake.check.problems)
+    # M50: a failed draft never becomes the answer - the extractive answer is kept, the draft is kept apart.
+    assert (fake.state, fake.mode, fake.citation_checks_passed) == ("ready", "extractive", True)
+    assert "50 bbl" in fake.text and "[S9]" not in fake.text
+    assert fake.draft == "Kick tolerance is 50 bbl [S9]." and not fake.draft_check.citation_checks_passed
+    assert any("[S9]" in p for p in fake.draft_check.problems)
+    assert fake.draft_check.dimensions["citations_resolve"] is False
 
 
 def test_model_errors_are_explicit_and_keep_the_evidence(world):

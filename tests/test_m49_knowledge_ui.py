@@ -110,7 +110,8 @@ def test_empty_library_has_its_own_message(app):
 def test_answer_with_citations_and_source_opens_the_exact_passage(app, world):
     tab, panel, ids, _db = world
     _ask(app, panel, KICK)
-    assert panel.current_state == "ready" and "verified" in panel.state_label.text()
+    assert panel.current_state == "ready" and "Citation checks passed" in panel.state_label.text()
+    assert "Not semantically verified" in panel.state_label.text()
     text = panel.answer_view.toPlainText()
     assert "50 bbl" in text and "[S1]" in text and "Quoted from the documents" in text
     assert panel.evidence_table.rowCount() >= 1
@@ -272,8 +273,10 @@ def test_fabricated_citation_is_shown_as_not_verified(app, world):
         _model_ready(app, panel, fake)
         _ask(app, panel, KICK)
     text = panel.answer_view.toPlainText()
-    assert "NOT VERIFIED" in text and "[S9]" in text and "Quoted from the documents instead" in text
-    assert "NOT verified" in panel.state_label.text()
+    assert "MODEL DRAFT NOT USED" in text and "[S9]" in text and "quoted from the documents instead" in text
+    assert "Unverified model draft" in text and "✗ Every citation names a retrieved passage" in text
+    assert "model draft failed citation checks" in panel.state_label.text()
+    assert panel.last_answer.mode == "extractive" and panel.last_answer.draft
 
 
 def test_model_error_keeps_evidence_and_says_so(app, world):

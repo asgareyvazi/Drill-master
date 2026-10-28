@@ -242,7 +242,11 @@ def _stub_model_guards(index, ids) -> dict:
     out = {}
     for name, (reply, expected) in cases.items():
         answer = ka.answer_question(index, question, adapter=_ScriptedModel(reply), use_model=True)
-        out[name] = (answer.verified == expected) and answer.mode == "generated"
+        if expected:
+            out[name] = answer.mode == "generated" and answer.citation_checks_passed
+        else:   # M50: the failed draft is kept apart and the extractive answer stays the answer
+            out[name] = (answer.mode == "extractive" and bool(answer.draft) and answer.citation_checks_passed
+                         and not answer.draft_check.citation_checks_passed)
     err = ka.answer_question(index, question, adapter=_ScriptedModel(error=LocalLLMError(NOT_RUNNING, "down")),
                              use_model=True)
     out["model error is an error state, evidence kept"] = (err.state == "model_unavailable" and bool(err.evidence)

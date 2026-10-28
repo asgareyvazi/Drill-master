@@ -120,6 +120,11 @@ def run_set(questions: list, db, ids: dict) -> list:
             row["identity_errors"] = sum(not _identity_ok(session, e) for e in answer.evidence)
             row["open_errors"] = sum(not _openable(library, e, cache) for e in answer.evidence)
             row["unapproved_leaks"] = sum("qx7" in kr.fold(e.text) for e in answer.evidence)
+            # Every answer shown as ready must pass the citation checks (M50 verifier dimensions).
+            passed = answer.check is not None and answer.check.citation_checks_passed
+            row["citation_check_failed"] = answer.state == "ready" and not passed
+            row["failed_dimensions"] = sorted(k for k, v in answer.check.dimensions.items() if v is False) \
+                if answer.state == "ready" and answer.check is not None else []
             row["all_checks"] = all(row["checks"].values())
             rows.append(row)
     finally:
@@ -162,6 +167,7 @@ def aggregate(rows: list) -> dict:
         "identity_errors": sum(r["identity_errors"] for r in rows),
         "open_errors": sum(r["open_errors"] for r in rows),
         "unapproved_leaks": sum(r["unapproved_leaks"] for r in rows),
+        "citation_check_failures": sum(r["citation_check_failed"] for r in rows),
         "include_ok": f"{sum(v for r in rows for k, v in r['checks'].items() if k.startswith('include'))}/"
                       f"{sum(1 for r in rows for k in r['checks'] if k.startswith('include'))}",
         "latency_ms_median": round(statistics.median(lat), 2), "latency_ms_max": round(max(lat), 2),
