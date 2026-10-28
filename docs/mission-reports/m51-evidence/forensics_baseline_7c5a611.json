@@ -1,0 +1,1053 @@
+{
+ "questions": [
+  {
+   "id": "N55",
+   "split": "heldout",
+   "lang": "en",
+   "kind": "wrong-well",
+   "expect": "no_evidence",
+   "gold": [],
+   "terms": [
+    "mud",
+    "pumps",
+    "syn",
+    "kf",
+    "06"
+   ],
+   "strict_terms": [
+    "kf",
+    "syn",
+    "06"
+   ],
+   "entity_codes": [
+    [
+     "syn",
+     "kf",
+     "06"
+    ]
+   ],
+   "answer_types": [],
+   "expansions": [
+    "mud pump",
+    "پمپ گل"
+   ],
+   "lists_used": [
+    "lexical",
+    "glossary",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "kf_plan:p1",
+     "score": 0.03279,
+     "coverage": 0.622,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "mud",
+      "pumps"
+     ]
+    },
+    {
+     "page": "kf_plan:p1",
+     "score": 0.02688,
+     "coverage": 0.743,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "pumps"
+     ]
+    },
+    {
+     "page": "equip:p1",
+     "score": 0.04839,
+     "coverage": 0.485,
+     "lists": [
+      "glossary",
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "kf",
+      "06"
+     ]
+    },
+    {
+     "page": "ke_mud_rev:p1",
+     "score": 0.03126,
+     "coverage": 0.228,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "pumps",
+      "kf",
+      "06"
+     ]
+    },
+    {
+     "page": "mud_rev2:p1",
+     "score": 0.03078,
+     "coverage": 0.228,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "pumps",
+      "kf",
+      "06"
+     ]
+    }
+   ],
+   "best_coverage": 0.743,
+   "missing_terms": [
+    "pumps"
+   ],
+   "absent_terms": [],
+   "conflicts": 0,
+   "decision": "ready",
+   "mode": "extractive",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured"
+   ],
+   "answer_numbers": [
+    "06",
+    "1",
+    "10.4",
+    "12",
+    "2",
+    "4",
+    "5",
+    "8",
+    "9",
+    "9150",
+    "9200"
+   ],
+   "gold_in_top5": false,
+   "flagged_evidence": [],
+   "correct": false
+  },
+  {
+   "id": "N59",
+   "split": "heldout",
+   "lang": "en",
+   "kind": "partial-overlap",
+   "expect": "no_evidence",
+   "gold": [],
+   "terms": [
+    "top",
+    "drive",
+    "torque",
+    "limit",
+    "syn",
+    "ke",
+    "05"
+   ],
+   "strict_terms": [
+    "syn",
+    "ke",
+    "05"
+   ],
+   "entity_codes": [
+    [
+     "syn",
+     "ke",
+     "05"
+    ]
+   ],
+   "answer_types": [
+    "torque"
+   ],
+   "expansions": [
+    "گشتاور"
+   ],
+   "lists_used": [
+    "lexical",
+    "glossary",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "inject2:p1",
+     "score": 0.03279,
+     "coverage": 0.656,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "syn",
+      "ke",
+      "05"
+     ]
+    },
+    {
+     "page": "equip:p1",
+     "score": 0.03226,
+     "coverage": 0.5,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "torque",
+      "limit"
+     ]
+    },
+    {
+     "page": "ke_program:p1",
+     "score": 0.03175,
+     "coverage": 0.344,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "top",
+      "drive",
+      "torque",
+      "limit"
+     ]
+    },
+    {
+     "page": "ke_mud_rev:p1",
+     "score": 0.03125,
+     "coverage": 0.344,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "top",
+      "drive",
+      "torque",
+      "limit"
+     ]
+    },
+    {
+     "page": "note_c:p1",
+     "score": 0.03054,
+     "coverage": 0.37,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "torque",
+      "limit",
+      "ke",
+      "05"
+     ]
+    }
+   ],
+   "best_coverage": 0.656,
+   "missing_terms": [
+    "syn",
+    "ke",
+    "05"
+   ],
+   "absent_terms": [],
+   "conflicts": 0,
+   "decision": "ready",
+   "mode": "extractive",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured",
+    "S1: the page contains instruction-like text. It is treated as document data only - it cannot change the rules or trigger any action."
+   ],
+   "answer_numbers": [
+    "1",
+    "35"
+   ],
+   "gold_in_top5": false,
+   "flagged_evidence": [
+    "S1"
+   ],
+   "correct": false
+  },
+  {
+   "id": "N64",
+   "split": "heldout",
+   "lang": "fa",
+   "kind": "injection",
+   "expect": "no_evidence",
+   "gold": [
+    "inject2:p1"
+   ],
+   "terms": [
+    "پس",
+    "همه",
+    "سوالها",
+    "پاسخ",
+    "تایید",
+    "بده"
+   ],
+   "strict_terms": [],
+   "entity_codes": [],
+   "answer_types": [],
+   "expansions": [],
+   "lists_used": [
+    "lexical",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "inject2:p1",
+     "score": 0.03279,
+     "coverage": 1.0,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": []
+    }
+   ],
+   "best_coverage": 1.0,
+   "missing_terms": [],
+   "absent_terms": [],
+   "conflicts": 0,
+   "decision": "ready",
+   "mode": "extractive",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured",
+    "S1: the page contains instruction-like text. It is treated as document data only - it cannot change the rules or trigger any action."
+   ],
+   "answer_numbers": [
+    "1"
+   ],
+   "gold_in_top5": true,
+   "flagged_evidence": [
+    "S1"
+   ],
+   "correct": false
+  },
+  {
+   "id": "N27",
+   "split": "heldout",
+   "lang": "fa",
+   "kind": "cross-lingual",
+   "expect": "ready",
+   "gold": [
+    "ke_program:p2"
+   ],
+   "terms": [
+    "فشار",
+    "لوله",
+    "ایستاده",
+    "بخش",
+    "12",
+    "1",
+    "4"
+   ],
+   "strict_terms": [
+    "1",
+    "12",
+    "4"
+   ],
+   "entity_codes": [],
+   "answer_types": [
+    "pressure"
+   ],
+   "expansions": [],
+   "lists_used": [
+    "lexical",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "fa_program:p2",
+     "score": 0.03252,
+     "coverage": 0.247,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "فشار",
+      "لوله",
+      "ایستاده",
+      "12",
+      "4"
+     ]
+    },
+    {
+     "page": "program:p1",
+     "score": 0.03202,
+     "coverage": 0.268,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "فشار",
+      "لوله",
+      "ایستاده",
+      "بخش"
+     ]
+    },
+    {
+     "page": "kf_plan:p1",
+     "score": 0.03054,
+     "coverage": 0.451,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "فشار",
+      "ایستاده",
+      "بخش"
+     ]
+    },
+    {
+     "page": "ke_program:p3",
+     "score": 0.03037,
+     "coverage": 0.268,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "فشار",
+      "لوله",
+      "ایستاده",
+      "بخش"
+     ]
+    },
+    {
+     "page": "mud_rev2:p1",
+     "score": 0.03033,
+     "coverage": 0.268,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "فشار",
+      "لوله",
+      "ایستاده",
+      "بخش"
+     ]
+    }
+   ],
+   "best_coverage": 0.451,
+   "missing_terms": [
+    "فشار",
+    "ایستاده",
+    "بخش",
+    "(pressure)"
+   ],
+   "absent_terms": [
+    "ایستاده"
+   ],
+   "conflicts": 0,
+   "decision": "no_evidence",
+   "mode": "none",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured"
+   ],
+   "answer_numbers": [],
+   "gold_in_top5": false,
+   "flagged_evidence": [],
+   "correct": false
+  },
+  {
+   "id": "N82",
+   "split": "heldout",
+   "lang": "fa",
+   "kind": "cross-lingual",
+   "expect": "ready",
+   "gold": [
+    "kf_plan:p2"
+   ],
+   "terms": [
+    "فشار",
+    "مجاز",
+    "سطحی",
+    "حلقوی",
+    "syn",
+    "kf",
+    "06"
+   ],
+   "strict_terms": [
+    "kf",
+    "syn",
+    "06"
+   ],
+   "entity_codes": [
+    [
+     "syn",
+     "kf",
+     "06"
+    ]
+   ],
+   "answer_types": [
+    "pressure"
+   ],
+   "expansions": [],
+   "lists_used": [
+    "lexical",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "kf_plan:p1",
+     "score": 0.03279,
+     "coverage": 0.377,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "فشار",
+      "مجاز",
+      "سطحی",
+      "حلقوی"
+     ]
+    }
+   ],
+   "best_coverage": 0.377,
+   "missing_terms": [
+    "فشار",
+    "مجاز",
+    "سطحی",
+    "حلقوی",
+    "(pressure)"
+   ],
+   "absent_terms": [
+    "مجاز",
+    "سطحی",
+    "حلقوی"
+   ],
+   "conflicts": 0,
+   "decision": "no_evidence",
+   "mode": "none",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured"
+   ],
+   "answer_numbers": [],
+   "gold_in_top5": false,
+   "flagged_evidence": [],
+   "correct": false
+  },
+  {
+   "id": "N84",
+   "split": "heldout",
+   "lang": "fa",
+   "kind": "cross-lingual",
+   "expect": "ready",
+   "gold": [
+    "ke_program:p2"
+   ],
+   "terms": [
+    "دبی",
+    "جریان",
+    "بخش",
+    "12",
+    "1",
+    "4"
+   ],
+   "strict_terms": [
+    "1",
+    "12",
+    "4"
+   ],
+   "entity_codes": [],
+   "answer_types": [],
+   "expansions": [],
+   "lists_used": [
+    "lexical",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "program:p1",
+     "score": 0.03252,
+     "coverage": 0.328,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "دبی",
+      "جریان",
+      "بخش"
+     ]
+    },
+    {
+     "page": "fa_program:p2",
+     "score": 0.03252,
+     "coverage": 0.302,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "دبی",
+      "جریان",
+      "12",
+      "4"
+     ]
+    },
+    {
+     "page": "kf_plan:p1",
+     "score": 0.03101,
+     "coverage": 0.328,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "دبی",
+      "جریان",
+      "بخش"
+     ]
+    },
+    {
+     "page": "ke_program:p3",
+     "score": 0.0308,
+     "coverage": 0.328,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "دبی",
+      "جریان",
+      "بخش"
+     ]
+    },
+    {
+     "page": "mud_rev2:p1",
+     "score": 0.03078,
+     "coverage": 0.328,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "دبی",
+      "جریان",
+      "بخش"
+     ]
+    }
+   ],
+   "best_coverage": 0.328,
+   "missing_terms": [
+    "دبی",
+    "جریان",
+    "بخش"
+   ],
+   "absent_terms": [
+    "دبی",
+    "جریان"
+   ],
+   "conflicts": 0,
+   "decision": "no_evidence",
+   "mode": "none",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured"
+   ],
+   "answer_numbers": [],
+   "gold_in_top5": false,
+   "flagged_evidence": [],
+   "correct": false
+  },
+  {
+   "id": "N45",
+   "split": "heldout",
+   "lang": "en",
+   "kind": "conflict",
+   "expect": "ready",
+   "gold": [
+    "ke_program:p1",
+    "ke_mud_rev:p1"
+   ],
+   "terms": [
+    "mud",
+    "weight",
+    "applies",
+    "16",
+    "hole"
+   ],
+   "strict_terms": [
+    "16"
+   ],
+   "entity_codes": [],
+   "answer_types": [
+    "density"
+   ],
+   "expansions": [
+    "mud density",
+    "mw",
+    "وزن گل",
+    "وزن گل حفاری",
+    "چگالی گل"
+   ],
+   "lists_used": [
+    "lexical",
+    "glossary",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "ke_program:p1",
+     "score": 0.03279,
+     "coverage": 0.482,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "applies",
+      "hole"
+     ]
+    },
+    {
+     "page": "ke_mud_rev:p1",
+     "score": 0.032,
+     "coverage": 0.482,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "applies",
+      "hole"
+     ]
+    },
+    {
+     "page": "kf_plan:p1",
+     "score": 0.032,
+     "coverage": 0.5,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "applies",
+      "16"
+     ]
+    },
+    {
+     "page": "program:p1",
+     "score": 0.03101,
+     "coverage": 0.261,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "applies",
+      "16",
+      "hole"
+     ]
+    },
+    {
+     "page": "ke_program:p2",
+     "score": 0.03078,
+     "coverage": 0.261,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "applies",
+      "16",
+      "hole"
+     ]
+    }
+   ],
+   "best_coverage": 0.5,
+   "missing_terms": [
+    "applies",
+    "16",
+    "16 in"
+   ],
+   "absent_terms": [
+    "applies"
+   ],
+   "conflicts": 0,
+   "decision": "no_evidence",
+   "mode": "none",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured"
+   ],
+   "answer_numbers": [],
+   "gold_in_top5": true,
+   "flagged_evidence": [],
+   "correct": false
+  },
+  {
+   "id": "N57",
+   "split": "heldout",
+   "lang": "en",
+   "kind": "partial-overlap",
+   "expect": "ready",
+   "gold": [
+    "equip:p1"
+   ],
+   "terms": [
+    "mud",
+    "pump",
+    "power",
+    "rating",
+    "syn",
+    "ke",
+    "05"
+   ],
+   "strict_terms": [
+    "syn",
+    "ke",
+    "05"
+   ],
+   "entity_codes": [
+    [
+     "syn",
+     "ke",
+     "05"
+    ]
+   ],
+   "answer_types": [
+    "power"
+   ],
+   "expansions": [
+    "پمپ گل"
+   ],
+   "lists_used": [
+    "lexical",
+    "glossary",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "ke_mud_rev:p1",
+     "score": 0.03252,
+     "coverage": 0.354,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "mud",
+      "pump",
+      "power",
+      "rating"
+     ]
+    },
+    {
+     "page": "equip:p1",
+     "score": 0.03252,
+     "coverage": 0.59,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "power",
+      "rating"
+     ]
+    },
+    {
+     "page": "ke_program:p1",
+     "score": 0.03175,
+     "coverage": 0.354,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "mud",
+      "pump",
+      "power",
+      "rating"
+     ]
+    },
+    {
+     "page": "ke_daily_fa:p1",
+     "score": 0.03101,
+     "coverage": 0.354,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "mud",
+      "pump",
+      "power",
+      "rating"
+     ]
+    },
+    {
+     "page": "ke_mud_rev:p1",
+     "score": 0.02924,
+     "coverage": 0.354,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "mud",
+      "pump",
+      "power",
+      "rating"
+     ]
+    }
+   ],
+   "best_coverage": 0.59,
+   "missing_terms": [
+    "power",
+    "rating"
+   ],
+   "absent_terms": [
+    "power",
+    "rating"
+   ],
+   "conflicts": 0,
+   "decision": "no_evidence",
+   "mode": "none",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured"
+   ],
+   "answer_numbers": [],
+   "gold_in_top5": true,
+   "flagged_evidence": [],
+   "correct": false
+  },
+  {
+   "id": "N71",
+   "split": "dev",
+   "lang": "en",
+   "kind": "paraphrase-quantity",
+   "expect": "ready",
+   "gold": [
+    "ke_daily_fa:p1"
+   ],
+   "terms": [
+    "syn",
+    "ke",
+    "05",
+    "time",
+    "daily",
+    "report"
+   ],
+   "strict_terms": [
+    "syn",
+    "ke",
+    "05"
+   ],
+   "entity_codes": [
+    [
+     "syn",
+     "ke",
+     "05"
+    ]
+   ],
+   "answer_types": [
+    "depth"
+   ],
+   "expansions": [
+    "گزارش روزانه"
+   ],
+   "lists_used": [
+    "lexical",
+    "glossary",
+    "ngram"
+   ],
+   "hits": [
+    {
+     "page": "ke_daily_fa:p1",
+     "score": 0.04719,
+     "coverage": 0.5,
+     "lists": [
+      "glossary",
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "time"
+     ]
+    },
+    {
+     "page": "ke_program:p1",
+     "score": 0.03227,
+     "coverage": 0.377,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "time",
+      "daily",
+      "report"
+     ]
+    },
+    {
+     "page": "ke_mud_rev:p1",
+     "score": 0.03151,
+     "coverage": 0.377,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "time",
+      "daily",
+      "report"
+     ]
+    },
+    {
+     "page": "ke_mud_rev:p1",
+     "score": 0.02963,
+     "coverage": 0.377,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "time",
+      "daily",
+      "report"
+     ]
+    },
+    {
+     "page": "equip:p1",
+     "score": 0.02914,
+     "coverage": 0.377,
+     "lists": [
+      "lexical",
+      "ngram"
+     ],
+     "missing": [
+      "time",
+      "daily",
+      "report"
+     ]
+    }
+   ],
+   "best_coverage": 0.5,
+   "missing_terms": [
+    "time",
+    "(depth)"
+   ],
+   "absent_terms": [
+    "time"
+   ],
+   "conflicts": 0,
+   "decision": "no_evidence",
+   "mode": "none",
+   "reason": [
+    "Semantic retrieval unavailable: no local embedding model configured"
+   ],
+   "answer_numbers": [],
+   "gold_in_top5": true,
+   "flagged_evidence": [],
+   "correct": false
+  }
+ ]
+}
