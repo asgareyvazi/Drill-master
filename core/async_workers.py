@@ -13,21 +13,30 @@ def release_when_finished(worker) -> None:
     ``run()`` is still returning, and Qt then aborts the whole process with
     "QThread: Destroyed while thread is still running" - a native crash with no
     Python traceback (reproduced on Linux by the M52 scope-list worker).  Deletion
-    from ``finished`` is the pattern Qt supports.  The connection is made before the
-    running check, so a thread that ends in between is still released exactly once.
+    from ``finished`` is the pattern Qt supports.
+
+    Only a thread that HAS finished is released at once.  A thread that is not
+    running yet - registered before ``start()`` (M52 found this order in a new
+    caller: it deleted the thread just before ``run()`` began and Qt aborted) -
+    is released by its ``finished`` signal like a running one.  The release runs
+    once, however ``finished`` and the immediate check interleave.
     """
     if worker is None:
         return
     if not isinstance(worker, QThread):      # not a thread: nothing can still be running in it
         worker.deleteLater()
         return
+    if worker in _RELEASING:
+        return
     _RELEASING.add(worker)
 
     def release(w=worker):
+        if w not in _RELEASING:
+            return                           # already released
         _RELEASING.discard(w)
         w.deleteLater()
     worker.finished.connect(release)
-    if not worker.isRunning():               # never started, or already past finished
+    if worker.isFinished():                  # already past finished: no signal will come
         release()
 
 

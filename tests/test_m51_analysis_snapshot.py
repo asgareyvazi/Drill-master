@@ -131,10 +131,14 @@ def test_painters_do_not_open_sessions_or_call_services(painter):
 
 
 def test_paint_cycle_includes_every_label_read_by_the_snapshot():
-    source = ast.unparse(_method_source("_paint_for_revision"))
+    # M52: the step list moved to _paint_steps, which BOTH paint modes (synchronous
+    # and staged) iterate - a view cannot be painted by one mode and not the other.
+    steps = ast.unparse(_method_source("_paint_steps"))
     for step in ("update_data_quality", "update_plan_variance", "update_intelligence",
                  "update_scope_indicator", "update_analytics", "load_milestones_data", "update_evidence"):
-        assert f"self.{step}" in source, step
+        assert f"self.{step}" in steps, step
+    paint = ast.unparse(_method_source("_paint_for_revision"))
+    assert paint.count("self._paint_steps()") == 2, paint
 
 
 def test_frozen_scope_exposes_only_reader_methods():

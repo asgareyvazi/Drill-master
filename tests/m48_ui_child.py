@@ -132,12 +132,22 @@ def no_global_warning_suppression_and_backend_untouched(ctx):
 
 
 @scenario
-def npt_pie_canvas_uses_shared_backend_selector(ctx):
+def npt_pie_is_an_agg_rendering_of_the_painted_categories(ctx):
+    # M48 pinned the pie to the shared backend selector (no global backend switch).
+    # M52 renders it with the Agg canvas on the snapshot worker instead: no Qt
+    # Figure canvas is built on the GUI thread at all, and what is shown must be
+    # exactly the painted NPT categories.
+    from core import analysis_payloads as ap
     from core.matplotlib_widgets import select_figure_canvas
+    from tabs.analysis_views import ChartImageView
     ctx.well("A")
+    categories = ctx.tab.chart_data["npt"]["categories"]
+    view = ctx.tab.findChild(ChartImageView, "npt_pie_view")
+    assert view is not None and view.chart is not None, "the NPT pie must be shown"
+    assert view.chart.spec == ("pie", ap.pie_spec(categories)), (view.chart.spec, categories)
+    assert len(view.chart.rgba) == view.chart.width * view.chart.height * 4
     canvas_class, _is_qt = select_figure_canvas()
-    canvases = ctx.tab.findChildren(canvas_class)
-    assert canvases, "the NPT pie must be a select_figure_canvas() canvas"
+    assert not ctx.tab.findChildren(canvas_class), "no Matplotlib Qt canvas on the Analysis page"
 
 
 @scenario

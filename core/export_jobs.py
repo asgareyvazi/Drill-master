@@ -30,6 +30,7 @@ Contract
 from __future__ import annotations
 
 import copy
+from collections import OrderedDict
 import logging
 import threading
 from contextlib import contextmanager
@@ -262,35 +263,61 @@ def worker_database(db_manager):
         yield db_manager
         return
 
-    from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+
+    # Each worker gets its own Engine object (M47 ownership) that shares the
+    # per-file engine's dialect and compiled-statement cache; NullPool still
+    # gives every checkout a fresh read-only connection.
+    engine = _read_only_engine(db_manager, path).execution_options(drillmaster_worker_view=True)
+    view = copy.copy(db_manager)
+    view.engine = engine
+    view.Session = sessionmaker(bind=engine, autoflush=False, autocommit=False,
+                                info=dict(db_manager.Session.kw.get("info") or {}))
+    yield view
+
+
+# One read-only engine per database file and maintenance gate (M52).  An engine
+# holds SQLAlchemy's compiled-statement cache; a new engine per worker (M47)
+# recompiled every query of every background read and left the compilation
+# objects as cyclic garbage (about 120k objects per 4 Analysis refreshes at 1k
+# synthetic rows), which the GUI-thread collector then had to traverse.  The
+# engine keeps NullPool - every checkout opens a fresh ``mode=ro`` connection
+# through the gate, nothing is pooled - so sharing it between worker threads is
+# safe and a restore still refuses and counts every connection.
+_ENGINE_CACHE_SIZE = 8
+_read_only_engines = OrderedDict()
+_read_only_engines_lock = threading.Lock()
+
+
+def _read_only_engine(db_manager, path):
+    from pathlib import Path
+
+    from sqlalchemy import create_engine
     from sqlalchemy.pool import NullPool
 
     from core import db_maintenance, sqlite_connection
 
     gate = getattr(db_manager, "_maintenance_gate", None)
+    key = (str(Path(path).expanduser().resolve()), id(gate))
+    with _read_only_engines_lock:
+        entry = _read_only_engines.get(key)
+        if entry is not None and entry[0] is gate:
+            _read_only_engines.move_to_end(key)
+            return entry[1]
 
-    def open_read_only():
-        # Restore refuses the connection itself, not only the checkout, and
-        # counts it while it is being opened (M47).
-        if gate is None:
-            return sqlite_connection.connect(path, read_only=True)
-        with gate.connecting():
-            return sqlite_connection.connect(path, read_only=True)
+        def open_read_only():
+            # Restore refuses the connection itself, not only the checkout, and
+            # counts it while it is being opened (M47).
+            if gate is None:
+                return sqlite_connection.connect(path, read_only=True)
+            with gate.connecting():
+                return sqlite_connection.connect(path, read_only=True)
 
-    engine = create_engine(
-        "sqlite://",
-        creator=open_read_only,
-        poolclass=NullPool,
-        hide_parameters=True,
-    )
-    if gate is not None:
-        db_maintenance.watch_engine(gate, engine)
-    view = copy.copy(db_manager)
-    view.engine = engine
-    view.Session = sessionmaker(bind=engine, autoflush=False, autocommit=False,
-                                info=dict(db_manager.Session.kw.get("info") or {}))
-    try:
-        yield view
-    finally:
-        engine.dispose()
+        engine = create_engine("sqlite://", creator=open_read_only, poolclass=NullPool, hide_parameters=True)
+        if gate is not None:
+            db_maintenance.watch_engine(gate, engine)
+        _read_only_engines[key] = (gate, engine)
+        while len(_read_only_engines) > _ENGINE_CACHE_SIZE:
+            _old_key, (_old_gate, old_engine) = _read_only_engines.popitem(last=False)
+            old_engine.dispose()            # NullPool: nothing pooled; releases dialect state only
+        return engine

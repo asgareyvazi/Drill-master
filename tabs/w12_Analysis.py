@@ -4,7 +4,6 @@ PySide6 Version – Fully refactored with SelectionManager integration
 """
 import os
 import html as html_lib
-import numpy as np
 from datetime import datetime
 from sqlalchemy import func, desc
 from core.text_utils import fmt_num
@@ -12,13 +11,15 @@ import logging
 logger = logging.getLogger(__name__)
 # No process-wide warning filter and no global Matplotlib backend switch here:
 # importing a tab must not change how the rest of the application warns or
-# renders. Charts use the Figure API directly (no pyplot state) with the canvas
-# chosen by core.matplotlib_widgets.select_figure_canvas.
+# renders. Matplotlib charts (NPT pie, milestones) use the Figure API with the
+# Agg canvas only (no pyplot state, no Qt canvas): core.analysis_payloads renders
+# them on the snapshot worker and tabs.analysis_views shows the image (M52).
 
 import copy
 import functools
 import inspect
 import threading
+import time
 import types
 
 from PySide6.QtCore import QDate, QDateTime, QThread, QTime, QTimer, Qt, Signal
@@ -33,15 +34,13 @@ from core.common_widgets import safe_replace_chart
 
 from core.managers import ExportManager
 
-import matplotlib
-from matplotlib.figure import Figure
 
-from core.matplotlib_widgets import select_figure_canvas
 from core import analysis_evidence as ev
+from core import analysis_payloads as ap
+from core import qt_gc
 from core.cost_semantics import canonical_variance, format_money
 from core.engineering.result import EngineeringError
 
-FigureCanvas, MATPLOTLIB_QT_OK = select_figure_canvas()
 
 
 class _LoadError:
@@ -87,6 +86,7 @@ except ImportError:
     )
 
 
+from tabs.analysis_views import ChartImageView, RowsTableView
 from core.database import (
     DailyReport, TimeLog24H,
     DrillingParameters, MudReport,
@@ -265,6 +265,71 @@ class _FrozenScope:
         raise AttributeError(f"{name} is not available to an Analysis worker")
 
 
+class _StagedPaint:
+    """One snapshot paint, one view per event-loop turn (M52 §2.1).
+
+    The views are painted by the same steps as the synchronous paint, in the
+    same order, from the same snapshot values; between two steps the event loop
+    runs (input, timers, repaint), so the GUI blocks for the slowest view, not
+    for the sum of all of them.  A scope change (generation) or a cancel stops
+    the job before its next step; ``on_done(None)`` then reports "superseded".
+    ``step_ms`` keeps the GUI time of every step (benchmark evidence).
+    """
+
+    def __init__(self, page, generation, steps, values, on_done):
+        self.page, self.generation, self.steps = page, generation, tuple(steps)
+        self.values, self.on_done = values, on_done
+        self.failed, self.index, self.cancelled = [], 0, False
+        self.step_ms = []
+        self.timer = QTimer(page)
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(0)
+        self.timer.timeout.connect(self._step)
+
+    def start(self):
+        self.timer.start()
+
+    def cancel(self):
+        self.cancelled = True
+        self.timer.stop()
+        self.timer.deleteLater()
+
+    def _step(self):
+        page = self.page
+        if self.cancelled:
+            return
+        if self.generation != page._generation:
+            self._finish(None)
+            return
+        step = self.steps[self.index]
+        self.index += 1
+        started = time.perf_counter()
+        page._prefetched = self.values      # the same dict: a value taken by a view stays taken
+        page._painting_snapshot = True
+        try:
+            page._run_paint_step(step, self.failed)
+        finally:
+            page._painting_snapshot = False
+            page._prefetched = {}
+        self.step_ms.append((step.__name__, (time.perf_counter() - started) * 1000.0))
+        if self.cancelled:
+            return
+        if self.generation != page._generation:
+            self._finish(None)
+        elif self.index < len(self.steps):
+            self.timer.start()
+        else:
+            self._finish(self.failed + [f"read {name}" for name in dict.fromkeys(page._load_errors)])
+
+    def _finish(self, result):
+        page = self.page
+        if page._paint_job is self:
+            page._paint_job = None
+        self.timer.stop()
+        self.timer.deleteLater()
+        self.on_done(result)
+
+
 class AnalysisSnapshotWorker(QThread):
     """The revision and then every reader of one update cycle, on a worker thread.
 
@@ -275,10 +340,11 @@ class AnalysisSnapshotWorker(QThread):
     """
     done = Signal(object, object, object)
 
-    def __init__(self, db_manager, state, readers, cached_keys, ticket):
+    def __init__(self, db_manager, state, readers, cached_keys, ticket, settings=None):
         super().__init__()          # no parent: never destroyed with a running page
         self.db_manager, self.state, self.readers = db_manager, dict(state), list(readers)
         self.cached_keys, self.ticket = frozenset(cached_keys), ticket
+        self.settings = dict(settings or {})    # plain values captured on the GUI thread (M52)
         self._cancel = threading.Event()
 
     def cancel(self):
@@ -317,6 +383,11 @@ class AnalysisSnapshotWorker(QThread):
             with worker_database(self.db_manager) as isolated:     # own read-only engine (M47)
                 revision = self._revision(isolated)
                 values = self._read_all(isolated, revision)
+            if self._cancel.is_set():
+                raise ev.RevisionCancelled()
+            # M52: display payloads (rows, chart images, thinned lines) are built
+            # here too; the GUI thread only applies them.
+            values["prep"] = ap.prepare(values, self.settings, failed_type=_LoadError)
             self.done.emit(self.ticket, (revision, values), None)
         except ev.RevisionCancelled:
             self.done.emit(self.ticket, None, "cancelled")
@@ -556,6 +627,11 @@ class AnalysisWidget(DrillTabBase):
         # well/bore/section/report and unchanged source data.
         self.data_cache = {}
         self.cache_time = {}
+        # M52: display payloads (table rows, chart images, plotted lines) keyed by
+        # (kind, value cache key = scope/section/report/revision, settings).
+        self._payload_cache = {}
+        self.payload_gui_builds = {}         # kind -> payloads built on the GUI thread (fallback)
+        self.payload_worker_used = 0         # payloads taken from the snapshot worker
         self.cache_timeout = 30000  # 30 seconds
         self._data_rev = None
         # Selection generation: bumped on every scope change; a result read
@@ -575,6 +651,7 @@ class AnalysisWidget(DrillTabBase):
         self._painting_snapshot = False
         self._snapshot_names = frozenset()   # readers of the latest snapshot
         self._snapshot_wanted = False        # a view needs a value the latest snapshot lacks
+        self._paint_job = None               # M52: the staged paint in progress (_StagedPaint)
         self.missing_prefetch = 0            # values a snapshot paint needed but did not carry
         self.snapshot_requests = 0           # snapshots requested by a view (combo change etc.)
         
@@ -1423,22 +1500,21 @@ class AnalysisWidget(DrillTabBase):
         table_header.addWidget(export_npt_btn)
         table_layout.addLayout(table_header)
         
-        self.npt_table = QTableWidget()
-        self.npt_table.setColumnCount(6)
-        self.npt_table.setHorizontalHeaderLabels(
-            ["📅 Date", "🕐 From", "🕒 To", "⏱️ Hours", "🏷️ Category", "📝 Description"]
-        )
+        # M52: one model reset of preformatted rows (prepared on the snapshot worker),
+        # not one QTableWidgetItem per cell on the GUI thread.
+        self.npt_table = RowsTableView(
+            ["📅 Date", "🕐 From", "🕒 To", "⏱️ Hours", "🏷️ Category", "📝 Description"])
         self.npt_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.npt_table.setMinimumHeight(250)
         self.npt_table.setMaximumHeight(400)
         self.npt_table.setStyleSheet("""
-            QTableWidget {
+            QTableView {
                 background: #1e1e1e;
                 alternate-background-color: #2c3e50;
                 gridline-color: #34495e;
                 font-size: 12px;
             }
-            QTableWidget::item { padding: 6px; color: #ecf0f1; }
+            QTableView::item { padding: 6px; color: #ecf0f1; }
             QHeaderView::section {
                 background: #34495e;
                 color: #ecf0f1;
@@ -2010,6 +2086,50 @@ class AnalysisWidget(DrillTabBase):
     def clear_cache(self):
         self.data_cache.clear()
         self.cache_time.clear()
+        self._payload_cache.clear()
+
+    _PAYLOAD_CACHE_MAX = 32
+
+    def _payload_settings(self) -> dict:
+        """GUI-thread settings the display payloads depend on (captured per cycle)."""
+        pie = getattr(self, "_npt_pie_view", None)
+        pie_widget = pie if pie is not None and pie.isVisible() else getattr(self, "npt_pie_plot", None)
+        milestones = getattr(self, "_milestones_view", None)
+        ms_widget = milestones if milestones is not None and milestones.isVisible() \
+            else getattr(self, "milestones_widget", None)
+
+        def size(widget):
+            return (widget.width(), widget.height()) if widget is not None else None
+        return {"pie_size": size(pie_widget), "milestones_size": size(ms_widget)}
+
+    def _prepared(self, kind, source, build, matches=None):
+        """The display payload ``kind`` for the value ``source`` of this paint.
+
+        Taken from the snapshot worker when it prepared it with the same settings
+        (file databases), else from the payload cache, else built here (in-memory
+        databases, or a view resized between request and paint).  A worker
+        preparation error falls back to a build here, whose failure the caller
+        reports as before.
+        """
+        settings = ap.settings_key(kind, self._payload_settings())
+        key = (kind, self._cache_key(source), settings)
+        offered = (self._prefetched.get("prep") or {}).get(kind) if self._painting_snapshot else None
+        if offered is not None:
+            offered_settings, payload = offered
+            if offered_settings == settings and not isinstance(payload, ap.PrepareError) \
+                    and (matches is None or matches(payload)):
+                self._payload_cache[key] = payload
+                self.payload_worker_used += 1
+                return payload
+        cached = self._payload_cache.get(key)
+        if cached is not None and (matches is None or matches(cached)):
+            return cached
+        payload = build()
+        self.payload_gui_builds[kind] = self.payload_gui_builds.get(kind, 0) + 1
+        self._payload_cache[key] = payload
+        while len(self._payload_cache) > self._PAYLOAD_CACHE_MAX:
+            self._payload_cache.pop(next(iter(self._payload_cache)))
+        return payload
 
     def get_cached_data(self, key, get_data_func):
         """Return a cached value or read it; a failed read is never cached."""
@@ -2536,13 +2656,16 @@ class AnalysisWidget(DrillTabBase):
         # data point at 0 m. Fabricating 0 would draw a false plunge to surface.
         depth_days = [d['day'] for d in data if d['depth'] is not None]
         depth_vals = [d['depth'] for d in data if d['depth'] is not None]
-        gain_days = [d['day'] for d in data if d['gain'] is not None]
         gain_vals = [d['gain'] for d in data if d['gain'] is not None]
 
+        # Drawn lines may be min-max thinned (display only, every extreme kept);
+        # chart_data and the table keep the full series.
+        line_days, line_depths, line_gain_days, line_gains = self._prepared(
+            "td:lines", "td", lambda: ap.time_depth_lines(data))
         self.time_depth_plot.clear()
         if depth_vals:
             self.time_depth_plot.plot(
-                depth_days, depth_vals,
+                list(line_days), list(line_depths),
                 pen=pg.mkPen(color="#3498db", width=3),
                 symbol='o', symbolSize=8,
                 symbolBrush="#2980b9", name="Depth"
@@ -2567,7 +2690,7 @@ class AnalysisWidget(DrillTabBase):
         self.daily_gain_plot.clear()
         if gain_vals:
             self.daily_gain_plot.plot(
-                gain_days, gain_vals,
+                list(line_gain_days), list(line_gains),
                 pen=pg.mkPen(color="#2ecc71", width=2),
                 fillLevel=0, brush="#27ae6050",
                 name="Report depth change"
@@ -2614,7 +2737,7 @@ class AnalysisWidget(DrillTabBase):
                 self._set_stat_card(card, error)
             self._set_category_card(ev.STATE_TEXT[ev.STATE_ERROR], data.detail)
             self.npt_coverage_label.setText("Time coverage: " + data.text())
-            self.npt_table.setRowCount(0)
+            self.npt_table.clear_rows()
             self._replace_npt_pie(None, data.text())
             self.chart_data['npt'] = None
             return
@@ -2646,16 +2769,7 @@ class AnalysisWidget(DrillTabBase):
             f"Time coverage: {cov['covered_days']} of {cov['days']} report dates fully covered "
             f"(>= {ev.COVERAGE_SUFFICIENT_PERCENT:.0f}% of 24 h)" + (f"; {others}" if others else ""))
 
-        self.npt_table.setRowCount(len(data['entries']))
-        for i, e in enumerate(data['entries']):
-            self.npt_table.setItem(i, 0, QTableWidgetItem(str(e['date'])))
-            for col, value in ((1, e.get('from')), (2, e.get('to'))):
-                text = value.strftime("%H:%M") if value and hasattr(value, 'strftime') else str(value or "")
-                self.npt_table.setItem(i, col, QTableWidgetItem(text))
-            self.npt_table.setItem(i, 3, QTableWidgetItem(
-                "—" if e['hours'] is None else f"{e['hours']:.2f}"))
-            self.npt_table.setItem(i, 4, QTableWidgetItem(e['category']))
-            self.npt_table.setItem(i, 5, QTableWidgetItem(e['description']))
+        self.npt_table.set_rows(self._prepared("npt:rows", "npt", lambda: ap.npt_rows(data['entries'])))
 
         self._replace_npt_pie(categories or None)
         self.chart_data['npt'] = data
@@ -2669,53 +2783,52 @@ class AnalysisWidget(DrillTabBase):
         self._replace_npt_pie(categories or None)
 
     def _replace_npt_pie(self, categories, placeholder="No NPT categories in this scope"):
-        """Swap the NPT pie; with nothing to draw show a placeholder.
+        """Show the NPT pie for ``categories``; with nothing to draw show a placeholder.
 
-        The previous canvas is always removed first, so a well without NPT can
-        never keep showing the previous well's pie. The figure is a plain
-        ``Figure`` (no pyplot registry), deleted with its canvas.
+        M52: the pie is an Agg rendering prepared on the snapshot worker
+        (``core.analysis_payloads``) and shown by one persistent
+        ``ChartImageView``; nothing of the previous well can stay visible: a new
+        image or the placeholder replaces it in the same call.
         """
-        old = getattr(self, "_npt_pie_canvas", None)
-        container = self.npt_pie_plot.parentWidget()
-        layout = container.layout() if container is not None else None
-        if old is not None:
-            if layout is not None:
-                layout.removeWidget(old)
-            old.setParent(None)
-            old.deleteLater()
-            self._npt_pie_canvas = None
-        self.npt_pie_plot.clear()
-        positive = {k: v for k, v in (categories or {}).items() if v and v > 0}
-        if not positive and categories:
+        view = self._npt_pie_image_view()
+        spec = ap.pie_spec(categories)
+        if not spec and categories:
             placeholder = "NPT recorded as 0 h in every category"
-        canvas = self._npt_pie_canvas_for(positive) if positive and layout is not None else None
-        if canvas is None:
+        chart = None
+        if spec and view is not None:
+            try:
+                chart = self._prepared("npt:pie", "npt",
+                                       lambda: ap.render_pie(spec, self._payload_settings()["pie_size"]),
+                                       matches=lambda c: c.spec == ("pie", spec))
+            except Exception as exc:
+                logger.error("NPT pie chart not drawn: %s", type(exc).__name__, exc_info=True)
+        if chart is None:
+            if view is not None:
+                view.show_message("")
+                view.hide()
+            self.npt_pie_plot.clear()
             self.npt_pie_plot.setTitle(placeholder, color="#95a5a6")
             self.npt_pie_plot.show()
             return
+        self.npt_pie_plot.clear()
         self.npt_pie_plot.hide()
-        layout.addWidget(canvas)
-        self._npt_pie_canvas = canvas
+        view.show_image(chart, render=lambda size, spec=spec: ap.render_pie(spec, size))
+        view.show()
 
-    def _npt_pie_canvas_for(self, categories):
-        try:
-            fig = Figure(figsize=(5, 4), facecolor='#1e1e1e')
-            ax = fig.add_subplot(111)
-            ax.set_facecolor('#1e1e1e')
-            labels = list(categories.keys())
-            colors = matplotlib.colormaps["Set3"](range(len(labels)))
-            _wedges, _texts, percents = ax.pie(
-                list(categories.values()), labels=labels, autopct='%1.1f%%', colors=colors,
-                textprops={'color': 'white', 'fontsize': 8},
-                wedgeprops={'edgecolor': 'white', 'linewidth': 0.5})
-            for text in percents:          # inside pastel (Set3) wedges: dark text
-                text.set_color('#1e1e1e')
-            ax.set_title('NPT hours by code (share of NPT)', color='white', fontsize=12)
-            fig.tight_layout()
-            return FigureCanvas(fig)
-        except Exception as exc:
-            logger.error("NPT pie chart not drawn: %s", type(exc).__name__, exc_info=True)
+    def _npt_pie_image_view(self):
+        view = getattr(self, "_npt_pie_view", None)
+        if view is not None:
+            return view
+        container = self.npt_pie_plot.parentWidget()
+        layout = container.layout() if container is not None else None
+        if layout is None:
             return None
+        view = ChartImageView(minimum=(320, 280))
+        view.setObjectName("npt_pie_view")
+        view.hide()
+        layout.addWidget(view)
+        self._npt_pie_view = view
+        return view
 
     def _set_productive_card(self):
         if len(self.perf_kpi_cards) < 6:
@@ -3348,30 +3461,15 @@ class AnalysisWidget(DrillTabBase):
                     DailyReport.well_id == self.current_well_id
                 ).order_by(DailyReport.report_date).all()
             
-            if not reports or len({r.wellbore_id for r in reports}) != 1:
+            # Milestone bands every ~500 m or ~30 days (core.analysis_payloads, shared
+            # with the snapshot worker's preparation).
+            bands = ap.report_milestone_bands(
+                [(r.report_date, r.depth_2400, r.wellbore_id) for r in reports])
+            if bands is None:
                 self._draw_milestones_chart([], [], [])
                 return
-            
-            # Milestone bands every ~500 m or ~30 days.
-            milestones = []
-            fact_times = []
-            last_depth = None
-            band_start = None
-            for r in reports:
-                depth = r.depth_2400
-                if depth is None:
-                    continue
-                if last_depth is None:
-                    last_depth, band_start = depth, r.report_date
-                    continue
-                elapsed = (r.report_date - band_start).days
-                if depth - last_depth >= 500 or elapsed >= 30:
-                    milestones.append(f"{last_depth:.0f}-{depth:.0f}m (calendar days)")
-                    fact_times.append(elapsed)
-                    last_depth, band_start = depth, r.report_date
-
             # PLAN unknown in this path -> empty plan series (no fabrication).
-            self._draw_milestones_chart(milestones, fact_times, [])
+            self._draw_milestones_chart(bands[0], bands[1], [])
                 
         except Exception as e:
             self._draw_milestones_chart([], [], [])
@@ -3380,67 +3478,39 @@ class AnalysisWidget(DrillTabBase):
             logger.error(f"Error loading milestones from reports: {e}")
 
     def _draw_milestones_chart(self, sections, fact_days, plan_days):
-        if not sections:
-            if getattr(self, "milestones_widget", None) is not None:
-                safe_replace_chart(self.milestones_widget, QLabel("Milestones: NOT ASSESSED (no sections)"))
+        """FACT vs PLAN bars (M52: an Agg rendering prepared on the snapshot worker)."""
+        view = self._milestones_image_view()
+        if view is None:
+            logger.warning("milestones_widget not available")
             return
-        fact_days = [v if v is not None else float("nan") for v in fact_days]
-        plan_days = [v if v is not None else float("nan") for v in plan_days]
-        
+        if not sections:
+            view.show_message("Milestones: NOT ASSESSED (no sections)")
+            return
+        spec = (tuple(sections), tuple(fact_days), tuple(plan_days))
         try:
-            fig = Figure(figsize=(10, 5), facecolor='#1e1e1e')
-            ax = fig.add_subplot(111)
-            ax.set_facecolor('#1e1e1e')
-            
-            x = np.arange(len(sections))
-            # When PLAN is unknown (empty series) draw FACT full-width and omit
-            # the PLAN bars entirely rather than plotting a fabricated plan.
-            has_plan = bool(plan_days) and len(plan_days) == len(sections)
-            width = 0.35 if has_plan else 0.6
+            chart = self._prepared(
+                "milestones:image", "milestones",
+                lambda: ap.render_milestones(spec, self._payload_settings()["milestones_size"]),
+                matches=lambda c: c.spec == ("milestones",) + spec)
+        except Exception as exc:
+            logger.error("Error drawing milestones chart: %s", type(exc).__name__, exc_info=True)
+            view.show_message(f"Milestones: chart not drawn ({type(exc).__name__})")
+            return
+        view.show_image(chart, render=lambda size, spec=spec: ap.render_milestones(spec, size))
 
-            fact_x = (x - width / 2) if has_plan else x
-            bars1 = ax.bar(fact_x, fact_days, width, label='FACT', color='#3498db', edgecolor='white', linewidth=0.5)
-            bars2 = ax.bar(x + width/2, plan_days, width, label='PLAN', color='#e74c3c', edgecolor='white', linewidth=0.5) if has_plan else []
-            
-            ax.set_xlabel('Section', color='white', fontsize=11)
-            ax.set_ylabel('Days', color='white', fontsize=11)
-            ax.set_title('Milestones - FACT vs PLAN (unknown values omitted)', color='white', fontsize=14, fontweight='bold')
-            ax.set_xticks(x)
-            ax.set_xticklabels(sections, rotation=45, ha='right', color='white')
-            ax.tick_params(axis='y', colors='white')
-            ax.legend(loc='upper right', facecolor='#2c3e50', edgecolor='white', labelcolor='white')
-            ax.grid(True, alpha=0.3, color='white')
-            
-            # افزودن مقادیر روی میله‌ها
-            for bar in bars1:
-                height = bar.get_height()
-                if not np.isfinite(height):
-                    continue
-                ax.annotate(f'{height:.1f}',
-                           xy=(bar.get_x() + bar.get_width()/2, height),
-                           xytext=(0, 3), textcoords="offset points",
-                           ha='center', va='bottom', color='white', fontsize=8)
-            
-            for bar in bars2:
-                height = bar.get_height()
-                if not np.isfinite(height):
-                    continue
-                ax.annotate(f'{height:.1f}',
-                           xy=(bar.get_x() + bar.get_width()/2, height),
-                           xytext=(0, 3), textcoords="offset points",
-                           ha='center', va='bottom', color='white', fontsize=8)
-            
-            fig.tight_layout()
-            
-            # نمایش در ویجت
-            canvas = FigureCanvas(fig)
-            if hasattr(self, 'milestones_widget') and self.milestones_widget:
-                safe_replace_chart(self.milestones_widget, canvas)
-            else:
-                logger.warning("milestones_widget not available")
-        except Exception as e:
-            logger.error(f"Error drawing milestones chart: {e}")
-        
+    def _milestones_image_view(self):
+        view = getattr(self, "_milestones_view", None)
+        if view is not None:
+            return view
+        container = getattr(self, "milestones_widget", None)
+        if container is None:
+            return None
+        view = ChartImageView(minimum=(480, 300))
+        view.setObjectName("milestones_view")
+        safe_replace_chart(container, view)
+        self._milestones_view = view
+        return view
+
     # ---------- SelectionManager integration ----------
     def on_well_changed(self, well_id, well_data):
         # A new well clears any prior bore scope (a bore belongs to the old
@@ -3723,7 +3793,8 @@ class AnalysisWidget(DrillTabBase):
             plot.setTitle("No well selected", color="#95a5a6")
         self._reset_analytics_chart()
         self._replace_npt_pie(None, "No well selected")
-        for table in (self.time_depth_table, self.npt_table, self.performance_table,
+        self.npt_table.clear_rows()
+        for table in (self.time_depth_table, self.performance_table,
                       self.dexponent_table, self.recent_reports_table, self.cost_table,
                       self.evidence_table):
             table.setRowCount(0)
@@ -3732,8 +3803,9 @@ class AnalysisWidget(DrillTabBase):
         self.results_text.setText("No well selected")
         self.evidence_state_label.setText("Evidence: select a well")
         self.evidence_open_btn.setEnabled(False)
-        if getattr(self, "milestones_widget", None) is not None:
-            safe_replace_chart(self.milestones_widget, QLabel("Milestones: no well selected"))
+        milestones = self._milestones_image_view()     # persistent view: never replaced (M52)
+        if milestones is not None:
+            milestones.show_message("Milestones: no well selected")
         self.help_label.setVisible(True)
         self.analysis_tabs.setVisible(False)
         self.bottom_widget.setVisible(False)
@@ -3759,6 +3831,9 @@ class AnalysisWidget(DrillTabBase):
         # Tab disposal / app shutdown: stop and join the revision worker so no
         # thread outlives the page (cancellation is polled every 512 rows).
         self._cancel_revision(wait_ms=5000)
+        for view in (getattr(self, "_npt_pie_view", None), getattr(self, "_milestones_view", None)):
+            if view is not None:
+                view.cleanup()
 
     _MAX_RELOADS = 2   # reloads after a concurrent write before reporting "values may mix"
 
@@ -3785,6 +3860,12 @@ class AnalysisWidget(DrillTabBase):
         worker = self._rev_worker
         if worker is not None and worker.ticket[0] == self._generation:
             return              # a cycle for this exact scope is in flight (timer tick); it will paint
+        job = self._paint_job
+        if job is not None and job.generation == self._generation:
+            # The cycle for this scope is painting (M52 staged paint): one more
+            # cycle follows it (_finish_status), nothing is lost or interleaved.
+            self._snapshot_wanted = True
+            return
         self._cancel_revision()
         self._set_status("🟡 Updating…", "warn")
         self._start_snapshot()
@@ -3799,28 +3880,46 @@ class AnalysisWidget(DrillTabBase):
         if failed is not None:
             self._finish_status(failed)
 
-    def _paint_for_revision(self, revision):
-        """Load and paint every view for ``revision``; None if the selection changed."""
+    def _paint_steps(self):
+        return (self.update_kpi_data, self.update_time_depth_data, self.update_npt_data,
+                self.update_performance_data, self.update_daily_data, self.update_analytics,
+                self.load_milestones_data, self.update_evidence, self.update_data_quality,
+                self.update_plan_variance, self.update_intelligence, self.update_scope_indicator)
+
+    def _run_paint_step(self, step, failed):
+        try:
+            step()
+        except Exception as exc:
+            failed.append(step.__name__)
+            logger.error("Analysis update step %s failed: %s", step.__name__,
+                         type(exc).__name__, exc_info=True)
+
+    def _paint_for_revision(self, revision, values=None, on_done=None):
+        """Load and paint every view for ``revision``.
+
+        Synchronous (``on_done`` None): returns the failed steps / reads, or None
+        if the selection changed.  Staged (M52, snapshot path): ``values`` are the
+        snapshot's values; one view is painted per event-loop turn (the GUI never
+        blocks for the sum of all views) and ``on_done(failed or None)`` follows
+        the last one.  Both run the same steps in the same order.
+        """
         generation = self._generation
         if revision is None or revision != self._data_rev:
             # Source data changed (or cannot be fingerprinted): no cached value
             # of the old data may be reused.
             self.clear_cache()
             self._data_rev = revision
-        failed = []
         self._load_errors = []
-        for step in (self.update_kpi_data, self.update_time_depth_data, self.update_npt_data,
-                     self.update_performance_data, self.update_daily_data, self.update_analytics,
-                     self.load_milestones_data, self.update_evidence, self.update_data_quality,
-                     self.update_plan_variance, self.update_intelligence, self.update_scope_indicator):
+        if on_done is not None:
+            job = _StagedPaint(self, generation, self._paint_steps(), dict(values or {}), on_done)
+            self._paint_job = job
+            job.start()
+            return job
+        failed = []
+        for step in self._paint_steps():
             if generation != self._generation:
                 return None  # the selection changed meanwhile; its own update paints
-            try:
-                step()
-            except Exception as exc:
-                failed.append(step.__name__)
-                logger.error("Analysis update step %s failed: %s", step.__name__,
-                             type(exc).__name__, exc_info=True)
+            self._run_paint_step(step, failed)
         if generation != self._generation:
             return None
         return failed + [f"read {name}" for name in dict.fromkeys(self._load_errors)]
@@ -3870,9 +3969,12 @@ class AnalysisWidget(DrillTabBase):
         self._snapshot_names = frozenset(name for name, _ in readers)
         now = QDateTime.currentMSecsSinceEpoch()
         cached = {key for key, t in self.cache_time.items() if now - t < self.cache_timeout}
-        snapshot = AnalysisSnapshotWorker(self.db, self._scope_state(), readers, cached, ticket)
+        snapshot = AnalysisSnapshotWorker(self.db, self._scope_state(), readers, cached, ticket,
+                                          settings=self._payload_settings())
         snapshot.done.connect(self._on_revision)
         snapshot.finished.connect(lambda w=snapshot: _release_revision_worker(w))
+        hold = qt_gc.hold()             # M52: no GUI-thread collection of its transient heap
+        snapshot.finished.connect(lambda h=hold: qt_gc.release(h))
         _LIVE_REVISION_WORKERS.add(snapshot)        # never destroyed while running
         self._rev_worker = snapshot
         snapshot.start()
@@ -3893,7 +3995,9 @@ class AnalysisWidget(DrillTabBase):
         elif name not in self._snapshot_names:
             self._snapshot_wanted = True
 
-    def _paint_snapshot(self, revision, values):
+    def _paint_snapshot(self, revision, values, on_done=None):
+        if on_done is not None:
+            return self._paint_for_revision(revision, values=values, on_done=on_done)
         self._prefetched = dict(values)
         self._painting_snapshot = True
         try:
@@ -3909,6 +4013,8 @@ class AnalysisWidget(DrillTabBase):
         worker = RevisionWorker(self.db, self.current_well_id, ticket)
         worker.done.connect(self._on_revision)
         worker.finished.connect(lambda w=worker: _release_revision_worker(w))
+        hold = qt_gc.hold()             # M52: no GUI-thread collection of its transient heap
+        worker.finished.connect(lambda h=hold: qt_gc.release(h))
         _LIVE_REVISION_WORKERS.add(worker)
         self._rev_worker = worker
         worker.start()
@@ -3917,6 +4023,9 @@ class AnalysisWidget(DrillTabBase):
         """Invalidate (and stop) the revision in flight; its result is ignored."""
         worker, self._rev_worker = self._rev_worker, None
         self._rev_seq += 1
+        job, self._paint_job = self._paint_job, None
+        if job is not None:
+            job.cancel()            # a staged paint of the superseded cycle paints nothing more
         if worker is None:
             return
         worker.cancel()
@@ -3949,15 +4058,8 @@ class AnalysisWidget(DrillTabBase):
                 # nothing is read on the GUI thread instead.
                 failure = _LoadError.named(error, "data revision unavailable")
                 values = {name: failure for name in self._snapshot_names}
-            failed = self._paint_snapshot(revision, values)
-            if failed is None:
-                return
-            if error:
-                failed.append(f"read data revision ({error})")
-            if failed:
-                self._finish_status(failed)
-                return
-            self._start_revision("verify", painted=revision, reloads=reloads)
+            self._paint_snapshot(revision, values, on_done=functools.partial(
+                self._snapshot_painted, revision, error, reloads))
             return
         # phase == "verify": a second revision after loading proves that no
         # write was committed while the values were being read.
@@ -3977,15 +4079,28 @@ class AnalysisWidget(DrillTabBase):
         self._set_status("🟡 Data changed while loading - reloading…", "warn")
         self._start_snapshot(reloads + 1)       # read again off the GUI thread (M51)
 
+    def _snapshot_painted(self, revision, error, reloads, failed):
+        """The staged paint of a snapshot finished (``failed`` None: the selection changed)."""
+        if failed is None:
+            return
+        if error:
+            failed.append(f"read data revision ({error})")
+        if failed:
+            self._finish_status(failed)
+            return
+        self._start_revision("verify", painted=revision, reloads=reloads)
+
     def wait_until_idle(self, timeout_ms=15000) -> bool:
         """Process events until no revision is in flight (tests, screenshots, shutdown)."""
         from PySide6.QtWidgets import QApplication
         deadline = QDateTime.currentMSecsSinceEpoch() + timeout_ms
-        while self._rev_worker is not None and QDateTime.currentMSecsSinceEpoch() < deadline:
+        def busy():
+            return self._rev_worker is not None or self._paint_job is not None
+        while busy() and QDateTime.currentMSecsSinceEpoch() < deadline:
             QApplication.processEvents()
             QThread.msleep(5)
         QApplication.processEvents()
-        return self._rev_worker is None
+        return not busy()
 
     def auto_update_data(self):
         if self.current_well_id and self.auto_update_check.isChecked():
@@ -4108,6 +4223,12 @@ class AnalysisWidget(DrillTabBase):
                 "analytics": self.analytics_plot,
             }
             
+            pie = getattr(self, "_npt_pie_view", None)
+            if chart_type == "npt" and pie is not None and pie.chart is not None:
+                # M52: the pie shown (not the hidden placeholder plot), drawn again from its spec.
+                ap.save_chart(pie.chart, filename)
+                self.show_success(f"Chart exported to {filename}")
+                return
             plot = plot_map.get(chart_type)
             if plot:
                 exporter = pg.exporters.ImageExporter(plot.plotItem)

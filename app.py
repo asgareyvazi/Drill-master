@@ -626,6 +626,11 @@ class DrillMasterApp(QApplication):
             self.main_window.show()
             self.main_window.raise_()
             self.main_window.activateWindow()
+            # M52: the start-up heap is long-lived; freeze it once the window exists
+            # so periodic collections stop re-traversing it (see core/qt_gc.py).
+            from PySide6.QtCore import QTimer
+            from core import qt_gc
+            QTimer.singleShot(0, qt_gc.freeze_startup_heap)
 
             # Apply permissions
             from core.permissions import permissions

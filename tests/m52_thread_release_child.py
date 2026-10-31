@@ -146,8 +146,41 @@ def scenario_choices(app):
     return ok
 
 
+def scenario_before_start(app):
+    """Registered BEFORE start() (the order an M52 caller used): released only after run() returned."""
+    from core.async_workers import release_when_finished
+    events = []
+    worker = Lingering()
+    watch(worker, events)
+    release_when_finished(worker)
+    worker.start()
+    pump(app, LINGER * 3)
+    return released_after_finished(events)
+
+
+def scenario_chart_rerender(app):
+    """The Analysis chart view re-renders on a worker after a resize; the view survives it."""
+    from core import analysis_payloads as ap
+    from tabs.analysis_views import ChartImageView
+    spec = (("NPT-A", 2.0), ("NPT-B", 1.0))
+
+    def slow(size):
+        time.sleep(LINGER)
+        return ap.render_pie(spec, size)
+    view = ChartImageView(minimum=(100, 100))
+    view.resize(300, 200)
+    view.show()
+    view.show_image(ap.render_pie(spec, (300, 200)), render=slow)
+    view.resize(900, 700)
+    pump(app, LINGER * 4)
+    ok = view.rerenders == 1 and view._worker is None
+    view.cleanup()
+    return ok
+
+
 SCENARIOS = {"helper": scenario_helper, "status": scenario_status, "semantic": scenario_semantic,
-             "mineru": scenario_mineru, "choices": scenario_choices}
+             "mineru": scenario_mineru, "choices": scenario_choices, "before_start": scenario_before_start,
+             "chart_rerender": scenario_chart_rerender}
 
 
 def main(argv):

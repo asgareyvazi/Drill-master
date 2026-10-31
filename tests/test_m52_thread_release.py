@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CHILD = ROOT / "tests" / "m52_thread_release_child.py"
 
 
-@pytest.mark.parametrize("scenario", ["helper", "status", "semantic", "mineru", "choices"])
+@pytest.mark.parametrize("scenario", ["helper", "status", "semantic", "mineru", "choices", "before_start",
+                                      "chart_rerender"])
 def test_result_slot_releases_the_worker_only_after_run_returned(scenario, tmp_path):
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", PYTHONPATH=os.pathsep.join([str(ROOT), str(ROOT / "tests")]),
                DRILLMASTER_ENV="test", DRILLMASTER_DATA_DIR=str(tmp_path / "data"),

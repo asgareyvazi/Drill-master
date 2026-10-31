@@ -164,10 +164,13 @@ def main(argv=None) -> int:
 
     real_paint = w12.AnalysisWidget._paint_for_revision
 
-    def timed_paint(page, revision):
+    def timed_paint(page, revision, *args, **kwargs):
+        # Since M52 the snapshot path paints in stages (one view per event-loop
+        # turn); this wrapper then times only the call that schedules them - use
+        # tools/quality/analysis_responsiveness_m52.py for per-stage GUI time.
         t0 = time.perf_counter()
         try:
-            return real_paint(page, revision)
+            return real_paint(page, revision, *args, **kwargs)
         finally:
             cycle["gui_paint"] = cycle.get("gui_paint", 0.0) + (time.perf_counter() - t0) * 1000
     w12.AnalysisWidget._paint_for_revision = timed_paint

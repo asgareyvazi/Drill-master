@@ -107,9 +107,9 @@ class Probe(w12.AnalysisWidget):
         self._probe_ctx = ctx
         super().__init__(**kwargs)
 
-    def _paint_for_revision(self, revision):
+    def _paint_for_revision(self, revision, *args, **kwargs):
         self._probe_ctx.painted.append(revision)
-        return super()._paint_for_revision(revision)
+        return super()._paint_for_revision(revision, *args, **kwargs)
 
     def _on_revision(self, ticket, revision, error):
         self._probe_ctx.delivered.append((ticket, revision, error))
