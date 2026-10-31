@@ -402,6 +402,30 @@ def page_destroyed_while_worker_blocked_is_safe(ctx):
     ctx.tab = w12.AnalysisWidget(db_manager=ctx.db)  # Ctx.close() needs a live page
 
 
+@scenario
+def page_destroyed_while_verify_worker_blocked_is_safe(ctx):
+    # Since M51 the first revision of a cycle runs inside the snapshot worker; the
+    # verify revision after the paint is a RevisionWorker and must be kept alive too.
+    ctx.well("C")
+    start = len(ctx.hook.calls)
+    gate = ctx.hook.gate(start + 1, honour_cancel=False)      # the verify revision blocks
+    ctx.tab.refresh_now()
+    assert until(lambda: len(ctx.hook.calls) == start + 2)
+    worker = ctx.tab._rev_worker
+    assert type(worker) is w12.RevisionWorker, type(worker)
+    delivered = len(ctx.delivered)
+    ctx.tab.hide()
+    ctx.tab.deleteLater()                            # no cleanup(): worst case
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    app.processEvents()
+    assert worker in w12._LIVE_REVISION_WORKERS     # kept alive: never destroyed while running
+    gate.set()
+    assert worker.wait(5000)
+    assert until(lambda: not w12._LIVE_REVISION_WORKERS)
+    assert len(ctx.delivered) == delivered, "a destroyed page received the late result"
+    ctx.tab = w12.AnalysisWidget(db_manager=ctx.db)  # Ctx.close() needs a live page
+
+
 # ---- 11: concurrent edits between revision and load --------------------------
 def _edit_during_paint(ctx, codes):
     """After the NPT step of each paint, commit an edit (a concurrent writer)."""
@@ -492,6 +516,27 @@ def section_change_mid_hash_restarts_the_cycle(ctx):
     assert len(ctx.hook.calls) == start + 3, ctx.hook.calls[start:]
     assert len(ctx.painted) == painted_before + 1 and updated(ctx)
     assert ctx.tab._rev_seq > ticket[1]
+
+
+@scenario
+def generation_change_without_cancel_is_never_painted(ctx):
+    # Since M51 every scope change also cancels the running cycle as soon as a view
+    # asks for a value, so the scenario above no longer reaches the generation check
+    # behind the sequence check.  A generation change that cancels and requests
+    # nothing must still never paint the earlier result; a new cycle runs.
+    ctx.well("C")
+    start = len(ctx.hook.calls)
+    gate = ctx.hook.gate(start, honour_cancel=False)
+    ctx.tab.auto_update_data()
+    assert until(lambda: len(ctx.hook.calls) == start + 1)
+    ticket = ctx.tab._rev_worker.ticket
+    ctx.tab._generation += 1                         # scope changed; no cancel, no request
+    gate.set()
+    ctx.idle()
+    assert ticket in [t for t, _, _ in ctx.delivered], "the earlier result was not delivered"
+    assert len(ctx.hook.calls) == start + 3, ctx.hook.calls[start:]     # old + new cycle (before, verify)
+    assert any(t[0] == ctx.tab._generation and t[2] == "before" for t, _, _ in ctx.delivered)
+    assert updated(ctx)
 
 
 # ---- cyclic GC never runs on a worker thread (core/qt_gc.py) -----------------

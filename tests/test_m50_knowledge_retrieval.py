@@ -88,6 +88,16 @@ def test_absent_terms_message_respects_file_name_context():
     assert "nozzle" in result.absent_terms
 
 
+
+def test_a_question_that_is_only_a_code_stated_by_the_file_name_never_reports_it_missing():
+    """Since M51 the code parts leave the topic terms - unless the question is
+    nothing but the code.  Then the file name (passage context) must still keep
+    the message from claiming the stored code is missing (mutation review, M51)."""
+    index = _index([(1, "SYN-QA-01 plan.pdf", 1, "The planned mud weight is 1.20 sg.")])
+    result = index.retrieve("SYN-QA-01")
+    assert not {"syn", "qa"} & set(result.absent_terms), result.absent_terms
+    assert ("absent", ["syn", "qa"]) not in result.constraints
+
 # ------------------------------------------------------------ answer types
 def test_duration_frame_drops_frame_words_and_requires_a_time_quantity():
     kinds, terms = kr.answer_types("How long did the BOP drill take?", kr.content_terms("How long did the BOP drill take?"))
@@ -139,6 +149,32 @@ def test_sufficient_passage_is_not_cut_by_header_only_passages():
     assert result.status == "ok"
     assert _pages_of(result)[0] == (9, 1)
 
+
+
+def test_no_insufficient_passage_ranks_above_a_sufficient_one_in_any_gold_question():
+    """Sufficiency tiers: a passage that can answer is never ranked below one
+    that cannot (fused order is kept inside each tier).  Checked on every
+    M49 and M50 gold question (since M51 the single synthetic case above no
+    longer forces the order by itself - mutation review)."""
+    from m49_gold_questions import GOLD as GOLD_M49
+    from m49_knowledge_fixtures import corpus_db
+    from m50_gold_questions import GOLD_M50
+    from m50_knowledge_fixtures import m50_corpus_db
+    checked = 0
+    for questions, make in ((GOLD_M49, corpus_db), (GOLD_M50, m50_corpus_db)):
+        db, ids = make()
+        index = kr.KnowledgeIndex(kr.read_corpus(db))
+        try:
+            for q in questions:
+                target = ids[q["target"]] if q.get("target") else None
+                result = index.retrieve(q["question"], q.get("scope", kr.SCOPE_ALL), target)
+                tiers = [h.coverage >= kr.SUFFICIENT_COVERAGE for h in result.hits]
+                assert tiers == sorted(tiers, reverse=True), (q["id"], [round(h.coverage, 3) for h in result.hits])
+                checked += any(tiers) and not all(tiers)
+        finally:
+            index.close()
+            db.engine.dispose()
+    assert checked >= 10, checked          # the invariant is exercised by mixed-tier results
 
 # ------------------------------------------------------------ conflicts
 def test_inch_size_naming_a_section_is_not_the_quantity():

@@ -184,13 +184,14 @@ def ui_results():
 
 
 def test_every_required_case_has_a_scenario():
-    assert len(SCENARIOS) == 18
+    assert len(SCENARIOS) == 20
     for needed in ("currency_only", "timelog_code", "npt_reclassification", "same_count_and_sum",
                    "delete_and_reinsert", "well_change_mid_hash", "deselect_mid_hash",
                    "late_old_result", "revision_error", "tab_closed_with_active_worker",
                    "concurrent_edit_between_revision_and_load", "async_page_matches_synchronous",
                    "repeated_concurrent_edits", "never_computed_on_the_gui_thread",
-                   "cyclic_gc_never_runs_on_a_worker_thread", "section_change_mid_hash"):
+                   "cyclic_gc_never_runs_on_a_worker_thread", "section_change_mid_hash",
+                   "verify_worker_blocked", "generation_change_without_cancel"):
         assert any(name.startswith(needed) or needed in name for name in SCENARIOS), needed
 
 

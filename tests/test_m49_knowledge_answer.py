@@ -343,11 +343,14 @@ def test_a_question_matching_the_injected_instruction_never_quotes_it(world, que
 
 
 @pytest.mark.parametrize("question", ["kick tolerance for the 8-1/2 in section of SYN-KQ-09",
-                                      "shoe depth 9-5/8 in casing ZK3"])
+                                      "shoe depth 9-5/8 in casing ZK3",
+                                      "pump liner size for pump 7351"])
 def test_an_unknown_identifier_weighs_enough_to_refuse_another_wells_value(world, question):
     """An identifier no document contains keeps the maximum weight: these
     questions about an unknown well/code are not answered from SYN-KA-01's
-    program (with the median weight they were - mutation review)."""
+    program (with the median weight they were - mutation review).  Since M51 an
+    absent non-numeric word also vetoes, so the unknown NUMBER (pump 7351; numbers
+    are exempt from that veto) is the case where only this weight refuses."""
     _db, _ids, index = world
     answer = ka.answer_question(index, question)
     assert answer.state == "no_evidence" and answer.mode == "none"
