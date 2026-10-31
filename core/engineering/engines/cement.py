@@ -181,6 +181,99 @@ class CementEngine:
         except EngineeringError as exc:
             return failed(str(exc))
 
+    BALANCED_PLUG_VERSION = "M52 balanced plug v1"
+
+    @classmethod
+    def balanced_plug(cls, hole_size_in, pipe_od_in, pipe_id_in, plug_length_ft, plug_bottom_md_ft,
+                      excess_pct=0, spacer_ahead_bbl=0, underdisplacement_bbl=0,
+                      slurry_yield_ft3_sk=None) -> EngineeringResult:
+        """Balanced cement plug volumetrics (open-ended pipe at the plug bottom).
+
+        Standard oilfield volumetrics; the formula set and validation limits follow
+        the MIT-licensed ``wjwhitmire/cement-calc`` (Copyright (c) 2026 Will
+        Whitmire, reviewed at 2a6145007f) - independently re-implemented here on
+        the canonical capacities, no code copied (see THIRD_PARTY_NOTICES.md).
+
+        Ch = D^2/1029.4, Cp = ID^2/1029.4, Ca = (D^2 - OD^2)/1029.4 (bbl/ft);
+        V = L x Ch x (1 + excess); h = V / (Ca + Cp) (equal inside and outside);
+        spacer behind = spacer ahead x Cp / Ca (equal spacer heights);
+        displacement = Cp x (bottom - h) - spacer behind - under-displacement;
+        top after pulling the pipe (gauge hole) = bottom - V / Ch.
+        """
+        try:
+            hole = require_number(hole_size_in, "hole_size_in")
+            od = require_number(pipe_od_in, "pipe_od_in")
+            pid = require_number(pipe_id_in, "pipe_id_in")
+            length = require_number(plug_length_ft, "plug_length_ft")
+            bottom = require_number(plug_bottom_md_ft, "plug_bottom_md_ft")
+            excess = 0.0 if excess_pct in (None, "") else require_number(excess_pct, "excess_pct")
+            ahead = 0.0 if spacer_ahead_bbl in (None, "") else require_number(spacer_ahead_bbl, "spacer_ahead_bbl")
+            under = (0.0 if underdisplacement_bbl in (None, "")
+                     else require_number(underdisplacement_bbl, "underdisplacement_bbl"))
+            yield_ft3 = optional_number(slurry_yield_ft3_sk, "slurry_yield_ft3_sk")
+            if hole <= 0 or od <= 0 or pid <= 0:
+                raise EngineeringError("Hole size, pipe OD and pipe ID must be > 0")
+            if pid >= od:
+                raise EngineeringError("Pipe ID must be smaller than pipe OD")
+            if od >= hole:
+                raise EngineeringError("Pipe OD must be smaller than the hole size / casing ID")
+            if length <= 0:
+                raise EngineeringError("Plug length must be > 0")
+            if bottom <= length:
+                raise EngineeringError("Plug bottom MD must be deeper than the plug length")
+            if not 0 <= excess <= 200:
+                raise EngineeringError("Excess must be between 0 and 200 %")
+            if ahead < 0 or under < 0:
+                raise EngineeringError("Spacer and under-displacement volumes cannot be negative")
+            if yield_ft3 is not None and yield_ft3 <= 0:
+                raise EngineeringError("Slurry yield must be > 0")
+            ch = _pipe_cap_bbl_ft(hole)
+            cp = _pipe_cap_bbl_ft(pid)
+            ca = _ann_cap_bbl_ft(hole, od)
+            volume = length * ch * (1.0 + excess / 100.0)
+            height = volume / (ca + cp)
+            top_pipe_in = bottom - height
+            behind = ahead * cp / ca
+            spacer_height = ahead / ca
+            if top_pipe_in - spacer_height < 0:
+                raise EngineeringError("Cement plus spacer column would reach above surface")
+            displacement = cp * (bottom - height) - behind - under
+            if displacement <= 0:
+                raise EngineeringError("Displacement volume is zero or negative; check spacer and under-displacement")
+            warnings = []
+            if under > 0:
+                warnings.append("Under-displacement leaves fluid in the pipe above balance; "
+                                "the plug is not exactly balanced while the pipe is in")
+            values = {
+                "hole_capacity_bbl_ft": round(ch, 6), "pipe_capacity_bbl_ft": round(cp, 6),
+                "annular_capacity_bbl_ft": round(ca, 6),
+                "slurry_volume_bbl": round(volume, 3), "slurry_volume_ft3": round(volume * BBL_PER_CUFT, 2),
+                "column_height_pipe_in_ft": round(height, 2), "top_pipe_in_md_ft": round(top_pipe_in, 2),
+                "top_after_pull_gauge_md_ft": round(bottom - volume / ch, 2),
+                "spacer_behind_bbl": round(behind, 3), "spacer_height_ft": round(spacer_height, 2),
+                "displacement_bbl": round(displacement, 3),
+            }
+            if yield_ft3 is not None:
+                import math
+                values["sacks"] = int(math.ceil(volume * BBL_PER_CUFT / yield_ft3 - 1e-9))
+            return ok(
+                round(displacement, 3), values=values, unit="bbl",
+                formula="V = L*Ch*(1+ex); h = V/(Ca+Cp); Vb = Va*Cp/Ca; Vd = Cp*(bottom-h) - Vb - under",
+                method=cls.BALANCED_PLUG_VERSION,
+                assumptions=["Open-ended pipe at the plug bottom; stable base below the plug",
+                             "Gauge hole; excess stands for washout",
+                             "Static volumetrics only: no friction, U-tubing while pumping, contamination "
+                             "or slurry left on the pipe wall",
+                             "Same fluid density inside and outside above the spacer (balance by volume)"],
+                warnings=warnings, scope="SCREENING",
+                metadata={"source": "wjwhitmire/cement-calc (MIT) formula set, independent implementation",
+                          "units": {"diameters": "in", "lengths": "ft", "volumes": "bbl"}},
+            )
+        except MissingInputError as exc:
+            return missing(exc.field)
+        except EngineeringError as exc:
+            return failed(str(exc))
+
     @classmethod
     def job_volumes(
         cls,

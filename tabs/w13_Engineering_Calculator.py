@@ -3892,6 +3892,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         cv_layout.addWidget(g2)
         cv_layout.addStretch()
         inner_tabs.addTab(cv_tab, "🧱 Cement Volume")
+        inner_tabs.addTab(self._create_balanced_plug_tab(), "🧯 Balanced Plug")
 
         # ===== Buoyancy =====
         bf_tab = QWidget()
@@ -4171,6 +4172,103 @@ class EngineeringCalculatorTab(DrillTabBase):
                 repo = None
             self._cmt_calc_repo = repo
         return repo
+
+    # ========== Balanced plug (canonical: CementEngine.balanced_plug, M52) ==========
+    def _create_balanced_plug_tab(self) -> QWidget:
+        """Balanced cement plug volumetrics; oilfield units are explicit on every field."""
+        tab = QWidget()
+        lay = QVBoxLayout(tab)
+        box = QGroupBox("🧯 Balanced cement plug (open-ended pipe at the plug bottom)")
+        form = QFormLayout(box)
+        self.plug_hole = self._make_dspin(8.75, 0, 50, 3, " in")
+        self.plug_pipe_od = self._make_dspin(3.5, 0, 30, 3, " in")
+        self.plug_pipe_id = self._make_dspin(2.764, 0, 30, 3, " in")
+        self.plug_length = self._make_dspin(500, 0, 20000, 1, " ft")
+        self.plug_bottom = self._make_dspin(9000, 0, 50000, 1, " ft MD")
+        self.plug_excess = self._make_dspin(20, 0, 200, 1, " %")
+        self.plug_spacer = self._make_dspin(10, 0, 1000, 2, " bbl")
+        self.plug_under = self._make_dspin(0, 0, 100, 2, " bbl")
+        self.plug_yield = self._make_dspin(0, 0, 10, 3, " ft³/sk")
+        for label, widget in (("Hole size / casing ID:", self.plug_hole), ("Pipe OD:", self.plug_pipe_od),
+                              ("Pipe ID:", self.plug_pipe_id), ("Plug length:", self.plug_length),
+                              ("Plug bottom (pipe end):", self.plug_bottom), ("Excess:", self.plug_excess),
+                              ("Spacer ahead:", self.plug_spacer), ("Under-displacement:", self.plug_under),
+                              ("Slurry yield (0 = no sacks):", self.plug_yield)):
+            form.addRow(label, widget)
+        calc = QPushButton("🔄 Calculate Balanced Plug")
+        calc.clicked.connect(self._plug_calculate)
+        form.addRow(calc)
+        save = QPushButton("💾 Save Calculation")
+        save.setToolTip("Store inputs and full result in the cement calculation history (a new record).")
+        save.clicked.connect(self._plug_save_calculation)
+        form.addRow(save)
+        self.plug_result = QTextEdit()
+        self.plug_result.setReadOnly(True)
+        self.plug_result.setMinimumHeight(220)
+        self.plug_result.setLayoutDirection(Qt.LeftToRight)
+        form.addRow(self.plug_result)
+        lay.addWidget(box)
+        lay.addStretch()
+        self._plug_last_run = None
+        return tab
+
+    def _plug_inputs(self) -> dict:
+        yield_value = self.plug_yield.value()
+        return {"hole_size_in": self.plug_hole.value(), "pipe_od_in": self.plug_pipe_od.value(),
+                "pipe_id_in": self.plug_pipe_id.value(), "plug_length_ft": self.plug_length.value(),
+                "plug_bottom_md_ft": self.plug_bottom.value(), "excess_pct": self.plug_excess.value(),
+                "spacer_ahead_bbl": self.plug_spacer.value(), "underdisplacement_bbl": self.plug_under.value(),
+                "slurry_yield_ft3_sk": yield_value if yield_value > 0 else None}
+
+    def _plug_calculate(self):
+        from core.engineering.engines.cement import CementEngine
+        inputs = self._plug_inputs()
+        result = CementEngine.balanced_plug(**inputs)
+        if not result.success:
+            self._plug_last_run = None
+            self.plug_result.setPlainText(f"NOT CALCULATED: {result.error or result.validation_status}")
+            return result
+        self._plug_last_run = {"inputs": inputs, "result_values": dict(result.values), "method": result.method}
+        v = result.values
+        lines = [f"Method: {result.method}   Scope: {result.scope} (static volumetrics, not a placement simulation)",
+                 "",
+                 f"Slurry volume            {v['slurry_volume_bbl']:.3f} bbl ({v['slurry_volume_ft3']:.2f} ft³)",
+                 f"Sacks                    {v['sacks'] if 'sacks' in v else 'n/a (no yield entered)'}",
+                 f"Column height, pipe in   {v['column_height_pipe_in_ft']:.2f} ft",
+                 f"Top of cement, pipe in   {v['top_pipe_in_md_ft']:.2f} ft MD",
+                 f"Top after pull (gauge)   {v['top_after_pull_gauge_md_ft']:.2f} ft MD",
+                 f"Spacer behind            {v['spacer_behind_bbl']:.3f} bbl (spacer height {v['spacer_height_ft']:.2f} ft)",
+                 f"Displacement             {v['displacement_bbl']:.3f} bbl",
+                 "",
+                 f"Capacities (bbl/ft): hole {v['hole_capacity_bbl_ft']}, pipe {v['pipe_capacity_bbl_ft']}, "
+                 f"annulus {v['annular_capacity_bbl_ft']}",
+                 "Formula: " + result.formula,
+                 "Assumptions: " + "; ".join(result.assumptions)]
+        lines += ["WARNING: " + w for w in result.warnings]
+        lines.append("Source: " + result.metadata.get("source", ""))
+        self.plug_result.setPlainText("\n".join(lines))
+        return result
+
+    def _plug_save_calculation(self):
+        run = getattr(self, "_plug_last_run", None)
+        if not run:
+            QMessageBox.information(self, "Save Calculation", "Calculate the balanced plug first.")
+            return None
+        repo = self._cement_repo()
+        if repo is None:
+            QMessageBox.warning(self, "Save Calculation", "No database is available, so calculations cannot be saved.")
+            return None
+        try:
+            calc_id = repo.save_run(inputs=run["inputs"], result_values=run["result_values"], method=run["method"],
+                                    label="Balanced Plug", well_id=getattr(self, "current_well_id", None))
+        except Exception as exc:
+            logger.exception("Failed to save balanced plug calculation")
+            QMessageBox.critical(self, "Save Calculation", f"Could not save calculation:\n{exc}")
+            return None
+        QMessageBox.information(self, "Calculation saved",
+                                f"Saved Balanced Plug run #{calc_id}.\n{self._save_attribution_line()}"
+                                "Inputs and full result were stored for reproducibility.")
+        return calc_id
 
     def _cmt_save_calculation(self):
         """Persist the last successful cement run as a reproducible record."""

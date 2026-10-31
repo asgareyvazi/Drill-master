@@ -76,6 +76,31 @@ _ENGINE_PARAMS = (
 )
 
 
+# M52: the balanced-plug run (CementEngine.balanced_plug) is stored in the same
+# history; its snapshot freezes exactly that engine's keyword arguments and
+# ``method`` selects the engine on reconstruction.
+_PLUG_PARAMS = (
+    "hole_size_in",
+    "pipe_od_in",
+    "pipe_id_in",
+    "plug_length_ft",
+    "plug_bottom_md_ft",
+    "excess_pct",
+    "spacer_ahead_bbl",
+    "underdisplacement_bbl",
+    "slurry_yield_ft3_sk",
+)
+
+
+def _is_plug(method: Any) -> bool:
+    from core.engineering.engines.cement import CementEngine
+    return method == CementEngine.BALANCED_PLUG_VERSION
+
+
+def _params_for(method: Any) -> tuple:
+    return _PLUG_PARAMS if _is_plug(method) else _ENGINE_PARAMS
+
+
 def _clean_number(value: Any) -> Optional[float]:
     """Return a finite float or ``None`` (never a bool, NaN or inf)."""
     if value is None or isinstance(value, bool):
@@ -97,7 +122,7 @@ def build_snapshot(*, inputs: Mapping[str, Any], method: str) -> Dict[str, Any]:
     JSON-serializable and self-contained.
     """
     params: Dict[str, Any] = {}
-    for key in _ENGINE_PARAMS:
+    for key in _params_for(method):
         params[key] = _clean_number(inputs.get(key))
     return {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
@@ -114,7 +139,7 @@ def snapshot_to_engine_args(snapshot: Mapping[str, Any]) -> Dict[str, Any]:
     contract is honored exactly.
     """
     params = snapshot.get("parameters", {}) or {}
-    return {key: params.get(key) for key in _ENGINE_PARAMS}
+    return {key: params.get(key) for key in _params_for(snapshot.get("method"))}
 
 
 def recalculate_from_snapshot(snapshot: Mapping[str, Any]):
@@ -126,6 +151,8 @@ def recalculate_from_snapshot(snapshot: Mapping[str, Any]):
     """
     from core.engineering.engines.cement import CementEngine
 
+    if _is_plug(snapshot.get("method")):
+        return CementEngine.balanced_plug(**snapshot_to_engine_args(snapshot))
     return CementEngine.job_volumes(**snapshot_to_engine_args(snapshot))
 
 
@@ -143,4 +170,7 @@ SUMMARY_KEYS = (
 
 def result_summary(values: Mapping[str, Any]) -> Dict[str, Optional[float]]:
     """Extract the headline scalar claims from an engine ``values`` dict."""
-    return {k: _clean_number(values.get(k)) for k in SUMMARY_KEYS}
+    summary = {k: _clean_number(values.get(k)) for k in SUMMARY_KEYS}
+    if summary["displacement_volume_bbl"] is None and "displacement_bbl" in values:   # balanced plug (M52)
+        summary["displacement_volume_bbl"] = _clean_number(values.get("displacement_bbl"))
+    return summary
