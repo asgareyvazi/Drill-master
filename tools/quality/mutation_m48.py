@@ -160,8 +160,10 @@ MUTANTS = [
            'import html as html_lib\nimport warnings\nwarnings.filterwarnings("ignore")\n',
            UI, "module-level global warning suppression restored"),
     Mutant("B-forced-backend", W12,
-           "import matplotlib\n",
-           'import matplotlib\nmatplotlib.use("Qt5Agg")\n',
+           # M52 port: w12 no longer imports Matplotlib at module level (the charts are rendered by
+           # core.analysis_payloads with the Agg canvas); the same statements go into its import block.
+           "from core import analysis_payloads as ap\n",
+           'from core import analysis_payloads as ap\nimport matplotlib\nmatplotlib.use("Qt5Agg")\n',
            UI, "module import forces a Matplotlib backend"),
     # ------------------------------------------------------------ legacy rows
     Mutant("L-canonical-legacy-double-count", "core/operations_intelligence.py",

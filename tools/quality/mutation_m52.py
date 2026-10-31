@@ -9,7 +9,10 @@ M46 one: ``tools/quality/mutation_m46.py``.  The repository is never modified.
 The two M50 survivors (``R-file-name-context-dropped``,
 ``R-absent-ignores-context``) are re-run here with the M52 test that pins the
 behaviour they change (a code-only question on a file-name identity), with the
-exact snippets of ``tools/quality/mutation_m50.py``.
+exact snippets of ``tools/quality/mutation_m50.py``.  So is
+``A-sentence-inherits-any-size``: the M52 own-support gate repeats the size rule,
+so the M50 gold question no longer observes the ranking stage it mutates; the
+M52 test pins that stage (which supported sentences fill the quote slots).
 
 Usage::
 
@@ -55,6 +58,8 @@ T_DDR = ["tests/test_m52_ddr_manual_edit.py"]
 SP = "core/ddr_pdf_split.py"
 DLG = "dialogs/excel_import_dialog.py"
 T_SP = ["tests/test_m52_ddr_pdf_split.py"]
+LS = "tools/quality/lifecycle_stress_m52.py"
+T_LS = ["tests/test_m52_lifecycle_stress.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------ §2.4 the M50 survivors, re-run
@@ -66,6 +71,10 @@ MUTANTS = [
            "        covered = set(self.context_covered(page_id, codes)) if codes else set()",
            "        covered = set()",
            T_SS, "the insufficient-evidence message claims a well code is missing that the file name states"),
+    Mutant("A-sentence-inherits-any-size", KA,
+           "                                   (size_tokens if not kr.size_designations(s) else frozenset()))[0], i, s)",
+           "                                   size_tokens)[0], i, s)",
+           T_SS, "a sentence about another size (13-3/8 in LOT) takes a quote slot for the asked size (M50 mutant)"),
     # ------------------------------------------------------------ §2.2 scope lists on a worker
     Mutant("KP-scope-list-read-on-gui", KP,
            "        token = self._choices_token[slot]\n        if _reads_on_worker(self.db_manager):",
@@ -330,6 +339,27 @@ MUTANTS = [
            " + self._pdf_split_details(pdf_split_info),",
            ",",
            T_SP, "a failed import of a multi-report PDF does not say it holds several reports"),
+    # ------------------------------------------------------------ §2.5 lifecycle stress harness
+    Mutant("LS-rootdir-ignored", LS,
+           '    if rootdir is not None:\n        command.append(f"--rootdir={rootdir}")',
+           '    if False:\n        command.append(f"--rootdir={rootdir}")',
+           T_LS, "test ids of modules on another drive lose their file part (Windows: '::test_name')"),
+    Mutant("LS-logged-fatal-ignored", LS,
+           '    if fatal and not timed_out and not fatal[0].startswith("Timeout (0:")',
+           '    if False and fatal and not timed_out and not fatal[0].startswith("Timeout (0:")',
+           T_LS, "a C runtime abort (exit 3 on Windows) with a fatal stack is reported as a pytest internal error"),
+    Mutant("LS-hang-dump-promoted", LS,
+           ' and not fatal[0].startswith("Timeout (0:")',
+           "",
+           T_LS, "a faulthandler hang dump of a run that then failed normally is called a native crash"),
+    Mutant("LS-orphans-pass", LS,
+           "        return self.exit_code == 0 and not self.orphans and not self.new_dumps",
+           "        return self.exit_code == 0 and not self.new_dumps",
+           T_LS, "a child process left running does not fail the repetition"),
+    Mutant("LS-signal-not-native", LS,
+           '        return {"kind": "signal", "native_crash": True,',
+           '        return {"kind": "signal", "native_crash": False,',
+           T_LS, "a POSIX signal death is not a native crash"),
 ]
 
 

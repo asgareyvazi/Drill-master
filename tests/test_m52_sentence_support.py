@@ -210,3 +210,70 @@ def test_m50_file_name_identity_questions_quote_no_unrelated_sentence(m50_index,
     answer, quotes = _quotes(m50_index, question)
     assert answer.state == "ready" and any(wanted in q for q in quotes), quotes
     assert not any(unrelated in q for q in quotes), quotes
+
+
+# ---- M50 mutant A-sentence-inherits-any-size after the M52 support gate ---------------------
+# The own-support gate repeats the size rule, so the M50 gold question no longer observes the ranking
+# stage; the ranking still decides WHICH supported sentences fill the two quote slots.  A sentence about
+# another size must not inherit the asked size there either, or it displaces a sentence that names no
+# size and is quoted for the asked size.
+def _size_corpus():
+    from document_link_fixtures import without_session_user
+    from m49_knowledge_fixtures import make_db
+
+    from core.database import Company, DocumentLink, Project, Well
+    from core.document_library import PAGE_OK, READY, DocumentExtract, DocumentLibrary, PageDecision, PageExtract
+    pages = [["The LOT at the 9-5/8 in shoe gave 1.85 sg EMW. The LOT at the 13-3/8 in shoe gave 1.65 sg EMW. "
+              "The LOT EMW was confirmed by the office."],
+             ["The 9-5/8 in casing was run to 2400 m."]]
+    db = make_db()
+    with without_session_user():
+        session = db.create_session()
+        try:
+            company = Company(name="SYNTHETIC M52 SIZE CO", code="SYN-M52SZ")
+            session.add(company)
+            session.flush()
+            project = Project(name="SYNTHETIC M52 SIZE", code="SYN-M52SP", company_id=company.id)
+            session.add(project)
+            session.flush()
+            well = Well(name="SYN-QD-41", code="SYN-QD", project_id=project.id)
+            session.add(well)
+            session.flush()
+            well_id = well.id
+            session.commit()
+        finally:
+            session.close()
+        library = DocumentLibrary(db)
+        ids = []
+        try:
+            for n, texts in enumerate(pages):
+                body = f"m52-size:{n}\x00" + "\x00".join(texts)
+                extract = DocumentExtract(
+                    path=f"/synthetic/m52-size/{n}", file_name=f"SYN-QD-41 size notes {n}.pdf",
+                    size_bytes=len(body.encode("utf-8")), sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                    kind="pdf", page_count=len(texts), status=READY,
+                    pages=[PageExtract(i, f"page {i}", t, "pdf-text", PAGE_OK) for i, t in enumerate(texts, start=1)])
+                outcome = library.import_reviewed(extract, {i: PageDecision(approved=True)
+                                                            for i in range(1, len(texts) + 1)})
+                assert outcome.status == "imported", outcome.message
+                ids.append(outcome.document_id)
+        finally:
+            library.close()
+        session = db.create_session()
+        try:
+            for document_id in ids:
+                session.add(DocumentLink(document_id=document_id, well_id=well_id, linked_by="synthetic"))
+            session.commit()
+        finally:
+            session.close()
+    return kr.KnowledgeIndex(kr.read_corpus(db))
+
+
+@pytest.mark.parametrize("question", ["LOT EMW 9-5/8 in shoe", "LOT 9-5/8 in shoe", "EMW at the 9-5/8 in shoe"])
+def test_a_sentence_about_another_size_never_takes_a_quote_slot(question):
+    index = _size_corpus()
+    retrieval = index.retrieve(question)
+    item = next(e for e in ka.make_evidence(retrieval) if "13-3/8" in e.text)
+    quoted = ka._best_sentences(index, item, retrieval)
+    assert quoted and "1.85 sg" in quoted[0], quoted
+    assert not any("13-3/8" in s for s in quoted), quoted          # 1.65 sg belongs to another casing size

@@ -54,8 +54,9 @@ MUTANTS = [
            "        if not self.current_well_id:",
            T_ASYNC, "a revision requested before a scope change is painted for the new scope"),
     Mutant("N-verify-skipped", W12,
-           '            self._start_revision("verify", painted=revision, reloads=reloads)\n            return',
-           "            self._finish_status([])\n            return",
+           # M52 port: the staged paint moved this tail into _snapshot_painted (same statements).
+           '        self._start_revision("verify", painted=revision, reloads=reloads)\n\n    def wait_until_idle',
+           "        self._finish_status([])\n\n    def wait_until_idle",
            T_ASYNC, "no second revision: a write committed during the load is shown as Updated"),
     Mutant("N-verify-mismatch-accepted", W12,
            "        if revision == painted:",
@@ -86,8 +87,9 @@ MUTANTS = [
            "            with __import__('contextlib').nullcontext(self.db_manager) as reader:",
            T_ASYNC, "the worker reads through the GUI's engine instead of its own read-only one"),
     Mutant("N-error-shown-as-updated", W12,
-           '            if error:\n                failed.append(f"read data revision ({error})")',
-           "            if error:\n                pass",
+           # M52 port: moved into _snapshot_painted (same statements, one indent level less).
+           '        if error:\n            failed.append(f"read data revision ({error})")',
+           "        if error:\n            pass",
            T_ASYNC, "a failed revision read is reported as Updated"),
     # ------------------------------------------------------------ GC only on the GUI thread
     Mutant("G-automatic-gc-left-on", GC,

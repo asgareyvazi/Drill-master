@@ -29,12 +29,24 @@ _spec.loader.exec_module(_mod)
 pytest_runtest_logstart = _mod.pytest_runtest_logstart
 '''
 
+# A C runtime raise(SIGABRT) - the path faulthandler's own re-raise and abort() take: on Windows the process
+# exits with 3, the code pytest uses for an internal error, so only the logged fatal error tells them apart.
+ABORT = '''
+import ctypes, os, signal
+
+def test_raises_sigabrt():
+    if os.name == "nt":   # this synthetic child only: no crash dialog may block the runner
+        ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002 | 0x8000)
+    signal.raise_signal(signal.SIGABRT)
+'''
+
 CRASH = '''
 import ctypes, faulthandler, os
 
 def test_native_crash():
     if os.name == "nt":   # this synthetic child only: no crash dialog may block the runner
         ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002 | 0x8000)
+        faulthandler._read_null()     # a real access violation (0xC0000005); _sigsegv() is a C runtime raise()
     faulthandler._sigsegv()
 '''
 
@@ -51,6 +63,7 @@ def _module(tmp_path: Path, name: str, body: str) -> str:
 @pytest.mark.parametrize(("code", "timed_out", "kind", "native", "text"), [
     (0, False, "pytest", False, "all tests passed"),
     (1, False, "pytest", False, "tests failed"),
+    (3, False, "pytest", False, "internal error"),     # alone: see the C runtime abort test below
     (5, False, "pytest", False, "no tests collected"),
     (3221225477, False, "ntstatus", True, "0xC0000005 access violation"),
     (-1073741819, False, "ntstatus", True, "0xC0000005 access violation"),
@@ -77,23 +90,54 @@ def test_the_log_parser_finds_the_active_test_and_the_fatal_stack():
 
 def test_a_clean_repetition_passes_with_totals_memory_and_an_orphan_check(tmp_path):
     module = _module(tmp_path, "ok", "def test_ok():\n    assert 1 + 1 == 2\n")
-    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120)
+    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120, rootdir=tmp_path / "suite")
     assert rep.exit_code == 0 and rep.passed, rep.log
     assert rep.junit == {"tests": 1, "failures": 0, "errors": 0, "skipped": 0}
-    assert rep.log["last_test_started"].endswith("test_ok.py::test_ok")
+    assert rep.log["last_test_started"] == "test_ok.py::test_ok"
     assert rep.orphans == [] and rep.peak_memory_mb and rep.peak_memory_mb > 5
 
 
 def test_a_native_crash_is_recorded_with_the_test_that_was_running_and_its_stack(tmp_path):
     module = _module(tmp_path, "crash", CRASH)
-    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120)
+    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120, rootdir=tmp_path / "suite")
     assert not rep.passed and rep.classification["native_crash"], (rep.exit_code, rep.classification)
-    assert rep.log["last_test_started"].endswith("test_crash.py::test_native_crash")
+    assert rep.log["last_test_started"] == "test_crash.py::test_native_crash"
     assert rep.log["fatal_stack"] and "test_crash.py" in "\n".join(rep.log["fatal_stack"])
     assert rep.junit is None                                    # the interpreter died before writing it
     summary = stress.summarise([rep], [module], "NOT CONFIGURED", require_orphan_check=True)
     assert summary["verdict"] == "FAIL" and summary["native_crashes"] == [1]
     assert "test_native_crash" in stress.markdown(summary) and "faulthandler stack" in stress.markdown(summary)
+
+
+def test_a_c_runtime_abort_is_a_native_crash_whatever_its_exit_code(tmp_path):
+    module = _module(tmp_path, "abort", ABORT)
+    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120, rootdir=tmp_path / "suite")
+    assert not rep.passed and rep.classification["native_crash"], (rep.exit_code, rep.classification)
+    assert rep.log["last_test_started"] == "test_abort.py::test_raises_sigabrt"
+    assert rep.log["fatal_stack"] and rep.log["fatal_stack"][0].startswith("Fatal Python error")
+    if os.name == "nt":
+        assert rep.exit_code == 3 and "faulthandler reported" in rep.classification["text"]
+
+
+@pytest.mark.parametrize(("banner", "code", "native"), [
+    ("Fatal Python error: Aborted", 3, True),            # what a Windows C runtime raise()/abort() leaves
+    ("Timeout (0:00:05)!", 1, False),                    # a hang dump of a run that then failed normally
+])
+def test_a_logged_fatal_error_decides_whether_an_exit_code_is_a_native_death(tmp_path, banner, code, native):
+    """SIMULATED on every platform: the child writes the banner faulthandler writes and exits with the code."""
+    module = _module(tmp_path, "banner", f'''
+        import os
+
+        def test_writes_banner(capfd):
+            with capfd.disabled():        # the real descriptor 2, as faulthandler writes it
+                os.write(2, ({banner!r} + "\\n\\nCurrent thread 0x1 (most recent call first):\\n").encode())
+                os._exit({code})
+    ''')
+    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120, rootdir=tmp_path / "suite")
+    assert rep.exit_code == code and not rep.passed
+    assert rep.classification["native_crash"] is native, rep.classification
+    assert rep.classification["kind"] == "pytest"
+    assert ("faulthandler reported" in rep.classification["text"]) is native
 
 
 def _alive(pid: int) -> bool:
@@ -117,7 +161,7 @@ def test_a_child_left_running_is_an_orphan_that_fails_the_repetition_and_is_kill
             child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
             Path({str(pid_file)!r}).write_text(str(child.pid))
     ''')
-    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120)
+    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120, rootdir=tmp_path / "suite")
     pid = int(pid_file.read_text())
     assert rep.exit_code == 0 and not rep.passed                # the tests passed; the leftover fails it
     assert pid in [o["pid"] for o in rep.orphans]
@@ -131,9 +175,9 @@ def test_a_child_left_running_is_an_orphan_that_fails_the_repetition_and_is_kill
 
 def test_a_hang_is_killed_at_the_timeout_and_reported_as_such(tmp_path):
     module = _module(tmp_path, "hang", "import time\n\ndef test_hangs():\n    time.sleep(60)\n")
-    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=6)
+    rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=6, rootdir=tmp_path / "suite")
     assert rep.classification["kind"] == "timeout" and not rep.passed and rep.seconds < 40
-    assert rep.log["last_test_started"].endswith("test_hang.py::test_hangs")
+    assert rep.log["last_test_started"] == "test_hang.py::test_hangs"
 
 
 def test_an_unavailable_orphan_check_cannot_pass_when_it_is_required():

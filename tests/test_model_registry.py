@@ -80,7 +80,11 @@ def test_legacy_model_module_re_exports_the_authoritative_classes():
 def test_every_live_registry_with_mappers_is_the_authoritative_one():
     for module in ("core.db_models", "core.db_services", "core.managers"):
         importlib.import_module(module)
-    registries = [obj for obj in gc.get_objects() if isinstance(obj, sa_registry) and obj.mappers]
+    # type(), not isinstance(): isinstance reads ``__class__``, which raises ReferenceError for a dead
+    # weakref.proxy anywhere in the heap.  PyMuPDF keeps one alive after any table extraction
+    # (pymupdf.table.TEXTPAGE, whose ``parent`` proxies the closed page; M52 evidence, also on M51 code).
+    # A proxy is never itself a registry, so the set of registries found is unchanged.
+    registries = [obj for obj in gc.get_objects() if issubclass(type(obj), sa_registry) and obj.mappers]
     assert registries == [database.Base.registry]
 
 

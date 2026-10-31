@@ -37,7 +37,7 @@ from typing import Optional
 ROOT = Path(__file__).resolve().parents[2]
 BREADCRUMB = "DRILLMASTER-TEST-START "
 PYTEST_CODES = {0: "pytest: all tests passed", 1: "pytest: tests failed", 2: "pytest: interrupted",
-                3: "pytest: internal error", 4: "pytest: usage error", 5: "pytest: no tests collected"}
+                3: "pytest: internal error (on Windows also the C runtime exit of abort()/raise())", 4: "pytest: usage error", 5: "pytest: no tests collected"}
 NTSTATUS = {0xC0000005: "access violation", 0xC0000409: "stack buffer overrun / fail-fast",
             0xC0000374: "heap corruption", 0xC00000FD: "stack overflow", 0x80000003: "breakpoint",
             0xE06D7363: "unhandled C++ exception", 0xC0000135: "DLL not found",
@@ -205,7 +205,10 @@ def _dumps(folder: Optional[Path]) -> dict:
 
 
 def run_repetition(number: int, modules: list[str], work_root: Path, timeout: float,
-                   dump_dir: Optional[Path] = None, extra_env: Optional[dict] = None) -> Repetition:
+                   dump_dir: Optional[Path] = None, extra_env: Optional[dict] = None,
+                   rootdir: Optional[Path] = None) -> Repetition:
+    """One fresh interpreter.  ``rootdir`` names the folder test ids are relative to; pass it for modules
+    outside the checkout (on Windows a module on another drive otherwise gets the id ``::test_name``)."""
     rep = Repetition(number)
     root = work_root / f"repetition-{number}"
     (root / "data").mkdir(parents=True, exist_ok=True)
@@ -219,6 +222,8 @@ def run_repetition(number: int, modules: list[str], work_root: Path, timeout: fl
     hang_dump = max(30, int(timeout) - 30)
     command = [sys.executable, "-X", "faulthandler", "-m", "pytest", "-ra", "-q", "-p", "no:cacheprovider",
                "-o", f"faulthandler_timeout={hang_dump}", *modules, f"--junitxml={junit}"]
+    if rootdir is not None:
+        command.append(f"--rootdir={rootdir}")
     before = _dumps(dump_dir)
     started = time.monotonic()
     timed_out = False
@@ -263,6 +268,13 @@ def run_repetition(number: int, modules: list[str], work_root: Path, timeout: fl
     rep.new_dumps = [{"file": name, "bytes": size} for name, size in after.items() if name not in before]
     text = log_path.read_text(encoding="utf-8", errors="replace")
     rep.log = parse_log(text)
+    fatal = rep.log["fatal_stack"]
+    if fatal and not timed_out and not fatal[0].startswith("Timeout (0:") and not rep.classification["native_crash"]:
+        # The interpreter reported its own fatal error: a native death whatever the exit code.  On Windows a
+        # C runtime raise()/abort() (faulthandler re-raises SIGSEGV/SIGABRT that way) exits with 3, the
+        # code pytest uses for an internal error.
+        rep.classification = {"kind": rep.classification["kind"], "native_crash": True,
+                              "text": f"{rep.classification['text']}; faulthandler reported: {fatal[0]}"}
     rep.junit = junit_totals(junit)
     rep.log_file = str(log_path)
     return rep
