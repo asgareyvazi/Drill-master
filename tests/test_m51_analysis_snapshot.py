@@ -95,11 +95,12 @@ def ui_results():
 
 
 def test_every_required_case_has_a_scenario():
-    assert len(SCENARIOS) == 12
+    assert len(SCENARIOS) == 13
     for needed in ("no_gui_thread_sql", "plain_python", "equals_synchronous", "reader_error",
                    "analytics_input_error", "db_edit_while_worker_reads", "refresh_during_snapshot",
                    "auto_tick_during_snapshot", "rapid_scope_changes", "view_change_during_snapshot",
-                   "close_while_reader_runs", "fails_closed"):
+                   "close_while_reader_runs", "fails_closed",
+                   "scope_change_without_cancel"):
         assert any(needed in name for name in SCENARIOS), needed
 
 

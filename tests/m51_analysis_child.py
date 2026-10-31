@@ -33,17 +33,22 @@ def scenario(fn):
 
 
 class GuiSql:
-    """Counts statements run through the GUI engine on the GUI thread."""
+    """Statements run through the GUI engine: on the GUI thread (``statements``) and
+    on any other thread (``worker_statements`` - a worker must use its own engine)."""
 
     def __init__(self, ctx):
         self.ctx = ctx
         self.statements = []
+        self.worker_statements = []
         self.paused = False
         event.listen(ctx.db.engine, "before_cursor_execute", self._on_execute)
 
     def _on_execute(self, conn, cursor, statement, parameters, context, executemany):
-        if not self.paused and threading.get_ident() == base.MAIN_THREAD:
-            self.statements.append(" ".join(statement.split())[:80])
+        text = " ".join(statement.split())[:80]
+        if threading.get_ident() != base.MAIN_THREAD:
+            self.worker_statements.append(text)
+        elif not self.paused:
+            self.statements.append(text)
 
     def close(self):
         event.remove(self.ctx.db.engine, "before_cursor_execute", self._on_execute)
@@ -143,6 +148,7 @@ def no_gui_thread_sql_in_any_cycle_or_selection_path(ctx):
     app.processEvents()
     ctx.well("A")
     assert ctx.gui_sql.statements == [], ctx.gui_sql.statements[:10]
+    assert ctx.gui_sql.worker_statements == [], ctx.gui_sql.worker_statements[:10]
     assert ctx.tab.missing_prefetch == 0 and updated(ctx), (ctx.tab.missing_prefetch, ctx.status())
     # Positive control: the probe does see GUI-thread reads (the synchronous path).
     ctx.tab._uses_revision_worker = lambda: False
@@ -167,6 +173,8 @@ def snapshot_payload_is_plain_python_read_on_a_worker(ctx):
         assert needed in names, (needed, sorted(names))
     assert any(n.startswith("evidence:") for n in names), sorted(names)
     assert ctx.off_main_thread() and ctx.gui_sql.statements == []
+    # ... through the worker's own read-only engine (M47), never the GUI's engine.
+    assert ctx.gui_sql.worker_statements == [], ctx.gui_sql.worker_statements[:10]
 
 
 @scenario
@@ -319,6 +327,30 @@ def rapid_scope_changes_paint_only_the_final_scope(ctx):
     for other in ("B", "C"):
         assert ctx.revision(other) not in painted_revisions, other
     assert ctx.gui_sql.statements == []
+
+
+@scenario
+def scope_change_without_cancel_never_paints_the_old_snapshot(ctx):
+    # The generation check is the second guard behind the sequence check: today
+    # every scope change also cancels the running snapshot as soon as a view asks
+    # for a value (``_request_snapshot``).  A scope change that requests nothing
+    # and cancels nothing must still never paint the old snapshot: it is
+    # delivered, ignored, and a fresh snapshot is read for the new scope.
+    ctx.well("C")
+    start = len(ctx.hook.calls)
+    gate = ctx.hook.gate(start, honour_cancel=False)
+    ctx.tab.auto_update_data()
+    assert until(lambda: len(ctx.hook.calls) == start + 1)
+    old = ctx.tab._rev_worker
+    assert isinstance(old, w12.AnalysisSnapshotWorker)
+    ctx.tab._generation += 1                            # scope changed; no cancel, no request
+    gate.set()
+    ctx.idle()
+    assert old.ticket in [t for t, _, _ in ctx.delivered], "the old snapshot was not delivered"
+    fresh = [t for t, p, e in ctx.delivered
+             if t[2] == "before" and t[0] == ctx.tab._generation and isinstance(p, tuple)]
+    assert fresh, "no snapshot was read for the new scope (the old one was painted instead)"
+    assert updated(ctx) and ctx.gui_sql.statements == []
 
 
 @scenario
