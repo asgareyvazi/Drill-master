@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,10 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 CHILD = HERE / "m51_analysis_child.py"
 W12 = ROOT / "tabs" / "w12_Analysis.py"
+# A healthy child writes a few KB to stderr in ~30 s.  Runaway output (e.g. an endless
+# synchronous paint/read recursion logging a traceback per turn) fails the run at once
+# instead of being buffered in this process until the timeout (M51: ~3.8 MB/s).
+STDERR_LIMIT = 8 * 1024 * 1024
 
 
 def _scenarios():
@@ -46,16 +51,46 @@ def _env():
 def ui_results():
     pytest.importorskip("PySide6")
     pytest.importorskip("pyqtgraph")
-    proc = subprocess.run([sys.executable, str(CHILD)], cwd=str(ROOT), env=_env(),
-                          capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", timeout=900)
+    proc = subprocess.Popen([sys.executable, str(CHILD)], cwd=str(ROOT), env=_env(),
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            encoding="utf-8", errors="replace")
+    err = {"size": 0, "tail": "", "runaway": False}
+
+    def drain_stderr():                 # bounded: keeps only a tail, kills on runaway output
+        for chunk in iter(lambda: proc.stderr.read(65536), ""):
+            err["size"] += len(chunk)
+            err["tail"] = (err["tail"] + chunk)[-4000:]
+            if err["size"] > STDERR_LIMIT and not err["runaway"]:
+                err["runaway"] = True
+                proc.kill()
+
+    out = []
+    readers = [threading.Thread(target=drain_stderr, daemon=True),
+               threading.Thread(target=lambda: out.append(proc.stdout.read()), daemon=True)]
+    for reader in readers:
+        reader.start()
+    try:
+        proc.wait(timeout=900)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        pytest.fail(f"UI child timed out after 900 s:\n{err['tail']}")
+    finally:
+        for reader in readers:
+            reader.join(10)
+        proc.stdout.close()
+        proc.stderr.close()
+    stdout = "".join(out)
+    if err["runaway"]:
+        pytest.fail(f"UI child wrote more than {STDERR_LIMIT} bytes to stderr (runaway errors); "
+                    f"killed:\n{err['tail']}")
     results = {}
-    for line in proc.stdout.splitlines():
+    for line in stdout.splitlines():
         if line.startswith("M51RESULT "):
             item = json.loads(line[len("M51RESULT "):])
             results[item["name"]] = item
     if not results:
-        pytest.fail(f"UI child produced no results (exit {proc.returncode}):\n{proc.stderr[-4000:]}")
+        pytest.fail(f"UI child produced no results (exit {proc.returncode}):\n{err['tail']}")
     return results
 
 
