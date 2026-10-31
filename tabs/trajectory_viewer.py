@@ -16,6 +16,8 @@ engineering calculation; it only presents ``WellTrajectory`` results.
 * M45: a "3D view" tab shows the same composed stations in 3D
   (``core.trajectory_3d``; East/North/TVD-down, same units, equal scale by
   default).  Picking a station there selects the same station everywhere.
+* M52: a "Compare / clearance" tab (``tabs.trajectory_compare_panel``) compares
+  the well with a plan file or an offset well - screening only, labelled so.
 
 Survey reads for one well are small (one indexed query), so loading runs on
 the UI thread.
@@ -131,6 +133,9 @@ class TrajectoryViewerTab(QWidget):
         self.view3d = Trajectory3DView()
         self.view_tabs.addTab(self.view3d, "3D view")
         self.view3d.station_picked.connect(self.select_station)
+        from tabs.trajectory_compare_panel import TrajectoryComparePanel
+        self.compare_panel = TrajectoryComparePanel(self.db_manager)     # M52 screening comparison
+        self.view_tabs.addTab(self.compare_panel, "Compare / clearance")
         splitter.addWidget(self.view_tabs)
 
         side = QWidget()
@@ -187,7 +192,10 @@ class TrajectoryViewerTab(QWidget):
 
     # ------------------------------------------------------------- context
     def set_context(self, well_id: Optional[int], report_id: Optional[int] = None):
+        well_changed = well_id != self.well_id
         self.well_id, self.report_id = well_id, report_id
+        if well_changed:
+            self.compare_panel.set_well(well_id)
         self.reload()
 
     def select_well(self, well_id: Optional[int]):
