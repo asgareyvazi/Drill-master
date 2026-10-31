@@ -148,6 +148,8 @@ def _page_id(db, doc_id, page_no):
 
 def _set_scope(panel, scope, target=None):
     panel.scope_combo.setCurrentIndex(panel.scope_combo.findData(scope))
+    # M52: a file database reads the well/document list on a worker; wait for it, never past it.
+    assert _wait(QApplication.instance(), panel.scope_choices_ready), panel.choices_state
     if target is not None:
         panel.target_combo.setCurrentIndex(panel.target_combo.findData(target))
     assert panel.current_scope() == (scope, target)
@@ -239,8 +241,8 @@ def test_delete_and_reimport_reusing_ids_with_same_length_text(app, world):
 # ---- links: create / change / remove, scope never broadened ---------------------------
 def test_link_create_change_and_remove_reach_the_next_answer_without_broadening(app, world):
     _tab, panel, ids, db, probe = world
+    probe.clear()               # M52: the scope's well list is read on a worker too, so the probe covers it
     _set_scope(panel, kr.SCOPE_WELL, ids["well_e"])
-    probe.clear()               # the scope combo's target list (well choices) is filled on the GUI thread
     answer = _ask(app, panel)
     assert (answer.retrieval.scope, answer.retrieval.target) == (kr.SCOPE_WELL, ids["well_e"])
     assert any(e.document_id == ids["ke_program"] for e in answer.evidence)
@@ -254,13 +256,11 @@ def test_link_create_change_and_remove_reach_the_next_answer_without_broadening(
     # change it to another well: it is found there, not under well_e
     _external_sql(db, "INSERT INTO document_links (document_id, well_id, report_id, linked_by, linked_at) "
                       "VALUES (:d, :w, NULL, 'synthetic', CURRENT_TIMESTAMP)", d=ids["ke_program"], w=ids["well_f"])
-    asks_sql = list(probe)
     _set_scope(panel, kr.SCOPE_WELL, ids["well_f"])
-    probe.clear()
     answer = _ask(app, panel)
     assert any(e.document_id == ids["ke_program"] for e in answer.evidence)
     assert all(e.document_id in {ids["ke_program"], ids["kf_plan"]} for e in answer.evidence)
-    assert asks_sql == [] and probe == [], (asks_sql[:3], probe[:3])
+    assert probe == [], probe[:3]
 
 
 # ---- errors, cancellation, library change ----------------------------------------------

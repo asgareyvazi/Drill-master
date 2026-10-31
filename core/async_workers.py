@@ -2,6 +2,35 @@
 from PySide6.QtCore import QThread, Signal
 import traceback
 
+_RELEASING = set()          # workers kept referenced until their run() has returned
+
+
+def release_when_finished(worker) -> None:
+    """Delete a ``QThread`` only after its ``run()`` has returned (M52).
+
+    A result signal (``done``, ``result_ready``...) is emitted from inside ``run()``;
+    calling ``deleteLater()`` from its slot can destroy the thread object while
+    ``run()`` is still returning, and Qt then aborts the whole process with
+    "QThread: Destroyed while thread is still running" - a native crash with no
+    Python traceback (reproduced on Linux by the M52 scope-list worker).  Deletion
+    from ``finished`` is the pattern Qt supports.  The connection is made before the
+    running check, so a thread that ends in between is still released exactly once.
+    """
+    if worker is None:
+        return
+    if not isinstance(worker, QThread):      # not a thread: nothing can still be running in it
+        worker.deleteLater()
+        return
+    _RELEASING.add(worker)
+
+    def release(w=worker):
+        _RELEASING.discard(w)
+        w.deleteLater()
+    worker.finished.connect(release)
+    if not worker.isRunning():               # never started, or already past finished
+        release()
+
+
 class FunctionWorker(QThread):
     """Run a callable off the UI thread and report result/error."""
     result_ready = Signal(object)

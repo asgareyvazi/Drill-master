@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QGroupBo
                                QLineEdit, QPlainTextEdit, QPushButton, QSplitter, QTableWidget, QTableWidgetItem,
                                QTextBrowser, QVBoxLayout, QWidget)
 
+from core.async_workers import release_when_finished
 from core import knowledge_answer as ka
 from core import knowledge_retrieval as kr
 from core import local_llm as ll
@@ -52,6 +53,8 @@ STATE_STYLE = {
     "model_unavailable": ("Model unavailable - showing the extractive answer", "#b71c1c"),
     "cancelled": ("Cancelled", "#455a64"),
     "stale": ("Question, scope or library changed - press Ask", "#455a64"),
+    "scope_loading": ("The scope list is still loading - ask again in a moment", "#1565c0"),
+    "scope_unavailable": ("The scope list could not be read - press Retry list", "#b71c1c"),
     "error": ("Error", "#b71c1c"),
 }
 _CITE = re.compile(r"\[\s*(S\d+(?:\s*[,،]\s*S\d+)*)\s*\]")
@@ -220,6 +223,47 @@ def _read_corpus_on_worker(db_manager) -> "kr.CorpusSnapshot":
         return kr.read_corpus(reader)
 
 
+# What each scope picker lists, the noun used in its messages, and the reader that fills it.
+CHOICE_NOUNS = {"wells": "wells", "documents": "documents", "reports": "reports"}
+
+
+def _read_scope_rows(db_manager, kind, well_id=None, link_class=None, library_class=None) -> list:
+    """Rows for one scope picker as plain dicts (M52): wells, documents or the reports of one well.
+
+    The services are the panel's own classes, constructed on ``db_manager`` so that a worker
+    reads through its own read-only connection with the same queries the GUI used before.
+    """
+    if kind == "wells":
+        return list(link_class(db_manager).well_choices())
+    if kind == "reports":
+        return list(link_class(db_manager).report_choices(well_id))
+    if kind == "documents":
+        return list(library_class(db_manager).list_documents())
+    raise ValueError(f"unknown scope list {kind!r}")
+
+
+class ScopeChoicesWorker(QThread):
+    """The well, document or report list for the scope pickers, read off the GUI thread (M52)."""
+
+    done = Signal(int, str, object, object)     # token, kind, rows | None, error kind | None
+
+    def __init__(self, token, kind, db_manager, link_class, library_class, well_id=None, parent=None):
+        super().__init__(parent)
+        self.token, self.kind, self.db_manager = token, kind, db_manager
+        self.link_class, self.library_class, self.well_id = link_class, library_class, well_id
+
+    def run(self):
+        from core.export_jobs import worker_database
+        try:
+            with worker_database(self.db_manager) as reader:
+                rows = _read_scope_rows(reader, self.kind, self.well_id, self.link_class, self.library_class)
+        except Exception as exc:
+            logger.warning("Scope list (%s) unavailable: %s", self.kind, type(exc).__name__)
+            self.done.emit(self.token, self.kind, None, type(exc).__name__)
+            return
+        self.done.emit(self.token, self.kind, rows, None)
+
+
 class AskWorker(QThread):
     """Reads the corpus (file database), builds the index if needed and answers one question."""
 
@@ -349,6 +393,13 @@ class KnowledgeAssistantPanel(QWidget):
         self.semantic_worker: Optional[SemanticBuildWorker] = None
         self.check_worker: Optional[CorpusCheckWorker] = None
         self._check_token = 0
+        # Scope pickers (M52): lists are read on a worker for a file database; the token drops late results.
+        self.choices_workers = {"targets": None, "reports": None}
+        self._choices_token = {"targets": 0, "reports": 0}
+        self.choices_state = {"targets": "none", "reports": "none"}   # none|loading|ready|empty|error
+        self.choices_error = {"targets": None, "reports": None}
+        self._targets_list_kind = None          # what the target picker currently lists
+        self._targets_previous = None
         self._cancel: Optional[ll.CancelToken] = None
         self._semantic_cancel: Optional[ll.CancelToken] = None
         self._old_workers = []
@@ -389,6 +440,11 @@ class KnowledgeAssistantPanel(QWidget):
         self.report_combo.setMinimumWidth(200)
         self.report_combo.currentIndexChanged.connect(lambda _i: self._invalidate("scope"))
         scope_row.addWidget(self.report_combo, 1)
+        self.choices_retry_button = QPushButton("Retry list")
+        self.choices_retry_button.setToolTip("Read the well, report or document list again")
+        self.choices_retry_button.clicked.connect(self._retry_choices)
+        self.choices_retry_button.setVisible(False)
+        scope_row.addWidget(self.choices_retry_button)
         layout.addLayout(scope_row)
 
         self.question_edit = QPlainTextEdit()
@@ -572,49 +628,170 @@ class KnowledgeAssistantPanel(QWidget):
             self._fill_reports()
         self._invalidate("scope")
 
-    def _fill_targets(self):
+    def _fill_targets(self, keep_current=False):
+        """Fill the well/document picker; a file database reads the list on a worker (M52).
+
+        ``keep_current`` (a library refresh) keeps the user's chosen well or document when it is
+        still listed, so a refresh never moves the question to another scope silently; a scope or
+        app-selection change follows the app's current well as before.
+        """
         scope = self.scope_combo.currentData()
-        self.target_combo.blockSignals(True)
-        self.target_combo.clear()
-        well_id, _report_id = self._current_selection()
-        if scope in (kr.SCOPE_WELL, kr.SCOPE_REPORT) and self.link_service is not None:
-            try:
-                for well in self.link_service.well_choices():
-                    code = f" ({well['code']})" if well.get("code") else ""
-                    self.target_combo.addItem(f"{well['name']}{code}", well["id"])
-            except Exception as exc:
-                logger.warning("Well list unavailable: %s", type(exc).__name__)
-            index = self.target_combo.findData(well_id) if well_id is not None else -1
-            self.target_combo.setCurrentIndex(index if index >= 0 else (0 if self.target_combo.count() else -1))
-        elif scope == kr.SCOPE_DOCUMENT and self.library is not None:
-            try:
-                for doc in self.library.list_documents():
-                    self.target_combo.addItem(f"{doc['file_name']}  (#{doc['id']}, {doc['stored_pages']} page(s))",
-                                              doc["id"])
-            except Exception as exc:
-                logger.warning("Document list unavailable: %s", type(exc).__name__)
-        self.target_combo.setEnabled(scope != kr.SCOPE_ALL and self.target_combo.count() > 0)
+        kind = self._targets_kind(scope)
+        current = self.target_combo.currentData()
+        self._targets_previous = (current if keep_current and current is not None
+                                  and self._targets_list_kind == kind else None)
+        self._begin_choices("targets", kind)
         self.target_combo.setVisible(scope != kr.SCOPE_ALL)
-        self.target_combo.blockSignals(False)
-        self._fill_reports()
+        if kind is None:
+            self._end_choices("targets", "none")
+            self._fill_reports()
+            return
+        self._request_choices("targets", kind)
+
+    def _targets_kind(self, scope=None):
+        scope = self.scope_combo.currentData() if scope is None else scope
+        if scope in (kr.SCOPE_WELL, kr.SCOPE_REPORT) and self.link_service is not None:
+            return "wells"
+        if scope == kr.SCOPE_DOCUMENT and self.library is not None:
+            return "documents"
+        return None
 
     def _fill_reports(self):
         scope = self.scope_combo.currentData()
-        self.report_combo.blockSignals(True)
-        self.report_combo.clear()
-        if scope == kr.SCOPE_REPORT and self.link_service is not None and self.target_combo.currentData() is not None:
-            _well, report_id = self._current_selection()
-            try:
-                for report in self.link_service.report_choices(self.target_combo.currentData()):
-                    when = report["report_date"].isoformat() if report.get("report_date") else "no date"
-                    self.report_combo.addItem(f"Report #{report.get('report_number') or '?'} · {when}", report["id"])
-            except Exception as exc:
-                logger.warning("Report list unavailable: %s", type(exc).__name__)
-            index = self.report_combo.findData(report_id) if report_id is not None else -1
-            self.report_combo.setCurrentIndex(index if index >= 0 else (0 if self.report_combo.count() else -1))
+        well_id = self.target_combo.currentData()
+        kind = "reports" if (scope == kr.SCOPE_REPORT and self.link_service is not None
+                             and well_id is not None) else None
+        self._begin_choices("reports", kind)
         self.report_combo.setVisible(scope == kr.SCOPE_REPORT)
-        self.report_combo.setEnabled(scope == kr.SCOPE_REPORT and self.report_combo.count() > 0)
-        self.report_combo.blockSignals(False)
+        if kind is None:
+            self._end_choices("reports", "none")
+            return
+        self._request_choices("reports", kind, well_id)
+
+    def _combo(self, slot):
+        return self.target_combo if slot == "targets" else self.report_combo
+
+    def _begin_choices(self, slot, kind):
+        """Empty the picker and drop any list still being read for it."""
+        self._choices_token[slot] += 1
+        worker = self.choices_workers[slot]
+        if worker is not None:
+            self.choices_workers[slot] = None
+            self._retire(worker)
+        if slot == "targets":                    # the report list belongs to the old well
+            self._targets_list_kind = None
+            self._begin_choices("reports", None)
+        combo = self._combo(slot)
+        combo.blockSignals(True)
+        combo.clear()
+        combo.blockSignals(False)
+        combo.setEnabled(False)
+        self.choices_error[slot] = None
+        if kind is not None:
+            self.choices_state[slot] = "loading"
+            combo.setPlaceholderText(f"Loading {CHOICE_NOUNS[kind]}…")
+        self._update_choices_retry()
+
+    def _request_choices(self, slot, kind, well_id=None):
+        token = self._choices_token[slot]
+        if _reads_on_worker(self.db_manager):
+            worker = ScopeChoicesWorker(token, kind, self.db_manager, type(self.link_service),
+                                        type(self.library), well_id, parent=self)
+            worker.done.connect(self._choices_read)
+            self.choices_workers[slot] = worker
+            worker.start()
+            return
+        try:                                     # in-memory database: the worker may not share it
+            if kind == "wells":
+                rows = self.link_service.well_choices()
+            elif kind == "reports":
+                rows = self.link_service.report_choices(well_id)
+            else:
+                rows = self.library.list_documents()
+        except Exception as exc:
+            logger.warning("Scope list (%s) unavailable: %s", kind, type(exc).__name__)
+            self._apply_choices(slot, kind, None, type(exc).__name__)
+            return
+        self._apply_choices(slot, kind, list(rows), None)
+
+    def _choices_read(self, token, kind, rows, error):
+        slot = "reports" if kind == "reports" else "targets"
+        worker = self.sender()
+        if worker is not None and self.choices_workers.get(slot) is worker:
+            self.choices_workers[slot] = None
+            release_when_finished(worker)       # done is emitted inside run(): never delete it here
+        if token != self._choices_token[slot]:
+            return                               # a newer scope, well or library change owns the picker
+        self._apply_choices(slot, kind, rows, error)
+
+    def _apply_choices(self, slot, kind, rows, error):
+        combo = self._combo(slot)
+        noun = CHOICE_NOUNS[kind]
+        if error is not None:
+            combo.setPlaceholderText(f"⚠ The {noun} could not be read ({error})")
+            self.choices_error[slot] = error
+            self._end_choices(slot, "error")
+            if slot == "targets":
+                self._fill_reports()
+            return
+        combo.blockSignals(True)
+        for row in rows:
+            if kind == "wells":
+                code = f" ({row['code']})" if row.get("code") else ""
+                combo.addItem(f"{row['name']}{code}", row["id"])
+            elif kind == "reports":
+                when = row["report_date"].isoformat() if row.get("report_date") else "no date"
+                combo.addItem(f"Report #{row.get('report_number') or '?'} · {when}", row["id"])
+            else:
+                combo.addItem(f"{row['file_name']}  (#{row['id']}, {row['stored_pages']} page(s))", row["id"])
+        well_id, report_id = self._current_selection()
+        wanted = [self._targets_previous, well_id] if slot == "targets" else [report_id]
+        if kind == "documents":
+            wanted = [self._targets_previous]
+        index = next((i for i in (combo.findData(w) for w in wanted if w is not None) if i >= 0), -1)
+        combo.setCurrentIndex(index if index >= 0 else (0 if combo.count() else -1))
+        combo.blockSignals(False)
+        combo.setPlaceholderText("" if rows else f"No {noun}")
+        if slot == "targets":
+            self._targets_list_kind = kind
+        self._end_choices(slot, "ready" if rows else "empty")
+        if slot == "targets":
+            self._fill_reports()
+
+    def _end_choices(self, slot, state):
+        self.choices_state[slot] = state
+        combo = self._combo(slot)
+        combo.setEnabled(state == "ready")
+        if state == "none":
+            combo.setPlaceholderText("")
+        self._update_choices_retry()
+
+    def _update_choices_retry(self):
+        if hasattr(self, "choices_retry_button"):
+            self.choices_retry_button.setVisible("error" in self.choices_state.values())
+
+    def _retry_choices(self):
+        if self.choices_state["targets"] == "error":
+            self._fill_targets()
+        elif self.choices_state["reports"] == "error":
+            self._fill_reports()
+
+    def scope_choices_ready(self) -> bool:
+        """True when no picker list is still being read."""
+        return "loading" not in self.choices_state.values()
+
+    def _scope_choices_block(self):
+        """The state that refuses a question while the scope's list is loading or unreadable."""
+        scope = self.scope_combo.currentData()
+        if scope == kr.SCOPE_ALL:
+            return None
+        slots = ["targets", "reports"] if scope == kr.SCOPE_REPORT else ["targets"]
+        states = [self.choices_state[slot] for slot in slots]
+        if "loading" in states:
+            return "scope_loading"
+        if "error" in states:
+            return "scope_unavailable"
+        return None
 
     def current_scope(self):
         """(scope, target id or None)."""
@@ -671,7 +848,7 @@ class KnowledgeAssistantPanel(QWidget):
 
     def library_changed(self):
         """Called by the Documents tab after import/delete/link changes."""
-        self._fill_targets()
+        self._fill_targets(keep_current=True)
         if self._index is not None or self._semantic_signature is not None:
             if _reads_on_worker(self.db_manager):
                 self._start_corpus_check()       # M51: the signature is read off the GUI thread
@@ -741,6 +918,10 @@ class KnowledgeAssistantPanel(QWidget):
         question = self.question_edit.toPlainText().strip()
         if not question:
             self._set_state("invalid_query", "type a question first")
+            return False
+        blocked = self._scope_choices_block()
+        if blocked is not None:                  # never ask "nothing in this scope" for a list not yet read
+            self._set_state(blocked)
             return False
         scope, target = self.current_scope()
         return self._start(question, scope, target, None)
@@ -968,8 +1149,7 @@ class KnowledgeAssistantPanel(QWidget):
 
     def _status_done(self, generation, status):
         worker, self.status_worker = self.status_worker, None
-        if worker is not None:
-            worker.deleteLater()
+        release_when_finished(worker)           # M52: done is emitted inside run()
         self.check_model_button.setEnabled(True)
         if generation != getattr(self, "_generation_status", 0):
             return
@@ -1045,8 +1225,7 @@ class KnowledgeAssistantPanel(QWidget):
 
     def _semantic_done(self, result):
         worker, self.semantic_worker = self.semantic_worker, None
-        if worker is not None:
-            worker.deleteLater()
+        release_when_finished(worker)           # M52: done is emitted inside run()
         self.build_semantic_button.setText("Build semantic index")
         state = result.get("state")
         if state == "complete":
@@ -1064,7 +1243,8 @@ class KnowledgeAssistantPanel(QWidget):
         self._stop_worker()
         if self._semantic_cancel is not None:
             self._semantic_cancel.cancel()
-        for worker in [self.semantic_worker, self.status_worker, self.check_worker, *self._old_workers]:
+        for worker in [self.semantic_worker, self.status_worker, self.check_worker,
+                       *self.choices_workers.values(), *self._old_workers]:
             if worker is not None:
                 worker.wait(5000)
         if self._index is not None:

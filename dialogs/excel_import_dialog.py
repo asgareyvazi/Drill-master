@@ -36,7 +36,7 @@ from core.import_diagnostics import (
     PersistenceIssue, ImportStatus,
 )
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
-from core.async_workers import FunctionWorker
+from core.async_workers import FunctionWorker, release_when_finished
 from core.import_router import route_file
 from core.mineru_engine import (
     DocumentNormalizer,
@@ -661,16 +661,14 @@ class ExcelImportDialog(QDialog, DDRImportService):
             for result in parse_results
             if isinstance(result, MinerUParseResult)
         }
-        if self._mineru_worker is not None:
-            self._mineru_worker.deleteLater()
-            self._mineru_worker = None
+        release_when_finished(self._mineru_worker)   # M52: emitted inside run(), finished_ok follows
+        self._mineru_worker = None
         self._run_import_pipeline(self._pending_import_files, self._mineru_results)
 
     def _on_mineru_batch_failed(self, error):
         logger.error("MinerU worker failed: %s", error)
-        if self._mineru_worker is not None:
-            self._mineru_worker.deleteLater()
-            self._mineru_worker = None
+        release_when_finished(self._mineru_worker)   # M52: emitted inside run(), finished_ok follows
+        self._mineru_worker = None
         # PDF still has the existing explicit fallback. XLSX still has the
         # existing smart/template path. Other MinerU-only formats receive an
         # actionable per-file failure in _run_import_pipeline.

@@ -194,6 +194,8 @@ def _ask(app, panel, question):
 
 def _set_scope(panel, scope, target=None):
     panel.scope_combo.setCurrentIndex(panel.scope_combo.findData(scope))
+    # M52: a file database reads the well/document list on a worker; wait for it, never past it.
+    assert _wait(QApplication.instance(), panel.scope_choices_ready), panel.choices_state
     if target is not None:
         panel.target_combo.setCurrentIndex(panel.target_combo.findData(target))
     assert panel.current_scope() == (scope, target)
