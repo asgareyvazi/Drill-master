@@ -1,0 +1,794 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m49_knowledge_answer.py",
+      "tests/test_m50_analysis_async.py",
+      "tests/test_m50_assistant_states.py",
+      "tests/test_m50_citation_navigation.py",
+      "tests/test_m50_knowledge_gold.py",
+      "tests/test_m50_knowledge_retrieval.py",
+      "tests/test_m50_legacy_ai_importer.py",
+      "tests/test_m50_trajectory_3d_disposal.py",
+      "tests/test_m50_verifier.py",
+      "tests/test_release_smoke.py",
+      "tests/test_trajectory_3d.py",
+      "tests/test_trajectory_3d_lifecycle_m46.py"
+    ],
+    "exit": 0,
+    "summary": "196 passed, 14 warnings in 68.99s (0:01:08)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "N-synchronous-fingerprint",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the data revision is computed on the GUI thread again (M49 behaviour)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": -9,
+      "summary": "......."
+    },
+    {
+      "id": "N-sequence-guard-removed",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a superseded (late) revision result is accepted and painted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 43.27s"
+    },
+    {
+      "id": "N-generation-guard-removed",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a revision requested before a scope change is painted for the new scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "25 passed in 41.15s"
+    },
+    {
+      "id": "N-verify-skipped",
+      "path": "tabs/w12_Analysis.py",
+      "note": "no second revision: a write committed during the load is shown as Updated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 38.23s"
+    },
+    {
+      "id": "N-verify-mismatch-accepted",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a changed revision after the load is accepted (concurrent edit ignored)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 39.39s"
+    },
+    {
+      "id": "N-reload-limit-removed",
+      "path": "tabs/w12_Analysis.py",
+      "note": "continuous edits are retried without bound and then reported as Updated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 40.45s"
+    },
+    {
+      "id": "N-cleanup-leaves-worker",
+      "path": "tabs/w12_Analysis.py",
+      "note": "closing the page leaves the revision thread running",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 40.58s"
+    },
+    {
+      "id": "N-cancel-not-polled",
+      "path": "core/analysis_evidence.py",
+      "note": "a cancelled revision scan runs to the end",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.92s"
+    },
+    {
+      "id": "N-old-values-while-loading",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the previous well's numbers stay on screen while the new well loads",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 40.64s"
+    },
+    {
+      "id": "N-worker-not-retained",
+      "path": "tabs/w12_Analysis.py",
+      "note": "unsafe Qt order: a running QThread can be destroyed when its page drops it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "25 passed in 40.70s"
+    },
+    {
+      "id": "N-worker-uses-gui-engine",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the worker reads through the GUI's engine instead of its own read-only one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 40.17s"
+    },
+    {
+      "id": "N-error-shown-as-updated",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a failed revision read is reported as Updated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 41.02s"
+    },
+    {
+      "id": "G-automatic-gc-left-on",
+      "path": "core/qt_gc.py",
+      "note": "cyclic GC can run on worker threads (captured deadlock)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.36s"
+    },
+    {
+      "id": "G-app-does-not-install",
+      "path": "app.py",
+      "note": "the application never installs the GUI-thread GC policy",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.34s"
+    },
+    {
+      "id": "G-collect-never-runs",
+      "path": "core/qt_gc.py",
+      "note": "with automatic GC off, reference cycles are never reclaimed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.30s"
+    },
+    {
+      "id": "R-context-ignored",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a well code named in the page header / file name no longer covers the page's chunks",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.65s"
+    },
+    {
+      "id": "R-context-loose-parts",
+      "path": "core/knowledge_retrieval.py",
+      "note": "code parts scattered on the page (a date '05', a crew 'KE') count as the well code",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.59s"
+    },
+    {
+      "id": "R-file-name-context-dropped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a well code that only the file name states is ignored (Q19)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "28 passed in 7.52s"
+    },
+    {
+      "id": "R-absent-ignores-context",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the insufficient-evidence message claims a well code is missing that the file name states",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "28 passed in 7.45s"
+    },
+    {
+      "id": "R-answer-type-cap-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a passage without the asked quantity (no time / temperature) can be sufficient",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.61s"
+    },
+    {
+      "id": "R-frame-words-kept",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'how long ... take' keeps 'long'/'take' as required content words (Q09)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.65s"
+    },
+    {
+      "id": "R-named-quantity-not-required",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'mud temperature in X' can be answered by a mud-weight passage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.64s"
+    },
+    {
+      "id": "R-sufficiency-rerank-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "header-only passages push the answering passage out of the top k",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "28 passed in 8.20s"
+    },
+    {
+      "id": "R-designation-read-as-value",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'the 16 in section' is read as the quantity: real conflicts are missed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.61s"
+    },
+    {
+      "id": "R-glossary-m50-entries-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the M50 glossary entries are dropped: English pump-repair questions miss Persian reports",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 0.64s"
+    },
+    {
+      "id": "R-glossary-daily-report-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'daily report' no longer reaches Persian daily reports",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 0.65s"
+    },
+    {
+      "id": "R-version-not-bumped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "retrieval rules changed but cached indexes keyed on the version are not invalidated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 0.60s"
+    },
+    {
+      "id": "A-sentence-inherits-any-size",
+      "path": "core/knowledge_answer.py",
+      "note": "a sentence about another size (13-3/8 in LOT) is quoted for the asked size",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.61s"
+    },
+    {
+      "id": "A-instruction-paragraph-leaks",
+      "path": "core/knowledge_answer.py",
+      "note": "the follow-on sentence of a detected instruction paragraph is quoted as an answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.66s"
+    },
+    {
+      "id": "V-units-unchecked",
+      "path": "core/knowledge_answer.py",
+      "note": "1.42 ppg passes against a source that says 1.42 sg",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.78s"
+    },
+    {
+      "id": "V-relationship-unchecked",
+      "path": "core/knowledge_answer.py",
+      "note": "'the flow rate is 3200 psi' passes because 3200 psi is the standpipe pressure",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.78s"
+    },
+    {
+      "id": "V-generic-qualifier-links",
+      "path": "core/knowledge_answer.py",
+      "note": "a shared 'planned' links the flow rate to the mud weight's value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.78s"
+    },
+    {
+      "id": "V-sizes-unchecked",
+      "path": "core/knowledge_answer.py",
+      "note": "an 8-1/2 in statement passes against a 12-1/4 in source",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.73s"
+    },
+    {
+      "id": "V-conflict-undisclosed-accepted",
+      "path": "core/knowledge_answer.py",
+      "note": "a draft stating one side of a conflict passes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.74s"
+    },
+    {
+      "id": "V-failed-draft-replaces-answer",
+      "path": "core/knowledge_answer.py",
+      "note": "a draft that failed the citation checks is returned as the answer (M49 behaviour)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.77s"
+    },
+    {
+      "id": "V-semantic-claimed",
+      "path": "core/knowledge_answer.py",
+      "note": "an answer claims semantic verification that does not exist",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.77s"
+    },
+    {
+      "id": "V-conflict-sides-capped",
+      "path": "core/knowledge_answer.py",
+      "note": "the source cap hides one side of a conflict (contradicts the M49 docstring)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 0.79s"
+    },
+    {
+      "id": "V-conflicts-across-sizes",
+      "path": "core/knowledge_retrieval.py",
+      "note": "1.08 sg for 16 in and 1.25 sg for 12-1/4 in are reported as a conflict",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 0.81s"
+    },
+    {
+      "id": "V-changed-page-highlighted",
+      "path": "tabs/documents_tab.py",
+      "note": "a page edited after the answer is highlighted as if it were the cited text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 1.51s"
+    },
+    {
+      "id": "V-panel-drops-text-version",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the panel stops sending the cited text version, so changed pages are highlighted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 1.52s"
+    },
+    {
+      "id": "W-destroyed-release-dropped",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "a destroyed view leaves its Qt canvas and widgets to a later garbage collection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_trajectory_3d_disposal.py",
+        "tests/test_trajectory_3d.py",
+        "tests/test_trajectory_3d_lifecycle_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 0.92s"
+    },
+    {
+      "id": "W-figure-keeps-qt-canvas",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "the figure <-> Qt canvas cycle survives the view",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_trajectory_3d_disposal.py",
+        "tests/test_trajectory_3d.py",
+        "tests/test_trajectory_3d_lifecycle_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 0.93s"
+    },
+    {
+      "id": "W-canvas-attributes-kept",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "canvas.draw_idle keeps the destroyed view alive for the garbage collector",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_trajectory_3d_disposal.py",
+        "tests/test_trajectory_3d.py",
+        "tests/test_trajectory_3d_lifecycle_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 0.90s"
+    },
+    {
+      "id": "W-import-garbage-kept",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "Matplotlib's first-import cycles keep the first view for a later collection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_trajectory_3d_disposal.py",
+        "tests/test_trajectory_3d.py",
+        "tests/test_trajectory_3d_lifecycle_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 0.89s"
+    },
+    {
+      "id": "L-remote-endpoint-accepted",
+      "path": "core/ai_import_mapper.py",
+      "note": "workbook cells are posted to a remote DRILLMASTER_OLLAMA_URL",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_legacy_ai_importer.py",
+        "tests/test_release_smoke.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.12s"
+    },
+    {
+      "id": "L-cloud-model-listed",
+      "path": "core/ai_import_mapper.py",
+      "note": "an installed Ollama cloud model is listed as a local model",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_legacy_ai_importer.py",
+        "tests/test_release_smoke.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.63s"
+    },
+    {
+      "id": "L-cloud-selection-unchecked",
+      "path": "core/ai_import_mapper.py",
+      "note": "a ':cloud' selection reaches the server instead of being refused up front",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_legacy_ai_importer.py",
+        "tests/test_release_smoke.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.20s"
+    },
+    {
+      "id": "L-remote-flag-ignored",
+      "path": "core/ai_import_mapper.py",
+      "note": "a model Ollama reports as remote is used when its name looks local",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_legacy_ai_importer.py",
+        "tests/test_release_smoke.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.65s"
+    },
+    {
+      "id": "L-redirect-and-proxy-followed",
+      "path": "core/ai_import_mapper.py",
+      "note": "a redirect or an environment proxy carries the request off this computer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_legacy_ai_importer.py",
+        "tests/test_release_smoke.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 4.34s"
+    },
+    {
+      "id": "S-semantic-stale-shown-ready",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a semantic index built for other documents stays labelled ready",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.41s"
+    },
+    {
+      "id": "S-embed-reason-misreported",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a configured embedding model is reported by state when the server could not be asked",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 3.18s"
+    },
+    {
+      "id": "D-number-fragments-listed",
+      "path": "core/knowledge_answer.py",
+      "note": "a refusal lists '8, 2' beside '8-1/2 in' as missing terms",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.72s"
+    },
+    {
+      "id": "D-diagnostics-kept-when-stale",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the diagnostics of an invalidated answer stay on screen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 2.91s"
+    },
+    {
+      "id": "D-semantic-claimed-used",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "diagnostics say semantic retrieval was used when it did not run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.43s"
+    },
+    {
+      "id": "D-diagnostics-unescaped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "document or model text is rendered as HTML in the diagnostics",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 2.99s"
+    }
+  ],
+  "killed": [
+    "N-synchronous-fingerprint",
+    "N-sequence-guard-removed",
+    "N-verify-skipped",
+    "N-verify-mismatch-accepted",
+    "N-reload-limit-removed",
+    "N-cleanup-leaves-worker",
+    "N-cancel-not-polled",
+    "N-old-values-while-loading",
+    "N-worker-uses-gui-engine",
+    "N-error-shown-as-updated",
+    "G-automatic-gc-left-on",
+    "G-app-does-not-install",
+    "G-collect-never-runs",
+    "R-context-ignored",
+    "R-context-loose-parts",
+    "R-answer-type-cap-removed",
+    "R-frame-words-kept",
+    "R-named-quantity-not-required",
+    "R-designation-read-as-value",
+    "R-glossary-m50-entries-removed",
+    "R-glossary-daily-report-removed",
+    "R-version-not-bumped",
+    "A-sentence-inherits-any-size",
+    "A-instruction-paragraph-leaks",
+    "V-units-unchecked",
+    "V-relationship-unchecked",
+    "V-generic-qualifier-links",
+    "V-sizes-unchecked",
+    "V-conflict-undisclosed-accepted",
+    "V-failed-draft-replaces-answer",
+    "V-semantic-claimed",
+    "V-conflict-sides-capped",
+    "V-conflicts-across-sizes",
+    "V-changed-page-highlighted",
+    "V-panel-drops-text-version",
+    "W-destroyed-release-dropped",
+    "W-figure-keeps-qt-canvas",
+    "W-canvas-attributes-kept",
+    "W-import-garbage-kept",
+    "L-remote-endpoint-accepted",
+    "L-cloud-model-listed",
+    "L-cloud-selection-unchecked",
+    "L-remote-flag-ignored",
+    "L-redirect-and-proxy-followed",
+    "S-semantic-stale-shown-ready",
+    "S-embed-reason-misreported",
+    "D-number-fragments-listed",
+    "D-diagnostics-kept-when-stale",
+    "D-semantic-claimed-used",
+    "D-diagnostics-unescaped"
+  ],
+  "survived_non_equivalent": [
+    "N-generation-guard-removed",
+    "N-worker-not-retained",
+    "R-file-name-context-dropped",
+    "R-absent-ignores-context",
+    "R-sufficiency-rerank-removed"
+  ],
+  "declared_equivalent": [],
+  "invalid": []
+}

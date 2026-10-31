@@ -1,0 +1,31 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m50_analysis_async.py"
+    ],
+    "exit": 0,
+    "summary": "27 passed in 42.44s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "N-synchronous-fingerprint",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the data revision is computed on the GUI thread again (M49 behaviour)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "7 passed, 1 error in 6.41s"
+    }
+  ],
+  "killed": [
+    "N-synchronous-fingerprint"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

@@ -1,0 +1,35 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m49_knowledge_answer.py",
+      "tests/test_m49_knowledge_gold.py",
+      "tests/test_m49_knowledge_retrieval.py"
+    ],
+    "exit": 0,
+    "summary": "91 passed in 6.93s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "R-identifier-weight-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "an unknown identifier/number weighs like an ordinary word (loose false answers)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 81 passed in 4.49s"
+    }
+  ],
+  "killed": [
+    "R-identifier-weight-removed"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

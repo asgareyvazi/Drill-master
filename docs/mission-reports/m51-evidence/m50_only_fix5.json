@@ -1,0 +1,89 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m50_analysis_async.py",
+      "tests/test_m50_knowledge_gold.py",
+      "tests/test_m50_knowledge_retrieval.py"
+    ],
+    "exit": 0,
+    "summary": "57 passed in 53.82s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "N-generation-guard-removed",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a revision requested before a scope change is painted for the new scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 41.80s"
+    },
+    {
+      "id": "N-worker-not-retained",
+      "path": "tabs/w12_Analysis.py",
+      "note": "unsafe Qt order: a running QThread can be destroyed when its page drops it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 41.94s"
+    },
+    {
+      "id": "R-file-name-context-dropped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a well code that only the file name states is ignored (Q19)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "30 passed in 10.13s"
+    },
+    {
+      "id": "R-absent-ignores-context",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the insufficient-evidence message claims a well code is missing that the file name states",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "30 passed in 9.73s"
+    },
+    {
+      "id": "R-sufficiency-rerank-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "header-only passages push the answering passage out of the top k",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.91s"
+    }
+  ],
+  "killed": [
+    "N-generation-guard-removed",
+    "N-worker-not-retained",
+    "R-sufficiency-rerank-removed"
+  ],
+  "survived_non_equivalent": [
+    "R-file-name-context-dropped",
+    "R-absent-ignores-context"
+  ],
+  "declared_equivalent": [],
+  "invalid": []
+}
