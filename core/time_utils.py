@@ -125,6 +125,10 @@ class TimeLineEdit(QLineEdit):
         self.setStyleSheet("background-color: #ffe0b2; color: #7f2704;")
         self.setToolTip("Invalid legacy time value; correct it before saving.")
 
+    def is_invalid(self) -> bool:
+        """True while the field shows an unparseable value (warning colour)."""
+        return bool(getattr(self, "_invalid_time", False))
+
     def get_time(self):
         """Return time tuple; missing/invalid values are explicit failures."""
         if self._invalid_time:

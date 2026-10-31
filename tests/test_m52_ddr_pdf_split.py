@@ -38,7 +38,9 @@ def test_several_reports_are_split_with_page_references():
     assert [(s.report_number, s.report_date, s.pages) for s in result.segments] == [
         (1, "2026-03-01", [1, 2]), (2, "2026-03-02", [3]), (3, "2026-03-03", [4, 5, 6])]
     assert result.segments[2].continuation_pages == [5, 6]
-    assert any("5, 6 have no report header" in w for w in result.segments[2].warnings)
+    assert any("pages 5, 6 have no report header" in w for w in result.segments[2].warnings)
+    assert any(w.startswith("page 2 has no report header and is read as a continuation page")
+               for w in result.segments[0].warnings)
     assert result.to_json()["segments"][0]["page_range"] == "1-2"
 
 
@@ -181,6 +183,7 @@ def test_the_preview_shows_the_split_and_blocks_a_mixed_import(qapp, tmp_path, m
         assert [table.item(r, 0).text() for r in range(2)] == ["1", "2-3"]
         assert table.item(1, 2).text() == "04/03/2026 (not read)" and "ambiguous" in table.item(1, 5).text()
         assert not dlg.confirm_btn.isEnabled() and "2 daily reports (pages 1, 2-3)" in dlg.confirm_btn.toolTip()
+        assert ":disabled" in dlg.confirm_btn.styleSheet()     # the blocked button does not look enabled
         from dialogs import excel_import_dialog as eid
         warned = []
         monkeypatch.setattr(eid.QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))

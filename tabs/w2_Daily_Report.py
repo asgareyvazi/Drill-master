@@ -1355,16 +1355,40 @@ class DailyReportWidget(DrillTabBase):
             return None
         return target
 
+    NPT_ROW_COLOUR = "#ffcccc"
+
     def highlight_npt_row(self, table, row, state):
         is_npt = (state == 2)
         for col in range(table.columnCount()):
             widget = table.cellWidget(row, col)
             if widget:
-                if is_npt:
-                    widget.setStyleSheet("background-color: #ffcccc;")
-                else:
-                    widget.setStyleSheet("")
+                self._set_npt_tint(widget, is_npt)
         self.update_statistics()
+
+    def _set_npt_tint(self, widget, is_npt: bool) -> None:
+        """Tint one cell widget for an NPT row without losing the widget's own style (M52).
+
+        The tint used to replace the stylesheet and clear it again: the description lost its font size,
+        border and transparency after any NPT toggle, and an invalid time lost its warning colour.
+        """
+        if isinstance(widget, TimeLineEdit):
+            if widget.is_invalid():
+                return                                  # the invalid-time warning outranks the NPT tint
+            widget.setStyleSheet(f"background-color: {self.NPT_ROW_COLOUR};" if is_npt else "")
+            return
+        base = widget.property("npt_base_style")
+        if base is None:
+            base = widget.styleSheet()
+            widget.setProperty("npt_base_style", base)
+        if not is_npt:
+            widget.setStyleSheet(base)
+        elif not base.strip():
+            widget.setStyleSheet(f"background-color: {self.NPT_ROW_COLOUR};")
+        elif "{" in base:                               # selector rules: a later rule of the same type wins
+            widget.setStyleSheet(f"{base}\n{widget.metaObject().className()} "
+                                 f"{{ background-color: {self.NPT_ROW_COLOUR}; }}")
+        else:
+            widget.setStyleSheet(f"{base.rstrip().rstrip(';')}; background-color: {self.NPT_ROW_COLOUR};")
 
     # ========== Core Operations ==========
     def _collect_report_data(

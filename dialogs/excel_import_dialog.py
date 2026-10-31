@@ -278,7 +278,10 @@ class ImportPreviewDialog(QDialog):
         confirm_layout.addWidget(cancel_btn)
 
         self.confirm_btn = QPushButton("✅ Confirm Import")
-        self.confirm_btn.setStyleSheet("background: #27ae60; color: white; padding: 10px 20px; font-weight: bold; border-radius: 4px; font-size: 13px;")
+        self.confirm_btn.setStyleSheet(
+            "QPushButton { background: #27ae60; color: white; padding: 10px 20px; font-weight: bold; "
+            "border-radius: 4px; font-size: 13px; } "
+            "QPushButton:disabled { background: #bdc3c7; color: #6c7a89; }")   # a blocked import must look blocked
         self.confirm_btn.clicked.connect(self._confirm)
         confirm_layout.addWidget(self.confirm_btn)
         if self._multi_report_block():

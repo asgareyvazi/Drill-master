@@ -204,8 +204,8 @@ def split_reports(texts: Sequence[str], *, expected_well: Optional[str] = None) 
         else:
             current.no_text_pages.append(page.number)
     if unassigned:
-        warnings.append("pages " + ", ".join(map(str, unassigned)) + " come before the first report header and "
-                        "belong to no report" + (" (no text layer - OCR not run)" if any(
+        warnings.append(_pages(unassigned, "come", "comes") + " before the first report header and "
+                        + ("belong" if len(unassigned) > 1 else "belongs") + " to no report" + (" (no text layer - OCR not run)" if any(
                             not p.has_text for p in pages if p.number in unassigned) else ""))
     if not segments:
         no_text = sum(1 for p in pages if not p.has_text)
@@ -215,6 +215,13 @@ def split_reports(texts: Sequence[str], *, expected_well: Optional[str] = None) 
     for segment in segments:
         _finish(segment, expected_well)
     return SplitResult(page_count=len(pages), segments=segments, unassigned_pages=unassigned, warnings=warnings)
+
+
+def _pages(numbers, verb_plural: str, verb_singular: str) -> str:
+    """'page 3 has' / 'pages 5, 6 have'."""
+    if len(numbers) == 1:
+        return f"page {numbers[0]} {verb_singular}"
+    return "pages " + ", ".join(map(str, numbers)) + f" {verb_plural}"
 
 
 def _explain_duplicates(segments: list) -> None:
@@ -239,11 +246,12 @@ def _explain_duplicates(segments: list) -> None:
 
 def _finish(segment: ReportSegment, expected_well: Optional[str]) -> None:
     if segment.continuation_pages:
-        segment.warnings.append("pages " + ", ".join(map(str, segment.continuation_pages))
-                                + " have no report header and are read as continuation pages")
+        many = len(segment.continuation_pages) > 1
+        segment.warnings.append(_pages(segment.continuation_pages, "have", "has") + " no report header and "
+                                + ("are read as continuation pages" if many else "is read as a continuation page"))
     if segment.no_text_pages:
-        segment.warnings.append("pages " + ", ".join(map(str, segment.no_text_pages))
-                                + " have no text layer (scanned?) - OCR not run; assigned to this report by position")
+        segment.warnings.append(_pages(segment.no_text_pages, "have", "has")
+                                + " no text layer (scanned?) - OCR not run; assigned to this report by position")
     if expected_well and segment.well and _well_key(segment.well) != _well_key(expected_well):
         segment.warnings.append(f"well '{segment.well}' on the page differs from the selected well - "
                                 "check before importing (suggestion only)")

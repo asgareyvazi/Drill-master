@@ -83,6 +83,34 @@ def test_an_invalid_time_moves_as_raw_text_and_stays_not_assessed(widget):
     assert table.cellWidget(2, 2).text() not in ("NOT ASSESSED", "0.00")
 
 
+def test_the_npt_tint_keeps_each_cell_style_through_toggles_and_moves(widget):
+    """Pre-existing defect (baseline dbf8d50): the NPT tint replaced, then cleared, every cell stylesheet."""
+    table = widget.time_24_table
+    base = table.cellWidget(1, 9).styleSheet()
+    assert "font-size: 11px" in base
+    table.cellWidget(1, 7).setChecked(True)                    # B becomes NPT
+    tinted = table.cellWidget(1, 9).styleSheet()
+    assert "font-size: 11px" in tinted and widget.NPT_ROW_COLOUR in tinted
+    table.cellWidget(1, 7).setChecked(False)
+    assert table.cellWidget(1, 9).styleSheet() == base
+    table.setCurrentCell(0, 0)                                 # A (NPT) and B swap: tint moves, style stays
+    assert widget.move_time_log_row(table, 1)
+    assert table.cellWidget(0, 9).styleSheet() == base
+    assert widget.NPT_ROW_COLOUR in table.cellWidget(1, 9).styleSheet()
+    assert "font-size: 11px" in table.cellWidget(1, 9).styleSheet()
+
+
+def test_an_invalid_time_keeps_its_warning_colour_on_an_npt_row(widget):
+    table = widget.time_24_table
+    invalid = table.cellWidget(2, 0)
+    assert invalid.is_invalid() and "#ffe0b2" in invalid.styleSheet()
+    table.cellWidget(2, 7).setChecked(True)
+    assert "#ffe0b2" in invalid.styleSheet()                   # the warning is not painted over
+    assert widget.NPT_ROW_COLOUR in table.cellWidget(2, 1).styleSheet()   # the valid time is tinted
+    table.cellWidget(2, 7).setChecked(False)
+    assert "#ffe0b2" in invalid.styleSheet() and table.cellWidget(2, 1).styleSheet() == ""
+
+
 def test_after_a_move_each_row_still_recalculates_itself(widget):
     table = widget.time_24_table
     table.setCurrentCell(0, 0)
