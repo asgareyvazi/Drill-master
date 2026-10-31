@@ -360,6 +360,14 @@ MUTANTS = [
            '        return {"kind": "signal", "native_crash": True,',
            '        return {"kind": "signal", "native_crash": False,',
            T_LS, "a POSIX signal death is not a native crash"),
+    Mutant("LS-breadcrumb-line-anchored", LS,
+           "    started = [line[line.rfind(BREADCRUMB) + len(BREADCRUMB):].strip() for line in lines if BREADCRUMB in line]",
+           "    started = [line[len(BREADCRUMB):].strip() for line in lines if line.startswith(BREADCRUMB)]",
+           T_LS, "after a progress dot the next breadcrumb is missed: a crash is blamed on an earlier test"),
+    Mutant("LS-annotation-not-escaped", LS,
+           '    return value.replace("%", "%25").replace("\\r", "%0D").replace("\\n", "%0A")',
+           "    return value",
+           T_LS, "a multi-line stack or a percent sign breaks the one-line annotation"),
 ]
 
 

@@ -43,6 +43,9 @@ def test_raises_sigabrt():
 CRASH = '''
 import ctypes, faulthandler, os
 
+def test_runs_first():                # a test before the crash: the breadcrumb then follows a progress dot
+    assert True
+
 def test_native_crash():
     if os.name == "nt":   # this synthetic child only: no crash dialog may block the runner
         ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002 | 0x8000)
@@ -86,6 +89,11 @@ def test_the_log_parser_finds_the_active_test_and_the_fatal_stack():
     assert parsed["fatal_stack"][0] == "Windows fatal exception: access violation"
     assert any("Current thread" in line for line in parsed["fatal_stack"])
     assert stress.parse_log("all good\n") == {"tests_started": 0, "last_test_started": None, "fatal_stack": []}
+    # pytest -q: the progress dot of the previous test shares the line with the next breadcrumb / banner
+    dotted = stress.parse_log("DRILLMASTER-TEST-START t.py::a\n.DRILLMASTER-TEST-START t.py::b c[1 2]\n"
+                              ".Fatal Python error: Aborted\n\nCurrent thread 0x1:\n")
+    assert dotted["tests_started"] == 2 and dotted["last_test_started"] == "t.py::b c[1 2]"
+    assert dotted["fatal_stack"][0] == "Fatal Python error: Aborted"
 
 
 def test_a_clean_repetition_passes_with_totals_memory_and_an_orphan_check(tmp_path):
@@ -101,7 +109,8 @@ def test_a_native_crash_is_recorded_with_the_test_that_was_running_and_its_stack
     module = _module(tmp_path, "crash", CRASH)
     rep = stress.run_repetition(1, [module], tmp_path / "work", timeout=120, rootdir=tmp_path / "suite")
     assert not rep.passed and rep.classification["native_crash"], (rep.exit_code, rep.classification)
-    assert rep.log["last_test_started"] == "test_crash.py::test_native_crash"
+    assert rep.log["last_test_started"] == "test_crash.py::test_native_crash"   # the second test, not the first
+    assert rep.log["tests_started"] == 2
     assert rep.log["fatal_stack"] and "test_crash.py" in "\n".join(rep.log["fatal_stack"])
     assert rep.junit is None                                    # the interpreter died before writing it
     summary = stress.summarise([rep], [module], "NOT CONFIGURED", require_orphan_check=True)
@@ -138,6 +147,24 @@ def test_a_logged_fatal_error_decides_whether_an_exit_code_is_a_native_death(tmp
     assert rep.classification["native_crash"] is native, rep.classification
     assert rep.classification["kind"] == "pytest"
     assert ("faulthandler reported" in rep.classification["text"]) is native
+
+
+def test_a_repetition_annotation_is_one_escaped_line_and_an_error_when_it_did_not_pass():
+    ok = stress.Repetition(2, exit_code=0, classification=stress.classify_exit(0), orphans=[], seconds=12.5,
+                           peak_memory_mb=310.2, junit={"tests": 9, "failures": 0, "errors": 0, "skipped": 0},
+                           log={"last_test_started": "tests/a.py::test_b"})
+    line = stress.annotation(ok, 5)
+    assert line.startswith("::notice title=M52 lifecycle stress 2/5::exit 0 (pytest: all tests passed)")
+    assert "9 tests, 0 failures" in line and "peak memory 310.2 MB" in line and "0 processes left running" in line
+    assert line.endswith("last test tests/a.py::test_b")
+    crashed = stress.Repetition(3, exit_code=3221225477, classification=stress.classify_exit(3221225477),
+                                orphans=None, log={"last_test_started": "t.py::x"})
+    line = stress.annotation(crashed, 5)
+    assert line.startswith("::error title=M52 lifecycle stress 3/5::exit 3221225477 (0xC0000005 access violation)")
+    assert "no JUnit report" in line and "orphan check NOT RUN" in line and "peak memory not measured" in line
+    assert stress._workflow_text("100% done\r\nnext") == "100%25 done%0D%0Anext"
+    assert "\n" not in stress.annotation(stress.Repetition(4, exit_code=1, classification={
+        "kind": "pytest", "native_crash": False, "text": "multi\nline"}, log={}), 5)
 
 
 def _alive(pid: int) -> bool:

@@ -165,7 +165,7 @@ jobs:
           $stressSummary = Join-Path $stressRoot 'lifecycle-stress.md'
           $ErrorActionPreference = "Continue"
           $PSNativeCommandUseErrorActionPreference = $false
-          python tools\quality\lifecycle_stress_m52.py @stressModules --repetitions 5 --timeout 900 --work-root (Join-Path $stressRoot 'work') --json-out $stressJson --markdown-out $stressSummary --dump-dir $dumpDir --dump-status $dumpStatus --require-orphan-check 2>&1 | Tee-Object -FilePath (Join-Path $stressRoot 'harness.log')
+          python tools\quality\lifecycle_stress_m52.py @stressModules --repetitions 5 --timeout 900 --work-root (Join-Path $stressRoot 'work') --json-out $stressJson --markdown-out $stressSummary --dump-dir $dumpDir --dump-status $dumpStatus --require-orphan-check --github-annotations 2>&1 | Tee-Object -FilePath (Join-Path $stressRoot 'harness.log')
           $stressExit = $LASTEXITCODE
           $ErrorActionPreference = "Stop"
           if (Test-Path -LiteralPath $stressSummary) {

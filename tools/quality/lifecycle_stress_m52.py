@@ -65,14 +65,20 @@ def classify_exit(code: Optional[int], timed_out: bool = False) -> dict:
     return {"kind": "other", "native_crash": False, "text": f"exit code {code}"}
 
 
+_FATAL_BANNERS = ("Fatal Python error", "Windows fatal exception", "Timeout (0:")
+
+
 def parse_log(text: str, stack_lines: int = 40) -> dict:
     """Last test started and the faulthandler block(s); the log holds test ids and code paths only."""
-    started = [line[len(BREADCRUMB):].strip() for line in text.splitlines() if line.startswith(BREADCRUMB)]
+    # pytest -q prints its progress dot on the line a breadcrumb then continues (".DRILLMASTER-TEST-START
+    # ..."): search the whole line, as packaging/junit_report.py does, never only its start.
     lines = text.splitlines()
+    started = [line[line.rfind(BREADCRUMB) + len(BREADCRUMB):].strip() for line in lines if BREADCRUMB in line]
     fatal: list[str] = []
     for index, line in enumerate(lines):
-        if line.startswith(("Fatal Python error", "Windows fatal exception", "Timeout (0:")):
-            fatal = lines[index:index + stack_lines]
+        at = min((line.find(b) for b in _FATAL_BANNERS if b in line), default=-1)
+        if at >= 0:
+            fatal = [line[at:]] + lines[index + 1:index + stack_lines]
             break
     return {"tests_started": len(started), "last_test_started": started[-1] if started else None,
             "fatal_stack": fatal}
@@ -324,6 +330,26 @@ def markdown(summary: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _workflow_text(value: str) -> str:
+    """A GitHub Actions workflow-command message is one line; ``%``, CR and LF must be escaped."""
+    return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def annotation(rep: Repetition, total: int) -> str:
+    """One annotation per repetition: the evidence a reader of the run page (or the checks API) can see
+    without downloading the artifact.  ``error`` for a repetition that did not pass, else ``notice``."""
+    junit = rep.junit or {}
+    tests = (f"{junit.get('tests')} tests, {junit.get('failures')} failures, {junit.get('errors')} errors, "
+             f"{junit.get('skipped')} skipped") if "tests" in junit else "no JUnit report"
+    orphans = "orphan check NOT RUN" if rep.orphans is None else f"{len(rep.orphans)} processes left running"
+    memory = "peak memory not measured" if rep.peak_memory_mb is None else f"peak memory {rep.peak_memory_mb} MB"
+    message = (f"exit {rep.exit_code} ({rep.classification['text']}); native crash {rep.classification['native_crash']}; "
+               f"{rep.seconds} s; {tests}; {memory}; {orphans}; {len(rep.new_dumps)} new dumps; "
+               f"last test {rep.log.get('last_test_started')}")
+    level = "notice" if rep.passed else "error"
+    return f"::{level} title=M52 lifecycle stress {rep.number}/{total}::{_workflow_text(message)}"
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("modules", nargs="+")
@@ -335,6 +361,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--dump-dir", type=Path)
     parser.add_argument("--dump-status", default="NOT CONFIGURED")
     parser.add_argument("--require-orphan-check", action="store_true")
+    parser.add_argument("--github-annotations", action="store_true",
+                        help="also print one GitHub Actions annotation per repetition and one for the verdict")
     args = parser.parse_args(argv)
     missing = [m for m in args.modules if not (ROOT / m).is_file()]
     if missing:
@@ -346,12 +374,19 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"repetition {number}/{args.repetitions}: exit {rep.exit_code} ({rep.classification['text']}), "
               f"{rep.seconds} s, orphans {'NOT RUN' if rep.orphans is None else len(rep.orphans)}, "
               f"dumps {len(rep.new_dumps)}", flush=True)
+        if args.github_annotations:
+            print(annotation(rep, args.repetitions), flush=True)
     summary = summarise(reps, args.modules, args.dump_status, args.require_orphan_check)
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     if args.markdown_out:
         args.markdown_out.write_text(markdown(summary), encoding="utf-8")
     print(f"verdict: {summary['verdict']}", flush=True)
+    if args.github_annotations:
+        level = "notice" if summary["verdict"] == "PASS" else "error"
+        print(f"::{level} title=M52 lifecycle stress verdict::"
+              + _workflow_text(f"{summary['verdict']}: {len(reps)} fresh interpreters; dumps: {args.dump_status}"),
+              flush=True)
     return 0 if summary["verdict"] == "PASS" else 1
 
 
