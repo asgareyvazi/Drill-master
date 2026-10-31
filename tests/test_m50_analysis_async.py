@@ -33,6 +33,10 @@ from core import analysis_evidence as ev  # noqa: E402
 from m48_synthetic import build  # noqa: E402
 
 CHILD = HERE / "m50_analysis_child.py"
+# A healthy child writes a few KB to stderr.  Runaway output is bounded and fails the run
+# instead of being buffered in this process (M51: under a mutant the unbounded capture grew
+# to 3.2 GB, the kernel OOM-killed pytest and the child was orphaned).
+STDERR_LIMIT = 8 * 1024 * 1024
 SCENARIOS = re.findall(r"^@scenario\ndef (\w+)\(", CHILD.read_text(encoding="utf-8"), re.M)
 
 
@@ -170,16 +174,45 @@ def _env():
 def ui_results():
     pytest.importorskip("PySide6")
     pytest.importorskip("pyqtgraph")
-    proc = subprocess.run([sys.executable, str(CHILD)], cwd=str(ROOT), env=_env(),
-                          capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", timeout=600)
+    proc = subprocess.Popen([sys.executable, str(CHILD)], cwd=str(ROOT), env=_env(),
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            encoding="utf-8", errors="replace")
+    err = {"size": 0, "tail": "", "runaway": False}
+
+    def drain_stderr():                 # bounded: keeps only a tail, kills on runaway output
+        for chunk in iter(lambda: proc.stderr.read(65536), ""):
+            err["size"] += len(chunk)
+            err["tail"] = (err["tail"] + chunk)[-4000:]
+            if err["size"] > STDERR_LIMIT and not err["runaway"]:
+                err["runaway"] = True
+                proc.kill()
+
+    out = []
+    readers = [threading.Thread(target=drain_stderr, daemon=True),
+               threading.Thread(target=lambda: out.append(proc.stdout.read()), daemon=True)]
+    for reader in readers:
+        reader.start()
+    try:
+        proc.wait(timeout=600)
+    except subprocess.TimeoutExpired:
+        proc.kill()                     # never leave the child running (M51: an orphan kept spinning)
+        proc.wait()
+        pytest.fail(f"UI child timed out after 600 s:\n{err['tail']}")
+    finally:
+        for reader in readers:
+            reader.join(10)
+        proc.stdout.close()
+        proc.stderr.close()
+    if err["runaway"]:
+        pytest.fail(f"UI child wrote more than {STDERR_LIMIT} bytes to stderr (runaway errors); "
+                    f"killed:\n{err['tail']}")
     results = {}
-    for line in proc.stdout.splitlines():
+    for line in "".join(out).splitlines():
         if line.startswith("M50RESULT "):
             item = json.loads(line[len("M50RESULT "):])
             results[item["name"]] = item
     if not results:
-        pytest.fail(f"UI child produced no results (exit {proc.returncode}):\n{proc.stderr[-4000:]}")
+        pytest.fail(f"UI child produced no results (exit {proc.returncode}):\n{err['tail']}")
     return results
 
 
