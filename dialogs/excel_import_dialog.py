@@ -50,6 +50,7 @@ from core.unit_manager import UnitManager
 from dialogs.smart_template_dialog import FIELD_LABELS
 
 from core.ddr_import_service import DDRImportService, _canonical_review_row
+from core import ddr_pdf_split
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,7 @@ class ImportPreviewDialog(QDialog):
         )
         summary.setStyleSheet("color: #555; padding: 4px;")
         layout.addWidget(summary)
+        self._add_pdf_split_section(layout, report)
 
         # Table
         self.table = QTableWidget(0, 10)
@@ -279,8 +281,89 @@ class ImportPreviewDialog(QDialog):
         self.confirm_btn.setStyleSheet("background: #27ae60; color: white; padding: 10px 20px; font-weight: bold; border-radius: 4px; font-size: 13px;")
         self.confirm_btn.clicked.connect(self._confirm)
         confirm_layout.addWidget(self.confirm_btn)
+        if self._multi_report_block():
+            self.confirm_btn.setEnabled(False)
+            self.confirm_btn.setToolTip(self._multi_report_block())
 
         layout.addLayout(confirm_layout)
+
+    # ---- M52: PDF report split ------------------------------------------------------------------
+    def _multi_report_block(self) -> str:
+        split = (self.import_report or {}).get("pdf_split") or {}
+        if not split.get("multi_report"):
+            return ""
+        ranges = ", ".join(s["page_range"] for s in split.get("segments", []))
+        return (f"This PDF holds {len(split['segments'])} daily reports (pages {ranges}). Importing it as one "
+                "report would mix them. Save one PDF per report and import each one.")
+
+    def _add_pdf_split_section(self, layout, report):
+        split, error = report.get("pdf_split"), report.get("pdf_split_error")
+        if not split and not error:
+            return
+        box = QGroupBox("📑 PDF report split")
+        box_layout = QVBoxLayout(box)
+        if error:
+            label = QLabel(f"Report split NOT ASSESSED: {error}")
+            label.setStyleSheet("color: #c0392b;")
+            box_layout.addWidget(label)
+            layout.addWidget(box)
+            return
+        segments = split.get("segments", [])
+        notes = list(split.get("warnings", []))
+        head = (f"{split.get('page_count', 0)} pages, {len(segments)} report(s) found"
+                + (f"; unassigned pages: {', '.join(map(str, split.get('unassigned_pages', [])))}"
+                   if split.get("unassigned_pages") else ""))
+        self.pdf_split_label = QLabel(head + ("" if not notes else " - " + "; ".join(notes)))
+        self.pdf_split_label.setWordWrap(True)
+        box_layout.addWidget(self.pdf_split_label)
+        self.pdf_split_table = QTableWidget(len(segments), 6)
+        self.pdf_split_table.setHorizontalHeaderLabels(["Pages", "Report No.", "Date", "Well", "Confidence", "Warnings"])
+        self.pdf_split_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        for row, seg in enumerate(segments):
+            date_text = seg.get("report_date") or (f"{seg['date_text']} (not read)" if seg.get("date_text") else "—")
+            values = [seg["page_range"], "—" if seg.get("report_number") is None else str(seg["report_number"]),
+                      date_text, seg.get("well") or "—",
+                      seg["confidence"] + (f" ({', '.join(seg['reasons'])})" if seg.get("reasons") else ""),
+                      "; ".join(seg.get("warnings", []))]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if col in (0, 1, 2):
+                    item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                self.pdf_split_table.setItem(row, col, item)
+        self.pdf_split_table.horizontalHeader().setStretchLastSection(True)
+        self.pdf_split_table.setMaximumHeight(160)
+        box_layout.addWidget(self.pdf_split_table)
+        blocked = self._multi_report_block()
+        if blocked:
+            warn = QLabel("⛔ " + blocked)
+            warn.setWordWrap(True)
+            warn.setStyleSheet("color: #c0392b; font-weight: bold;")
+            box_layout.addWidget(warn)
+            self.save_split_btn = QPushButton("💾 Save one PDF per report…")
+            self.save_split_btn.clicked.connect(self._save_split_pdfs)
+            box_layout.addWidget(self.save_split_btn)
+        layout.addWidget(box)
+
+    def choose_split_folder(self) -> str:
+        return QFileDialog.getExistingDirectory(self, "Folder for the per-report PDFs", str(Path(self.file_path).parent))
+
+    def _save_split_pdfs(self):
+        folder = self.choose_split_folder()
+        if not folder:
+            return None
+        split = self.import_report.get("pdf_split") or {}
+        segments = [ddr_pdf_split.ReportSegment(pages=s["pages"], report_number=s.get("report_number"),
+                                                report_date=s.get("report_date"), well=s.get("well"))
+                    for s in split.get("segments", [])]
+        try:
+            written = ddr_pdf_split.write_segments(self.file_path, segments, folder)
+        except Exception as exc:
+            logger.error("Per-report PDFs could not be written: %s", type(exc).__name__)
+            QMessageBox.critical(self, "Split failed", f"The per-report PDFs could not be written ({type(exc).__name__}).")
+            return None
+        QMessageBox.information(self, "PDFs written", f"{len(written)} PDF file(s) written to {folder}.\n"
+                                "Import each file on its own; nothing was imported from this PDF.")
+        return written
 
     def _accept_high(self):
         for row in range(self.table.rowCount()):
@@ -427,6 +510,10 @@ class ImportPreviewDialog(QDialog):
         self._set_decision(row, "IGNORED")
 
     def _confirm(self):
+        blocked = self._multi_report_block()
+        if blocked:
+            QMessageBox.warning(self, "Several reports in one PDF", blocked)
+            return
         # A proposal marked REVIEW is not an operator decision. Block the
         # transition to persistence until every row has a final decision.
         self.get_decisions()
@@ -763,6 +850,26 @@ class ExcelImportDialog(QDialog, DDRImportService):
         finally:
             self._set_import_busy(False)
 
+    def _pdf_split_info(self, source) -> dict:
+        """M52: report split of a PDF (several daily reports in one file), before any extraction."""
+        if not str(source).lower().endswith(".pdf"):
+            return {}
+        try:
+            split = ddr_pdf_split.analyse_pdf(
+                source, expected_well=ddr_pdf_split.expected_well_name(self.db, self.well_id))
+        except ddr_pdf_split.PdfSplitError as exc:
+            return {"pdf_split_error": str(exc)}
+        return {"pdf_split": split.to_json()}
+
+    @staticmethod
+    def _pdf_split_details(info) -> list:
+        split = (info or {}).get("pdf_split") or {}
+        if not split.get("multi_report"):
+            return []
+        ranges = ", ".join(s["page_range"] for s in split["segments"])
+        return [f"ℹ️ This PDF holds {len(split['segments'])} daily reports (pages {ranges}); "
+                "split it and import each report on its own."]
+
     def _run_import_pipeline_steps(self, files, mineru_results):
         """Run the existing preview/atomic DB path after optional MinerU work."""
         results = []
@@ -778,6 +885,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
             parse_result = None
             error_status = ImportStatus.PERSISTENCE_ERROR.value
             pipeline_stage = "route"
+            pdf_split_info = self._pdf_split_info(source)
             try:
                 route = route_file(source, template_matcher=self._auto_match_template)
                 parse_result = mineru_results.get(self._result_key(source))
@@ -926,6 +1034,8 @@ class ExcelImportDialog(QDialog, DDRImportService):
                     pipeline_stage = "meaningful_data"
                     raise ValueError("No meaningful canonical report data was detected")
 
+                import_report_dict.update(pdf_split_info)          # M52: shown in the preview
+
                 pipeline_stage = "ui_preview"
                 self.import_status.setText(
                     f"Preview for {os.path.basename(source)} - Waiting for user confirmation..."
@@ -1000,9 +1110,11 @@ class ExcelImportDialog(QDialog, DDRImportService):
                         operation=("open_workbook" if pipeline_stage == "open" else pipeline_stage),
                         status=diagnostic_status,
                     ).to_dict()],
-                    "details": [f"❌ {os.path.basename(source)}: {exc}"],
+                    "details": [f"❌ {os.path.basename(source)}: {exc}"] + self._pdf_split_details(pdf_split_info),
                     "error": str(exc),
                 }
+                if pdf_split_info:
+                    err_result.update(pdf_split_info)
                 results.append(err_result)
                 failed_files.append(f"{os.path.basename(source)}: {exc}")
                 if dialog is not None:

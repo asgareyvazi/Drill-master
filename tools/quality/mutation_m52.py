@@ -52,6 +52,9 @@ T_TC = ["tests/test_m52_trajectory_compare.py"]
 T_TC_UI = T_TC + ["tests/test_m52_trajectory_compare_ui.py"]
 T_BP = ["tests/test_m52_balanced_plug.py"]
 T_DDR = ["tests/test_m52_ddr_manual_edit.py"]
+SP = "core/ddr_pdf_split.py"
+DLG = "dialogs/excel_import_dialog.py"
+T_SP = ["tests/test_m52_ddr_pdf_split.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------ §2.4 the M50 survivors, re-run
@@ -278,6 +281,47 @@ MUTANTS = [
            "            self.status_manager.show_error(\"DailyReport\", \"Report list could not be read\")\n            return None",
            "            order = []",
            T_DDR, "an unreadable report list is shown as 'no reports'"),
+    # ------------------------------------------------------------ DDR PDF report split
+    Mutant("SP-repeated-header-splits", SP,
+           "            if current is not None and _same_report(current, page):",
+           "            if False:",
+           T_SP, "a multi-page report that repeats its header on every page becomes several reports"),
+    Mutant("SP-day-month-guessed", SP,
+           "            if a <= 12 and b <= 12 and a != b:\n                return None, \"day/month order ambiguous\"",
+           "            if False:\n                return None, \"day/month order ambiguous\"",
+           T_SP, "04/03/2026 is silently read as one of two possible dates"),
+    Mutant("SP-scanned-page-not-flagged", SP,
+           "            current.no_text_pages.append(page.number)",
+           "            pass",
+           T_SP, "a page without a text layer is assigned silently (OCR not run is not reported)"),
+    Mutant("SP-leading-pages-dropped", SP,
+           "        if current is None:\n            unassigned.append(page.number)\n            continue",
+           "        if current is None:\n            continue",
+           T_SP, "pages before the first header disappear without a warning"),
+    Mutant("SP-duplicates-not-explained", SP,
+           "    _explain_duplicates(segments)\n",
+           "",
+           T_SP, "the same report found twice is not flagged"),
+    Mutant("SP-well-mismatch-ignored", SP,
+           "    if expected_well and segment.well and _well_key(segment.well) != _well_key(expected_well):",
+           "    if False:",
+           T_SP, "a report of another well is not pointed out"),
+    Mutant("SP-split-overwrites", SP,
+           "    while target.exists():",
+           "    while False:",
+           T_SP, "writing the per-report PDFs again replaces earlier files"),
+    Mutant("DLG-confirm-not-guarded", DLG,
+           "        blocked = self._multi_report_block()\n        if blocked:\n            QMessageBox.warning",
+           "        blocked = \"\"\n        if blocked:\n            QMessageBox.warning",
+           T_SP, "Confirm Import maps a multi-report PDF to one report"),
+    Mutant("DLG-split-not-in-preview", DLG,
+           "                import_report_dict.update(pdf_split_info)          # M52: shown in the preview",
+           "",
+           T_SP, "the preview never shows the report split"),
+    Mutant("DLG-failure-hides-split", DLG,
+           " + self._pdf_split_details(pdf_split_info),",
+           ",",
+           T_SP, "a failed import of a multi-report PDF does not say it holds several reports"),
 ]
 
 
