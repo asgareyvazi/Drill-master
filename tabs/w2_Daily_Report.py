@@ -315,6 +315,7 @@ class DailyReportWidget(DrillTabBase):
 
         btn_24_layout.addWidget(add_24_btn)
         btn_24_layout.addWidget(remove_24_btn)
+        self._add_row_move_buttons(btn_24_layout, self.time_24_table)
         btn_24_layout.addWidget(export_24_btn)
         btn_24_layout.addStretch()
 
@@ -357,6 +358,7 @@ class DailyReportWidget(DrillTabBase):
 
         btn_morning_layout.addWidget(add_morning_btn)
         btn_morning_layout.addWidget(remove_morning_btn)
+        self._add_row_move_buttons(btn_morning_layout, self.morning_table)
         btn_morning_layout.addWidget(export_morning_btn)
         btn_morning_layout.addStretch()
 
@@ -415,6 +417,15 @@ class DailyReportWidget(DrillTabBase):
         self.create_report_btn.clicked.connect(self.create_daily_report_for_current_section)
         self.create_report_btn.setEnabled(False)
         button_layout.addWidget(self.create_report_btn)
+        # M52: step through the well's reports in date order without the report dialog.
+        self.prev_report_btn = QPushButton("◀ Previous report")
+        self.next_report_btn = QPushButton("Next report ▶")
+        self.prev_report_btn.setToolTip("Open the previous daily report of this well (by date, then number)")
+        self.next_report_btn.setToolTip("Open the next daily report of this well (by date, then number)")
+        self.prev_report_btn.clicked.connect(lambda: self.navigate_report(-1))
+        self.next_report_btn.clicked.connect(lambda: self.navigate_report(1))
+        button_layout.addWidget(self.prev_report_btn)
+        button_layout.addWidget(self.next_report_btn)
     
         self.save_btn = QPushButton("💾 Save Report")
         self.save_btn.setStyleSheet("""
@@ -1169,11 +1180,180 @@ class DailyReportWidget(DrillTabBase):
         self.status_manager.show_success("DailyReport", "Durations calculated")
 
     def remove_time_log_row(self, table):
+        """Remove the selected row (M52: without leaving stale row bindings).
+
+        Every row's widgets are connected with their row index captured at
+        creation.  Removing a Qt row shifted the rows below while their handlers
+        kept the old index, so editing a time on a shifted row recalculated a
+        different row.  The rows below now move their states up one row and the
+        last row is removed, so each widget keeps working on its own row.
+        """
         current_row = table.currentRow()
         if current_row >= 0:
-            table.removeRow(current_row)
+            last = table.rowCount() - 1
+            for row in range(current_row, last):
+                self._apply_time_row_state(table, row, self._time_row_state(table, row + 1))
+            table.removeRow(last)
             self.update_statistics()
             self.status_manager.show_message("DailyReport", "Row removed", 2000)
+
+    # ========== M52: reorder rows / navigate reports ==========
+    def _add_row_move_buttons(self, layout, table):
+        up = QPushButton("⬆ Move Up")
+        down = QPushButton("⬇ Move Down")
+        up.setToolTip("Move the selected activity one row up")
+        down.setToolTip("Move the selected activity one row down")
+        up.clicked.connect(lambda: self.move_time_log_row(table, -1))
+        down.clicked.connect(lambda: self.move_time_log_row(table, 1))
+        layout.addWidget(up)
+        layout.addWidget(down)
+
+    @staticmethod
+    def _time_widget_state(widget):
+        if widget is None:
+            return None
+        if getattr(widget, "_invalid_time", False):
+            return ("invalid", widget.text())          # raw text moves as is, never a made-up time
+        return ("time", widget._hour, widget._minute, widget._is_2400)
+
+    @staticmethod
+    def _combo_state(combo):
+        if combo is None:
+            return None
+        return (combo.currentIndex(), combo.currentText(), combo.isEditable())
+
+    def _apply_combo_state(self, combo, state):
+        if combo is None or state is None:
+            return
+        index, text, editable = state
+        combo.setEditable(bool(editable))        # both directions: the flag belongs to the row
+        if index >= 0 and index < combo.count():
+            combo.setCurrentIndex(index)
+        elif text:
+            self._set_unresolved_combo_value(combo, text)
+        else:
+            combo.setCurrentIndex(-1)
+            if editable:
+                combo.setCurrentText("")
+
+    def _time_row_state(self, table, row) -> dict:
+        """Everything the user entered in one row, including raw invalid text."""
+        stacked = table.cellWidget(row, 4)
+        contractor = table.cellWidget(row, 8)
+        contractor_edit = contractor.findChild(QLineEdit) if contractor else None
+        description = table.cellWidget(row, 9)
+        npt = table.cellWidget(row, 7)
+        if isinstance(description, QTextEdit):
+            description_text = description.toPlainText()
+        elif isinstance(description, QLineEdit):
+            description_text = description.text()
+        else:
+            description_text = ""
+        return {
+            "from": self._time_widget_state(table.cellWidget(row, 0)),
+            "to": self._time_widget_state(table.cellWidget(row, 1)),
+            "phase": self._combo_state(table.cellWidget(row, 3)),
+            "normal_code": self._combo_state(stacked.widget(0)) if stacked else None,
+            "npt_code": self._combo_state(stacked.widget(1)) if stacked else None,
+            "sub_code": self._combo_state(table.cellWidget(row, 5)),
+            "status": self._combo_state(table.cellWidget(row, 6)),
+            "is_npt": bool(npt.isChecked()) if npt else False,
+            "contractor": contractor_edit.text() if contractor_edit else "",
+            "description": description_text,
+        }
+
+    def _apply_time_row_state(self, table, row, state) -> None:
+        for column, key in ((0, "from"), (1, "to")):
+            widget, value = table.cellWidget(row, column), state.get(key)
+            if widget is None or value is None:
+                continue
+            if value[0] == "invalid":
+                widget.set_invalid_time(value[1] if value[1] != "" else None)
+            else:
+                widget.set_time(value[1], value[2], is_2400=value[3])
+        npt = table.cellWidget(row, 7)
+        if npt is not None:
+            npt.setChecked(state["is_npt"])             # switches the code stack / highlight of THIS row
+        self._apply_combo_state(table.cellWidget(row, 3), state["phase"])
+        stacked = table.cellWidget(row, 4)
+        if stacked is not None:
+            # The active code combo goes last: its change repopulates this row's sub-codes.
+            order = (("normal_code", 0), ("npt_code", 1)) if state["is_npt"] else (("npt_code", 1), ("normal_code", 0))
+            for key, index in order:
+                self._apply_combo_state(stacked.widget(index), state[key])
+            stacked.setCurrentIndex(1 if state["is_npt"] else 0)
+        self._apply_combo_state(table.cellWidget(row, 5), state["sub_code"])
+        self._apply_combo_state(table.cellWidget(row, 6), state["status"])
+        contractor = table.cellWidget(row, 8)
+        contractor_edit = contractor.findChild(QLineEdit) if contractor else None
+        if contractor_edit is not None:
+            contractor_edit.setText(state["contractor"])
+        description = table.cellWidget(row, 9)
+        if isinstance(description, QTextEdit):
+            description.setPlainText(state["description"])
+        elif isinstance(description, QLineEdit):
+            description.setText(state["description"])
+        self.calculate_row_duration(table, row)        # invalid times show NOT ASSESSED, never 0.00
+
+    def move_time_log_row(self, table, delta: int) -> bool:
+        """Swap the selected row with its neighbour (states move; widgets and bindings stay)."""
+        row = table.currentRow()
+        target = row + delta
+        if row < 0 or not 0 <= target < table.rowCount():
+            return False
+        first, second = self._time_row_state(table, row), self._time_row_state(table, target)
+        self._apply_time_row_state(table, row, second)
+        self._apply_time_row_state(table, target, first)
+        table.setCurrentCell(target, max(table.currentColumn(), 0))
+        self.update_statistics()
+        return True
+
+    def _well_report_order(self) -> list:
+        """Report ids of the current well, oldest first (date, number, id)."""
+        well_id = getattr(self, "current_well_id", None)
+        if not well_id:
+            return []
+        reports = self.db_manager.get_daily_reports_by_well(well_id)
+        reports.sort(key=lambda r: (r["report_date"] is None, r["report_date"] or 0,
+                                    r.get("report_number") if r.get("report_number") is not None else -1, r["id"]))
+        return [r["id"] for r in reports]
+
+    def _has_unsaved_edits(self) -> bool:
+        return any(section.dirty for section in getattr(self, "_tracked_edit_sections", ()))
+
+    def confirm_discard_edits(self) -> bool:
+        reply = QMessageBox.question(self, "Unsaved changes",
+                                     "This report has unsaved changes. Open the other report and discard them?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        return reply == QMessageBox.Yes
+
+    def navigate_report(self, step: int):
+        """Open the previous (-1) or next (+1) report of the well; returns the opened id or None."""
+        try:
+            order = self._well_report_order()
+        except Exception as exc:
+            logger.error("Report navigation could not read the report list: %s", type(exc).__name__)
+            self.status_manager.show_error("DailyReport", "Report list could not be read")
+            return None
+        if not order:
+            self.status_manager.show_message("DailyReport", "This well has no daily reports", 3000)
+            return None
+        current = getattr(self, "current_report_id", None)
+        if current in order:
+            index = order.index(current) + step
+        else:
+            index = len(order) - 1 if step < 0 else 0
+        if not 0 <= index < len(order):
+            self.status_manager.show_message("DailyReport",
+                                             "Already at the first report" if step < 0 else "Already at the last report",
+                                             3000)
+            return None
+        if self._has_unsaved_edits() and not self.confirm_discard_edits():
+            return None
+        target = order[index]
+        if self.load_report_by_id(target) is False:
+            return None
+        return target
 
     def highlight_npt_row(self, table, row, state):
         is_npt = (state == 2)
@@ -1684,10 +1864,12 @@ class DailyReportWidget(DrillTabBase):
         table.setRowCount(0)
         session = self.db_manager.create_session()
         try:
+            # Rows are saved in the order shown (delete + insert), so id order is
+            # the user's order - explicit, not whatever order SQLite returns (M52).
             if is_morning:
-                logs = session.query(TimeLogMorning).filter_by(report_id=report_id).all()
+                logs = session.query(TimeLogMorning).filter_by(report_id=report_id).order_by(TimeLogMorning.id).all()
             else:
-                logs = session.query(TimeLog24H).filter_by(report_id=report_id).all()
+                logs = session.query(TimeLog24H).filter_by(report_id=report_id).order_by(TimeLog24H.id).all()
             for log in logs:
                 self.add_time_log_row(table, log)
             QTimer.singleShot(100, lambda: self._adjust_all_row_heights(table))
