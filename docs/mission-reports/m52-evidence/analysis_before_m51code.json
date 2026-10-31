@@ -1,0 +1,878 @@
+{
+  "environment": {
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+    "python": "3.11.2",
+    "cpus": 2,
+    "qt_platform": "offscreen",
+    "timer_interval_ms": 5,
+    "gc_policy": "gui-thread (core/qt_gc.py)",
+    "cycles_per_size": 20,
+    "cache": "cleared (refresh_now)"
+  },
+  "rows": {
+    "1024": {
+      "extra_time_log_rows": 1024,
+      "snapshot_path": {
+        "revision": {
+          "n": 20,
+          "median_ms": 26.04,
+          "p95_ms": 50.62,
+          "max_ms": 87.46
+        },
+        "db_sql": {
+          "n": 20,
+          "median_ms": 5.55,
+          "p95_ms": 8.31,
+          "max_ms": 38.2
+        },
+        "calc": {
+          "n": 20,
+          "median_ms": 124.89,
+          "p95_ms": 158.99,
+          "max_ms": 184.53
+        },
+        "gui_paint": {
+          "n": 20,
+          "median_ms": 110.1,
+          "p95_ms": 127.84,
+          "max_ms": 129.7
+        },
+        "render": {
+          "n": 20,
+          "median_ms": 28.49,
+          "p95_ms": 40.69,
+          "max_ms": 44.85
+        },
+        "verify": {
+          "n": 20,
+          "median_ms": 54.27,
+          "p95_ms": 91.12,
+          "max_ms": 96.49
+        },
+        "total": {
+          "n": 20,
+          "median_ms": 355.88,
+          "p95_ms": 412.84,
+          "max_ms": 471.51
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 115.69,
+          "p95_ms": 133.33,
+          "max_ms": 135.16
+        }
+      },
+      "snapshot_readers_wall": {
+        "analytics": {
+          "n": 20,
+          "median_ms": 5.56,
+          "p95_ms": 6.28,
+          "max_ms": 9.21
+        },
+        "bores": {
+          "n": 20,
+          "median_ms": 2.7,
+          "p95_ms": 3.11,
+          "max_ms": 3.14
+        },
+        "evidence": {
+          "n": 20,
+          "median_ms": 3.99,
+          "p95_ms": 4.38,
+          "max_ms": 7.05
+        },
+        "intel": {
+          "n": 20,
+          "median_ms": 0.15,
+          "p95_ms": 0.2,
+          "max_ms": 0.23
+        },
+        "kpis": {
+          "n": 20,
+          "median_ms": 48.91,
+          "p95_ms": 60.47,
+          "max_ms": 81.07
+        },
+        "milestones": {
+          "n": 20,
+          "median_ms": 3.22,
+          "p95_ms": 4.13,
+          "max_ms": 4.74
+        },
+        "npt": {
+          "n": 20,
+          "median_ms": 28.36,
+          "p95_ms": 62.61,
+          "max_ms": 76.18
+        },
+        "perf": {
+          "n": 20,
+          "median_ms": 4.11,
+          "p95_ms": 4.5,
+          "max_ms": 6.96
+        },
+        "plan": {
+          "n": 20,
+          "median_ms": 13.51,
+          "p95_ms": 16.25,
+          "max_ms": 17.36
+        },
+        "recent": {
+          "n": 20,
+          "median_ms": 5.56,
+          "p95_ms": 7.02,
+          "max_ms": 8.64
+        },
+        "td": {
+          "n": 20,
+          "median_ms": 2.15,
+          "p95_ms": 2.62,
+          "max_ms": 2.76
+        },
+        "today": {
+          "n": 20,
+          "median_ms": 10.31,
+          "p95_ms": 11.42,
+          "max_ms": 15.65
+        }
+      },
+      "gui_paint_steps": {
+        "load_milestones_data": {
+          "n": 20,
+          "median_ms": 29.41,
+          "p95_ms": 35.24,
+          "max_ms": 39.26
+        },
+        "update_analytics": {
+          "n": 20,
+          "median_ms": 20.84,
+          "p95_ms": 25.69,
+          "max_ms": 25.73
+        },
+        "update_daily_data": {
+          "n": 20,
+          "median_ms": 0.18,
+          "p95_ms": 0.3,
+          "max_ms": 0.32
+        },
+        "update_data_quality": {
+          "n": 20,
+          "median_ms": 0.16,
+          "p95_ms": 0.22,
+          "max_ms": 0.23
+        },
+        "update_evidence": {
+          "n": 20,
+          "median_ms": 6.47,
+          "p95_ms": 8.27,
+          "max_ms": 9.72
+        },
+        "update_intelligence": {
+          "n": 20,
+          "median_ms": 0.08,
+          "p95_ms": 0.09,
+          "max_ms": 0.09
+        },
+        "update_kpi_data": {
+          "n": 20,
+          "median_ms": 0.14,
+          "p95_ms": 0.18,
+          "max_ms": 0.19
+        },
+        "update_npt_data": {
+          "n": 20,
+          "median_ms": 28.62,
+          "p95_ms": 41.25,
+          "max_ms": 41.58
+        },
+        "update_performance_data": {
+          "n": 20,
+          "median_ms": 9.23,
+          "p95_ms": 10.94,
+          "max_ms": 11.59
+        },
+        "update_plan_variance": {
+          "n": 20,
+          "median_ms": 0.1,
+          "p95_ms": 0.13,
+          "max_ms": 0.14
+        },
+        "update_scope_indicator": {
+          "n": 20,
+          "median_ms": 0.07,
+          "p95_ms": 0.11,
+          "max_ms": 0.11
+        },
+        "update_time_depth_data": {
+          "n": 20,
+          "median_ms": 12.19,
+          "p95_ms": 17.09,
+          "max_ms": 17.51
+        }
+      },
+      "synchronous_path": {
+        "total": {
+          "n": 20,
+          "median_ms": 234.02,
+          "p95_ms": 291.76,
+          "max_ms": 297.85
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 260.96,
+          "p95_ms": 319.89,
+          "max_ms": 333.89
+        }
+      },
+      "painted_values_equal_sync_vs_snapshot": true
+    },
+    "4096": {
+      "extra_time_log_rows": 4096,
+      "snapshot_path": {
+        "revision": {
+          "n": 20,
+          "median_ms": 45.19,
+          "p95_ms": 79.48,
+          "max_ms": 91.6
+        },
+        "db_sql": {
+          "n": 20,
+          "median_ms": 7.02,
+          "p95_ms": 21.98,
+          "max_ms": 37.31
+        },
+        "calc": {
+          "n": 20,
+          "median_ms": 279.93,
+          "p95_ms": 303.64,
+          "max_ms": 307.44
+        },
+        "gui_paint": {
+          "n": 20,
+          "median_ms": 119.06,
+          "p95_ms": 145.78,
+          "max_ms": 147.22
+        },
+        "render": {
+          "n": 20,
+          "median_ms": 27.15,
+          "p95_ms": 33.23,
+          "max_ms": 46.75
+        },
+        "verify": {
+          "n": 20,
+          "median_ms": 73.38,
+          "p95_ms": 129.03,
+          "max_ms": 183.53
+        },
+        "total": {
+          "n": 20,
+          "median_ms": 557.92,
+          "p95_ms": 631.45,
+          "max_ms": 647.01
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 125.3,
+          "p95_ms": 153.57,
+          "max_ms": 169.99
+        }
+      },
+      "snapshot_readers_wall": {
+        "analytics": {
+          "n": 20,
+          "median_ms": 5.74,
+          "p95_ms": 6.47,
+          "max_ms": 6.49
+        },
+        "bores": {
+          "n": 20,
+          "median_ms": 3.05,
+          "p95_ms": 5.65,
+          "max_ms": 29.16
+        },
+        "evidence": {
+          "n": 20,
+          "median_ms": 3.88,
+          "p95_ms": 5.65,
+          "max_ms": 5.81
+        },
+        "intel": {
+          "n": 20,
+          "median_ms": 0.14,
+          "p95_ms": 0.25,
+          "max_ms": 0.28
+        },
+        "kpis": {
+          "n": 20,
+          "median_ms": 107.51,
+          "p95_ms": 126.77,
+          "max_ms": 130.36
+        },
+        "milestones": {
+          "n": 20,
+          "median_ms": 3.11,
+          "p95_ms": 3.92,
+          "max_ms": 4.17
+        },
+        "npt": {
+          "n": 20,
+          "median_ms": 93.4,
+          "p95_ms": 107.94,
+          "max_ms": 128.3
+        },
+        "perf": {
+          "n": 20,
+          "median_ms": 4.21,
+          "p95_ms": 5.41,
+          "max_ms": 6.18
+        },
+        "plan": {
+          "n": 20,
+          "median_ms": 41.43,
+          "p95_ms": 49.31,
+          "max_ms": 55.55
+        },
+        "recent": {
+          "n": 20,
+          "median_ms": 5.97,
+          "p95_ms": 6.55,
+          "max_ms": 7.2
+        },
+        "td": {
+          "n": 20,
+          "median_ms": 2.12,
+          "p95_ms": 2.24,
+          "max_ms": 2.3
+        },
+        "today": {
+          "n": 20,
+          "median_ms": 10.21,
+          "p95_ms": 13.24,
+          "max_ms": 25.23
+        }
+      },
+      "gui_paint_steps": {
+        "load_milestones_data": {
+          "n": 20,
+          "median_ms": 29.7,
+          "p95_ms": 35.02,
+          "max_ms": 36.23
+        },
+        "update_analytics": {
+          "n": 20,
+          "median_ms": 20.95,
+          "p95_ms": 24.24,
+          "max_ms": 29.85
+        },
+        "update_daily_data": {
+          "n": 20,
+          "median_ms": 0.17,
+          "p95_ms": 0.26,
+          "max_ms": 0.26
+        },
+        "update_data_quality": {
+          "n": 20,
+          "median_ms": 0.16,
+          "p95_ms": 0.17,
+          "max_ms": 0.17
+        },
+        "update_evidence": {
+          "n": 20,
+          "median_ms": 6.52,
+          "p95_ms": 7.41,
+          "max_ms": 8.23
+        },
+        "update_intelligence": {
+          "n": 20,
+          "median_ms": 0.08,
+          "p95_ms": 0.13,
+          "max_ms": 0.16
+        },
+        "update_kpi_data": {
+          "n": 20,
+          "median_ms": 0.15,
+          "p95_ms": 0.19,
+          "max_ms": 0.22
+        },
+        "update_npt_data": {
+          "n": 20,
+          "median_ms": 38.12,
+          "p95_ms": 51.57,
+          "max_ms": 60.25
+        },
+        "update_performance_data": {
+          "n": 20,
+          "median_ms": 9.4,
+          "p95_ms": 11.21,
+          "max_ms": 11.52
+        },
+        "update_plan_variance": {
+          "n": 20,
+          "median_ms": 0.1,
+          "p95_ms": 0.15,
+          "max_ms": 0.18
+        },
+        "update_scope_indicator": {
+          "n": 20,
+          "median_ms": 0.07,
+          "p95_ms": 0.12,
+          "max_ms": 0.13
+        },
+        "update_time_depth_data": {
+          "n": 20,
+          "median_ms": 12.44,
+          "p95_ms": 13.87,
+          "max_ms": 20.54
+        }
+      },
+      "synchronous_path": {
+        "total": {
+          "n": 20,
+          "median_ms": 461.59,
+          "p95_ms": 504.77,
+          "max_ms": 506.9
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 487.34,
+          "p95_ms": 531.91,
+          "max_ms": 532.08
+        }
+      },
+      "painted_values_equal_sync_vs_snapshot": true
+    },
+    "16384": {
+      "extra_time_log_rows": 16384,
+      "snapshot_path": {
+        "revision": {
+          "n": 20,
+          "median_ms": 136.64,
+          "p95_ms": 152.29,
+          "max_ms": 177.35
+        },
+        "db_sql": {
+          "n": 20,
+          "median_ms": 12.44,
+          "p95_ms": 14.84,
+          "max_ms": 17.65
+        },
+        "calc": {
+          "n": 20,
+          "median_ms": 975.06,
+          "p95_ms": 1083.71,
+          "max_ms": 1144.1
+        },
+        "gui_paint": {
+          "n": 20,
+          "median_ms": 179.72,
+          "p95_ms": 211.22,
+          "max_ms": 216.67
+        },
+        "render": {
+          "n": 20,
+          "median_ms": 28.28,
+          "p95_ms": 33.65,
+          "max_ms": 48.72
+        },
+        "verify": {
+          "n": 20,
+          "median_ms": 172.43,
+          "p95_ms": 219.99,
+          "max_ms": 353.91
+        },
+        "total": {
+          "n": 20,
+          "median_ms": 1515.31,
+          "p95_ms": 1685.33,
+          "max_ms": 1799.73
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 185.18,
+          "p95_ms": 261.06,
+          "max_ms": 319.73
+        }
+      },
+      "snapshot_readers_wall": {
+        "analytics": {
+          "n": 20,
+          "median_ms": 6.01,
+          "p95_ms": 9.67,
+          "max_ms": 12.68
+        },
+        "bores": {
+          "n": 20,
+          "median_ms": 3.5,
+          "p95_ms": 5.5,
+          "max_ms": 9.3
+        },
+        "evidence": {
+          "n": 20,
+          "median_ms": 4.07,
+          "p95_ms": 5.53,
+          "max_ms": 6.59
+        },
+        "intel": {
+          "n": 20,
+          "median_ms": 0.13,
+          "p95_ms": 0.64,
+          "max_ms": 5.84
+        },
+        "kpis": {
+          "n": 20,
+          "median_ms": 328.94,
+          "p95_ms": 399.6,
+          "max_ms": 445.01
+        },
+        "milestones": {
+          "n": 20,
+          "median_ms": 3.59,
+          "p95_ms": 4.59,
+          "max_ms": 5.31
+        },
+        "npt": {
+          "n": 20,
+          "median_ms": 389.7,
+          "p95_ms": 477.6,
+          "max_ms": 537.46
+        },
+        "perf": {
+          "n": 20,
+          "median_ms": 4.42,
+          "p95_ms": 5.23,
+          "max_ms": 6.04
+        },
+        "plan": {
+          "n": 20,
+          "median_ms": 172.84,
+          "p95_ms": 291.94,
+          "max_ms": 440.2
+        },
+        "recent": {
+          "n": 20,
+          "median_ms": 8.1,
+          "p95_ms": 13.22,
+          "max_ms": 13.71
+        },
+        "td": {
+          "n": 20,
+          "median_ms": 2.16,
+          "p95_ms": 2.28,
+          "max_ms": 2.3
+        },
+        "today": {
+          "n": 20,
+          "median_ms": 10.54,
+          "p95_ms": 13.38,
+          "max_ms": 13.94
+        }
+      },
+      "gui_paint_steps": {
+        "load_milestones_data": {
+          "n": 20,
+          "median_ms": 30.4,
+          "p95_ms": 43.13,
+          "max_ms": 44.01
+        },
+        "update_analytics": {
+          "n": 20,
+          "median_ms": 22.02,
+          "p95_ms": 26.77,
+          "max_ms": 27.05
+        },
+        "update_daily_data": {
+          "n": 20,
+          "median_ms": 0.19,
+          "p95_ms": 0.24,
+          "max_ms": 0.31
+        },
+        "update_data_quality": {
+          "n": 20,
+          "median_ms": 0.17,
+          "p95_ms": 0.29,
+          "max_ms": 0.34
+        },
+        "update_evidence": {
+          "n": 20,
+          "median_ms": 7.19,
+          "p95_ms": 9.6,
+          "max_ms": 9.64
+        },
+        "update_intelligence": {
+          "n": 20,
+          "median_ms": 0.08,
+          "p95_ms": 0.12,
+          "max_ms": 0.13
+        },
+        "update_kpi_data": {
+          "n": 20,
+          "median_ms": 0.16,
+          "p95_ms": 0.23,
+          "max_ms": 0.28
+        },
+        "update_npt_data": {
+          "n": 20,
+          "median_ms": 88.54,
+          "p95_ms": 112.87,
+          "max_ms": 116.87
+        },
+        "update_performance_data": {
+          "n": 20,
+          "median_ms": 10.07,
+          "p95_ms": 11.72,
+          "max_ms": 12.06
+        },
+        "update_plan_variance": {
+          "n": 20,
+          "median_ms": 0.1,
+          "p95_ms": 0.15,
+          "max_ms": 0.16
+        },
+        "update_scope_indicator": {
+          "n": 20,
+          "median_ms": 0.08,
+          "p95_ms": 0.09,
+          "max_ms": 0.11
+        },
+        "update_time_depth_data": {
+          "n": 20,
+          "median_ms": 13.54,
+          "p95_ms": 21.84,
+          "max_ms": 22.16
+        }
+      },
+      "synchronous_path": {
+        "total": {
+          "n": 20,
+          "median_ms": 1477.64,
+          "p95_ms": 1597.09,
+          "max_ms": 1695.61
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 1505.42,
+          "p95_ms": 1625.0,
+          "max_ms": 1728.49
+        }
+      },
+      "painted_values_equal_sync_vs_snapshot": true
+    },
+    "65536": {
+      "extra_time_log_rows": 65536,
+      "snapshot_path": {
+        "revision": {
+          "n": 20,
+          "median_ms": 486.73,
+          "p95_ms": 555.66,
+          "max_ms": 575.7
+        },
+        "db_sql": {
+          "n": 20,
+          "median_ms": 31.48,
+          "p95_ms": 288.24,
+          "max_ms": 485.4
+        },
+        "calc": {
+          "n": 20,
+          "median_ms": 3936.07,
+          "p95_ms": 4312.03,
+          "max_ms": 5246.96
+        },
+        "gui_paint": {
+          "n": 20,
+          "median_ms": 373.16,
+          "p95_ms": 417.48,
+          "max_ms": 598.53
+        },
+        "render": {
+          "n": 20,
+          "median_ms": 28.83,
+          "p95_ms": 39.84,
+          "max_ms": 66.02
+        },
+        "verify": {
+          "n": 20,
+          "median_ms": 557.04,
+          "p95_ms": 620.8,
+          "max_ms": 622.14
+        },
+        "total": {
+          "n": 20,
+          "median_ms": 5440.81,
+          "p95_ms": 5988.97,
+          "max_ms": 6752.07
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 390.13,
+          "p95_ms": 642.63,
+          "max_ms": 1373.97
+        }
+      },
+      "snapshot_readers_wall": {
+        "analytics": {
+          "n": 20,
+          "median_ms": 6.28,
+          "p95_ms": 9.74,
+          "max_ms": 9.95
+        },
+        "bores": {
+          "n": 20,
+          "median_ms": 3.45,
+          "p95_ms": 4.8,
+          "max_ms": 5.13
+        },
+        "evidence": {
+          "n": 20,
+          "median_ms": 4.26,
+          "p95_ms": 6.97,
+          "max_ms": 7.1
+        },
+        "intel": {
+          "n": 20,
+          "median_ms": 0.19,
+          "p95_ms": 0.28,
+          "max_ms": 0.3
+        },
+        "kpis": {
+          "n": 20,
+          "median_ms": 1432.72,
+          "p95_ms": 1749.34,
+          "max_ms": 1873.6
+        },
+        "milestones": {
+          "n": 20,
+          "median_ms": 4.01,
+          "p95_ms": 4.54,
+          "max_ms": 6.4
+        },
+        "npt": {
+          "n": 20,
+          "median_ms": 1751.32,
+          "p95_ms": 1949.84,
+          "max_ms": 2996.4
+        },
+        "perf": {
+          "n": 20,
+          "median_ms": 4.36,
+          "p95_ms": 5.08,
+          "max_ms": 5.56
+        },
+        "plan": {
+          "n": 20,
+          "median_ms": 761.67,
+          "p95_ms": 835.57,
+          "max_ms": 952.8
+        },
+        "recent": {
+          "n": 20,
+          "median_ms": 15.09,
+          "p95_ms": 16.16,
+          "max_ms": 18.89
+        },
+        "td": {
+          "n": 20,
+          "median_ms": 2.25,
+          "p95_ms": 2.79,
+          "max_ms": 3.99
+        },
+        "today": {
+          "n": 20,
+          "median_ms": 10.46,
+          "p95_ms": 13.43,
+          "max_ms": 14.08
+        }
+      },
+      "gui_paint_steps": {
+        "load_milestones_data": {
+          "n": 20,
+          "median_ms": 30.13,
+          "p95_ms": 33.6,
+          "max_ms": 44.81
+        },
+        "update_analytics": {
+          "n": 20,
+          "median_ms": 23.01,
+          "p95_ms": 30.08,
+          "max_ms": 38.19
+        },
+        "update_daily_data": {
+          "n": 20,
+          "median_ms": 0.2,
+          "p95_ms": 0.24,
+          "max_ms": 0.24
+        },
+        "update_data_quality": {
+          "n": 20,
+          "median_ms": 0.17,
+          "p95_ms": 0.23,
+          "max_ms": 0.27
+        },
+        "update_evidence": {
+          "n": 20,
+          "median_ms": 7.02,
+          "p95_ms": 8.11,
+          "max_ms": 8.26
+        },
+        "update_intelligence": {
+          "n": 20,
+          "median_ms": 0.08,
+          "p95_ms": 0.15,
+          "max_ms": 0.17
+        },
+        "update_kpi_data": {
+          "n": 20,
+          "median_ms": 0.15,
+          "p95_ms": 0.21,
+          "max_ms": 0.22
+        },
+        "update_npt_data": {
+          "n": 20,
+          "median_ms": 283.28,
+          "p95_ms": 328.14,
+          "max_ms": 501.59
+        },
+        "update_performance_data": {
+          "n": 20,
+          "median_ms": 9.94,
+          "p95_ms": 12.12,
+          "max_ms": 12.12
+        },
+        "update_plan_variance": {
+          "n": 20,
+          "median_ms": 0.1,
+          "p95_ms": 0.16,
+          "max_ms": 0.19
+        },
+        "update_scope_indicator": {
+          "n": 20,
+          "median_ms": 0.08,
+          "p95_ms": 0.13,
+          "max_ms": 0.16
+        },
+        "update_time_depth_data": {
+          "n": 20,
+          "median_ms": 13.46,
+          "p95_ms": 18.1,
+          "max_ms": 19.3
+        }
+      },
+      "synchronous_path": {
+        "total": {
+          "n": 20,
+          "median_ms": 5428.67,
+          "p95_ms": 5706.07,
+          "max_ms": 5785.44
+        },
+        "max_gap": {
+          "n": 20,
+          "median_ms": 5458.44,
+          "p95_ms": 5734.36,
+          "max_ms": 5820.72
+        }
+      },
+      "painted_values_equal_sync_vs_snapshot": true
+    }
+  }
+}

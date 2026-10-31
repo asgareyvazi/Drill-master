@@ -1,0 +1,600 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m29_release_closure.py",
+      "tests/test_m48_analysis_evidence.py",
+      "tests/test_m48_analysis_ui.py"
+    ],
+    "exit": 0,
+    "summary": "206 passed, 14 warnings in 49.79s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "N-none-is-zero",
+      "path": "core/analysis_evidence.py",
+      "note": "a missing (None) observation becomes a valid 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py",
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.59s"
+    },
+    {
+      "id": "N-state-text-zero",
+      "path": "core/analysis_evidence.py",
+      "note": "a metric without a value is displayed as 0.0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py",
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.57s"
+    },
+    {
+      "id": "N-real-zero-dropped",
+      "path": "core/analysis_evidence.py",
+      "note": "a recorded 0.0 ROP is dropped from average/best",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.29s"
+    },
+    {
+      "id": "V-nan-accepted",
+      "path": "core/analysis_evidence.py",
+      "note": "NaN / inf accepted as measurements",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.27s"
+    },
+    {
+      "id": "S-deselect-keeps-kpis",
+      "path": "tabs/w12_Analysis.py",
+      "note": "deselecting the well keeps the previous well's KPI cards",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 41.53s"
+    },
+    {
+      "id": "S-no-generation-guard",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a read that finished after a selection change paints over the new well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 42.24s"
+    },
+    {
+      "id": "S-section-leak",
+      "path": "core/base_tab.py",
+      "note": "a section of the previous well keeps scoping the new well (base well-change reset)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 40.44s"
+    },
+    {
+      "id": "R-ambiguous-drilldown",
+      "path": "core/analysis_evidence.py",
+      "note": "an ambiguous observation still offers a drill-down",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 1.19s"
+    },
+    {
+      "id": "R-source-link-lost",
+      "path": "core/analysis_evidence.py",
+      "note": "the evidence row loses its report_id (source link)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py",
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 62 passed in 1.89s"
+    },
+    {
+      "id": "R-wrong-report-id",
+      "path": "core/analysis_evidence.py",
+      "note": "the drill-down opens the parameter row id instead of its report id",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py",
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 0.57s"
+    },
+    {
+      "id": "F-evidence-bore-filter",
+      "path": "core/analysis_evidence.py",
+      "note": "evidence/NPT queries drop the wellbore filter",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 63 passed in 1.60s"
+    },
+    {
+      "id": "F-w12-bore-filter",
+      "path": "tabs/w12_Analysis.py",
+      "note": "W12 report queries drop the wellbore filter",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 38.08s"
+    },
+    {
+      "id": "D-simple-mean",
+      "path": "core/analysis_evidence.py",
+      "note": "same-date rows averaged without their on-bottom hours",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.27s"
+    },
+    {
+      "id": "C-zero-without-coverage",
+      "path": "core/analysis_evidence.py",
+      "note": "a partially covered day becomes a valid (zero) NPT day",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py",
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed in 1.56s"
+    },
+    {
+      "id": "C-risk-ignores-coverage",
+      "path": "core/analysis_evidence.py",
+      "note": "the NPT risk criterion is scored on incomplete time coverage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 53 passed in 1.26s"
+    },
+    {
+      "id": "C-forecast-npt-days-only",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the NPT projection drops valid zero days (old: NPT days only)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed in 39.65s"
+    },
+    {
+      "id": "P-too-few-points",
+      "path": "core/analysis_evidence.py",
+      "note": "a projection is fitted on fewer than five dates",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py",
+        "tests/test_m48_analysis_ui.py",
+        "tests/test_m29_release_closure.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 32 passed in 1.62s"
+    },
+    {
+      "id": "P-ordinal-x",
+      "path": "core/analysis_evidence.py",
+      "note": "the projection uses observation ordinals instead of calendar days",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py",
+        "tests/test_m29_release_closure.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 35 passed in 1.20s"
+    },
+    {
+      "id": "K-missing-safety-low",
+      "path": "core/analysis_evidence.py",
+      "note": "missing safety data scores as LOW risk",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 52 passed in 1.24s"
+    },
+    {
+      "id": "M-mixed-currency-sum",
+      "path": "tabs/w12_Analysis.py",
+      "note": "cost lines in different currencies are summed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 29 passed in 39.21s"
+    },
+    {
+      "id": "E-error-is-empty",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a failed read is shown as empty data",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 41.53s"
+    },
+    {
+      "id": "E-canonical-error-swallowed",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the canonical service's error dict becomes 'No data'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 39.62s"
+    },
+    {
+      "id": "E-status-hides-read-error",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a handled read failure is summarised as 'Updated'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 39.73s"
+    },
+    {
+      "id": "W-cache-key-scope-only",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the cache key ignores section, report and data revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 40.68s"
+    },
+    {
+      "id": "W-no-revision-invalidation",
+      "path": "tabs/w12_Analysis.py",
+      "note": "changed source data is served from the 30 s cache",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 39.58s"
+    },
+    {
+      "id": "W-auto-update-enum",
+      "path": "tabs/w12_Analysis.py",
+      "note": "old toggle: stateChanged's int never equals the Qt.Checked enum",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 40.61s"
+    },
+    {
+      "id": "B-global-suppression",
+      "path": "tabs/w12_Analysis.py",
+      "note": "module-level global warning suppression restored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 41.05s"
+    },
+    {
+      "id": "B-forced-backend",
+      "path": "tabs/w12_Analysis.py",
+      "note": "module import forces a Matplotlib backend",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 40.13s"
+    },
+    {
+      "id": "L-canonical-legacy-double-count",
+      "path": "core/operations_intelligence.py",
+      "note": "the canonical whole-well ROP counts a legacy row on a linked date",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 1.08s"
+    },
+    {
+      "id": "L-evidence-legacy-duplicate",
+      "path": "core/analysis_evidence.py",
+      "note": "the evidence trend keeps a legacy duplicate of a linked row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 0.26s"
+    },
+    {
+      "id": "L-w12-legacy-double-count",
+      "path": "tabs/w12_Analysis.py",
+      "note": "W12 best ROP / midpoints count a legacy row on a linked date",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 36 passed in 38.88s"
+    },
+    {
+      "id": "Q-metric-shadow",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a card attribute shadows the virtual QPaintDevice.metric() (crash in the event loop)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 39.17s"
+    },
+    {
+      "id": "Q-card-style-unscoped",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the card rule leaks into its QLabel children (padding/border clip the KPI value)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 40.38s"
+    },
+    {
+      "id": "Q-header-style-unscoped",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the header box rule cascades padding/margin into the KPI card labels",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 40.44s"
+    },
+    {
+      "id": "Q-header-shared-cell",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the well row is painted over the Data Quality label again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 39.03s"
+    },
+    {
+      "id": "Q-scope-label-invisible",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the whole-well aggregate scope is drawn in the header background colour",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 33 passed in 40.03s"
+    },
+    {
+      "id": "S-stale-analytics-title",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a previous analysis' chart title survives the next analysis or a deselect",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 34 passed in 40.27s"
+    },
+    {
+      "id": "Q-argb-hex-card",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a CSS-style #RRGGBBAA colour is parsed by Qt as #AARRGGBB (wrong card colour)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 43.14s"
+    },
+    {
+      "id": "Q-depth-table-style-unscoped",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the Depth History container padding cascades into the table header",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 40.68s"
+    },
+    {
+      "id": "Q-quality-tooltip-literal-newline",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the data-quality tooltip shows a literal backslash-n instead of line breaks",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 43 passed in 40.58s"
+    },
+    {
+      "id": "Q-disabled-looks-enabled",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a disabled drill-down button renders exactly like an enabled one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 37 passed in 41.41s"
+    },
+    {
+      "id": "R-evidence-ring-stale",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the previous selection ring stays on the evidence chart",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 35 passed in 40.27s"
+    },
+    {
+      "id": "X-pdf-name-ignored",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the chosen PDF file name is discarded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 41 passed in 40.89s"
+    },
+    {
+      "id": "X-html-unescaped",
+      "path": "tabs/w12_Analysis.py",
+      "note": "report HTML inserts names unescaped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m48_analysis_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 39 passed in 41.69s"
+    }
+  ],
+  "killed": [
+    "N-none-is-zero",
+    "N-state-text-zero",
+    "N-real-zero-dropped",
+    "V-nan-accepted",
+    "S-deselect-keeps-kpis",
+    "S-no-generation-guard",
+    "S-section-leak",
+    "R-ambiguous-drilldown",
+    "R-source-link-lost",
+    "R-wrong-report-id",
+    "F-evidence-bore-filter",
+    "F-w12-bore-filter",
+    "D-simple-mean",
+    "C-zero-without-coverage",
+    "C-risk-ignores-coverage",
+    "C-forecast-npt-days-only",
+    "P-too-few-points",
+    "P-ordinal-x",
+    "K-missing-safety-low",
+    "M-mixed-currency-sum",
+    "E-error-is-empty",
+    "E-canonical-error-swallowed",
+    "E-status-hides-read-error",
+    "W-cache-key-scope-only",
+    "W-no-revision-invalidation",
+    "W-auto-update-enum",
+    "B-global-suppression",
+    "B-forced-backend",
+    "L-canonical-legacy-double-count",
+    "L-evidence-legacy-duplicate",
+    "L-w12-legacy-double-count",
+    "Q-metric-shadow",
+    "Q-card-style-unscoped",
+    "Q-header-style-unscoped",
+    "Q-header-shared-cell",
+    "Q-scope-label-invisible",
+    "S-stale-analytics-title",
+    "Q-argb-hex-card",
+    "Q-depth-table-style-unscoped",
+    "Q-quality-tooltip-literal-newline",
+    "Q-disabled-looks-enabled",
+    "R-evidence-ring-stale",
+    "X-pdf-name-ignored",
+    "X-html-unescaped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

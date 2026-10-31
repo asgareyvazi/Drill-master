@@ -22,9 +22,11 @@ What reached the product: two independent re-implementations, no copied code:
 * `core/trajectory_compare.py` (plan vs actual and offset-well centre-to-centre screening, exact minimum-curvature arc, continuous closest approach). Method ideas from **welleng** (Apache-2.0). Labelled `SCREENING - centre-to-centre, no ISCWSA uncertainty, NOT APPROVED`.
 * `CementEngine.balanced_plug` (SCREENING). Method from **cement-calc** (MIT), attribution in `THIRD_PARTY_NOTICES.md`.
 
-Dependencies: **M52 adds no runtime or development dependency.** `pyproject.toml` and `requirements-lock.txt` (the dependency inventory) are unchanged; scipy, pyproj, PyMuPDF, OCR engines and embedding models remain absent.
+Own designs informed by INSPIRE ONLY entries (nothing copied): `core/ddr_pdf_split.py` (one PDF holding several daily reports is split per report, with page references, warnings and confidence, before review) follows the page-classification / report-boundary idea of the DDR PDF repositories (DDR_UTAH_FORGE, pdf-report-table-extractor, wellbrief) with generic header labels and no dataset-specific rules.
 
-Owner decisions opened by this review: welleng ISCWSA error models (scipy/pyproj, reference validation); LGPL pro-well-plan (pwptemp, torque_drag); any GPL (ejbo2001) or CC BY-NC (nmamzada) code; PyMuPDF (AGPL) and OCR/embedding models used by the DDR/RAG repositories; well-control calculators (kill-sheet).
+Dependencies: **M52 adds no runtime or development dependency.** `pyproject.toml` and `requirements-lock.txt` (the dependency inventory) are unchanged; scipy, pyproj, OCR engines and embedding models remain absent. PyMuPDF is **not** new: it was already a mandatory, locked dependency before M52 (`PyMuPDF==1.24.14`, AGPL-3.0; its licence question is a pre-existing owner item). The M52 DDR PDF report split uses it like the existing PDF import does.
+
+Owner decisions opened by this review: welleng ISCWSA error models (scipy/pyproj, reference validation); LGPL pro-well-plan (pwptemp, torque_drag); any GPL (ejbo2001) or CC BY-NC (nmamzada) code; OCR engines and embedding models used by the DDR/RAG repositories (and, pre-existing, the AGPL licence of the already-locked PyMuPDF); well-control calculators (kill-sheet).
 
 ## Overview
 
@@ -547,7 +549,7 @@ Fields: upstream SHA (default-branch HEAD at review), licence evidence, language
 * Numerics: 9 test files; not used.
 * Group: B (DDR ingestion / manual entry)
 * **Classification: INSPIRE ONLY**
-* Use in Drill-master: MIT DDR pipeline for the public FORGE archive. Profile-based extraction ideas only; no FORGE-specific rules. Depends on PyMuPDF (AGPL, owner-gated), pytesseract, faiss.
+* Use in Drill-master: MIT DDR pipeline for the public FORGE archive. Profile-based extraction ideas only; no FORGE-specific rules. Depends on PyMuPDF (AGPL; already a Drill-master dependency, licence owner item pre-existing), pytesseract, faiss.
 * Copied code / modified files: none
 
 ### 30. wjwhitmire/kill-sheet

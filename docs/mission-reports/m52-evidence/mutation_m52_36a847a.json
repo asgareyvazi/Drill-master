@@ -1,0 +1,946 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m50_analysis_async.py",
+      "tests/test_m50_knowledge_gold.py",
+      "tests/test_m52_analysis_payloads.py",
+      "tests/test_m52_balanced_plug.py",
+      "tests/test_m52_ddr_manual_edit.py",
+      "tests/test_m52_ddr_pdf_split.py",
+      "tests/test_m52_gc_schedule.py",
+      "tests/test_m52_lifecycle_stress.py",
+      "tests/test_m52_scope_choices.py",
+      "tests/test_m52_sentence_support.py",
+      "tests/test_m52_thread_release.py",
+      "tests/test_m52_trajectory_compare.py",
+      "tests/test_m52_trajectory_compare_ui.py",
+      "tests/test_m52_worker_engine.py"
+    ],
+    "exit": 0,
+    "summary": "214 passed, 14 warnings in 142.58s (0:02:22)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "R-file-name-context-dropped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a well code that only the file name states is ignored (M50 survivor)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.97s"
+    },
+    {
+      "id": "R-absent-ignores-context",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the insufficient-evidence message claims a well code is missing that the file name states",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 1.10s"
+    },
+    {
+      "id": "A-sentence-inherits-any-size",
+      "path": "core/knowledge_answer.py",
+      "note": "a sentence about another size (13-3/8 in LOT) takes a quote slot for the asked size (M50 mutant)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 1.48s"
+    },
+    {
+      "id": "KP-scope-list-read-on-gui",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the well / report / document lists are read on the GUI thread again (pre-M52)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.03s"
+    },
+    {
+      "id": "KP-late-list-accepted",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a late well list overwrites the picker of a newer scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.26s"
+    },
+    {
+      "id": "KP-error-shown-as-empty",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an unreadable well list looks like 'no wells' (pre-M52)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.12s"
+    },
+    {
+      "id": "KP-ask-not-blocked-while-loading",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a question is asked for a scope whose list is loading or unreadable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.10s"
+    },
+    {
+      "id": "KP-refresh-drops-chosen-well",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a library refresh moves the question to another well silently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.30s"
+    },
+    {
+      "id": "TR-release-while-running",
+      "path": "core/async_workers.py",
+      "note": "a result slot deletes a QThread still inside run() (Qt aborts the process)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_thread_release.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.21s"
+    },
+    {
+      "id": "SS-identity-alone-supports",
+      "path": "core/knowledge_answer.py",
+      "note": "a sentence with no topical word of its own is quoted (N16/N19)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 1.16s"
+    },
+    {
+      "id": "SS-topical-terms-include-identity",
+      "path": "core/knowledge_answer.py",
+      "note": "the inherited well code counts as a sentence's own support",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.95s"
+    },
+    {
+      "id": "SS-similar-well-sentence-quoted",
+      "path": "core/knowledge_answer.py",
+      "note": "a sentence about SYN-QA-12 is quoted for a SYN-QA-21 question",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.94s"
+    },
+    {
+      "id": "SS-bare-heading-quoted",
+      "path": "core/knowledge_answer.py",
+      "note": "a page heading without a value is quoted as the answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.98s"
+    },
+    {
+      "id": "SS-heading-support-without-value",
+      "path": "core/knowledge_answer.py",
+      "note": "every sentence under a heading counts as supported (crew change under 'Kick tolerance')",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.98s"
+    },
+    {
+      "id": "SS-partial-sentence-kept",
+      "path": "core/knowledge_answer.py",
+      "note": "a sentence stating only part of the question is quoted next to the full answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.90s"
+    },
+    {
+      "id": "SS-own-support-ignores-paragraph-size",
+      "path": "core/knowledge_answer.py",
+      "note": "the ECD sentence under the 12-1/4 in text loses to a size-only sentence (N30)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 1.30s"
+    },
+    {
+      "id": "SS-identity-only-uses-fallback",
+      "path": "core/knowledge_answer.py",
+      "note": "an identity-only passage is quoted through the n-gram first-sentence fallback",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.97s"
+    },
+    {
+      "id": "TR-release-before-start",
+      "path": "core/async_workers.py",
+      "note": "a thread registered before start() is deleted just before run() begins (Qt aborts)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_thread_release.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 12.39s"
+    },
+    {
+      "id": "AP-thinning-drops-extremes",
+      "path": "core/analysis_payloads.py",
+      "note": "visual thinning drops a one-sample spike (an NPT/gain extreme disappears from the chart)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_analysis_payloads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.08s"
+    },
+    {
+      "id": "W12-staged-paint-ignores-scope",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a staged paint keeps painting the old well's values after a scope change",
+      "equivalent": "Equivalent in the current program: all six _generation bump sites (wellbore, section, report, well, deselect, cleanup) cancel the staged paint synchronously before control returns to the event loop (section: update_daily_data -> snapshot request -> update_all_data -> _cancel_revision, pinned by the scenario section_change_mid_paint_cancels_the_old_paint), so the cancelled check stops the job first. The generation check is kept as defence in depth.",
+      "tests": [
+        "tests/test_m52_analysis_payloads.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "28 passed, 14 warnings in 30.81s"
+    },
+    {
+      "id": "W12-update-during-paint-lost",
+      "path": "tabs/w12_Analysis.py",
+      "note": "an update requested while a cycle paints is dropped (no follow-up cycle)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_analysis_payloads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed, 14 warnings in 31.05s"
+    },
+    {
+      "id": "W12-deselect-keeps-npt-rows",
+      "path": "tabs/w12_Analysis.py",
+      "note": "deselecting the well leaves the previous well's NPT rows on screen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_analysis_payloads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed, 14 warnings in 31.33s"
+    },
+    {
+      "id": "W12-npt-export-placeholder",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the NPT export writes the hidden placeholder plot instead of the pie shown (pre-M52 defect)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_analysis_payloads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed, 14 warnings in 31.44s"
+    },
+    {
+      "id": "W12-gc-hold-never-released",
+      "path": "tabs/w12_Analysis.py",
+      "note": "young collections stay deferred after the snapshot worker finished",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_analysis_payloads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed, 14 warnings in 36.44s"
+    },
+    {
+      "id": "EJ-engine-per-worker",
+      "path": "core/export_jobs.py",
+      "note": "every worker builds a new engine and recompiles its statements (the 1k GC pressure source)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_worker_engine.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.74s"
+    },
+    {
+      "id": "EJ-plain-shared-engine",
+      "path": "core/export_jobs.py",
+      "note": "all worker views share one engine object (breaks the per-view engine contract of M50)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_worker_engine.py",
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.73s"
+    },
+    {
+      "id": "GC-no-boundary-collection",
+      "path": "core/qt_gc.py",
+      "note": "back-to-back holds never collect: many cycles of garbage in one long pause",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_gc_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.16s"
+    },
+    {
+      "id": "GC-hold-unbounded",
+      "path": "core/qt_gc.py",
+      "note": "a hold defers young collections without an age or size bound",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_gc_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.16s"
+    },
+    {
+      "id": "GC-no-freeze",
+      "path": "core/qt_gc.py",
+      "note": "the start-up heap is traversed by every later old-generation collection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_gc_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.21s"
+    },
+    {
+      "id": "GC-freeze-without-collect",
+      "path": "core/qt_gc.py",
+      "note": "cyclic garbage present at start-up is frozen and never freed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_gc_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.19s"
+    },
+    {
+      "id": "TC-chord-not-arc",
+      "path": "core/trajectory_compare.py",
+      "note": "between stations the path is the straight chord, not the minimum-curvature arc",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.13s"
+    },
+    {
+      "id": "TC-no-continuous-refinement",
+      "path": "core/trajectory_compare.py",
+      "note": "closest approach is the nearest sample/station, not the continuous minimum",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.13s"
+    },
+    {
+      "id": "TC-global-sample-only",
+      "path": "core/trajectory_compare.py",
+      "note": "only the best sample is refined: a deeper minimum between other samples is missed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.16s"
+    },
+    {
+      "id": "TC-crs-not-required",
+      "path": "core/trajectory_compare.py",
+      "note": "two wells are compared although their wellheads are not confirmed in one CRS",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py",
+        "tests/test_m52_trajectory_compare_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.31s"
+    },
+    {
+      "id": "TC-high-side-sign",
+      "path": "core/trajectory_compare.py",
+      "note": "a station below the plan is reported high",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.16s"
+    },
+    {
+      "id": "TC-right-sign",
+      "path": "core/trajectory_compare.py",
+      "note": "drifting clockwise of the plan is reported left",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.17s"
+    },
+    {
+      "id": "TC-feet-not-converted",
+      "path": "core/trajectory_compare.py",
+      "note": "a plan stated in feet is read as metres",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.17s"
+    },
+    {
+      "id": "TC-antiparallel-guard-removed",
+      "path": "core/trajectory_compare.py",
+      "note": "a ~180 deg dogleg divides by sin(beta) ~ 0 instead of being NOT ASSESSED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.16s"
+    },
+    {
+      "id": "TC-save-updates",
+      "path": "core/trajectory_compare.py",
+      "note": "saving a comparison overwrites the previous result instead of adding a record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_trajectory_compare.py",
+        "tests/test_m52_trajectory_compare_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 2.30s"
+    },
+    {
+      "id": "BP-height-ignores-pipe",
+      "path": "core/engineering/engines/cement.py",
+      "note": "the plug column with the pipe in ignores the slurry inside the pipe",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_balanced_plug.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.10s"
+    },
+    {
+      "id": "BP-top-after-pull-pipe-in",
+      "path": "core/engineering/engines/cement.py",
+      "note": "the plug top after pulling the pipe is reported as the pipe-in top",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_balanced_plug.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.10s"
+    },
+    {
+      "id": "BP-underdisplacement-sign",
+      "path": "core/engineering/engines/cement.py",
+      "note": "under-displacement increases the displacement volume",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_balanced_plug.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.10s"
+    },
+    {
+      "id": "BP-snapshot-not-dispatched",
+      "path": "core/engineering/cement_persistence.py",
+      "note": "a saved plug run is reconstructed with the primary-job parameters (cannot verify)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_balanced_plug.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.11s"
+    },
+    {
+      "id": "DDR-swap-drops-status",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "moving a row leaves the status behind",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.13s"
+    },
+    {
+      "id": "DDR-invalid-time-defaulted",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "a moved invalid legacy time becomes 00:00 (a fake value)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.18s"
+    },
+    {
+      "id": "DDR-invalid-duration-zero",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "a moved row with an invalid time shows a 0.00 duration (first M52 draft)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.24s"
+    },
+    {
+      "id": "DDR-editable-one-direction",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "a combo stays free-text editable after receiving a non-editable row (first M52 draft)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.14s"
+    },
+    {
+      "id": "DDR-remove-stale-bindings",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "Remove Row shifts Qt rows whose handlers still recalculate their old row (pre-M52)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 1.40s"
+    },
+    {
+      "id": "DDR-nav-ignores-unsaved",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "Previous/Next discards unsaved edits without asking",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 3.04s"
+    },
+    {
+      "id": "DDR-nav-order-reversed",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "Next opens an older report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.99s"
+    },
+    {
+      "id": "DDR-nav-read-error-as-empty",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "an unreadable report list is shown as 'no reports'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 3.08s"
+    },
+    {
+      "id": "W2-npt-tint-clears-style",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "unticking NPT strips the description's own font size, border and transparency",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.24s"
+    },
+    {
+      "id": "W2-npt-tint-hides-invalid-time",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "the NPT tint paints over the warning colour of an unreadable time",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_manual_edit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 1.35s"
+    },
+    {
+      "id": "SP-repeated-header-splits",
+      "path": "core/ddr_pdf_split.py",
+      "note": "a multi-page report that repeats its header on every page becomes several reports",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.16s"
+    },
+    {
+      "id": "SP-day-month-guessed",
+      "path": "core/ddr_pdf_split.py",
+      "note": "04/03/2026 is silently read as one of two possible dates",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.18s"
+    },
+    {
+      "id": "SP-scanned-page-not-flagged",
+      "path": "core/ddr_pdf_split.py",
+      "note": "a page without a text layer is assigned silently (OCR not run is not reported)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.16s"
+    },
+    {
+      "id": "SP-leading-pages-dropped",
+      "path": "core/ddr_pdf_split.py",
+      "note": "pages before the first header disappear without a warning",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.16s"
+    },
+    {
+      "id": "SP-duplicates-not-explained",
+      "path": "core/ddr_pdf_split.py",
+      "note": "the same report found twice is not flagged",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.18s"
+    },
+    {
+      "id": "SP-well-mismatch-ignored",
+      "path": "core/ddr_pdf_split.py",
+      "note": "a report of another well is not pointed out",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 0.20s"
+    },
+    {
+      "id": "SP-split-overwrites",
+      "path": "core/ddr_pdf_split.py",
+      "note": "writing the per-report PDFs again replaces earlier files",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 0.23s"
+    },
+    {
+      "id": "DLG-confirm-not-guarded",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "Confirm Import maps a multi-report PDF to one report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 0.75s"
+    },
+    {
+      "id": "DLG-split-not-in-preview",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "the preview never shows the report split",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 1.37s"
+    },
+    {
+      "id": "DLG-failure-hides-split",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "a failed import of a multi-report PDF does not say it holds several reports",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_ddr_pdf_split.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 1.32s"
+    },
+    {
+      "id": "LS-rootdir-ignored",
+      "path": "tools/quality/lifecycle_stress_m52.py",
+      "note": "test ids of modules on another drive lose their file part (Windows: '::test_name')",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_lifecycle_stress.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.69s"
+    },
+    {
+      "id": "LS-logged-fatal-ignored",
+      "path": "tools/quality/lifecycle_stress_m52.py",
+      "note": "a C runtime abort (exit 3 on Windows) with a fatal stack is reported as a pytest internal error",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_lifecycle_stress.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 9.10s"
+    },
+    {
+      "id": "LS-hang-dump-promoted",
+      "path": "tools/quality/lifecycle_stress_m52.py",
+      "note": "a faulthandler hang dump of a run that then failed normally is called a native crash",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_lifecycle_stress.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 11.32s"
+    },
+    {
+      "id": "LS-orphans-pass",
+      "path": "tools/quality/lifecycle_stress_m52.py",
+      "note": "a child process left running does not fail the repetition",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_lifecycle_stress.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 13.72s"
+    },
+    {
+      "id": "LS-signal-not-native",
+      "path": "tools/quality/lifecycle_stress_m52.py",
+      "note": "a POSIX signal death is not a native crash",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_lifecycle_stress.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.08s"
+    },
+    {
+      "id": "LS-breadcrumb-line-anchored",
+      "path": "tools/quality/lifecycle_stress_m52.py",
+      "note": "after a progress dot the next breadcrumb is missed: a crash is blamed on an earlier test",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_lifecycle_stress.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.11s"
+    },
+    {
+      "id": "LS-annotation-not-escaped",
+      "path": "tools/quality/lifecycle_stress_m52.py",
+      "note": "a multi-line stack or a percent sign breaks the one-line annotation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_lifecycle_stress.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 11.12s"
+    }
+  ],
+  "killed": [
+    "R-file-name-context-dropped",
+    "R-absent-ignores-context",
+    "A-sentence-inherits-any-size",
+    "KP-scope-list-read-on-gui",
+    "KP-late-list-accepted",
+    "KP-error-shown-as-empty",
+    "KP-ask-not-blocked-while-loading",
+    "KP-refresh-drops-chosen-well",
+    "TR-release-while-running",
+    "SS-identity-alone-supports",
+    "SS-topical-terms-include-identity",
+    "SS-similar-well-sentence-quoted",
+    "SS-bare-heading-quoted",
+    "SS-heading-support-without-value",
+    "SS-partial-sentence-kept",
+    "SS-own-support-ignores-paragraph-size",
+    "SS-identity-only-uses-fallback",
+    "TR-release-before-start",
+    "AP-thinning-drops-extremes",
+    "W12-update-during-paint-lost",
+    "W12-deselect-keeps-npt-rows",
+    "W12-npt-export-placeholder",
+    "W12-gc-hold-never-released",
+    "EJ-engine-per-worker",
+    "EJ-plain-shared-engine",
+    "GC-no-boundary-collection",
+    "GC-hold-unbounded",
+    "GC-no-freeze",
+    "GC-freeze-without-collect",
+    "TC-chord-not-arc",
+    "TC-no-continuous-refinement",
+    "TC-global-sample-only",
+    "TC-crs-not-required",
+    "TC-high-side-sign",
+    "TC-right-sign",
+    "TC-feet-not-converted",
+    "TC-antiparallel-guard-removed",
+    "TC-save-updates",
+    "BP-height-ignores-pipe",
+    "BP-top-after-pull-pipe-in",
+    "BP-underdisplacement-sign",
+    "BP-snapshot-not-dispatched",
+    "DDR-swap-drops-status",
+    "DDR-invalid-time-defaulted",
+    "DDR-invalid-duration-zero",
+    "DDR-editable-one-direction",
+    "DDR-remove-stale-bindings",
+    "DDR-nav-ignores-unsaved",
+    "DDR-nav-order-reversed",
+    "DDR-nav-read-error-as-empty",
+    "W2-npt-tint-clears-style",
+    "W2-npt-tint-hides-invalid-time",
+    "SP-repeated-header-splits",
+    "SP-day-month-guessed",
+    "SP-scanned-page-not-flagged",
+    "SP-leading-pages-dropped",
+    "SP-duplicates-not-explained",
+    "SP-well-mismatch-ignored",
+    "SP-split-overwrites",
+    "DLG-confirm-not-guarded",
+    "DLG-split-not-in-preview",
+    "DLG-failure-hides-split",
+    "LS-rootdir-ignored",
+    "LS-logged-fatal-ignored",
+    "LS-hang-dump-promoted",
+    "LS-orphans-pass",
+    "LS-signal-not-native",
+    "LS-breadcrumb-line-anchored",
+    "LS-annotation-not-escaped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [
+    "W12-staged-paint-ignores-scope"
+  ],
+  "invalid": []
+}

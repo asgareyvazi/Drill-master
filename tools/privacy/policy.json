@@ -317,6 +317,31 @@
       "path": "docs/mission-reports/m50-screenshots/m50_analysis_updating_responsive.png",
       "sha256": "7eb80c58c0b316ef5ad644518c1fb9aa89c2e8363e69519f3d191f73008a1d0d",
       "provenance": "reviewed M50: Analysis page 'Updating...' state grabbed while the off-GUI-thread revision worker was running (asserted by the capture script); offscreen Linux capture by tools/screenshots/capture_m50.py from a throw-away synthetic DB (tests/m48_synthetic.py wells and tests/m50_knowledge_fixtures.py SYN-* documents plus bootstrap Default records, admin account); no language model used; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m52-screenshots/m52_trajectory_offset_screening.png",
+      "sha256": "d7d4314e0ede829e893ff0475c5b530e242b4135148c45bd35b31699d6f6e653",
+      "provenance": "reviewed M52: trajectory comparison panel, offset well with the CRS confirmed: centre-to-centre closest approach and the SCREENING / NOT APPROVED label; offscreen Linux capture by tools/screenshots/capture_m52.py, one fresh interpreter per image, real widget classes on a throw-away temporary database or a synthetic PDF in a temporary directory (SYN-* names, relative synthetic coordinates); no language model; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m52-screenshots/m52_trajectory_not_assessed_crs.png",
+      "sha256": "820e23109f0554fb4607c9f17d9dc7c6ec9c23e64ce10aa39fe71952e827adf2",
+      "provenance": "reviewed M52: trajectory comparison with the CRS not confirmed: NOT ASSESSED with its reason, save and export disabled; offscreen Linux capture by tools/screenshots/capture_m52.py, one fresh interpreter per image, real widget classes on a throw-away temporary database or a synthetic PDF in a temporary directory (SYN-* names, relative synthetic coordinates); no language model; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m52-screenshots/m52_balanced_plug_screening.png",
+      "sha256": "6be45c24e467895c464ea6f0822d0e81834aa1284a9db3f8c7c095a52d9019e1",
+      "provenance": "reviewed M52: W13 balanced cement plug result (SCREENING) with formula, assumptions and the cement-calc method credit; offscreen Linux capture by tools/screenshots/capture_m52.py, one fresh interpreter per image, real widget classes on a throw-away temporary database or a synthetic PDF in a temporary directory (SYN-* names, relative synthetic coordinates); no language model; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m52-screenshots/m52_ddr_pdf_split_preview.png",
+      "sha256": "94c9a93bcc75f8f9466389bd351e2b24c3ca31b052dc2e7e4ddc8ea8e856bf34",
+      "provenance": "reviewed M52: import preview of a synthetic 5-page PDF holding 3 daily reports: split table, ambiguous date not read, Confirm Import blocked; offscreen Linux capture by tools/screenshots/capture_m52.py, one fresh interpreter per image, real widget classes on a throw-away temporary database or a synthetic PDF in a temporary directory (SYN-* names, relative synthetic coordinates); no language model; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m52-screenshots/m52_ddr_time_log_reorder.png",
+      "sha256": "fd11c97f40d29d63e65496c76a47796c9f7b4c9b85ac3e4c803b1bdbc33f3b4e",
+      "provenance": "reviewed M52: W2 time log after an NPT record was moved up; cell styles intact; offscreen Linux capture by tools/screenshots/capture_m52.py, one fresh interpreter per image, real widget classes on a throw-away temporary database or a synthetic PDF in a temporary directory (SYN-* names, relative synthetic coordinates); no language model; no identity, absolute location or real values"
     }
   ],
   "text_patterns": [

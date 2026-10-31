@@ -1,0 +1,400 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m51_analysis_snapshot.py",
+      "tests/test_m51_answer_integrity.py",
+      "tests/test_m51_gc_soak.py",
+      "tests/test_m51_knowledge_corpus.py",
+      "tests/test_m51_query_refinement.py",
+      "tests/test_m51_verifier.py"
+    ],
+    "exit": 0,
+    "summary": "94 passed in 77.81s (0:01:17)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "AN-cycle-read-on-gui-thread",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a file database is read synchronously on the GUI thread again (pre-M51 cycle)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_analysis_snapshot.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 passed, 1 error in 6.40s"
+    },
+    {
+      "id": "AN-missing-value-read-on-gui",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a value the snapshot did not carry is read on the GUI thread instead of by a snapshot",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_analysis_snapshot.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 33.91s"
+    },
+    {
+      "id": "AN-snapshot-generation-guard-removed",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a snapshot read for the previous scope is painted for the new one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_analysis_snapshot.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 38.62s"
+    },
+    {
+      "id": "AN-late-worker-after-dispose",
+      "path": "tabs/w12_Analysis.py",
+      "note": "closing the page drops the worker without cancel/invalidate: its late result starts work",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_analysis_snapshot.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 37.97s"
+    },
+    {
+      "id": "AN-snapshot-uses-gui-engine",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the snapshot worker reads through the GUI's engine instead of its own read-only one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_analysis_snapshot.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 38.05s"
+    },
+    {
+      "id": "AN-read-error-as-no-data",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a failed read on the worker is painted as No data instead of a read error",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_analysis_snapshot.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 38.66s"
+    },
+    {
+      "id": "K-stale-source-same-length-edit",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a same-length text edit keeps the old signature: the old passage is answered",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_knowledge_corpus.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.29s"
+    },
+    {
+      "id": "K-review-status-not-in-signature",
+      "path": "core/knowledge_retrieval.py",
+      "note": "un-approving a page keeps the old signature: an unapproved page can still be cited",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_knowledge_corpus.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.47s"
+    },
+    {
+      "id": "K-corpus-read-on-gui-thread",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the corpus signature and snapshot are read on the GUI thread again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_knowledge_corpus.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.39s"
+    },
+    {
+      "id": "K-signature-change-keeps-index",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a changed library signature keeps the stale index and shown answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_knowledge_corpus.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.66s"
+    },
+    {
+      "id": "K-wrong-well-accepted",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a passage about another well answers a question that names a well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_answer_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.12s"
+    },
+    {
+      "id": "K-partial-overlap-answered",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a question word found nowhere in scope no longer blocks an answer (partial overlap answered)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_answer_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.15s"
+    },
+    {
+      "id": "K-code-only-overlap-sufficient",
+      "path": "core/knowledge_retrieval.py",
+      "note": "sharing only the well code counts toward sufficiency again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_answer_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.17s"
+    },
+    {
+      "id": "K-persian-ignore-rules-unflagged",
+      "path": "core/knowledge_answer.py",
+      "note": "a Persian 'ignore the instructions' sentence is not flagged",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_answer_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.18s"
+    },
+    {
+      "id": "K-flagged-sentence-quoted",
+      "path": "core/knowledge_answer.py",
+      "note": "an instruction-like (e.g. Persian) sentence is quoted in the answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_answer_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 34 passed in 0.21s"
+    },
+    {
+      "id": "K-procedure-flagged",
+      "path": "core/knowledge_answer.py",
+      "note": "an ordinary Persian procedure ('دستورالعمل ... اجرا کنید') is flagged as an injection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_answer_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed in 0.18s"
+    },
+    {
+      "id": "Q-suggestions-from-all-scopes",
+      "path": "core/knowledge_retrieval.py",
+      "note": "suggestions are taken from documents outside the selected scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_query_refinement.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.41s"
+    },
+    {
+      "id": "Q-refined-search-broadens-scope",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the refined search runs on all documents instead of the selected scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_query_refinement.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 10.00s"
+    },
+    {
+      "id": "Q-blocking-word-kept",
+      "path": "core/knowledge_answer.py",
+      "note": "the misspelled word stays in the refined query, so the refinement can never help",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_query_refinement.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.71s"
+    },
+    {
+      "id": "Q-numbers-replaced",
+      "path": "core/knowledge_answer.py",
+      "note": "a refinement can drop a number from the question",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_query_refinement.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 1.66s"
+    },
+    {
+      "id": "Q-stale-result-kept",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the previous result stays on screen while the refined search runs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_query_refinement.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 9.16s"
+    },
+    {
+      "id": "Q-retry-drops-refinement",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "Retry silently runs the unrefined question",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_query_refinement.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 12.66s"
+    },
+    {
+      "id": "V-other-well-accepted",
+      "path": "core/knowledge_answer.py",
+      "note": "a draft naming another well than the cited source passes the citation checks",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_verifier.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.22s"
+    },
+    {
+      "id": "V-edited-source-accepted",
+      "path": "core/knowledge_answer.py",
+      "note": "a citation to a passage edited after retrieval passes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_verifier.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.89s"
+    },
+    {
+      "id": "V-snapshot-not-checked",
+      "path": "core/knowledge_answer.py",
+      "note": "answers are no longer checked against the stored source text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_verifier.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.89s"
+    },
+    {
+      "id": "V-code-digits-are-numbers",
+      "path": "core/knowledge_answer.py",
+      "note": "the digits of a well code are checked as quantities (false citation failures)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_verifier.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.23s"
+    },
+    {
+      "id": "G-collected-on-worker",
+      "path": "core/qt_gc.py",
+      "note": "automatic collection stays on: cycles are collected on worker threads",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_gc_soak.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 10.47s"
+    },
+    {
+      "id": "G-watchdog-blind",
+      "path": "core/qt_gc.py",
+      "note": "a collection on a worker thread goes unnoticed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_gc_soak.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 10.41s"
+    },
+    {
+      "id": "G-reenable-not-healed",
+      "path": "core/qt_gc.py",
+      "note": "automatic collection re-enabled by other code stays on",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m51_gc_soak.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 10.85s"
+    }
+  ],
+  "killed": [
+    "AN-cycle-read-on-gui-thread",
+    "AN-missing-value-read-on-gui",
+    "AN-snapshot-generation-guard-removed",
+    "AN-late-worker-after-dispose",
+    "AN-snapshot-uses-gui-engine",
+    "AN-read-error-as-no-data",
+    "K-stale-source-same-length-edit",
+    "K-review-status-not-in-signature",
+    "K-corpus-read-on-gui-thread",
+    "K-signature-change-keeps-index",
+    "K-wrong-well-accepted",
+    "K-partial-overlap-answered",
+    "K-code-only-overlap-sufficient",
+    "K-persian-ignore-rules-unflagged",
+    "K-flagged-sentence-quoted",
+    "K-procedure-flagged",
+    "Q-suggestions-from-all-scopes",
+    "Q-refined-search-broadens-scope",
+    "Q-blocking-word-kept",
+    "Q-numbers-replaced",
+    "Q-stale-result-kept",
+    "Q-retry-drops-refinement",
+    "V-other-well-accepted",
+    "V-edited-source-accepted",
+    "V-snapshot-not-checked",
+    "V-code-digits-are-numbers",
+    "G-collected-on-worker",
+    "G-watchdog-blind",
+    "G-reenable-not-healed"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

@@ -1,0 +1,533 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m49_cache_integrity.py",
+      "tests/test_m49_knowledge_answer.py",
+      "tests/test_m49_knowledge_gold.py",
+      "tests/test_m49_knowledge_retrieval.py",
+      "tests/test_m49_knowledge_ui.py",
+      "tests/test_m49_local_llm.py"
+    ],
+    "exit": 0,
+    "summary": "180 passed in 30.27s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "K-scope-filter-dropped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the scope filter is dropped: every document is searchable from a well/report scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 1.56s"
+    },
+    {
+      "id": "K-approval-ignored",
+      "path": "core/knowledge_retrieval.py",
+      "note": "pages rejected at review (not approved) become answerable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 1.15s"
+    },
+    {
+      "id": "K-wrong-page-id",
+      "path": "core/knowledge_answer.py",
+      "note": "evidence cites the wrong page number",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py",
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 1.18s"
+    },
+    {
+      "id": "K-stale-corpus-signature",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a delete + same-size re-import keeps the stale knowledge index (document changed)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 35 passed in 4.19s"
+    },
+    {
+      "id": "K-library-signature-m44",
+      "path": "core/document_library.py",
+      "note": "the M44 library search keeps a stale FTS index after delete + same-size re-import",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 28 passed in 3.31s"
+    },
+    {
+      "id": "L-remote-host-allowed",
+      "path": "core/local_llm.py",
+      "note": "a remote model host is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.10s"
+    },
+    {
+      "id": "L-remote-model-accepted",
+      "path": "core/local_llm.py",
+      "note": "a cloud/remote model listed by the local server is offered as local",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 0.62s"
+    },
+    {
+      "id": "L-remote-stream-accepted",
+      "path": "core/local_llm.py",
+      "note": "an answer streamed from a remote (cloud) model is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 38 passed in 6.68s"
+    },
+    {
+      "id": "L-tool-calls-accepted",
+      "path": "core/local_llm.py",
+      "note": "a model tool-call request is not refused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 43 passed in 9.20s"
+    },
+    {
+      "id": "L-proxy-honoured",
+      "path": "core/local_llm.py",
+      "note": "HTTP(S)_PROXY environment variables route loopback traffic through a proxy",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 34 passed in 4.65s"
+    },
+    {
+      "id": "L-abort-closes-response",
+      "path": "core/local_llm.py",
+      "note": "cancel closes the http.client response from the UI thread (waits for the reader's lock)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 32 passed in 3.64s"
+    },
+    {
+      "id": "L-abort-handle-left-open",
+      "path": "core/local_llm.py",
+      "note": "cancel only shuts the socket down (does not wake a blocked Windows read)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 32 passed in 3.64s"
+    },
+    {
+      "id": "L-connect-timeout-is-timeout",
+      "path": "core/local_llm.py",
+      "note": "a loopback connection that is never accepted is reported as a hung server",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_local_llm.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed in 3.14s"
+    },
+    {
+      "id": "A-fake-citation-accepted",
+      "path": "core/knowledge_answer.py",
+      "note": "an invented source [S9] is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.55s"
+    },
+    {
+      "id": "A-uncited-sentence-accepted",
+      "path": "core/knowledge_answer.py",
+      "note": "a sentence without any citation passes validation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.54s"
+    },
+    {
+      "id": "A-number-unchecked",
+      "path": "core/knowledge_answer.py",
+      "note": "a number absent from the cited source passes validation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.54s"
+    },
+    {
+      "id": "A-error-becomes-no-evidence",
+      "path": "core/knowledge_answer.py",
+      "note": "a model error is shown as 'insufficient evidence'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 33 passed in 1.40s"
+    },
+    {
+      "id": "A-injection-ignored",
+      "path": "core/knowledge_answer.py",
+      "note": "instruction-like document text is not detected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 0.62s"
+    },
+    {
+      "id": "A-injection-quoted",
+      "path": "core/knowledge_answer.py",
+      "note": "an instruction-like sentence is quoted as the answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 40 passed in 1.64s"
+    },
+    {
+      "id": "A-flag-note-dropped",
+      "path": "core/knowledge_answer.py",
+      "note": "the user is not told a source contains instruction-like text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 1.14s"
+    },
+    {
+      "id": "A-absence-unchecked",
+      "path": "core/knowledge_retrieval.py",
+      "note": "insufficient evidence claims stored words are missing (screenshot-review defect)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed in 1.28s"
+    },
+    {
+      "id": "R-identifier-weight-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "an unknown identifier/number weighs like an ordinary word (loose false answers)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 81 passed in 5.08s"
+    },
+    {
+      "id": "R-size-rule-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a question about a 17-1/2 in section is answered with the 12-1/4 in value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 45 passed in 1.83s"
+    },
+    {
+      "id": "R-size-absence-unreported",
+      "path": "core/knowledge_retrieval.py",
+      "note": "insufficient evidence does not say that the asked size occurs in no passage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 45 passed in 1.90s"
+    },
+    {
+      "id": "R-coverage-threshold-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "weakly related passages are presented as an answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 2.86s"
+    },
+    {
+      "id": "R-dedupe-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "one page floods the evidence list",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 36 passed in 4.05s"
+    },
+    {
+      "id": "R-partial-semantic-ready",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a partial/cancelled semantic index is reported ready",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 29 passed in 3.37s"
+    },
+    {
+      "id": "R-dimension-mismatch-used",
+      "path": "core/knowledge_retrieval.py",
+      "note": "vectors of another dimension are compared after a model change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed in 3.38s"
+    },
+    {
+      "id": "R-store-writes-foreign-db",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the embedding cache creates tables inside the application database",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 34 passed in 3.92s"
+    },
+    {
+      "id": "R-rrf-constant",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the documented RRF constant k=60 is changed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 2.59s"
+    },
+    {
+      "id": "U-generation-guard-removed",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an answer that finished after a scope/question change is shown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 7.24s"
+    },
+    {
+      "id": "U-invalidate-noop",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "changing scope/question/library keeps the old answer on screen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.84s"
+    },
+    {
+      "id": "U-scope-change-keeps-answer",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a scope change alone does not clear the answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 2.01s"
+    },
+    {
+      "id": "U-open-wrong-span",
+      "path": "tabs/documents_tab.py",
+      "note": "opening a citation highlights from the page start, not the cited passage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.36s"
+    },
+    {
+      "id": "U-disabled-looks-enabled",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the busy (disabled) Ask button looks enabled",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 7.84s"
+    },
+    {
+      "id": "P-revision-ids-only",
+      "path": "core/analysis_evidence.py",
+      "note": "the analysis cache key ignores edited values (M48-style summary)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_cache_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.90s"
+    },
+    {
+      "id": "P-cost-not-fingerprinted",
+      "path": "core/analysis_evidence.py",
+      "note": "a currency-only cost change is not detected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_cache_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.90s"
+    },
+    {
+      "id": "P-npt-not-fingerprinted",
+      "path": "core/analysis_evidence.py",
+      "note": "an NPT code/category-only change is not detected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_cache_integrity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.00s"
+    }
+  ],
+  "killed": [
+    "K-scope-filter-dropped",
+    "K-approval-ignored",
+    "K-wrong-page-id",
+    "K-stale-corpus-signature",
+    "K-library-signature-m44",
+    "L-remote-host-allowed",
+    "L-remote-model-accepted",
+    "L-remote-stream-accepted",
+    "L-tool-calls-accepted",
+    "L-proxy-honoured",
+    "L-abort-closes-response",
+    "L-abort-handle-left-open",
+    "L-connect-timeout-is-timeout",
+    "A-fake-citation-accepted",
+    "A-uncited-sentence-accepted",
+    "A-number-unchecked",
+    "A-error-becomes-no-evidence",
+    "A-injection-ignored",
+    "A-injection-quoted",
+    "A-flag-note-dropped",
+    "A-absence-unchecked",
+    "R-identifier-weight-removed",
+    "R-size-rule-removed",
+    "R-size-absence-unreported",
+    "R-coverage-threshold-removed",
+    "R-dedupe-removed",
+    "R-partial-semantic-ready",
+    "R-dimension-mismatch-used",
+    "R-store-writes-foreign-db",
+    "R-rrf-constant",
+    "U-generation-guard-removed",
+    "U-invalidate-noop",
+    "U-scope-change-keeps-answer",
+    "U-open-wrong-span",
+    "U-disabled-looks-enabled",
+    "P-revision-ids-only",
+    "P-cost-not-fingerprinted",
+    "P-npt-not-fingerprinted"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

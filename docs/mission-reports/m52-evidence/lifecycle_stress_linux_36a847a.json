@@ -1,0 +1,90 @@
+{
+  "tool": "tools/quality/lifecycle_stress_m52.py",
+  "platform": "linux",
+  "python": "3.11.2",
+  "modules": [
+    "tests/test_trajectory_3d.py",
+    "tests/test_trajectory_3d_lifecycle_m46.py",
+    "tests/test_m50_analysis_async.py",
+    "tests/test_m50_trajectory_3d_disposal.py",
+    "tests/test_m51_gc_soak.py",
+    "tests/test_m52_analysis_payloads.py",
+    "tests/test_m52_thread_release.py",
+    "tests/test_m52_gc_schedule.py",
+    "tests/test_m52_worker_engine.py",
+    "tests/test_m52_trajectory_compare_ui.py"
+  ],
+  "repetitions": 2,
+  "verdict": "PASS",
+  "failed_repetitions": [],
+  "native_crashes": [],
+  "timeouts": [],
+  "orphan_check_not_run": [],
+  "crash_dumps": "NOT CONFIGURED",
+  "memory_peak_mb": {
+    "per_repetition": [
+      419.1,
+      418.5
+    ],
+    "first": 419.1,
+    "last": 418.5,
+    "max": 419.1
+  },
+  "results": [
+    {
+      "number": 1,
+      "exit_code": 0,
+      "classification": {
+        "kind": "pytest",
+        "native_crash": false,
+        "text": "pytest: all tests passed"
+      },
+      "seconds": 118.9,
+      "peak_memory_mb": 419.1,
+      "junit": {
+        "tests": 118,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "log": {
+        "tests_started": 118,
+        "last_test_started": "tests/test_m52_trajectory_compare_ui.py::test_the_viewer_has_the_compare_tab_and_follows_the_well",
+        "fatal_stack": []
+      },
+      "orphans": [],
+      "new_dumps": [],
+      "notes": [],
+      "log_file": "<work-root>/repetition-1/lifecycle.log",
+      "passed": true
+    },
+    {
+      "number": 2,
+      "exit_code": 0,
+      "classification": {
+        "kind": "pytest",
+        "native_crash": false,
+        "text": "pytest: all tests passed"
+      },
+      "seconds": 119.9,
+      "peak_memory_mb": 418.5,
+      "junit": {
+        "tests": 118,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "log": {
+        "tests_started": 118,
+        "last_test_started": "tests/test_m52_trajectory_compare_ui.py::test_the_viewer_has_the_compare_tab_and_follows_the_well",
+        "fatal_stack": []
+      },
+      "orphans": [],
+      "new_dumps": [],
+      "notes": [],
+      "log_file": "<work-root>/repetition-2/lifecycle.log",
+      "passed": true
+    }
+  ],
+  "note": "Stress evidence only: a run without a crash does not prove that the intermittent crash is fixed."
+}
