@@ -79,6 +79,20 @@ REQUIRED_MODULES = (
     "tests/test_m50_trajectory_3d_disposal.py",
     "tests/test_m50_legacy_ai_importer.py",
     "tests/test_m50_assistant_states.py",
+    # M52: KA scope worker, sentence support, Analysis payloads / GC schedule / thread release / worker
+    # engines, trajectory comparison, balanced plug, DDR manual edit, PDF report split, stress harness.
+    "tests/test_m52_scope_choices.py",
+    "tests/test_m52_sentence_support.py",
+    "tests/test_m52_analysis_payloads.py",
+    "tests/test_m52_gc_schedule.py",
+    "tests/test_m52_thread_release.py",
+    "tests/test_m52_worker_engine.py",
+    "tests/test_m52_trajectory_compare.py",
+    "tests/test_m52_trajectory_compare_ui.py",
+    "tests/test_m52_balanced_plug.py",
+    "tests/test_m52_ddr_manual_edit.py",
+    "tests/test_m52_ddr_pdf_split.py",
+    "tests/test_m52_lifecycle_stress.py",
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 

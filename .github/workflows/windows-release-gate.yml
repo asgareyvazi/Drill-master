@@ -81,7 +81,7 @@ jobs:
           # pytest's exit code; the same two guards the build step uses are used here for the same reason.
           $ErrorActionPreference = "Continue"
           $PSNativeCommandUseErrorActionPreference = $false
-          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_db_backup_service.py tests/test_db_restore_service.py tests/test_db_maintenance_ui.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py tests/test_windows_release_evidence.py tests/test_well_trajectory.py tests/test_operations_dashboard.py tests/test_document_library.py tests/test_documents_tab.py tests/test_import_batch_isolation.py tests/test_document_links.py tests/test_search_normalization.py tests/test_trajectory_3d.py tests/test_test_isolation_m46.py tests/test_search_parity_m46.py tests/test_survey_editor_scope_m46.py tests/test_hierarchy_worker_isolation_m46.py tests/test_document_links_audit_m46.py tests/test_trajectory_3d_lifecycle_m46.py tests/test_sqlite_connection_reliability.py tests/test_sqlite_pool_isolation_m47.py tests/test_search_closure_m47.py tests/test_m48_analysis_evidence.py tests/test_m48_analysis_ui.py tests/test_m49_cache_integrity.py tests/test_m49_local_llm.py tests/test_m49_knowledge_retrieval.py tests/test_m49_knowledge_answer.py tests/test_m49_knowledge_gold.py tests/test_m49_knowledge_ui.py tests/test_m50_analysis_async.py tests/test_m50_knowledge_retrieval.py tests/test_m50_knowledge_gold.py tests/test_m50_verifier.py tests/test_m50_citation_navigation.py tests/test_m50_trajectory_3d_disposal.py tests/test_m50_legacy_ai_importer.py tests/test_m50_assistant_states.py tests/test_m51_analysis_snapshot.py tests/test_m51_knowledge_corpus.py tests/test_m51_gold_labels.py tests/test_m51_answer_integrity.py tests/test_m51_verifier.py tests/test_m51_query_refinement.py tests/test_m51_gc_soak.py "--junitxml=$testReport" 2>&1 | Tee-Object -FilePath $testLog
+          python -m pytest -ra -q tests/test_packaging_smoke.py tests/test_acceptance_report.py tests/test_release_smoke.py tests/test_credential_lifecycle.py tests/test_wellbore_schema_v3.py tests/test_wellbore_ownership_integrity.py tests/test_wellbore_discriminator_import.py tests/test_wellbore_identity_conflict_m25.py tests/test_p0_well_identity.py tests/test_history_well_scope.py tests/test_whole_well_scope_labels_m25.py tests/test_release_gate_and_w13.py tests/test_w13_ecd_chart_fallback.py tests/test_w13_fishing_result_ui.py tests/test_m38_domain_boundaries.py tests/test_m31_scenarios.py tests/test_well_centric_acceptance.py tests/test_production_import_guarantees.py tests/test_ddr_forensic_regressions.py tests/test_ddr_followup_lifecycle.py tests/test_database_migration_acceptance.py tests/test_backup_restore_acceptance.py tests/test_db_backup_service.py tests/test_db_restore_service.py tests/test_db_maintenance_ui.py tests/test_import_atomicity_acceptance.py tests/test_release_e2e.py tests/test_junit_report.py tests/test_windows_release_gate_contract.py tests/test_windows_release_evidence.py tests/test_well_trajectory.py tests/test_operations_dashboard.py tests/test_document_library.py tests/test_documents_tab.py tests/test_import_batch_isolation.py tests/test_document_links.py tests/test_search_normalization.py tests/test_trajectory_3d.py tests/test_test_isolation_m46.py tests/test_search_parity_m46.py tests/test_survey_editor_scope_m46.py tests/test_hierarchy_worker_isolation_m46.py tests/test_document_links_audit_m46.py tests/test_trajectory_3d_lifecycle_m46.py tests/test_sqlite_connection_reliability.py tests/test_sqlite_pool_isolation_m47.py tests/test_search_closure_m47.py tests/test_m48_analysis_evidence.py tests/test_m48_analysis_ui.py tests/test_m49_cache_integrity.py tests/test_m49_local_llm.py tests/test_m49_knowledge_retrieval.py tests/test_m49_knowledge_answer.py tests/test_m49_knowledge_gold.py tests/test_m49_knowledge_ui.py tests/test_m50_analysis_async.py tests/test_m50_knowledge_retrieval.py tests/test_m50_knowledge_gold.py tests/test_m50_verifier.py tests/test_m50_citation_navigation.py tests/test_m50_trajectory_3d_disposal.py tests/test_m50_legacy_ai_importer.py tests/test_m50_assistant_states.py tests/test_m51_analysis_snapshot.py tests/test_m51_knowledge_corpus.py tests/test_m51_gold_labels.py tests/test_m51_answer_integrity.py tests/test_m51_verifier.py tests/test_m51_query_refinement.py tests/test_m51_gc_soak.py tests/test_m52_scope_choices.py tests/test_m52_sentence_support.py tests/test_m52_analysis_payloads.py tests/test_m52_gc_schedule.py tests/test_m52_thread_release.py tests/test_m52_worker_engine.py tests/test_m52_trajectory_compare.py tests/test_m52_trajectory_compare_ui.py tests/test_m52_balanced_plug.py tests/test_m52_ddr_manual_edit.py tests/test_m52_ddr_pdf_split.py tests/test_m52_lifecycle_stress.py "--junitxml=$testReport" 2>&1 | Tee-Object -FilePath $testLog
           $pytestExit = $LASTEXITCODE
           $ErrorActionPreference = "Stop"
           # GitHub publishes at most ten annotations per step.  packaging/junit_report.py
@@ -136,6 +136,45 @@ jobs:
           }
           if ($failed.Count -gt 0) {
             throw "Repeated 3D and Analysis lifecycle failed: $($failed -join ', ') of $repetitions isolated repetitions"
+          }
+      - name: M52 lifecycle stress harness (fresh interpreters, crash evidence)
+        shell: pwsh
+        run: |
+          # The intermittent native crash of M50/M51 has not been reproduced on demand.  This step runs the real
+          # 3D / Analysis / worker lifecycle modules again, five times, each in a NEW interpreter, through
+          # tools/quality/lifecycle_stress_m52.py, which records what a root-cause analysis needs: the classified
+          # exit code (NTSTATUS such as 0xC0000005 is never folded into "test failure"), the test that was
+          # running (breadcrumb), the faulthandler stack, processes left alive after exit (Job Object), the peak
+          # working set and any Windows Error Reporting minidump.  Any crash, failure, hang, leftover process or
+          # dump fails the step.  Observation only: nothing is deselected or suppressed.
+          $stressRoot = Join-Path $env:RUNNER_TEMP "DrillMaster-M52-stress-$env:GITHUB_RUN_ID"
+          $dumpDir = Join-Path $stressRoot 'dumps'
+          New-Item -ItemType Directory -Path $dumpDir -Force | Out-Null
+          $dumpStatus = "WER LocalDumps (minidump) for python.exe in $dumpDir"
+          try {
+            $werKey = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\python.exe'
+            New-Item -Path $werKey -Force | Out-Null
+            New-ItemProperty -Path $werKey -Name DumpFolder -PropertyType ExpandString -Value $dumpDir -Force | Out-Null
+            New-ItemProperty -Path $werKey -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
+            New-ItemProperty -Path $werKey -Name DumpCount -PropertyType DWord -Value 10 -Force | Out-Null
+          } catch {
+            $dumpStatus = "NOT CONFIGURED: $($_.Exception.Message)"
+          }
+          $stressModules = @('tests/test_trajectory_3d.py', 'tests/test_trajectory_3d_lifecycle_m46.py', 'tests/test_m50_analysis_async.py', 'tests/test_m50_trajectory_3d_disposal.py', 'tests/test_m51_gc_soak.py', 'tests/test_m52_analysis_payloads.py', 'tests/test_m52_thread_release.py', 'tests/test_m52_gc_schedule.py', 'tests/test_m52_worker_engine.py', 'tests/test_m52_trajectory_compare_ui.py')
+          $stressJson = Join-Path $stressRoot 'lifecycle-stress.json'
+          $stressSummary = Join-Path $stressRoot 'lifecycle-stress.md'
+          $ErrorActionPreference = "Continue"
+          $PSNativeCommandUseErrorActionPreference = $false
+          python tools\quality\lifecycle_stress_m52.py @stressModules --repetitions 5 --timeout 900 --work-root (Join-Path $stressRoot 'work') --json-out $stressJson --markdown-out $stressSummary --dump-dir $dumpDir --dump-status $dumpStatus --require-orphan-check 2>&1 | Tee-Object -FilePath (Join-Path $stressRoot 'harness.log')
+          $stressExit = $LASTEXITCODE
+          $ErrorActionPreference = "Stop"
+          if (Test-Path -LiteralPath $stressSummary) {
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value (Get-Content -LiteralPath $stressSummary -Raw) -Encoding utf8
+          } else {
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### M52 lifecycle stress - harness exit $stressExit, no summary written" -Encoding utf8
+          }
+          if ($stressExit -ne 0) {
+            throw "M52 lifecycle stress failed (harness exit $stressExit); repetitions, exit classification, last test, stack, leftovers and dumps are in the job summary and the uploaded evidence"
           }
       - name: Build portable bundle and installer; run frozen executable smoke
         id: build
@@ -385,5 +424,10 @@ jobs:
             ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regression-summary.md
             ${{ runner.temp }}/DrillMaster-M42-tests-${{ github.run_id }}/windows-regression-report.json
             ${{ runner.temp }}/DrillMaster-build-transcript-${{ github.run_id }}.txt
+            ${{ runner.temp }}/DrillMaster-M52-stress-${{ github.run_id }}/lifecycle-stress.json
+            ${{ runner.temp }}/DrillMaster-M52-stress-${{ github.run_id }}/lifecycle-stress.md
+            ${{ runner.temp }}/DrillMaster-M52-stress-${{ github.run_id }}/harness.log
+            ${{ runner.temp }}/DrillMaster-M52-stress-${{ github.run_id }}/work/*/lifecycle.log
+            ${{ runner.temp }}/DrillMaster-M52-stress-${{ github.run_id }}/dumps/*.dmp
           if-no-files-found: warn
           retention-days: 30
