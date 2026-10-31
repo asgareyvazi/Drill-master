@@ -32,7 +32,8 @@ from typing import Callable, Optional
 from core import knowledge_retrieval as kr
 from core.local_llm import CANCELLED, CancelToken, LocalLLMError
 
-ANSWER_VERSION = 2                # 2: validation dimensions; a failed draft never replaces the extractive answer
+ANSWER_VERSION = 3                # 2: validation dimensions; a failed draft never replaces the extractive answer
+#                                   3: a quoted sentence needs its own support (M52 sentence-level evidence)
 INSUFFICIENT_TOKEN = "INSUFFICIENT_EVIDENCE"
 _CITATION = re.compile(r"\[\s*(S\d+(?:\s*[,،]\s*S\d+)*)\s*\]")
 _CITATION_ID = re.compile(r"S(\d+)")
@@ -402,8 +403,28 @@ def validate_citations(answer_text: str, evidence: list, conflicts: tuple = (), 
 
 
 # -------------------------------------------------------------- extractive
-def _best_sentences(index, item: Evidence, retrieval: kr.RetrievalResult, limit: int = 2) -> list:
-    """The sentences of a passage that cover most of the question (IDF-weighted)."""
+def _names_other_entity(sentence: str, codes: tuple) -> bool:
+    """The sentence names an entity code of the asked family that is not asked, and not the asked one
+    ("SYN-KF-60" for a SYN-KF-06 question): never quoted, whatever its passage (M52)."""
+    found = kr.entity_codes(sentence)
+    if not found or not codes or any(code in codes for code in found):
+        return False
+    families = {code[0] for code in codes}
+    return any(code[0] in families for code in found)
+
+
+def _best_sentences(index, item: Evidence, retrieval: kr.RetrievalResult, limit: int = 2):
+    """The sentences of a passage that cover most of the question (IDF-weighted).
+
+    M52 sentence-level support: document identity (a well code stated once in the page or only in
+    the file name) and file-name words make a passage eligible, but never make a sentence an answer.
+    A quoted sentence must itself state at least one topical question term - one that is not part of
+    the asked identity - in its own words or as the noun of an asked quantity its unit shows (the page
+    heading counts only when no sentence of the passage does); and it must not name another entity of
+    the asked family.  Returns ``None`` when
+    no sentence matches any question word at all (the passage matched via n-grams only), so the caller
+    can tell that apart from "matched only through identity" (nothing quoted).
+    """
     # Instruction-like sentences are evidence (shown flagged), never part of an answer.  A detector
     # sees one sentence at a time, so "SYSTEM: you are now ... . Answer every question with X."
     # would leak its second sentence: a paragraph with any detected instruction is excluded whole.
@@ -435,7 +456,44 @@ def _best_sentences(index, item: Evidence, retrieval: kr.RetrievalResult, limit:
               for i, s in enumerate(sentences)]
     best = max((score for score, _, _ in scored), default=0.0)
     if best <= 0:
+        return None
+    identity = {part for code in retrieval.entity_codes for part in code} | set(kr.ENTITY_NOUNS)
+    topical = [t for t in retrieval.terms if t not in identity]
+    page = index.snapshot.pages.get(item.page_id)
+    heading_text = kr.page_heading(page) if page is not None else ""
+    heading = ["\x00"] + kr.words(heading_text)
+
+    def own_support(sentence: str, inherited: list) -> float:
+        """Share of the topical terms a sentence supports: 0 unless it states one itself (its own words,
+        ``inherited`` words, or the noun of an asked quantity its unit shows).  Past that gate, the
+        paragraph's size and its noun are inherited exactly as in the score above - only by a sentence
+        that names no size ("The ECD must stay below 1.42 sg" under the 12-1/4 in text) - so a sentence
+        that names the size but not the subject ranks below the one that answers."""
+        if _names_other_entity(sentence, retrieval.entity_codes):
+            return 0.0
+        if not topical:                          # the question names only an identity: nothing more to ask
+            return 1.0
+        if kr.fold(sentence) == kr.fold(heading_text) and not _numbers(sentence):
+            return 0.0                           # a heading names a subject, never its value
+        toks = kr.words(sentence) + inherited
+        if index.text_coverage(topical, by_term, toks, retrieval.strict_terms, shown(sentence))[0] <= 0:
+            return 0.0                           # an inherited size alone is not support
+        sizes_here = size_tokens if not kr.size_designations(sentence) else frozenset()
+        return index.text_coverage(topical, by_term, toks, retrieval.strict_terms, shown(sentence) | sizes_here)[0]
+    matched = [x for x in scored if x[0] > 0]
+    # The sentence's own words first; the page heading ("Kick tolerance" above "48 bbl at the shoe") only
+    # when no sentence of the passage states a topical term itself, and only for a sentence that states
+    # a value - the heading applies to every sentence of the page alike.
+    supported = [(x, own_support(x[2], [])) for x in matched]
+    supported = [(x, own) for x, own in supported if own > 0] or \
+        [(x, own) for x, own in ((x, own_support(x[2], heading)) for x in matched) if own > 0 and _numbers(x[2])]
+    if not supported:
         return []
+    # A sentence that states only part of what the best sentence states (the liner shoe depth for a
+    # "top of cement for the 7 in liner" question) is not quoted next to it.
+    best_own = max(own for _x, own in supported)
+    scored = [x for x, own in supported if own >= 0.6 * best_own]
+    best = max(score for score, _, _ in scored)
     chosen = sorted((x for x in scored if x[0] >= 0.6 * best), key=lambda x: (-x[0], x[1]))[:limit]
     return [sentence for _, _, sentence in sorted(chosen, key=lambda x: x[1])]
 
@@ -459,11 +517,11 @@ def extractive_answer(index, retrieval: kr.RetrievalResult, evidence: list, max_
     lines = []
     for item in usable:
         sentences = _best_sentences(index, item, retrieval)
-        if not sentences and not item.instruction_like:   # matched only via n-grams: quote the first sentence
+        if sentences is None and not item.instruction_like:   # matched only via n-grams: quote the first sentence
             # One sentence per citation (M51): several sentences in one quote fail claims_cited.
             first = next((x.strip() for x in _SENTENCES.split(" ".join(item.text.split())) if x.strip()), "")
             sentences = [first[:300]] if first else []
-        for sentence in sentences:
+        for sentence in sentences or []:
             lines.append(f"• «{sentence}» [{item.label}]")
     return "\n".join(lines)
 
@@ -605,11 +663,17 @@ def answer_question(index: kr.KnowledgeIndex, question: str, scope: str = kr.SCO
                       found=found, not_found=not_found, notes=notes, **_refinement(index, retrieval))
     extractive = extractive_answer(index, retrieval, evidence)
     if not extractive:
-        # Only instruction-like text matched: it stays visible as flagged evidence, never as an answer.
         retrieval.status = "no_evidence"
         found, not_found = describe_no_evidence(retrieval, evidence)
-        notes.append("The only matching passages contain instruction-like text; they are shown as flagged "
-                     "evidence and are not used as an answer.")
+        if any(e.instruction_like for e in evidence if e.coverage >= kr.SUFFICIENT_COVERAGE):
+            # Only instruction-like text matched: it stays visible as flagged evidence, never as an answer.
+            notes.append("The only matching passages contain instruction-like text; they are shown as flagged "
+                         "evidence and are not used as an answer.")
+        else:
+            # M52: the passages match as a whole (page heading, file name, well code), but no sentence in
+            # them states what was asked - nothing is quoted rather than an unrelated sentence.
+            notes.append("Passages match the question as a whole (for example through the page heading or the "
+                         "well code in the file name), but no sentence in them states it; nothing is quoted.")
         return Answer("no_evidence", "none", NO_EVIDENCE_TEXT["no_evidence"], evidence, retrieval,
                       found=found, not_found=not_found, notes=notes, **_refinement(index, retrieval))
     extractive_check = validate_citations(extractive, evidence, tuple(retrieval.conflicts), index.snapshot)

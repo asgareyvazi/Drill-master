@@ -244,6 +244,26 @@ def test_a_late_well_list_never_overwrites_a_newer_scope(app, world, monkeypatch
     assert panel.current_scope()[1] in {data for _text, data in documents}
 
 
+def test_a_list_already_queued_before_a_scope_change_is_dropped_by_the_token(app, world, monkeypatch):
+    """The old worker emitted (its result is queued) before the scope changed: retiring it disconnects
+    the signal, but an event already posted can still be delivered - the token must drop it."""
+    _tab, panel, ids, _db, _probe = world
+    gate = {"wells": threading.Event()}
+    _recording_reader(monkeypatch, gate=gate)
+    _scope(panel, kr.SCOPE_WELL)
+    old = panel.choices_workers["targets"]
+    gate["wells"].set()
+    assert old.wait(20000)                                         # done emitted and queued, not yet delivered
+    delivered = []
+    original = panel._apply_choices
+    monkeypatch.setattr(panel, "_apply_choices", lambda *a: (delivered.append(a[1]), original(*a)))
+    # The newer request owns the picker before the queued old result is processed.
+    panel._choices_token["targets"] += 1
+    stale = panel._choices_token["targets"] - 1
+    panel._choices_read(stale, "wells", [{"id": -1, "name": "late", "code": ""}], None)
+    assert delivered == [] and panel.target_combo.findData(-1) < 0, delivered
+
+
 def test_a_library_refresh_keeps_the_chosen_well(app, world, monkeypatch):
     _tab, panel, ids, db, probe = world
     _scope(panel, kr.SCOPE_WELL)

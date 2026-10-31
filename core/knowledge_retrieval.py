@@ -422,6 +422,12 @@ def code_label(code: tuple) -> str:
     return "-".join(code).upper()
 
 
+def page_heading(page) -> str:
+    """A page's heading: a short first paragraph followed by more text, else ""."""
+    paragraphs = [p.strip() for p in _PARAGRAPH.split(page.text or "") if p.strip()]
+    return paragraphs[0] if len(paragraphs) > 1 and len(paragraphs[0]) <= HEADING_MAX_CHARS else ""
+
+
 def entity_codes(question: str) -> tuple:
     """Codes that name one entity, as token tuples: hyphenated words that mix
     letters and digits ("SYN-KE-05" -> ("syn", "ke", "05")).  Size
@@ -954,11 +960,8 @@ class KnowledgeIndex:
         daily report.pdf").  Tokens with digits are replaced by a separator -
         numbers are never inherited - and the parts are separated so that no
         phrase spans two of them (M51 contextual chunk headers)."""
-        text = page.text or ""
-        paragraphs = [p.strip() for p in _PARAGRAPH.split(text) if p.strip()]
-        heading = paragraphs[0] if len(paragraphs) > 1 and len(paragraphs[0]) <= HEADING_MAX_CHARS else ""
         out = []
-        for part in (heading, page.file_name or ""):
+        for part in (page_heading(page), page.file_name or ""):
             out.extend("\x00" if any(ch.isdigit() for ch in tok) else tok for tok in words(part))
             out.append("\x00")
         return out
