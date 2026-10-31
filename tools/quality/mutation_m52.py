@@ -36,6 +36,22 @@ T_SC = ["tests/test_m52_scope_choices.py"]
 T_TR = ["tests/test_m52_thread_release.py"]
 T_SS = ["tests/test_m52_sentence_support.py"]
 T_SS_GOLD = T_SS + ["tests/test_m50_knowledge_gold.py"]
+AP = "core/analysis_payloads.py"
+W12 = "tabs/w12_Analysis.py"
+EJ = "core/export_jobs.py"
+GC = "core/qt_gc.py"
+TC = "core/trajectory_compare.py"
+CE = "core/engineering/engines/cement.py"
+CP = "core/engineering/cement_persistence.py"
+W2 = "tabs/w2_Daily_Report.py"
+T_AP = ["tests/test_m52_analysis_payloads.py"]
+T_GC = ["tests/test_m52_gc_schedule.py"]
+T_WE = ["tests/test_m52_worker_engine.py"]
+T_WE_M50 = T_WE + ["tests/test_m50_analysis_async.py"]
+T_TC = ["tests/test_m52_trajectory_compare.py"]
+T_TC_UI = T_TC + ["tests/test_m52_trajectory_compare_ui.py"]
+T_BP = ["tests/test_m52_balanced_plug.py"]
+T_DDR = ["tests/test_m52_ddr_manual_edit.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------ §2.4 the M50 survivors, re-run
@@ -70,7 +86,7 @@ MUTANTS = [
            T_SC, "a library refresh moves the question to another well silently"),
     # ------------------------------------------------------------ §2.5 QThread release
     Mutant("TR-release-while-running", AW,
-           "    worker.finished.connect(release)\n    if not worker.isRunning():",
+           "    worker.finished.connect(release)\n    if worker.isFinished():",
            "    release()\n    if False:",
            T_TR, "a result slot deletes a QThread still inside run() (Qt aborts the process)"),
     # ------------------------------------------------------------ §2.3 sentence-level support
@@ -107,6 +123,161 @@ MUTANTS = [
            "        if sentences is None and not item.instruction_like:",
            "        if not sentences and not item.instruction_like:",
            T_SS, "an identity-only passage is quoted through the n-gram first-sentence fallback"),
+    # ------------------------------------------------------------ §2.1 analysis paint, GC, worker engines
+    Mutant("TR-release-before-start", AW,
+           "    if worker.isFinished():                  # already past finished: no signal will come",
+           "    if not worker.isRunning():",
+           T_TR, "a thread registered before start() is deleted just before run() begins (Qt aborts)"),
+    Mutant("AP-thinning-drops-extremes", AP,
+           "            keep.add(min(finite, key=lambda i: ys[i]))\n            keep.add(max(finite, key=lambda i: ys[i]))",
+           "            pass",
+           T_AP, "visual thinning drops a one-sample spike (an NPT/gain extreme disappears from the chart)"),
+    Mutant("W12-staged-paint-ignores-scope", W12,
+           "        if self.generation != page._generation:\n            self._finish(None)\n            return",
+           "        if False:\n            self._finish(None)\n            return",
+           T_AP, "a staged paint keeps painting the old well's values after a scope change",
+           equivalent="Equivalent in the current program: all six _generation bump sites (wellbore, section, "
+                      "report, well, deselect, cleanup) cancel the staged paint synchronously before control "
+                      "returns to the event loop (section: update_daily_data -> snapshot request -> "
+                      "update_all_data -> _cancel_revision, pinned by the scenario "
+                      "section_change_mid_paint_cancels_the_old_paint), so the cancelled check stops the job "
+                      "first. The generation check is kept as defence in depth."),
+    Mutant("W12-update-during-paint-lost", W12,
+           "            self._snapshot_wanted = True\n            return\n        self._cancel_revision()",
+           "            return\n        self._cancel_revision()",
+           T_AP, "an update requested while a cycle paints is dropped (no follow-up cycle)"),
+    Mutant("W12-deselect-keeps-npt-rows", W12,
+           "        self._replace_npt_pie(None, \"No well selected\")\n        self.npt_table.clear_rows()",
+           "        self._replace_npt_pie(None, \"No well selected\")",
+           T_AP, "deselecting the well leaves the previous well's NPT rows on screen"),
+    Mutant("W12-npt-export-placeholder", W12,
+           "            if chart_type == \"npt\" and pie is not None and pie.chart is not None:",
+           "            if False:",
+           T_AP, "the NPT export writes the hidden placeholder plot instead of the pie shown (pre-M52 defect)"),
+    Mutant("W12-gc-hold-never-released", W12,
+           "        snapshot.finished.connect(lambda h=hold: qt_gc.release(h))",
+           "        pass",
+           T_AP, "young collections stay deferred after the snapshot worker finished"),
+    Mutant("EJ-engine-per-worker", EJ,
+           "        if entry is not None and entry[0] is gate:\n            _read_only_engines.move_to_end(key)\n            return entry[1]",
+           "        if False:\n            return entry[1]",
+           T_WE, "every worker builds a new engine and recompiles its statements (the 1k GC pressure source)"),
+    Mutant("EJ-plain-shared-engine", EJ,
+           "    engine = _read_only_engine(db_manager, path).execution_options(drillmaster_worker_view=True)",
+           "    engine = _read_only_engine(db_manager, path)",
+           T_WE_M50, "all worker views share one engine object (breaks the per-view engine contract of M50)"),
+    Mutant("GC-no-boundary-collection", GC,
+           "            self.boundary_checks += 1\n            self._collect_due()",
+           "            self.boundary_checks += 1",
+           T_GC, "back-to-back holds never collect: many cycles of garbage in one long pause"),
+    Mutant("GC-hold-unbounded", GC,
+           "        if (time.monotonic() - oldest) * 1000.0 < DEFER_MAX_MS and count0 < DEFER_MAX_YOUNG:",
+           "        if True:",
+           T_GC, "a hold defers young collections without an age or size bound"),
+    Mutant("GC-no-freeze", GC,
+           "    gc.collect()\n    gc.freeze()\n",
+           "    gc.collect()\n",
+           T_GC, "the start-up heap is traversed by every later old-generation collection"),
+    Mutant("GC-freeze-without-collect", GC,
+           "    gc.collect()\n    gc.freeze()\n",
+           "    gc.freeze()\n",
+           T_GC, "cyclic garbage present at start-up is frozen and never freed"),
+    # ------------------------------------------------------------ E plan/offset comparison
+    Mutant("TC-chord-not-arc", TC,
+           "        position = tuple(p1[j] + k * (c1 * t1[j] + c2 * t2[j]) for j in range(3))",
+           "        position = tuple(p1[j] + u * k * (1.0 - math.cos(beta)) * (t1[j] + t2[j]) for j in range(3))",
+           T_TC, "between stations the path is the straight chord, not the minimum-curvature arc"),
+    Mutant("TC-no-continuous-refinement", TC,
+           "        md, d = _golden_min(lambda m: _norm(_sub(path.position(m), point)), lo, hi)",
+           "        md, d = mds[i], distances[i]",
+           T_TC, "closest approach is the nearest sample/station, not the continuous minimum"),
+    Mutant("TC-global-sample-only", TC,
+           "            candidates.add(i)\n",
+           "            pass\n",
+           T_TC, "only the best sample is refined: a deeper minimum between other samples is missed"),
+    Mutant("TC-crs-not-required", TC,
+           "    if not same_crs_confirmed:",
+           "    if False:",
+           T_TC_UI, "two wells are compared although their wellheads are not confirmed in one CRS"),
+    Mutant("TC-high-side-sign", TC,
+           "\"high_m\": round(_dot(miss, high), 2)",
+           "\"high_m\": round(-_dot(miss, high), 2)",
+           T_TC, "a station below the plan is reported high"),
+    Mutant("TC-right-sign", TC,
+           "        right = _cross(tangent, high)",
+           "        right = _cross(high, tangent)",
+           T_TC, "drifting clockwise of the plan is reported left"),
+    Mutant("TC-feet-not-converted", TC,
+           "    factor = FT_TO_M if length_unit == \"ft\" else 1.0",
+           "    factor = 1.0",
+           T_TC, "a plan stated in feet is read as metres"),
+    Mutant("TC-antiparallel-guard-removed", TC,
+           "        if math.degrees(beta) >= ANTIPARALLEL_DEG:\n            raise",
+           "        if False:\n            raise",
+           T_TC, "a ~180 deg dogleg divides by sin(beta) ~ 0 instead of being NOT ASSESSED"),
+    Mutant("TC-save-updates", TC,
+           "        session.add(calc)\n        session.flush()\n        return int(calc.id)",
+           "        old = session.query(TrajectoryCalculation).filter_by(well_id=well_id, method=record[\"method\"]).first()\n"
+           "        if old is not None:\n"
+           "            old.results_json, old.parameters_json = record[\"results_json\"], record[\"parameters_json\"]\n"
+           "            calc = old\n"
+           "        session.add(calc)\n        session.flush()\n        return int(calc.id)",
+           T_TC_UI, "saving a comparison overwrites the previous result instead of adding a record"),
+    # ------------------------------------------------------------ G balanced plug
+    Mutant("BP-height-ignores-pipe", CE,
+           "            height = volume / (ca + cp)",
+           "            height = volume / ca",
+           T_BP, "the plug column with the pipe in ignores the slurry inside the pipe"),
+    Mutant("BP-top-after-pull-pipe-in", CE,
+           "\"top_after_pull_gauge_md_ft\": round(bottom - volume / ch, 2)",
+           "\"top_after_pull_gauge_md_ft\": round(bottom - height, 2)",
+           T_BP, "the plug top after pulling the pipe is reported as the pipe-in top"),
+    Mutant("BP-underdisplacement-sign", CE,
+           "            displacement = cp * (bottom - height) - behind - under",
+           "            displacement = cp * (bottom - height) - behind + under",
+           T_BP, "under-displacement increases the displacement volume"),
+    Mutant("BP-snapshot-not-dispatched", CP,
+           "    return method == CementEngine.BALANCED_PLUG_VERSION",
+           "    return False",
+           T_BP, "a saved plug run is reconstructed with the primary-job parameters (cannot verify)"),
+    # ------------------------------------------------------------ F DDR manual editing
+    Mutant("DDR-swap-drops-status", W2,
+           "        self._apply_combo_state(table.cellWidget(row, 6), state[\"status\"])\n",
+           "",
+           T_DDR, "moving a row leaves the status behind"),
+    Mutant("DDR-invalid-time-defaulted", W2,
+           "                widget.set_invalid_time(value[1] if value[1] != \"\" else None)",
+           "                widget.set_time(0, 0)",
+           T_DDR, "a moved invalid legacy time becomes 00:00 (a fake value)"),
+    Mutant("DDR-invalid-duration-zero", W2,
+           "        self.calculate_row_duration(table, row)        # invalid times show NOT ASSESSED, never 0.00",
+           "        if state[\"from\"][0] == \"time\" and state[\"to\"][0] == \"time\":\n"
+           "            self.calculate_row_duration(table, row)\n"
+           "        else:\n"
+           "            table.cellWidget(row, 2).setText(\"0.00\")",
+           T_DDR, "a moved row with an invalid time shows a 0.00 duration (first M52 draft)"),
+    Mutant("DDR-editable-one-direction", W2,
+           "        combo.setEditable(bool(editable))        # both directions: the flag belongs to the row",
+           "        if editable:\n            combo.setEditable(True)",
+           T_DDR, "a combo stays free-text editable after receiving a non-editable row (first M52 draft)"),
+    Mutant("DDR-remove-stale-bindings", W2,
+           "            for row in range(current_row, last):\n"
+           "                self._apply_time_row_state(table, row, self._time_row_state(table, row + 1))\n"
+           "            table.removeRow(last)",
+           "            table.removeRow(current_row)",
+           T_DDR, "Remove Row shifts Qt rows whose handlers still recalculate their old row (pre-M52)"),
+    Mutant("DDR-nav-ignores-unsaved", W2,
+           "        if self._has_unsaved_edits() and not self.confirm_discard_edits():",
+           "        if False:",
+           T_DDR, "Previous/Next discards unsaved edits without asking"),
+    Mutant("DDR-nav-order-reversed", W2,
+           "        return [r[\"id\"] for r in reports]",
+           "        return [r[\"id\"] for r in reversed(reports)]",
+           T_DDR, "Next opens an older report"),
+    Mutant("DDR-nav-read-error-as-empty", W2,
+           "            self.status_manager.show_error(\"DailyReport\", \"Report list could not be read\")\n            return None",
+           "            order = []",
+           T_DDR, "an unreadable report list is shown as 'no reports'"),
 ]
 
 
