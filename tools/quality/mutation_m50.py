@@ -116,8 +116,9 @@ MUTANTS = [
            "                    False:",
            T_RET, "a well code that only the file name states is ignored (Q19)"),
     Mutant("R-absent-ignores-context", KR,
-           "            context = self.context_covered(self.chunks[cid].page_id, codes) if codes else frozenset()",
-           "            context = frozenset()",
+           # M51 port: absent_terms and coverage now share chunk_context; the code context is dropped there.
+           "        covered = set(self.context_covered(page_id, codes)) if codes else set()",
+           "        covered = set()",
            T_RET, "the insufficient-evidence message claims a well code is missing that the file name states"),
     Mutant("R-answer-type-cap-removed", KR,
            "            if kinds and self.answer_type_missing(kinds, chunk_id):",
@@ -148,12 +149,13 @@ MUTANTS = [
            "",
            T_RET, "'daily report' no longer reaches Persian daily reports"),
     Mutant("R-version-not-bumped", KR,
+           "RETRIEVAL_VERSION = 4 ",          # M51 port: the version is 4 now; the mutant reverts one step
            "RETRIEVAL_VERSION = 3 ",
-           "RETRIEVAL_VERSION = 2 ",
            T_RET, "retrieval rules changed but cached indexes keyed on the version are not invalidated"),
     Mutant("A-sentence-inherits-any-size", KA,
-           "                                   context | (size_tokens if not kr.size_designations(s) else frozenset()))[0], i, s)",
-           "                                   context | size_tokens)[0], i, s)",
+           # M51 port: the expression is unchanged, it moved to its own line.
+           "                                   (size_tokens if not kr.size_designations(s) else frozenset()))[0], i, s)",
+           "                                   size_tokens)[0], i, s)",
            T_RET, "a sentence about another size (13-3/8 in LOT) is quoted for the asked size"),
     Mutant("A-instruction-paragraph-leaks", KA,
            "    sentences = [s.strip() for paragraph in _PARAGRAPHS.split(item.text) if not detect_instructions(paragraph)",
@@ -265,8 +267,9 @@ MUTANTS = [
            '        row("Semantic retrieval", esc("used" if True else',
            ["tests/test_m50_assistant_states.py"], "diagnostics say semantic retrieval was used when it did not run"),
     Mutant("D-diagnostics-unescaped", "tabs/knowledge_assistant.py",
-           "    esc = html.escape\n",
-           "    esc = str\n",
+           # M51 port: a second renderer also escapes; the diagnostics one is selected by its docstring.
+           '    never repeats passage text.  Everything is escaped."""\n    esc = html.escape\n',
+           '    never repeats passage text.  Everything is escaped."""\n    esc = str\n',
            ["tests/test_m50_assistant_states.py"], "document or model text is rendered as HTML in the diagnostics"),
 ]
 

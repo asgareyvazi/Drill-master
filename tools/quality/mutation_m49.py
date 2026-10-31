@@ -55,7 +55,9 @@ MUTANTS = [
            "page.document_id, page.file_name, page.page_id, page.page_no + 1, page.location,",
            T_ANS + T_GOLD + T_UI, "evidence cites the wrong page number"),
     Mutant("K-stale-corpus-signature", KR,
-           "        return (NORMALIZATION_VERSION, CHUNKER_VERSION, RETRIEVAL_VERSION) + pages + (audit, link_digest)",
+           # M51 port: the signature now has two document-change detectors (audit id and content digest);
+           # the mutant drops both, as it dropped the only one before - same meaning.
+           "        return (NORMALIZATION_VERSION, CHUNKER_VERSION, RETRIEVAL_VERSION) + pages + (audit, link_digest, content)",
            "        return (NORMALIZATION_VERSION, CHUNKER_VERSION, RETRIEVAL_VERSION) + pages + (link_digest,)",
            T_RET + T_UI, "a delete + same-size re-import keeps the stale knowledge index (document changed)"),
     Mutant("K-library-signature-m44", LIB,
@@ -126,8 +128,9 @@ MUTANTS = [
            "    if False:\n        notes.append(",
            T_ANS + T_UI, "the user is not told a source contains instruction-like text"),
     Mutant("A-absence-unchecked", KR,
-           "            result.absent_terms = self.absent_terms(terms, expansions_by_term, allowed, codes)",
-           "            result.absent_terms = list(terms)",
+           # M51 port: the checked absent words are now computed before ranking (absent_topic).
+           "            result.absent_terms = absent_topic + \\",
+           "            result.absent_terms = list(terms) + \\",
            T_ANS + T_UI, "insufficient evidence claims stored words are missing (screenshot-review defect)"),
     # ------------------------------------------------------------ retrieval guards
     Mutant("R-identifier-weight-removed", KR,

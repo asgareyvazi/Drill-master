@@ -74,8 +74,8 @@ class MainThreadGarbageCollector(QObject):
 
     def check(self):
         if gc.isenabled():
-            gc.disable()
             self.reenabled += 1
+            gc.disable()    # automatic collection stays off (module docstring)
             logger.warning("Automatic garbage collection was re-enabled by other code; disabled again")
         if self.worker_collections != self._reported:
             self._reported = self.worker_collections
