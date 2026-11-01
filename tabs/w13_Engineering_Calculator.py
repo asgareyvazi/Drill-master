@@ -526,6 +526,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         from tabs.calculator_finder import CalculatorFinder
         self.calculator_finder = CalculatorFinder(self.tabs, parent=self)
         main_layout.addWidget(self.calculator_finder)
+        # M63: named, immutable calculation cases for the open calculator
+        from tabs.calculation_cases_panel import CaseBar
+        self.case_bar = CaseBar(self.tabs, self.calculator_finder, db=self.db, owner=self, parent=self)
+        main_layout.addWidget(self.case_bar)
         main_layout.addWidget(self.tabs)
 
     # ==================== Tab Creators ====================
