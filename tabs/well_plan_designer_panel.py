@@ -303,16 +303,26 @@ class WellPlanDesignerPanel(QWidget):
         self.well_id = well_id
         self.refresh_plans()
 
+    def _plans_available(self) -> bool:
+        """Plan storage needs a full database manager (survey-only stubs lack sessions)."""
+        return callable(getattr(self.db_manager, "session_scope", None))
+
     def refresh_plans(self) -> None:
         self.plan_combo.clear()
-        if self.db_manager is not None and self.well_id:
-            for plan in dp.list_plans(self.db_manager, self.well_id):
+        if self._plans_available() and self.well_id:
+            try:
+                plans = dp.list_plans(self.db_manager, self.well_id)
+            except Exception as exc:  # the survey viewer must keep working; the failure is shown and logged
+                logger.error("Loading saved plans failed: %s", exc, exc_info=True)
+                self.plan_status_label.setText(f"Saved plans could not be loaded: {exc}")
+                plans = []
+            for plan in plans:
                 self.plan_combo.addItem(
                     f"{plan['name']} — rev {plan['revision']} ({plan['status']})", plan["id"])
         self._refresh_plan_actions()
 
     def _refresh_plan_actions(self) -> None:
-        can_store = self.db_manager is not None and bool(self.well_id)
+        can_store = self._plans_available() and bool(self.well_id)
         designed = self.result is not None and self.result.ok
         has_selection = self.plan_combo.currentData() is not None
         self.open_plan_btn.setEnabled(can_store and has_selection)

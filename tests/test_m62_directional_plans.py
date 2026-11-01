@@ -181,3 +181,28 @@ def test_panel_saves_revises_reopens_and_plots(db_well):
     finally:
         panel.deleteLater()
         app.processEvents()
+
+
+def test_a_survey_only_database_stub_disables_the_plan_library_without_breaking_the_panel():
+    from PySide6 import QtWidgets
+    from tabs.well_plan_designer_panel import WellPlanDesignerPanel
+
+    class SurveyOnly:
+        def load_survey_points(self, **_):
+            return []
+
+    class Broken:
+        def session_scope(self):
+            raise RuntimeError("synthetic database failure")
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    panels = [WellPlanDesignerPanel(db_manager=SurveyOnly()), WellPlanDesignerPanel(db_manager=Broken())]
+    try:
+        panels[0].set_well(1)
+        assert panels[0].plan_combo.count() == 0 and not panels[0].save_new_btn.isEnabled()
+        panels[1].set_well(1)
+        assert "could not be loaded: synthetic database failure" in panels[1].plan_status_label.text()
+    finally:
+        for panel in panels:
+            panel.deleteLater()
+        app.processEvents()
