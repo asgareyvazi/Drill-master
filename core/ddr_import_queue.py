@@ -16,7 +16,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
-QUEUE_VERSION = 1
+QUEUE_VERSION = 2   # M70.6: re-add/twin/changed-file/cancel-running rules
 
 QUEUED = "QUEUED"
 RUNNING = "RUNNING"
@@ -30,6 +30,9 @@ CANCELLED = "CANCELLED"            # batch cancelled before this file ran
 FINAL = {SAVED, REVIEW_REQUIRED, SKIPPED, DUPLICATE, FAILED, CANCELLED}
 RETRYABLE = {FAILED, CANCELLED, SKIPPED}
 REMOVABLE = {QUEUED, FAILED, CANCELLED, SKIPPED, DUPLICATE}
+PERSISTED = {SAVED, REVIEW_REQUIRED}
+TWIN_STATUSES = {QUEUED, RUNNING, SAVED, REVIEW_REQUIRED}   # a skipped/failed twin imported nothing
+ATOMIC_STAGES = {"persist", "persistence"}   # the dialog names its stage "persistence"
 ORDER = (SAVED, REVIEW_REQUIRED, SKIPPED, DUPLICATE, FAILED, CANCELLED, QUEUED, RUNNING)
 
 
@@ -82,32 +85,69 @@ class ImportQueue:
 
     # -- building -------------------------------------------------------
     def add(self, paths: Iterable[str]) -> List[QueueEntry]:
-        """Add files; byte-identical files are marked DUPLICATE, never run twice."""
+        """Add files. Rules (M70.6):
+
+        * a path that is already queued/running is not added twice;
+        * an unreadable/missing file is FAILED at once with the reason;
+        * re-adding a FAILED/CANCELLED/SKIPPED file re-queues that entry
+          (its history is kept);
+        * a SAVED/REVIEW_REQUIRED/DUPLICATE entry is never replaced: a new entry
+          is appended, DUPLICATE when its bytes equal a queued, running or
+          persisted entry, otherwise QUEUED (changed content is new content).
+        """
         added: List[QueueEntry] = []
         for path in paths:
             path = str(path)
             if any(e.path == path and e.status not in FINAL for e in self.entries):
                 continue  # already pending
-            entry = QueueEntry(path=path, fingerprint=file_fingerprint(path))
-            twin = next(
-                (e for e in self.entries
-                 if entry.fingerprint and e.fingerprint == entry.fingerprint and e.path != path
-                 and e.status not in {CANCELLED, FAILED}),
-                None,
-            )
-            if twin is not None:
-                entry.status = DUPLICATE
-                entry.diagnostics.append(f"Same content as {twin.name} in this batch; not imported twice.")
-            existing = next((e for e in self.entries if e.path == path), None)
-            if existing is not None:
-                self.entries[self.entries.index(existing)] = entry
+            fingerprint = file_fingerprint(path)
+            latest = self.find(path)
+            if latest is not None and latest.status in RETRYABLE:
+                if latest.fingerprint and fingerprint and latest.fingerprint != fingerprint:
+                    latest.diagnostics.append("File content changed since it was first queued.")
+                latest.fingerprint = fingerprint
+                latest.status, latest.stage, latest.result = QUEUED, "", None
+                latest.diagnostics.append("Re-added to the batch.")
+                if fingerprint is None:
+                    self._unreadable(latest)
+                else:
+                    self._mark_twin(latest)
+                added.append(latest)
+                continue
+            entry = QueueEntry(path=path, fingerprint=fingerprint)
+            if fingerprint is None:
+                self._unreadable(entry)
             else:
-                self.entries.append(entry)
+                if latest is not None and latest.status in PERSISTED and latest.fingerprint != fingerprint:
+                    entry.diagnostics.append(f"Content changed since {latest.name} was imported in this batch.")
+                self._mark_twin(entry)
+            self.entries.append(entry)
             added.append(entry)
         return added
 
+    @staticmethod
+    def _unreadable(entry: QueueEntry) -> None:
+        entry.status, entry.stage = FAILED, "open"
+        entry.diagnostics.append("The source file cannot be read (missing, moved or no permission).")
+
+    def _twin(self, entry: QueueEntry) -> Optional[QueueEntry]:
+        return next((e for e in self.entries
+                     if e is not entry and entry.fingerprint and e.fingerprint == entry.fingerprint
+                     and e.status in TWIN_STATUSES), None)
+
+    def _mark_twin(self, entry: QueueEntry) -> bool:
+        twin = self._twin(entry)
+        if twin is None:
+            return False
+        entry.status, entry.stage = DUPLICATE, "fingerprint"
+        where = "this file" if twin.path == entry.path else twin.name
+        entry.diagnostics.append(f"Same content as {where} ({twin.status.lower()}) in this batch; not imported twice.")
+        return True
+
     def find(self, path: str) -> Optional[QueueEntry]:
-        return next((e for e in self.entries if e.path == str(path)), None)
+        """The most recent entry for ``path``."""
+        matches = [e for e in self.entries if e.path == str(path)]
+        return matches[-1] if matches else None
 
     def remove(self, index: int) -> bool:
         """Remove a non-running, non-persisted entry; completed results are kept."""
@@ -143,11 +183,39 @@ class ImportQueue:
     def pending(self) -> List[QueueEntry]:
         return [e for e in self.entries if e.status == QUEUED]
 
-    def start(self, entry: QueueEntry, profile: str = "") -> None:
+    def start(self, entry: QueueEntry, profile: str = "") -> bool:
+        """Begin a file. The bytes are fingerprinted again: a file that vanished
+        is FAILED, a file that changed into a copy of an imported one is
+        DUPLICATE. Returns whether the file should run."""
+        current = file_fingerprint(entry.path)
+        if current is None:
+            self._unreadable(entry)
+            return False
+        if entry.fingerprint and current != entry.fingerprint:
+            entry.diagnostics.append("File content changed after it was queued; the current content is used.")
+        entry.fingerprint = current
+        if self._mark_twin(entry):
+            return False
         entry.status, entry.stage, entry.profile = RUNNING, "route", profile
         entry.attempts += 1
+        return True
+
+    def set_stage(self, entry: QueueEntry, stage: str) -> None:
+        if entry.status == RUNNING:
+            entry.stage = stage
+
+    def cancel_running(self, entry: QueueEntry) -> bool:
+        """Cancel a running file before persistence; during persistence it finishes atomically."""
+        if entry.status != RUNNING or entry.stage in ATOMIC_STAGES:
+            return False
+        entry.status, entry.stage = CANCELLED, f"cancelled during {entry.stage or 'preparation'}"
+        entry.diagnostics.append("Cancelled before anything was saved.")
+        return True
 
     def finish(self, entry: QueueEntry, result: Dict[str, Any]) -> str:
+        if entry.status == CANCELLED and not result.get("imported"):
+            entry.result = result
+            return entry.status          # cancelled mid-preparation: keep the cancel, nothing was saved
         entry.result = result
         entry.status = status_from_result(result)
         entry.stage = "done"

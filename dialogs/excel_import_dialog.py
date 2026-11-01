@@ -1159,20 +1159,24 @@ class ExcelImportDialog(QDialog, DDRImportService):
             )
             QApplication.processEvents()
             queue = self._queue()
-            entry = queue.find(source) or queue.add([source])[0]
-            if entry.status == DUPLICATE or queue.cancel_requested:
+            entry = queue.find(source)
+            if entry is None or (entry.status in FINAL and entry.status != DUPLICATE):
+                entry = (queue.add([source]) or [queue.find(source)])[0]
+            profile = self.active_profile() if hasattr(self, "active_profile") else None
+            runnable = (entry.status not in FINAL and not queue.cancel_requested
+                        and queue.start(entry, profile.label() if profile is not None else ""))
+            if not runnable:
                 if entry.status not in FINAL:
                     entry.status, entry.stage = CANCELLED, "cancelled before start"
                 results.append({
-                    "file": source, "imported": 0, "failed": 0, "skipped": 1,
+                    "file": source, "imported": 0, "failed": int(entry.status == FAILED),
+                    "skipped": int(entry.status != FAILED),
                     "reimport": entry.status == DUPLICATE, "queue_status": entry.status,
                     "details": [f"⏭️ {os.path.basename(source)}: {entry.status.lower()}"
                                 + (f" - {entry.diagnostics[-1]}" if entry.diagnostics else "")],
                 })
                 self._refresh_queue_view()
                 continue
-            profile = self.active_profile() if hasattr(self, "active_profile") else None
-            queue.start(entry, profile.label() if profile is not None else "")
             self._queue_current = entry
             results_before = len(results)
             dialog = None
