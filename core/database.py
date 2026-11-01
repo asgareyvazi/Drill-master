@@ -1996,6 +1996,33 @@ class CalculationCase(Base):
     created_by = Column(Integer, ForeignKey("users.id"))
 
 
+class CalculationSourceLink(Base):
+    """M70: structured lineage from a calculation case to the record it came from.
+
+    One row per relationship (``link_type`` = ``recalculation_of``). The
+    source is addressed by table name and primary key (history sources live in
+    several tables, so no single FK is possible); ``source_well_id`` must equal
+    the case's well, which the service checks. Insert-only (storage trigger).
+    """
+
+    __tablename__ = "calculation_source_links"
+
+    id = Column(Integer, primary_key=True)
+    case_id = Column(Integer, ForeignKey("calculation_cases.id", ondelete="CASCADE"), nullable=False)
+    link_type = Column(String(40), nullable=False)
+    source_table = Column(String(100), nullable=False)
+    source_id = Column(Integer, nullable=False)
+    source_well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"))
+    source_wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"))
+    source_method = Column(String(200))
+    source_method_version = Column(String(100))
+    recalc_method = Column(String(200))
+    recalc_method_version = Column(String(100))
+    verification_status = Column(String(40), nullable=False)
+    method_changed = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+
+
 class PlannedActivity(Base):
     """فعالیت‌های برنامه‌ریزی شده برای هر چاه و سکشن"""
     __tablename__ = "planned_activities"
@@ -3540,6 +3567,9 @@ class DatabaseManager:
                         "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index.name,)
                     ).fetchone():
                         raw.execute(str(CreateIndex(index).compile(dialect=self.engine.dialect)))
+            # M70: storage-level immutability for engineering history tables.
+            from core import storage_guards
+            storage_guards.install(raw)
             raw.execute("DELETE FROM schema_version")
             raw.execute(
                 "INSERT INTO schema_version(version, applied_at) VALUES (?, ?)",

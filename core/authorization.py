@@ -118,9 +118,11 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     "ddr_report_profiles": TablePolicy(write=(NOBODY,), delete=(NOBODY,), insert=(IMPORT,)),
     # M62: plan revisions are inserted by report editors; only the status
     # column is updated (core.directional_plans enforces content immutability).
-    "directional_plan_revisions": TablePolicy(write=(EDIT,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    # M70: revisions are immutable; status changes only through PLAN_LIFECYCLE.
+    "directional_plan_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # M63: calculation cases are insert-only; they leave only with their well.
     "calculation_cases": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    "calculation_source_links": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }
@@ -156,6 +158,11 @@ REPORT_LIFECYCLE = OperationScope(
     {"daily_reports": frozenset({"status", "updated_at"}),
      "report_revisions": None, "approval_actions": None},
     frozenset({"insert", "update"}),
+)
+PLAN_LIFECYCLE = OperationScope(
+    # M70: the only permitted change to a saved plan revision is its status
+    # (draft -> approved -> archived; also enforced by a storage trigger).
+    "plan_lifecycle", EDIT, {"directional_plan_revisions": frozenset({"status"})}, frozenset({"update"}),
 )
 IMPORT_SCOPE = OperationScope(
     "import", IMPORT,

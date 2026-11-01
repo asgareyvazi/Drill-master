@@ -17,6 +17,8 @@ audit is recorded in docs/DATABASE_PERFORMANCE.md):
 * SECTION_SCOPE - ``section_id`` lookups (``daily_reports`` also orders by date).
 * HIERARCHY     - project/company/wellbore/plan/procedure parent lookups.
 * AUDIT         - audit trail by entity and the most-recent-first listing.
+* LINEAGE       - ``(source_table, source_id)``: the recalculations of a
+  history record (Calc History "open original"/"open recalculations").
 
 Deliberately NOT indexed: the 45 ``created_by``/``user_id`` -> users foreign
 keys (no lookup filters on them; users are deactivated rather than deleted)
@@ -31,6 +33,7 @@ from __future__ import annotations
 from sqlalchemy import Index
 
 REPORT_CHILD = "report child: per-report loads, snapshot, cascade delete"
+LINEAGE = "lineage: recalculations of one history source record (M70)"
 WELL_DATED = "well-scoped load filtered/ordered by report_date"
 WELL_SCOPE = "well-scoped lookup"
 SURVEY_ORDER = "survey stations per well ordered by MD"
@@ -134,6 +137,9 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("well_plans", ('well_id',), WELL_SCOPE),
     ("directional_plan_revisions", ('well_id',), WELL_SCOPE),
     ("calculation_cases", ('well_id',), WELL_SCOPE),
+    ("calculation_source_links", ('case_id',), HIERARCHY),
+    ("calculation_source_links", ('source_table', 'source_id'), LINEAGE),
+    ("calculation_source_links", ('source_well_id',), WELL_SCOPE),
     ("wellbore_schematics", ('report_id',), REPORT_CHILD),
     ("wellbore_schematics", ('well_id', 'report_date'), WELL_DATED),
     ("wellbores", ('well_id',), WELL_SCOPE),

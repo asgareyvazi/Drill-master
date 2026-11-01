@@ -303,6 +303,12 @@ class WellPlanDesignerPanel(QWidget):
         self.well_id = well_id
         self.refresh_plans()
 
+    def _selected_wellbore(self) -> Optional[int]:
+        """The tree's selected wellbore, only when it belongs to this panel's well (M70.7)."""
+        from core.selection_manager import SelectionManager
+
+        return SelectionManager().wellbore_for(self.well_id)
+
     def _plans_available(self) -> bool:
         """Plan storage needs a full database manager (survey-only stubs lack sessions)."""
         return callable(getattr(self.db_manager, "session_scope", None))
@@ -352,7 +358,7 @@ class WellPlanDesignerPanel(QWidget):
         if self.design() is None or not self.result.ok:
             return None
         plan = dp.save_plan(self.db_manager, well_id=self.well_id, name=name, inputs=self.current_inputs(),
-                            result=self.result)
+                            result=self.result, wellbore_id=self._selected_wellbore())
         self._show_plan(plan, "Saved")
         return plan
 
@@ -420,21 +426,31 @@ class WellPlanDesignerPanel(QWidget):
         if self.plan_combo.currentData() is not None:
             self.open_plan(self.plan_combo.currentData())
 
+    def _guarded(self, action, *args):
+        """Run a plan-library action; integrity/permission refusals are shown, not raised into Qt."""
+        from core.authorization import AuthorizationError
+
+        try:
+            return action(*args)
+        except (dp.PlanIntegrityError, LookupError, AuthorizationError) as exc:
+            self.plan_status_label.setText(f"Not saved: {exc}")
+            return None
+
     def _save_new_clicked(self, _checked=False):
         name, ok = QInputDialog.getText(self, "Save plan", "Plan name:")
         if ok and name.strip():
-            self.save_new_plan(name.strip())
+            self._guarded(self.save_new_plan, name.strip())
 
     def _save_revision_clicked(self, _checked=False):
-        self.save_revision()
+        self._guarded(self.save_revision)
 
     def _clone_clicked(self, _checked=False):
         name, ok = QInputDialog.getText(self, "Clone plan", "New plan name:")
         if ok and name.strip():
-            self.clone_plan(name.strip())
+            self._guarded(self.clone_plan, name.strip())
 
     def _archive_clicked(self, _checked=False):
-        self.archive_plan()
+        self._guarded(self.archive_plan)
 
     def _compare_clicked(self, _checked=False):
         if self.plan_combo.currentData() is not None:
