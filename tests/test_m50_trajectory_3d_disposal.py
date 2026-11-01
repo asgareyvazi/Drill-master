@@ -54,7 +54,10 @@ def _qt_wrappers_left_after(app, make, destroy, patch_draw=False):  # noqa: F811
     app.processEvents()
     gc.collect()
     gc.disable()
-    before = [o for o in gc.get_objects() if isinstance(o, shiboken6.Shiboken.Object)]
+    # type(), not isinstance(): isinstance reads ``__class__``, which raises ReferenceError for a dead
+    # weakref.proxy anywhere in the heap (PyMuPDF table extraction leaves one; see test_model_registry).
+    # A proxy is never a Qt wrapper, so the set of wrappers found is unchanged.
+    before = [o for o in gc.get_objects() if issubclass(type(o), shiboken6.Shiboken.Object)]
     before_ids = {id(o) for o in before}
     try:
         widget = make()
@@ -81,7 +84,7 @@ def _qt_wrappers_left_after(app, make, destroy, patch_draw=False):  # noqa: F811
         gc.collect()
         gc.set_debug(0)
         wrappers = sorted({type(o).__name__ for o in gc.garbage
-                           if isinstance(o, shiboken6.Shiboken.Object) and id(o) not in before_ids})
+                           if issubclass(type(o), shiboken6.Shiboken.Object) and id(o) not in before_ids})
         return alive, wrappers
     finally:
         gc.set_debug(0)
