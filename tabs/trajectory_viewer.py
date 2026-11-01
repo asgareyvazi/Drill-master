@@ -136,6 +136,10 @@ class TrajectoryViewerTab(QWidget):
         from tabs.trajectory_compare_panel import TrajectoryComparePanel
         self.compare_panel = TrajectoryComparePanel(self.db_manager)     # M52 screening comparison
         self.view_tabs.addTab(self.compare_panel, "Compare / clearance")
+        from tabs.well_plan_designer_panel import WellPlanDesignerPanel
+        self.plan_designer = WellPlanDesignerPanel(handover=True)                     # M55 planning aid
+        self.plan_designer.plan_ready.connect(self.use_designed_plan)
+        self.view_tabs.addTab(self.plan_designer, "Plan designer")
         splitter.addWidget(self.view_tabs)
 
         side = QWidget()
@@ -373,6 +377,13 @@ class TrajectoryViewerTab(QWidget):
             row = rows.pop()
             if row != self.selected_index:
                 self.select_station(row)
+
+    def use_designed_plan(self, rows, source) -> bool:
+        """Hand a designed plan to the plan-vs-actual comparison and show it."""
+        accepted = self.compare_panel.set_plan_rows(rows, source)
+        if accepted:
+            self.view_tabs.setCurrentWidget(self.compare_panel)
+        return accepted
 
     def select_station(self, index: int):
         if not 0 <= index < len(self.stations):

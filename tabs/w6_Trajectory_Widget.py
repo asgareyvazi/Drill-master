@@ -362,9 +362,35 @@ class SurveyDataTab(QWidget):
             self.table_manager.delete_row()
     
     def import_data(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Import Survey Data", "", "CSV Files (*.csv);;All Files (*.*)")
-        if filename:
-            self.table_manager.import_from_csv(filename)
+        """M55: validated survey import (CSV/TXT/XLSX) with unit and row review; nothing is saved."""
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Import Survey Data", "",
+            "Survey tables (*.csv *.txt *.dat *.xlsx *.xlsm);;All Files (*.*)")
+        if not filename:
+            return False
+        from dialogs.survey_import_dialog import SurveyImportDialog
+        dialog = SurveyImportDialog(filename, self)
+        if dialog.exec() != SurveyImportDialog.Accepted:
+            return False
+        if not self.apply_imported_surveys(dialog.result):
+            return False
+        QMessageBox.information(self, "Survey import",
+                                self.survey_import_note + ".\nSaving replaces the surveys of this report scope.")
+        return True
+
+    def apply_imported_surveys(self, result) -> bool:
+        """Replace the editable survey rows with reviewed stations (MD m). The user saves."""
+        if result is None or not result.ok or not result.stations:
+            return False
+        self.survey_table.setRowCount(0)
+        for station in result.stations:
+            row = self.survey_table.rowCount()
+            self.survey_table.insertRow(row)
+            for column, key in enumerate(("md", "inc", "azi"), 1):
+                self.survey_table.setItem(row, column, QTableWidgetItem(f"{station[key]:.4f}".rstrip("0").rstrip(".")))
+        self.survey_import_note = (f"{len(result.stations)} stations imported from {result.unit} "
+                                   f"(azimuth reference: {result.azimuth_reference}, as stated); not saved yet")
+        return True
     
     def calculate_trajectory(self):
         from core.survey_records import prepare_surveys, DERIVED_FIELDS

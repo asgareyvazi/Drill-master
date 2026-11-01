@@ -201,7 +201,7 @@ def test_3d_tab_shows_the_same_stations_as_the_2d_views(viewer, synthetic):
     _db, ids = synthetic
     titles = [viewer.view_tabs.tabText(i) for i in range(viewer.view_tabs.count())]
     # 2D stays the reference; M52 appended the plan/offset comparison tab (contract change).
-    assert titles == ["Plan view", "Vertical section", "3D view", "Compare / clearance"]
+    assert titles == ["Plan view", "Vertical section", "3D view", "Compare / clearance", "Plan designer"]   # M55 adds the designer
     viewer.set_context(ids["dev"], None)
     view = viewer.view3d
     assert view.interactive and view.scene.drawable and len(view.scene.md) == 61 == len(viewer.stations)

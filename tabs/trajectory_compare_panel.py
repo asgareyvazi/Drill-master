@@ -185,6 +185,23 @@ class TrajectoryComparePanel(QWidget):
         self._clear_result("Plan loaded; compare again.")
         return True
 
+    def set_plan_rows(self, rows, source: str) -> bool:
+        """Use plan stations handed over in memory (M55 plan designer; MD in metres)."""
+        try:
+            stations = [{"md": float(r["md"]), "inc": float(r["inc"]), "azi": float(r["azi"])}
+                        for r in rows or ()]
+        except (KeyError, TypeError, ValueError):  # silent-ok: unreadable plan is refused below with a visible message
+            stations = []
+        if len(stations) < 2:
+            self.plan_rows, self.plan_source = None, ""
+            self.plan_label.setText("Plan refused: fewer than two readable stations were supplied")
+            return False
+        self.plan_rows, self.plan_source = stations, str(source)
+        self.mode_combo.setCurrentIndex(self.mode_combo.findData("plan"))
+        self.plan_label.setText(f"{self.plan_source}: {len(stations)} stations (MD m, in memory)")
+        self._clear_result("Plan loaded; compare again.")
+        return True
+
     # ------------------------------------------------------------- compare
     def _gather(self) -> Optional[dict]:
         if not self.well_id or self.db_manager is None:
