@@ -94,8 +94,10 @@ def test_no_file_selected_leaves_the_dialog_idle(dialog, monkeypatch):
 
 
 @pytest.mark.parametrize("confirmed,expected_persisted", [(False, 0), (True, 1)])
-def test_preview_cancel_persists_nothing(dialog, monkeypatch, confirmed, expected_persisted):
+def test_preview_cancel_persists_nothing(dialog, monkeypatch, tmp_path, confirmed, expected_persisted):
     module, dlg = dialog
+    source = tmp_path / "synthetic.xlsx"          # M70.6: the queue re-reads the file at start
+    source.write_bytes(b"SYNTHETIC preview-cancel source")
     monkeypatch.setattr(module, "route_file", lambda source, template_matcher=None: SimpleNamespace(
         engine="excel_intelligence", fallback_engine=None, reason=""))
     extracted = {"daily_report": {"report_date": "2026-01-02", "report_number": 1},
@@ -118,7 +120,7 @@ def test_preview_cancel_persists_nothing(dialog, monkeypatch, confirmed, expecte
     emitted = []
     dlg.import_completed.connect(emitted.append)
     dlg._set_import_busy(True)
-    dlg._run_import_pipeline(["/tmp/synthetic.xlsx"], {})
+    dlg._run_import_pipeline([str(source)], {})
     assert len(dlg._persisted) == expected_persisted
     assert emitted and (emitted[0][0].get("skipped") == 1) is (not confirmed)
     assert not dlg._import_busy
