@@ -191,8 +191,11 @@ class CaseBar(QWidget):
         if not results:
             self.status.setText("No results on this calculator yet — calculate first, then save the case.")
             return None
+        from core.selection_manager import SelectionManager
+
+        well_id = self._well_id()
         case = cc.save_case(self.db, calculator=self.calculator(), name=name, inputs=inputs, results=results,
-                            well_id=self._well_id())
+                            well_id=well_id, wellbore_id=SelectionManager().wellbore_for(well_id))
         self.refresh()
         self.status.setText(f"Saved case '{case['name']}' (#{case['id']}) with {len(inputs)} inputs and "
                             f"{len(results)} results; {case['method_version']}.")

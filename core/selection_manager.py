@@ -11,6 +11,8 @@ Usage:
     sel.select_well(well_id, well_data)
 """
 
+from typing import Optional
+
 from PySide6.QtCore import QObject, Signal
 import logging
 from threading import Lock
@@ -321,6 +323,20 @@ class SelectionManager(QObject):
         logger.debug("Selection: cleared")
 
     # ==================== Query Methods ====================
+    def wellbore_for(self, well_id) -> Optional[int]:
+        """The selected wellbore when it belongs to ``well_id`` (M70.7), else ``None``.
+
+        Consumers that persist records (plans, calculation cases) use this so a
+        stale wellbore of another well is never attached to a new record.
+        ``wellbore_changed`` carries ``0`` for "no wellbore"; that is ``None`` here.
+        """
+        if not well_id or self._well_id != well_id or not self._wellbore_id:
+            return None
+        owner = (self._wellbore_data or {}).get("well_id") if isinstance(self._wellbore_data, dict) else None
+        if owner not in (None, well_id):
+            return None
+        return self._wellbore_id
+
 
     def has_well(self) -> bool:
         return self._well_id is not None

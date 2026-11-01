@@ -847,6 +847,22 @@ class TrajectoryWidget(DrillTabBase):
         self.load_sections(well_id)
         self.update_tabs()
 
+    def on_selection_cleared(self):
+        """M70.7: the selection was cleared (e.g. the well was deleted).
+
+        The 2D/3D viewer, plan designer and survey table must not keep showing
+        - or saving against - the previous well.
+        """
+        self.current_well_id = self.current_section_id = self.current_report_id = None
+        survey = getattr(self, "survey_data_tab", None)
+        if survey is not None:
+            survey.current_well_id = survey.current_report_id = survey.current_section_id = None
+            if hasattr(survey, "survey_table"):
+                survey.survey_table.setRowCount(0)
+        viewer = getattr(self, "viewer_tab", None)
+        if viewer is not None:
+            viewer.set_context(None, None)
+
     def on_section_changed(self, section_id, section_data):
         """Override DrillTabBase"""
         self.current_section_id = section_id

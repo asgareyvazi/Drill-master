@@ -1152,6 +1152,7 @@ class MainWindow(QMainWindow):
         self.calculation_history_tab = CalculationHistoryTab(self.db_manager, self)
         self.tab_widget.addTab(self.calculation_history_tab, "🗂️ Calc History")
         self.sel_manager.well_changed.connect(self.calculation_history_tab.set_well)
+        self.sel_manager.selection_cleared.connect(self.calculation_history_tab.clear_selection)
 
         # Tab 18: Reference (software)
         self.reference_tab = ReferenceTablesWidget(
