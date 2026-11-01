@@ -151,6 +151,16 @@ class ImportPreviewDialog(QDialog):
         )
         summary.setStyleSheet("color: #555; padding: 4px;")
         layout.addWidget(summary)
+        # M54: explicit scanned-page / OCR state of the PDF-native fallback.
+        self.pdf_state_label = None
+        note = self.pdf_extraction_note(report)
+        if note:
+            self.pdf_state_label = QLabel(note)
+            self.pdf_state_label.setWordWrap(True)
+            self.pdf_state_label.setStyleSheet(
+                "color: #7a4b00; background: #fff4e0; padding: 6px; border-radius: 4px;"
+            )
+            layout.addWidget(self.pdf_state_label)
         self._add_pdf_split_section(layout, report)
 
         # Table
@@ -298,6 +308,19 @@ class ImportPreviewDialog(QDialog):
         ranges = ", ".join(s["page_range"] for s in split.get("segments", []))
         return (f"This PDF holds {len(split['segments'])} daily reports (pages {ranges}). Importing it as one "
                 "report would mix them. Save one PDF per report and import each one.")
+
+    @staticmethod
+    def pdf_extraction_note(report):
+        """User-facing scanned-page/OCR note for a PDF fallback import, or ``None``."""
+        fallback = ((report or {}).get("fallback_diagnostics") or {}).get("fallback") or {}
+        scanned = list(fallback.get("scanned_pages") or [])
+        if not scanned:
+            return None
+        pages = ", ".join(str(p) for p in scanned)
+        if fallback.get("ocr") == "unavailable":
+            return (f"OCR unavailable: page(s) {pages} are scanned images without a text layer and were "
+                    "not read. Nothing was guessed for those pages; enter their values manually.")
+        return f"Scanned page(s) {pages} detected: OCR text must be verified field by field before saving."
 
     def _add_pdf_split_section(self, layout, report):
         split, error = report.get("pdf_split"), report.get("pdf_split_error")
@@ -931,6 +954,10 @@ class ExcelImportDialog(QDialog, DDRImportService):
                                     "engine": fallback_document.method,
                                     "pages": fallback_document.page_count,
                                     "tables": fallback_document.table_count,
+                                    # M54: explicit scanned-page / OCR state.
+                                    "scanned_pages": fallback_document.metadata.get("scanned_pages", []),
+                                    "ocr": fallback_document.metadata.get("ocr"),
+                                    "warning": fallback_document.metadata.get("warning"),
                                 },
                             },
                         )

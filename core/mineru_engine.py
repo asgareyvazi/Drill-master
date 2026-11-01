@@ -871,8 +871,14 @@ def parse_pdf_native_fallback(input_path: str | os.PathLike[str]) -> MinerUDocum
             "engine": result.get("engine"),
             "tier": result.get("tier"),
             "metrics": result.get("metrics", []),
+            # M54: explicit scanned-page / OCR state and any partial-read warning.
+            "scanned_pages": result.get("scanned_pages", []),
+            "ocr": result.get("ocr"),
+            "warning": result.get("warning"),
         },
     )
+    if result.get("warning"):
+        document.metadata.setdefault("warnings", []).append(str(result["warning"]))
     page_numbers: set[int] = set()
     for table_number, payload in enumerate(result.get("tables", []), 1):
         data = payload.get("data", []) if isinstance(payload, Mapping) else []

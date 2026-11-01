@@ -3,11 +3,11 @@ Daily Report Tab - گزارش روزانه با استفاده از توابع �
 """
 
 import logging
-from datetime import time, timedelta
+from datetime import date, time, timedelta
 import os
 from PySide6.QtCore import QDate, QTimer, Qt
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog, QDoubleSpinBox, QFileDialog, QFrame,
+    QAbstractItemView, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog, QDoubleSpinBox, QFileDialog, QFrame,
     QGridLayout, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton,
     QScrollArea, QSizePolicy, QSpinBox, QStackedWidget, QTabWidget, QTableWidget, QTableWidgetItem,
     QTextEdit, QVBoxLayout, QWidget,
@@ -398,6 +398,9 @@ class DailyReportWidget(DrillTabBase):
         summary_group.setLayout(summary_layout)
         main_layout.addWidget(summary_group)
 
+        # M54: report timeline of the selected well (double-click opens a report).
+        self._build_report_timeline(main_layout)
+
         # ========== Action Buttons ==========
         button_layout = QHBoxLayout()
         
@@ -447,6 +450,12 @@ class DailyReportWidget(DrillTabBase):
         
         self.new_btn = QPushButton("🆕 New Report")
         self.new_btn.clicked.connect(self.new_report)
+        # M54: duplicate the open report into an UNSAVED draft after a review dialog.
+        self.duplicate_btn = QPushButton("⧉ Duplicate…")
+        self.duplicate_btn.setToolTip(
+            "Prepare an unsaved draft for the next day from this report; review it, then Save Report."
+        )
+        self.duplicate_btn.clicked.connect(lambda: self.duplicate_report_for_review())
         
         
         self.print_btn = QPushButton("🖨️ Print")
@@ -472,6 +481,7 @@ class DailyReportWidget(DrillTabBase):
         button_layout.addWidget(self.save_btn)
         button_layout.addWidget(self.load_btn)
         button_layout.addWidget(self.new_btn)
+        button_layout.addWidget(self.duplicate_btn)
         button_layout.addWidget(self.print_btn)
         button_layout.addWidget(export_pdf_btn)
         button_layout.addWidget(self.submit_btn)
@@ -548,6 +558,7 @@ class DailyReportWidget(DrillTabBase):
         """وقتی چاهی از طریق SelectionManager انتخاب می‌شود."""
         self.current_well = well_data
         self.current_well_id = well_id
+        self.refresh_report_timeline()
         if well_data:
             self.current_info_label.setText(f"Well: {well_data.get('name', '')}")
             self.current_info_label.show()
@@ -1327,6 +1338,206 @@ class DailyReportWidget(DrillTabBase):
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         return reply == QMessageBox.Yes
 
+    # ------------------------------------------------------------------
+    # M54: time-log validation, report timeline and duplicate-for-review
+    # ------------------------------------------------------------------
+    def _time_rows_for_validation(self, table, label):
+        rows, invalid = [], []
+        for row in range(table.rowCount()):
+            from_widget, to_widget = table.cellWidget(row, 0), table.cellWidget(row, 1)
+            if from_widget is None or to_widget is None or not hasattr(from_widget, "get_time"):
+                continue  # not a time-log row widget (same rule as _extract_time_log_row)
+            try:
+                fh, fm, f24 = from_widget.get_time()
+                th, tm, t24 = to_widget.get_time()
+            except (AttributeError, TypeError, ValueError):
+                invalid.append(f"{label} row {row + 1} has a missing or invalid time")
+                continue
+            # W2 loads a stored 00:00 start with the 24:00 flag; a START flagged
+            # 24:00 is start-of-day midnight, an END flagged 24:00 is end of day.
+            rows.append({
+                "time_from": "00:00" if f24 else f"{fh:02d}:{fm:02d}",
+                "time_to": "24:00" if t24 else f"{th:02d}:{tm:02d}",
+                "duration": None,
+                "main_code": "",
+                "activity_description": "",
+            })
+        return rows, invalid
+
+    def time_log_issues(self):
+        """Return ``(blocking, notes)`` for the 24-hour and morning time logs.
+
+        Uses the canonical ``TimeLogValidator`` (the same rules as import).
+        Overlaps, negative/over-24 h rows and unreadable times block the save;
+        gaps are informational for the 24-hour log and ignored for the morning
+        log (which only covers 00:00–06:00 by design).
+        """
+        from core.import_quality import TimeLogValidator
+
+        blocking, notes = [], []
+        for table, label, check_gaps in (
+            (getattr(self, "time_24_table", None), "24-hour log", True),
+            (getattr(self, "morning_table", None), "Morning log", False),
+        ):
+            if table is None:
+                continue
+            rows, invalid = self._time_rows_for_validation(table, label)
+            blocking.extend(invalid)
+            if not rows:
+                continue
+            report = TimeLogValidator.validate_logs(rows, sheet=label)
+            for issue in report.issues:
+                if issue.field == "time_range" and issue.level == "error":
+                    blocking.append(f"{label}: {issue.message}")
+                elif issue.field in ("time_from", "time_to") and issue.level == "error":
+                    blocking.append(f"{label} row {max(issue.row - 1, 1)}: {issue.message}")
+                elif issue.field == "time_range" and check_gaps and "Gap" in issue.message:
+                    notes.append(f"{label}: {issue.message}")
+        return blocking, notes
+
+    def _build_report_timeline(self, main_layout):
+        box = QGroupBox("🗂 Reports of this well")
+        layout = QVBoxLayout(box)
+        layout.setContentsMargins(6, 6, 6, 6)
+        self.report_timeline = QTableWidget(0, 5)
+        self.report_timeline.setHorizontalHeaderLabels(
+            ["Date", "Report #", "Depth @ 24:00 (m)", "Status", "Summary"]
+        )
+        self.report_timeline.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.report_timeline.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.report_timeline.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.report_timeline.verticalHeader().setVisible(False)
+        self.report_timeline.horizontalHeader().setStretchLastSection(True)
+        self.report_timeline.setMaximumHeight(150)
+        self.report_timeline.setToolTip("Double-click a report to open it (unsaved edits are protected).")
+        self.report_timeline.itemDoubleClicked.connect(self._timeline_activated)
+        self.report_timeline_status = QLabel("Select a well to list its reports.")
+        layout.addWidget(self.report_timeline)
+        layout.addWidget(self.report_timeline_status)
+        main_layout.addWidget(box)
+
+    def refresh_report_timeline(self):
+        table = getattr(self, "report_timeline", None)
+        if table is None:
+            return
+        table.setRowCount(0)
+        well_id = self.current_well_id
+        if not well_id:
+            self.report_timeline_status.setText("Select a well to list its reports.")
+            return
+        try:
+            reports = self.db_manager.get_daily_reports_by_well(well_id)
+        except Exception as exc:
+            logger.error("Report timeline load failed: %s", exc)
+            self.report_timeline_status.setText("Reports could not be loaded — see the log.")
+            return
+        reports = sorted(
+            reports,
+            key=lambda r: (r.get("report_date") is None, r.get("report_date") or date.min,
+                           r.get("report_number") or 0, r.get("id") or 0),
+        )
+        for report in reports:
+            row = table.rowCount()
+            table.insertRow(row)
+            depth = report.get("depth_2400")
+            values = [
+                str(report.get("report_date") or "—"),
+                str(report.get("report_number") if report.get("report_number") is not None else "—"),
+                f"{depth:.1f}" if isinstance(depth, (int, float)) and depth >= 0 else "—",
+                str(report.get("status") or "—"),
+                str(report.get("summary") or ""),
+            ]
+            for col, text in enumerate(values):
+                item = QTableWidgetItem(text)
+                item.setData(Qt.UserRole, report.get("id"))
+                table.setItem(row, col, item)
+        self.report_timeline_status.setText(
+            f"{len(reports)} report(s), oldest first." if reports else "No reports for this well yet."
+        )
+        self._highlight_timeline()
+
+    def _highlight_timeline(self):
+        table = getattr(self, "report_timeline", None)
+        if table is None:
+            return
+        current = self.current_report_id
+        table.clearSelection()
+        for row in range(table.rowCount()):
+            item = table.item(row, 0)
+            if item is not None and current is not None and item.data(Qt.UserRole) == current:
+                table.selectRow(row)
+                table.scrollToItem(item)
+                break
+
+    def _timeline_activated(self, item):
+        report_id = item.data(Qt.UserRole) if item is not None else None
+        if report_id is None or report_id == self.current_report_id:
+            return False
+        if self._has_unsaved_edits() and not self.confirm_discard_edits():
+            self._highlight_timeline()
+            return False
+        self.load_report_by_id(report_id)
+        return True
+
+    def duplicate_report_for_review(self, source_id=None, options=None):
+        """Prepare an UNSAVED next-day draft from a report after review.
+
+        ``options`` (see ``dialogs.ddr_duplicate_dialog``) skip the dialog for
+        programmatic use. The form is left dirty so the unsaved-edit guard
+        applies; nothing is persisted until the user presses Save Report.
+        """
+        from dialogs.ddr_duplicate_dialog import DuplicateReportDialog
+
+        source_id = source_id or self.current_report_id
+        if not source_id:
+            self.status_manager.show_error("DailyReport", "Open a saved report to duplicate it.")
+            return False
+        if self._has_unsaved_edits() and not self.confirm_discard_edits():
+            return False
+        source = self.db_manager.get_daily_report_by_id(source_id)
+        if not source:
+            self.status_manager.show_error("DailyReport", "The source report was not found.")
+            return False
+        if options is None:
+            existing = set()
+            if source.get("well_id"):
+                existing = {r.get("report_date") for r in self.db_manager.get_daily_reports_by_well(source["well_id"])}
+            dialog = DuplicateReportDialog(source, existing, self)
+            if dialog.exec() != QDialog.Accepted:
+                return False
+            options = dialog.options()
+
+        if self.current_report_id != source_id:
+            self.load_report_by_id(source_id)
+        source_depth = self.depth_2400.value()
+        # Detach from the source record: Save Report will create a NEW report.
+        self.current_report = None
+        self.current_report_id = None
+        self.current_daily_report_id = None
+        self.related_documents.set_report(None)
+        if options.get("target_date") is not None:
+            self.report_date.setDate(QDate(options["target_date"]))
+        if options.get("report_number"):
+            self.report_number.setValue(int(options["report_number"]))
+        self.rig_day.setValue(self.rig_day.value() + 1)
+        self.depth_0000.setValue(source_depth if options.get("carry_depth") else -1)
+        self.depth_0600.setValue(-1)
+        self.depth_2400.setValue(-1)
+        self.status_combo.setCurrentText("Draft")
+        if not options.get("copy_summary"):
+            self.summary_text.clear()
+        if not options.get("copy_time_log"):
+            self.time_24_table.setRowCount(0)
+            self.add_time_log_row(self.time_24_table)
+        if not options.get("copy_morning_log"):
+            self.morning_table.setRowCount(0)
+            self.add_time_log_row(self.morning_table)
+        self._highlight_timeline()
+        self.status_manager.show_success(
+            "DailyReport", "Duplicate draft prepared — review it, then press Save Report (nothing saved yet)."
+        )
+        return True
+
     def navigate_report(self, step: int):
         """Open the previous (-1) or next (+1) report of the well; returns the opened id or None."""
         try:
@@ -1520,6 +1731,17 @@ class DailyReportWidget(DrillTabBase):
                 self.status_manager.show_error("DailyReport", self.last_save_outcome.summary())
                 return False
 
+            # M54: overlapping or invalid time-log rows block the save; gaps are
+            # reported but do not block (a day may legitimately be incomplete).
+            blocking, notes = self.time_log_issues()
+            self.last_time_log_issues = (blocking, notes)
+            if blocking:
+                more = f" (+{len(blocking) - 2} more)" if len(blocking) > 2 else ""
+                self.status_manager.show_error(
+                    "DailyReport", "Report not saved — fix the time log: " + "; ".join(blocking[:2]) + more
+                )
+                return False
+
             # Atomic logical DDR save: the report header and its time logs
             # (plus the derived NPT synchronization) commit together in ONE
             # session, so a time-log failure can never leave a committed header
@@ -1564,10 +1786,17 @@ class DailyReportWidget(DrillTabBase):
             if creating_report:
                 self._refresh_after_save(result)
 
-            self.status_manager.show_success(
-                "DailyReport",
-                f"Report #{result['report_number']} saved!"
-            )
+            self.refresh_report_timeline()
+            if notes:
+                self.status_manager.show_success(
+                    "DailyReport",
+                    f"Report #{result['report_number']} saved. Time-log note: " + "; ".join(notes[:2]),
+                )
+            else:
+                self.status_manager.show_success(
+                    "DailyReport",
+                    f"Report #{result['report_number']} saved!"
+                )
             return True
 
         except Exception as e:
@@ -1830,6 +2059,7 @@ class DailyReportWidget(DrillTabBase):
     def load_report_by_id(self, report_id):
         self.current_report_id = report_id
         self.current_daily_report_id = report_id
+        self._highlight_timeline()
         
         try:
             report_data = self.db_manager.get_daily_report_by_id(report_id)
@@ -2270,6 +2500,8 @@ class DailyReportWidget(DrillTabBase):
             
     def new_report(self):
         """پاک کردن فرم برای گزارش جدید"""
+        if self._has_unsaved_edits() and not self.confirm_discard_edits():
+            return False
         self.current_report = None
         self.current_report_id = None
         self.related_documents.set_report(None)

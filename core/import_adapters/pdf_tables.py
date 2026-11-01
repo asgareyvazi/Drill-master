@@ -9,7 +9,6 @@ Implements:
 
 import logging
 from typing import Dict, Any, List
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -143,10 +142,11 @@ def _pymupdf_structured_tables(page, page_no: int) -> List[Dict[str, Any]]:
             if record:
                 outputs.append({"data": [record], "page": page_no, "report": {**report, "section": "report_metadata"}})
 
-        # Keep an auditable raw section when no semantic section was detected.
+        # Keep an auditable section when no semantic section was detected. M54:
+        # a detected header row becomes the headers (never a data row).
         if not any(item.get("report", {}).get("detected_table") == table_index for item in outputs):
-            headers = [f"Column {index + 1}" for index in range(max(len(row) for row in matrix))]
-            outputs.append({"data": [dict(zip(headers, row)) for row in matrix], "page": page_no, "report": report})
+            from core.import_adapters.pdf_generic_tables import ruled_table_payload
+            outputs.append(ruled_table_payload(matrix, page_no, report))
     return outputs
 
 
@@ -191,67 +191,65 @@ def extract_tables(path, pages="all") -> Dict[str, Any]:
     try:
         import fitz
 
+        from core.import_adapters.pdf_generic_tables import (
+            generic_document_tables, join_ruled_continuations, page_words,
+        )
+
         doc = fitz.open(str(path))
         tables = []
         try:
-            structured_available = False
+            generic_pages = []
             for page_no, page in enumerate(doc, 1):
                 structured = _pymupdf_structured_tables(page, page_no)
                 if structured:
                     tables.extend(structured)
-                    structured_available = True
                     continue
-                blocks = page.get_text("blocks")
-                grouped = {}
-                for block in blocks:
-                    x0, y0, _x1, _y1, text = block[:5]
-                    for line in str(text).splitlines():
-                        line = line.strip()
-                        if line:
-                            grouped.setdefault(round(y0, 1), []).append((x0, line))
-
-                page_rows = []
-                for _y, cells in sorted(grouped.items()):
-                    cells.sort(key=lambda v: v[0])
-                    text = " | ".join(v for _x, v in cells)
-                    parts = [p.strip() for p in re.split(r"\s*\|\s*|\t|\s{2,}", text) if p.strip()]
-                    if parts:
-                        page_rows.append(parts)
-
-                if page_rows:
-                    # Convert to dict records
-                    if len(page_rows) >= 2:
-                        headers = page_rows[0]
-                        for row in page_rows[1:]:
-                            record = {}
-                            for i, h in enumerate(headers):
-                                if i < len(row):
-                                    record[h] = row[i]
-                            if record:
-                                tables.append({"data": record, "page": page_no, "report": {"page": page_no, "method": "pymupdf"}})
-
-            if structured_available:
-                return {
+                # M54: no ruled table on this page -> word-position reconstruction
+                # (headers, columns, wrapped cells, margins, continuation).
+                has_images = bool(page.get_images(full=False))
+                generic_pages.append((page_no, float(page.rect.height), page_words(page), has_images))
+            generic = generic_document_tables(generic_pages)
+            tables = join_ruled_continuations(tables) + generic["tables"]
+            tables.sort(key=lambda item: (item.get("page") or 0))
+            scan_info = {
+                "scanned_pages": generic["scanned_pages"],
+                "ocr": generic["ocr"],
+                "margin_lines_removed": generic["margin_lines_removed"],
+                "generic_version": generic["version"],
+            }
+            if tables:
+                result = {
                     "tables": tables,
                     "engine": "pymupdf",
                     "tier": 2,
                     "table_count": len(tables),
                     "error": None,
-                    "metrics": metrics + [{"tier": 2, "engine": "pymupdf", "tables": len(tables), "method": "find_tables"}],
+                    "metrics": metrics + [{"tier": 2, "engine": "pymupdf", "tables": len(tables),
+                                           "method": "find_tables+text-columns", **scan_info}],
+                    **scan_info,
                 }
-            if tables:
+                if generic["scanned_pages"] and generic["ocr"] == "unavailable":
+                    result["warning"] = (
+                        f"OCR unavailable: page(s) {generic['scanned_pages']} have no text layer and were not read."
+                    )
+                return result
+            metrics.append({"tier": 2, "engine": "pymupdf", "info": "No tables or text extracted", **scan_info})
+            if generic["scanned_pages"] and generic["ocr"] == "unavailable":
                 return {
-                    "tables": [{"data": tables, "report": {"engine": "pymupdf"}}],
-                    "engine": "pymupdf",
-                    "tier": 2,
-                    "table_count": len(tables),
-                    "error": None,
-                    "metrics": metrics + [{"tier": 2, "engine": "pymupdf", "rows": len(tables)}],
+                    "tables": [],
+                    "engine": "unavailable",
+                    "tier": None,
+                    "table_count": 0,
+                    "error": (
+                        f"OCR unavailable: scanned page(s) {generic['scanned_pages']} have no text layer "
+                        "and no local OCR engine is installed. Nothing was extracted or guessed."
+                    ),
+                    "metrics": metrics,
+                    **scan_info,
                 }
         finally:
             doc.close()
 
-        metrics.append({"tier": 2, "engine": "pymupdf", "info": "No tables extracted"})
 
     except ImportError:
         metrics.append({"tier": 2, "engine": "pymupdf", "error": "Install PyMuPDF - pip install PyMuPDF"})
