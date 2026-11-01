@@ -48,7 +48,8 @@ Scope: the calculation and data-ingestion methods that DrillMaster exposes to us
 
   The designer reproduces these values (`tests/test_m55_directional.py`).
 * A breach of the DLS limit is **warned, never clipped**.
-* Target check: the closest **plan station** to each target centre (station spacing is the chosen step), compared with the target radius. A target without a radius is never reported as hit.
+* Target check (M62, `M62 plan designer v2`): the closest point on the **continuous minimum-curvature path**. Between stations the path is the circular arc p(θ) = p1 + R(sin θ·t1 + (1−cos θ)·n), R = L/β, n the unit normal towards t2 (straight line when β → 0); each interval is sampled and refined by golden section. The closest station is reported alongside. A target without a radius is never reported as hit. Validated against the planar closed form HD = R(1−cos θ), TVD = KOP + R sin θ, and the arc reproduces the canonical MinCurv station positions to 1e-6 m.
+* Safeguards (M62): non-finite inputs, an antiparallel curve (dogleg ≈ 180°, undefined arc plane) and an impossible hold-to-TVD are explicit errors.
 * Limitations:
   * no tangent-to-target solver;
   * no turn-rate-only segments;
@@ -95,3 +96,15 @@ Scope: the calculation and data-ingestion methods that DrillMaster exposes to us
 Fields stored in profiles but **not yet applied** by the importer (PARTIAL): `date_formats`, `table_rules`, `continuation`, `confidence_threshold`.
 
 Document-to-well matching is a suggestion only. Every imported value goes through the review workspace (source, page, original value, normalized value, unit, mapping, confidence, warning, decision) before it is saved.
+
+## DDR profile rules (M61, `PROFILE_RULES_VERSION = 1`)
+
+* Dates: the profile's `date_formats` are tried in order on textual date fields. Exactly one resulting calendar date is accepted (formats that agree are not ambiguous). No match, or two formats giving different dates, sets the value to empty and adds a review item quoting the original string and every reading. The day/month convention is never inferred. Without a profile the canonical parser is unchanged.
+* Table rules: `stop_markers` ignore the marker row and every later row of that table; `skip_rows_containing` ignores matching rows; `skip_tables_containing` ignores a whole table. Matching is case-insensitive substring on the joined row (or table name and headers). Each ignored row or table is a review warning with the rule, profile key/version, value and page/row source.
+* Continuation: when the profile disables it, tables on consecutive pages are never joined and no header-less carry-over is applied.
+* Confidence threshold: acceptance-eligible ≥ threshold; review band [min(0.70, threshold), threshold); low below that. Values in a needs-review state are never bulk-accepted. Without a profile the historical 95 % / 70 % bands apply.
+
+## Calculation history (M67)
+
+* Read-only adapters; the source records are never changed. Recalculation uses each engine's own `recalculate_from_snapshot` on the frozen snapshot and the shared `classify_verification`; a method change is flagged, and a recalculation is stored only as a new `calculation_cases` row whose note names the original record and verification status.
+* W13 cases (M63) capture what the calculator page shows; W13 calculators have no per-method version, which the case label states.

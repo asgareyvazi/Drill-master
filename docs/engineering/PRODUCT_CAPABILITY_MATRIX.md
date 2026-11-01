@@ -1,4 +1,4 @@
-# Product capability matrix (M53–M60)
+# Product capability matrix (M53–M69)
 
 States: **COMPLETE** (usable in the product, tested) / **PARTIAL** (usable, with named gaps) / **SCREENING** (usable, labelled as a check aid and not a design approval) / **OWNER REVIEW REQUIRED** / **NOT IMPLEMENTED** / **NOT RUN**.
 
@@ -30,11 +30,11 @@ Evidence for "tested": offscreen Qt (Linux, PySide6 6.8.1.1) and unit tests on s
 | Duplicate for review (nothing persisted until Save) | COMPLETE | `dialogs/ddr_duplicate_dialog.py` |
 | Time-log validation: overlap blocks, gaps noted, midnight handling | COMPLETE | |
 | Versioned report profiles (operator, format, aliases, column maps, units) | COMPLETE | `core/ddr_report_profiles.py`, `dialogs/ddr_profile_dialog.py`, `tests/test_m54_report_profiles.py` |
-| Profile date formats, table rules, continuation, confidence threshold | PARTIAL | Stored, validated and editable; not yet applied by the importer |
+| Profile date formats, table rules, continuation, confidence threshold | COMPLETE (M61) | Applied by the importer; see M61 below |
 | Generic PDF tables: scanned-page detection, header/footer exclusion, multi-page and ruled continuations, wrapped cells | COMPLETE | `core/import_adapters/pdf_generic_tables.py`, `tests/test_m54_pdf_generic_tables.py` |
 | OCR | NOT IMPLEMENTED | No local engine; an explicit "OCR unavailable" state is shown. Engines and models are owner-gated |
 | Review workspace with per-field detail and decisions, no silent persistence | COMPLETE | Review detail panel in `dialogs/excel_import_dialog.py` |
-| Excel sheet selection, batch import | PARTIAL | Single-file review flow; batch queue not built |
+| Excel sheet selection, batch import | PARTIAL (M61) | Batch queue with statuses, remove/retry/cancel; see M61 below |
 | Import worker cancellation | PARTIAL | Existing import worker; cancellation is not separately verified in M54 |
 
 ## M55 – Directional (P0)
@@ -43,11 +43,11 @@ Evidence for "tested": offscreen Qt (Linux, PySide6 6.8.1.1) and unit tests on s
 |---|---|---|
 | Survey import CSV/TXT/DAT/XLSX with unit, row and azimuth-reference validation, wired into W6 | COMPLETE | `core/survey_file_import.py`, `dialogs/survey_import_dialog.py`, W6 Import; `tests/test_m55_directional.py` |
 | Plan designer: KOP/hold, build, drop, turn, hold-to-TVD, DLS limit warning, targets, canonical MinCurv | COMPLETE | `core/well_plan_designer.py`, Trajectory viewer → **Plan designer**; golden closed-form J-profile |
-| Tangent-to-target solver, turn-only segments | NOT IMPLEMENTED | |
-| Visualization: plan, section, 3D, DLS/inc/az/TVD vs MD | PARTIAL | Existing viewer (plan, section, 3D, station panel); no dedicated DLS/inc/az-vs-MD plot set; targets and offsets not drawn in 3D |
+| Tangent-to-target solver | NOT IMPLEMENTED | Turn-only and build-and-turn curves exist (curve segment with target inc/az); no solver |
+| Visualization: plan, section, 3D, DLS/inc/az/TVD vs MD | PARTIAL (M62) | Designer now plots Inc/Azi/DLS/TVD vs MD; targets and offsets still not drawn in 3D |
 | Export | COMPLETE | Designer CSV and comparison CSV |
 | Plan vs actual (HL/RL/along, worst point), saved records, designed plan handed over in memory | COMPLETE | M52 `core/trajectory_compare.py` plus M55 `set_plan_rows` |
-| Versioned plan saves | PARTIAL | Comparisons are saved append-only; designed plans are exported as CSV. There is no `WellPlan` model |
+| Versioned plan saves | COMPLETE (M62) | `DirectionalPlanRevision` (immutable revisions); see M62 below |
 | Anti-collision | SCREENING | Centre-to-centre only; separation factor and clearance unavailable without uncertainty data |
 | ISCWSA error models (welleng) | OWNER REVIEW REQUIRED | No compliance claim |
 
@@ -98,3 +98,82 @@ Evidence for "tested": offscreen Qt (Linux, PySide6 6.8.1.1) and unit tests on s
 | Engineering reports with approval scope | PARTIAL | Comparison and calculation records carry method, version, inputs and warnings; no consolidated engineering report document |
 | Offline operation | COMPLETE | No cloud API, telemetry, required key or auto-download (pre-existing gates) |
 | UX review | PARTIAL | Dashboard, W2, the import review and the M55/M56 panels were reviewed; the other tabs were not |
+
+---
+
+# M61–M69 additions
+
+Same states and evidence rules as above. Offscreen Qt and unit tests on synthetic data only.
+
+## M61 – DDR import completion (P0)
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Profile `date_formats` applied in declared order; ambiguous (two formats → different dates) or unmatched dates go to review with the original string | COMPLETE | `DocumentNormalizer._profile_value` (`core/mineru_engine.py`); `tests/test_m61_ddr_profile_rules.py` |
+| Profile `table_rules`: `stop_markers` (marker row and later rows), `skip_rows_containing`, `skip_tables_containing`; each ignored row has a reason, profile key/version and page/row source | COMPLETE | `_profile_row_skip`, `_profile_table_skip`; editor fields in `dialogs/ddr_profile_dialog.py` |
+| Header/identify/column-specific table rules | NOT IMPLEMENTED | Only the three rule kinds above |
+| Profile `continuation` controls cross-page joins (text and ruled tables); page/row provenance kept either way | COMPLETE | `join_continuations(join=…)`, `generic_document_tables(continuation=…)`, `extract_tables(continuation=…)` |
+| Profile `confidence_threshold` drives acceptance eligibility, review bands, counts and row colours in the preview | COMPLETE | `review_thresholds`, `review_counts` in `dialogs/excel_import_dialog.py`; values still needing review are never bulk-accepted |
+| Profile key/version and rule set recorded on the result | COMPLETE | `metadata()["profile"]`, `profile_rules_version` (`PROFILE_RULES_VERSION = 1`) |
+| Batch queue: visible list, per-file status and stage, profile, attempts, diagnostics | COMPLETE | `core/ddr_import_queue.py`, queue table in the import dialog |
+| Distinct states SAVED / REVIEW_REQUIRED / SKIPPED / DUPLICATE / FAILED / CANCELLED | COMPLETE | Preview cancel is SKIPPED (previously counted as failed); re-import of an identical source is DUPLICATE |
+| Remove (not running, not saved), retry (failed/skipped/cancelled), cancel remaining (running file finishes atomically) | COMPLETE | |
+| In-batch duplicate detection (SHA-256 of bytes) | COMPLETE | Persisted-source duplicates continue to use the import audit fingerprint |
+| Atomic per-file save | COMPLETE (pre-existing) | `DDRImportService` transaction per file |
+| Worker thread for all heavy work | PARTIAL | MinerU parsing runs in a worker; XLSX extraction, PDF-native fallback and validation still run on the GUI thread with event processing |
+| OCR adapter | PARTIAL | Detection of an already-installed engine and an explicit "OCR unavailable" diagnostic exist; no engine is installed or bundled (owner-gated) |
+| Time-coverage/overlap validation and survey replace with before/after | COMPLETE (pre-existing, M54) | Not changed in M61 |
+| Profile suggestion with confidence and reasons | NOT IMPLEMENTED | User selects the profile |
+
+## M62 – Directional plans (P0)
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Persistent versioned plans (well, wellbore, key, revision, parent, status, method, version, inputs, results) | COMPLETE | `DirectionalPlanRevision`, `core/directional_plans.py`; `tests/test_m62_directional_plans.py` |
+| New, save, open, revise, clone, archive, compare, export | COMPLETE | Plan designer panel buttons; revisions are never overwritten; archived revisions stay archived |
+| Send to plan-vs-actual | COMPLETE (pre-existing) | `plan_ready` hand-over |
+| Continuous target distance on the minimum-curvature arc | COMPLETE | `closest_on_path` / `evaluate_target`; closest station kept for transparency; closed-form arc reference |
+| Numerical safeguards: non-finite inputs, antiparallel curve, impossible TVD, zero/negative lengths | COMPLETE | Explicit errors; no NaN reaches stations |
+| DLS/Inc/Azi/TVD vs MD plots | COMPLETE | Designer **Plots** tab (pyqtgraph) |
+| Target solving, build/turn-rate constraints, multiple-target optimisation | NOT IMPLEMENTED | |
+| MD gap NOT ASSESSED handling in plan vs actual | PARTIAL (pre-existing M52 behaviour) | Not changed |
+| Survey revision control | PARTIAL (pre-existing) | Survey replace confirmation exists; no survey revision table |
+| Anti-collision | SCREENING | Unchanged; no SF without uncertainty |
+
+## M63 – W13 workbench cases
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Save a named case (inputs, results, calculator path, method label, well) | COMPLETE | `CalculationCase` (insert-only; data-layer write policy NOBODY), `tabs/calculation_cases_panel.py`; `tests/test_m63_calculation_cases.py` (incl. real W13 Quick Calc) |
+| Reopen (restores inputs, navigates), compare with current, re-run → new child case | COMPLETE | Generic capture of the open calculator page |
+| Per-calculator method versions | NOT IMPLEMENTED | Cases are labelled `W13 calculator (no per-method version); case capture v1` |
+| Finder categories/aliases/formula search, unit system switching | PARTIAL (pre-existing M56) | Not extended in this programme |
+
+## M64 – Engines | M65 – Well architecture | M66 – Operational analysis | M68 – Specialist modules
+
+| Item | State | Note |
+|---|---|---|
+| M64 hydraulics, mud, bit/MSE, T&D (soft-string SCREENING), casing (TR 5C3 subset), cement, kill sheet (training aid), fishing | PARTIAL (pre-existing) | No engine was changed; their saved runs are now in the unified history with recalculate-and-verify |
+| M65 schematic from persisted records, links to casing/cement calculations, revisions | NOT IMPLEMENTED | Unchanged from M57 audit |
+| M66 NPT Pareto, ROP/MSE aggregation, cost/AFE drill-down | PARTIAL (pre-existing W12/W16) | Not extended |
+| M68 hole cleaning, wellbore stability, thermal | NOT IMPLEMENTED | No defensible sourced method was added; OWNER REVIEW REQUIRED before any |
+
+## M67 – Calculation history and Report Center (P0)
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Unified history over 9 sources (6 engine snapshot tables, trajectory, W13 cases, plan revisions) via read-only adapters | COMPLETE | `core/calculation_history.py`; no migration; a missing source model raises instead of being skipped |
+| Filters (well, source, text, date), CSV export | COMPLETE | `tabs/calculation_history_tab.py` (**Calc History** tab, follows the selected well) |
+| Compare two entries (flattened inputs/results) | COMPLETE | |
+| Recalculate & verify with the current method (MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE, method-change flag); save the recalculation separately as a new case | COMPLETE for engine snapshots and plans | Reuses each engine's `recalculate_from_snapshot` and `classify_verification`; trajectory and W13 cases have no recalculation adapter (stated in the UI) |
+| Report Center: single-entry and comparison reports (HTML, PDF) with method, version, inputs, results, scope, UNSIGNED/not-validated statement | COMPLETE | Template v1 |
+| `SelectionManager` shared context | PARTIAL | History tab and plan designer follow the selected well; no full audit of every tab |
+
+## M69 – Integration
+
+| Capability | State | Note |
+|---|---|---|
+| Navigation | PARTIAL | New **Calc History** tab; plan library inside the Trajectory viewer; case bar under the W13 finder |
+| Dashboard English/LTR dark | COMPLETE (pre-existing M53) | Unchanged |
+| Offline | COMPLETE | No network use added |
+| Windows desktop acceptance | OWNER REVIEW REQUIRED | CI Windows job is not desktop acceptance |

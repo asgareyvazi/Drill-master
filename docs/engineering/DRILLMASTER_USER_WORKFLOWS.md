@@ -92,3 +92,30 @@ Automated evidence for these workflows comes from offscreen Qt tests on Linux wi
 1. Open **Engineering Calculator**. The calculators are grouped in tabs: volume, hydraulics, bit hydraulics, weight, stuck pipe, mud, casing/cement, well control, directional, fishing and the drill-pipe database.
 2. Results that have a canonical engine show the method and warnings. Casing, cement, torque and drag, MSE and kill-sheet results are stored as calculation records. MSE has a history browser.
 3. The status of each calculator (complete, screening, partial) is listed in `PRODUCT_CAPABILITY_MATRIX.md`.
+
+## 8. Batch DDR import with a report profile (M61)
+
+1. Daily Report → Import, choose the report profile, then select one or more files.
+2. The **batch queue** lists every file with its status (QUEUED, RUNNING, SAVED, REVIEW_REQUIRED, SKIPPED, DUPLICATE, FAILED, CANCELLED), stage, profile, attempts and last diagnostic.
+3. Each file opens its own preview. The header shows the profile threshold and how many values are eligible, need review, are low or are not scored. *Accept all high confidence* uses the profile threshold and never accepts a value that still needs review (for example an ambiguous date).
+4. Rows ignored by the profile's stop/skip rules appear as review items with the rule and page/row.
+5. **Remove selected** drops a queued/failed/skipped/cancelled/duplicate file; **Retry failed** re-runs failed, skipped and cancelled files; **Cancel remaining** cancels files that have not started (the running file finishes atomically).
+
+## 9. Saving and revising a directional plan (M62)
+
+1. Trajectory viewer → Plan designer, with a well selected. Design the plan.
+2. **Save as new plan…** stores revision 1. After changes, **Save revision** stores revision 2 with a link to its parent; revision 1 is unchanged.
+3. Pick any saved revision and **Open** (redesigned with the current designer; a version difference is noted), **Clone…** (new plan), **Archive**, or **Compare with open** (input differences and TD/TVD/max DLS/end-point deltas).
+4. The **Plots** tab shows Inc, Azi, DLS and TVD vs MD. Target results give the continuous closest approach on the arc and the closest station.
+
+## 10. Calculation cases in W13 (M63)
+
+1. Open a calculator, calculate, then **Save case…** under the finder.
+2. Choose a saved case: **Reopen** restores its inputs (and shows the stored results), **Compare with current** lists differing inputs/results, **Re-run & save** recalculates and stores a new child case. Stored cases are never edited.
+
+## 11. Calculation history and reports (M67)
+
+1. Open **Calc History**. It follows the selected well (clear *Selected well only* for all wells); filter by source or text.
+2. Select one entry to see its report; select two and **Compare selected (2)**.
+3. **Recalculate & verify** re-runs an engine snapshot or plan with the current method and reports MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE and whether the method changed. **Save recalculation** stores it as a new case; the original is untouched.
+4. **Export report…** writes HTML or PDF (UNSIGNED, not validated); **Export list CSV…** writes the filtered list.
