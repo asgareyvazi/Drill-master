@@ -90,12 +90,18 @@ class ReportProfileDialog(QDialog):
         self.continuation_check.setChecked(True)
         self.stop_markers_edit = QLineEdit()
         self.stop_markers_edit.setToolTip("Semicolon-separated text that ends a table (e.g. Total; Remarks)")
+        self.skip_rows_edit = QLineEdit()
+        self.skip_rows_edit.setToolTip("Semicolon-separated text; matching rows are ignored and listed for review")
+        self.skip_tables_edit = QLineEdit()
+        self.skip_tables_edit.setToolTip("Semicolon-separated text; tables whose name/headers match are ignored and listed")
         self.note_edit = QLineEdit()
         self.note_edit.setPlaceholderText("What changed in this version")
         for label, widget in (("Key", self.key_edit), ("Name", self.name_edit), ("Operator", self.operator_edit),
                               ("Format", self.format_combo), ("Date formats", self.date_formats_edit),
                               ("Review below confidence", self.confidence_spin), ("Continuation", self.continuation_check),
-                              ("Table stop markers", self.stop_markers_edit), ("Version note", self.note_edit)):
+                              ("Table stop markers", self.stop_markers_edit),
+                              ("Skip rows containing", self.skip_rows_edit),
+                              ("Skip tables containing", self.skip_tables_edit), ("Version note", self.note_edit)):
             form.addRow(label, widget)
         right.addLayout(form)
 
@@ -232,7 +238,10 @@ class ReportProfileDialog(QDialog):
         self.date_formats_edit.setText(", ".join(profile.date_formats) if profile else "%Y-%m-%d")
         self.confidence_spin.setValue(profile.confidence_threshold if profile else 0.8)
         self.continuation_check.setChecked(profile.continuation if profile else True)
-        self.stop_markers_edit.setText("; ".join((profile.table_rules if profile else {}).get("stop_markers", [])))
+        rules = profile.table_rules if profile else {}
+        self.stop_markers_edit.setText("; ".join(rules.get("stop_markers", [])))
+        self.skip_rows_edit.setText("; ".join(rules.get("skip_rows_containing", [])))
+        self.skip_tables_edit.setText("; ".join(rules.get("skip_tables_containing", [])))
         self.note_edit.clear()
         self.alias_table.setRowCount(0)
         self.unit_table.setRowCount(0)
@@ -266,7 +275,13 @@ class ReportProfileDialog(QDialog):
             key=self.key_edit.text().strip(), version=0, name=self.name_edit.text().strip(),
             operator=self.operator_edit.text().strip(), report_format=self.format_combo.currentText(),
             aliases=aliases, units=units, date_formats=tuple(_split(self.date_formats_edit.text(), ",")),
-            table_rules={"stop_markers": _split(self.stop_markers_edit.text(), ";")},
+            table_rules={
+                name: values for name, values in (
+                    ("stop_markers", _split(self.stop_markers_edit.text(), ";")),
+                    ("skip_rows_containing", _split(self.skip_rows_edit.text(), ";")),
+                    ("skip_tables_containing", _split(self.skip_tables_edit.text(), ";")),
+                ) if values or name == "stop_markers"
+            },
             continuation=self.continuation_check.isChecked(),
             confidence_threshold=float(self.confidence_spin.value()), note=self.note_edit.text().strip(),
         )

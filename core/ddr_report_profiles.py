@@ -145,7 +145,7 @@ def validate_profile(profile: ReportProfile) -> List[str]:
             errors.append(f"Date format '{fmt}' is not a valid strftime pattern.")
     if not 0.0 <= float(profile.confidence_threshold) <= 1.0:
         errors.append("Confidence threshold must be between 0 and 1.")
-    for name in ("stop_markers", "skip_rows_containing"):
+    for name in ("stop_markers", "skip_rows_containing", "skip_tables_containing"):
         value = profile.table_rules.get(name, [])
         if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
             errors.append(f"Table rule '{name}' must be a list of text values.")

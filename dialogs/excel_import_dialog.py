@@ -38,12 +38,14 @@ from core.import_diagnostics import (
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core.async_workers import FunctionWorker, release_when_finished
 from core.import_router import route_file
+from core.ddr_import_queue import CANCELLED, DUPLICATE, FAILED, FINAL, ImportQueue
 from core.mineru_engine import (
     DocumentNormalizer,
     MinerUAdapter,
     MinerUError,
     MinerUNormalizationError,
     MinerUParseResult,
+    PROFILE_RULES_VERSION,
     parse_pdf_native_fallback,
 )
 from core.unit_manager import UnitManager
@@ -109,6 +111,41 @@ UNIVERSAL_ALIASES = {
 }
 
 
+def review_thresholds(profile_info) -> tuple:
+    """(accept, low) confidence bands; a profile threshold sets ``accept``."""
+    accept, low = 0.95, 0.70
+    if isinstance(profile_info, dict) and profile_info.get("confidence_threshold") is not None:
+        try:
+            accept = min(1.0, max(0.0, float(profile_info["confidence_threshold"])))
+        except (TypeError, ValueError):  # silent-ok: malformed threshold keeps the documented default bands
+            return 0.95, 0.70
+        low = min(low, accept)
+    return accept, low
+
+
+def review_counts(review_rows, profile_info=None) -> dict:
+    """Counts used by the preview header and the batch queue."""
+    accept, low = review_thresholds(profile_info)
+    counts = {"eligible": 0, "review": 0, "low": 0, "not_assessed": 0, "threshold": accept}
+    for row in review_rows or []:
+        conf = row.get("confidence") if isinstance(row, dict) else None
+        if row.get("validation_state") == "needs_review" and conf in (None, ""):
+            counts["review"] += 1
+            continue
+        try:
+            value = float(conf)
+        except (TypeError, ValueError):  # silent-ok: unscored items are counted as not assessed
+            counts["not_assessed"] += 1
+            continue
+        if row.get("validation_state") == "needs_review" or low <= value < accept:
+            counts["review"] += 1
+        elif value >= accept:
+            counts["eligible"] += 1
+        else:
+            counts["low"] += 1
+    return counts
+
+
 class ImportPreviewDialog(QDialog):
     """Professional Import Preview before saving - as per spec.
 
@@ -122,6 +159,12 @@ class ImportPreviewDialog(QDialog):
         self.extracted = extracted
         self.import_report = import_report
         self.confirmed = False
+        # M61: the report profile's confidence threshold decides acceptance
+        # eligibility; without a profile the historical 95%/70% bands apply.
+        self.accept_threshold, self.low_threshold = review_thresholds(
+            (import_report or {}).get("profile")
+            or ((extracted or {}).get("metadata") or {}).get("profile")
+        )
         self.setWindowTitle(f"Import Preview - {Path(file_path).name}")
         self.setMinimumSize(1100, 650)
         self.setModal(True)
@@ -165,6 +208,13 @@ class ImportPreviewDialog(QDialog):
         self.profile_label = QLabel(self.profile_summary(profile_info))
         self.profile_label.setStyleSheet("color: #2c3e50; padding: 2px 4px;")
         layout.addWidget(self.profile_label)
+        counts = review_counts(((self.extracted or {}).get("metadata") or {}).get("review_matrix")
+                               or report.get("review_matrix"), profile_info)
+        self.threshold_label = QLabel(
+            f"Acceptance threshold {counts['threshold']:.0%}: {counts['eligible']} eligible, "
+            f"{counts['review']} need review, {counts['low']} low, {counts['not_assessed']} not scored."
+        )
+        layout.addWidget(self.threshold_label)
         self._add_pdf_split_section(layout, report)
 
         # Table
@@ -257,17 +307,17 @@ class ImportPreviewDialog(QDialog):
         btn_layout = QHBoxLayout()
 
         accept_high_btn = QPushButton("✅ Accept All High Confidence")
-        accept_high_btn.setToolTip("Accept all items with confidence >=95%")
+        accept_high_btn.setToolTip(f"Accept all items with confidence >={self.accept_threshold:.0%} (values needing review are skipped)")
         accept_high_btn.clicked.connect(self._accept_high)
         btn_layout.addWidget(accept_high_btn)
 
         review_medium_btn = QPushButton("🟡 Review Medium")
-        review_medium_btn.setToolTip("Focus on medium confidence 70-95%")
+        review_medium_btn.setToolTip(f"Focus on medium confidence {self.low_threshold:.0%}-{self.accept_threshold:.0%}")
         review_medium_btn.clicked.connect(self._filter_medium)
         btn_layout.addWidget(review_medium_btn)
 
         reject_low_btn = QPushButton("🔴 Reject Low Confidence")
-        reject_low_btn.setToolTip("Reject all items with confidence <70%")
+        reject_low_btn.setToolTip(f"Reject all items with confidence <{self.low_threshold:.0%}")
         reject_low_btn.clicked.connect(self._reject_low)
         btn_layout.addWidget(reject_low_btn)
 
@@ -455,7 +505,10 @@ class ImportPreviewDialog(QDialog):
             try:
                 conf_str = conf_item.text().replace("%", "")
                 conf = float(conf_str) / 100 if conf_str else 0
-                if conf >= 0.95:
+                payload = self._payload_for_row(row)
+                if payload is not None and payload.get("validation_state") == "needs_review":
+                    continue  # ambiguous/unparsed values are never bulk-accepted
+                if conf >= self.accept_threshold:
                     self._set_decision(row, "ACCEPT")
             except (TypeError, ValueError, OverflowError):  # silent-ok: non-numeric confidence is left for manual review
                 pass
@@ -489,7 +542,7 @@ class ImportPreviewDialog(QDialog):
             try:
                 conf_str = conf_item.text().replace("%", "")
                 conf = float(conf_str) / 100 if conf_str else 0
-                show = 0.70 <= conf < 0.95
+                show = self.low_threshold <= conf < self.accept_threshold
                 self.table.setRowHidden(row, not show)
             except Exception:
                 self.table.setRowHidden(row, True)
@@ -502,7 +555,7 @@ class ImportPreviewDialog(QDialog):
             try:
                 conf_str = conf_item.text().replace("%", "")
                 conf = float(conf_str) / 100 if conf_str else 0
-                if conf < 0.70:
+                if conf < self.low_threshold:
                     self._set_decision(row, "REJECT")
             except (TypeError, ValueError, OverflowError):  # silent-ok: non-numeric confidence is left for manual review
                 pass
@@ -750,6 +803,29 @@ class ExcelImportDialog(QDialog, DDRImportService):
         self.import_status.setStyleSheet("color: #2c3e50; font-weight: bold;")
         il.addWidget(self.import_status)
 
+        # M61: visible batch queue with per-file status, stage, profile and
+        # diagnostics; remove / retry / cancel act on core.ddr_import_queue.
+        self.import_queue = ImportQueue()
+        self.queue_table = QTableWidget(0, 6)
+        self.queue_table.setHorizontalHeaderLabels(["File", "Status", "Stage", "Profile", "Attempts", "Diagnostics"])
+        self.queue_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.queue_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.queue_table.setMaximumHeight(150)
+        il.addWidget(self.queue_table)
+        queue_buttons = QHBoxLayout()
+        self.queue_remove_btn = QPushButton("Remove selected")
+        self.queue_remove_btn.setToolTip("Remove a queued, failed, skipped, cancelled or duplicate file; saved results are kept.")
+        self.queue_remove_btn.clicked.connect(self._queue_remove_selected)
+        self.queue_retry_btn = QPushButton("Retry failed")
+        self.queue_retry_btn.setToolTip("Re-run failed, skipped and cancelled files.")
+        self.queue_retry_btn.clicked.connect(self._queue_retry)
+        self.queue_cancel_btn = QPushButton("Cancel remaining")
+        self.queue_cancel_btn.setToolTip("Files not yet started are cancelled; the running file finishes atomically.")
+        self.queue_cancel_btn.clicked.connect(self._queue_cancel)
+        for button in (self.queue_remove_btn, self.queue_retry_btn, self.queue_cancel_btn):
+            queue_buttons.addWidget(button)
+        il.addLayout(queue_buttons)
+
         self.batch_summary = QTextEdit()
         self.batch_summary.setReadOnly(True)
         self.batch_summary.setMaximumHeight(120)
@@ -798,6 +874,64 @@ class ExcelImportDialog(QDialog, DDRImportService):
             os.environ["DRILLMASTER_AI_IMPORT"] = "1"
             set_selected_model(model)
 
+    # -- M61 batch queue ------------------------------------------------
+    def _queue(self) -> ImportQueue:
+        if getattr(self, "import_queue", None) is None:
+            self.import_queue = ImportQueue()
+        return self.import_queue
+
+    def _refresh_queue_view(self) -> None:
+        table = getattr(self, "queue_table", None)
+        if table is None:
+            return
+        entries = self._queue().entries
+        table.setRowCount(len(entries))
+        for row, entry in enumerate(entries):
+            values = [entry.name, entry.status, entry.stage, entry.profile, str(entry.attempts),
+                      entry.diagnostics[-1] if entry.diagnostics else ""]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column == 0:
+                    item.setToolTip(entry.path)
+                if column == 5:
+                    item.setToolTip("\n".join(entry.diagnostics))
+                table.setItem(row, column, item)
+
+    def _queue_stage(self, stage: str) -> str:
+        entry = getattr(self, "_queue_current", None)
+        if entry is not None:
+            entry.stage = stage
+            self._refresh_queue_view()
+        return stage
+
+    def _queue_remove_selected(self) -> None:
+        table = getattr(self, "queue_table", None)
+        row = table.currentRow() if table is not None else -1
+        if row >= 0 and not self._queue().remove(row):
+            self.import_status.setText("That file is running or already saved; it cannot be removed.")
+        self._refresh_queue_view()
+
+    def _queue_retry(self) -> None:
+        if getattr(self, "_import_busy", False):
+            self.import_status.setText("An import is already running - retry after it finishes.")
+            return
+        entries = self._queue().retry()
+        self._refresh_queue_view()
+        if not entries:
+            self.import_status.setText("No failed, skipped or cancelled files to retry.")
+            return
+        self._set_import_busy(True)
+        try:
+            self._start_import_batch([entry.path for entry in entries])
+        except Exception:
+            self._set_import_busy(False)
+            raise
+
+    def _queue_cancel(self) -> None:
+        count = self._queue().cancel()
+        self._refresh_queue_view()
+        self.import_status.setText(f"Cancel requested: {count} file(s) not started were cancelled.")
+
     def _set_import_busy(self, busy: bool) -> None:
         """One batch at a time: a second click while MinerU parses, or while
         processEvents() repaints during the pipeline, must not start another
@@ -829,6 +963,10 @@ class ExcelImportDialog(QDialog, DDRImportService):
             raise
 
     def _start_import_batch(self, files):
+        queue = self._queue()
+        queue.cancel_requested = False
+        queue.add(files)
+        self._refresh_queue_view()
         self._pending_import_files = list(files)
         self._mineru_results = {}
         mineru_sources = []
@@ -962,7 +1100,13 @@ class ExcelImportDialog(QDialog, DDRImportService):
             # M54: which report profile (if any) supplied mappings.
             "profile": (
                 {"key": profile.key, "version": profile.version, "name": profile.name,
-                 "mappings": list(normalizer.profile_mappings)}
+                 "mappings": list(normalizer.profile_mappings),
+                 # M61: profile behaviour that shaped this result.
+                 "confidence_threshold": float(profile.confidence_threshold),
+                 "date_formats": list(profile.date_formats),
+                 "table_rules": dict(profile.table_rules),
+                 "continuation": bool(profile.continuation),
+                 "rules_version": PROFILE_RULES_VERSION}
                 if profile is not None else None
             ),
         }
@@ -1014,17 +1158,34 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 f"Processing {number}/{len(files)}: {os.path.basename(source)} - Scanning..."
             )
             QApplication.processEvents()
+            queue = self._queue()
+            entry = queue.find(source) or queue.add([source])[0]
+            if entry.status == DUPLICATE or queue.cancel_requested:
+                if entry.status not in FINAL:
+                    entry.status, entry.stage = CANCELLED, "cancelled before start"
+                results.append({
+                    "file": source, "imported": 0, "failed": 0, "skipped": 1,
+                    "reimport": entry.status == DUPLICATE, "queue_status": entry.status,
+                    "details": [f"⏭️ {os.path.basename(source)}: {entry.status.lower()}"
+                                + (f" - {entry.diagnostics[-1]}" if entry.diagnostics else "")],
+                })
+                self._refresh_queue_view()
+                continue
+            profile = self.active_profile() if hasattr(self, "active_profile") else None
+            queue.start(entry, profile.label() if profile is not None else "")
+            self._queue_current = entry
+            results_before = len(results)
             dialog = None
             parse_result = None
             error_status = ImportStatus.PERSISTENCE_ERROR.value
-            pipeline_stage = "route"
+            pipeline_stage = self._queue_stage("route")
             pdf_split_info = self._pdf_split_info(source)
             try:
                 route = route_file(source, template_matcher=self._auto_match_template)
                 parse_result = mineru_results.get(self._result_key(source))
                 path = source
                 extracted = None
-                pipeline_stage = "open"
+                pipeline_stage = self._queue_stage("open")
 
                 if route.engine == "mineru" and parse_result and parse_result.success:
                     self.import_status.setText(
@@ -1042,7 +1203,8 @@ class ExcelImportDialog(QDialog, DDRImportService):
                         f"{os.path.basename(source)} - MinerU unavailable; using PDF-native fallback..."
                     )
                     try:
-                        fallback_document = parse_pdf_native_fallback(source)
+                        fallback_document = parse_pdf_native_fallback(
+                            source, continuation=(profile.continuation if profile is not None else True))
                         fallback_result = MinerUParseResult(
                             source_file=str(source),
                             success=True,
@@ -1090,7 +1252,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 # SmartTemplate dialog is not run first and cannot overwrite
                 # or compete with this result.
                 if extracted is None and route.engine == "excel_intelligence":
-                    pipeline_stage = "mapping"
+                    pipeline_stage = self._queue_stage("mapping")
                     rep, extracted = self.extract_file(path)
 
                 if extracted is None:
@@ -1119,7 +1281,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
 
                 # Existing quality and time-log validation remains the source
                 # of truth for the database import boundary.
-                pipeline_stage = "validation"
+                pipeline_stage = self._queue_stage("validation")
                 report_data = extracted.get("daily_report", {})
                 quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
                 time_logs = extracted.get("time_logs_24h", []) or []
@@ -1168,12 +1330,12 @@ class ExcelImportDialog(QDialog, DDRImportService):
 
                 if not has_meaningful_canonical_data(extracted):
                     error_status = ImportStatus.VALIDATION_ERROR.value
-                    pipeline_stage = "meaningful_data"
+                    pipeline_stage = self._queue_stage("meaningful_data")
                     raise ValueError("No meaningful canonical report data was detected")
 
                 import_report_dict.update(pdf_split_info)          # M52: shown in the preview
 
-                pipeline_stage = "ui_preview"
+                pipeline_stage = self._queue_stage("ui_preview")
                 self.import_status.setText(
                     f"Preview for {os.path.basename(source)} - Waiting for user confirmation..."
                 )
@@ -1198,7 +1360,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 preview.apply_review_changes(extracted)
                 # Decisions and edits are now part of the audit payload and
                 # the exact canonical object sent to the atomic save boundary.
-                pipeline_stage = "persistence"
+                pipeline_stage = self._queue_stage("persistence")
                 self.import_status.setText(f"Importing {os.path.basename(source)} - Atomic transaction...")
                 result = self._do_import(extracted, refresh_ui=False)
                 result["file"] = source
@@ -1257,6 +1419,13 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 if dialog is not None:
                     dialog.deleteLater()
             finally:
+                if len(results) > results_before:
+                    results[-1]["queue_status"] = queue.finish(entry, results[-1])
+                else:
+                    entry.status, entry.stage = FAILED, "no result"
+                    entry.diagnostics.append("The pipeline produced no result for this file.")
+                self._queue_current = None
+                self._refresh_queue_view()
                 # The adapter keeps the stable result directory alive through
                 # normalization and review.  Once this file's consumer has
                 # finished, release only the isolated temporary result.
@@ -1268,6 +1437,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
             f"✅ Successful: {len(successful_files)} - {', '.join(successful_files[:5])}\n"
             f"❌ Failed: {len(failed_files)} - {'; '.join(failed_files[:5])}"
         )
+        summary_text += "\n" + self._queue().summary_text()
         self.batch_summary.setPlainText(summary_text)
         self.import_status.setText(
             f"Batch done: {len(successful_files)} success, {len(failed_files)} failed - See preview summary"

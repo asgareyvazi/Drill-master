@@ -20,6 +20,7 @@ import hashlib
 import json
 import logging
 from datetime import date as _date
+from datetime import datetime
 
 import os
 from pathlib import Path
@@ -92,6 +93,11 @@ def resolve_mineru_method(requested: str) -> str:
     requested = (requested or "auto").strip().lower()
     return requested if requested in SUPPORTED_MINERU_METHODS else "auto"
 
+
+
+# M61: version of the profile-driven normalization rules (date formats,
+# table rules, continuation, confidence threshold). Bump when they change.
+PROFILE_RULES_VERSION = 1
 
 class MinerUError(RuntimeError):
     """Base class for actionable MinerU errors."""
@@ -846,7 +852,7 @@ def parse_mineru_output(
     return document
 
 
-def parse_pdf_native_fallback(input_path: str | os.PathLike[str]) -> MinerUDocument:
+def parse_pdf_native_fallback(input_path: str | os.PathLike[str], continuation: bool = True) -> MinerUDocument:
     """Adapt the deterministic PDF-native fallback directly into common IR.
 
     This path never creates an XLSX and therefore cannot enter an Excel parser.
@@ -856,7 +862,8 @@ def parse_pdf_native_fallback(input_path: str | os.PathLike[str]) -> MinerUDocum
     from core.import_adapters.pdf_tables import extract_tables
 
     source = str(Path(input_path).expanduser().resolve())
-    result = extract_tables(source)
+    # M61: a report profile may disable cross-page continuation joins.
+    result = extract_tables(source) if continuation else extract_tables(source, continuation=False)
     if not result.get("tables"):
         raise MinerUOutputError(
             "PDF fallback produced no tables or text: "
@@ -1190,10 +1197,13 @@ class NormalizedDocument:
     raw_document: Any = None
     backend: str = ""
     method: str = ""
+    profile_info: Optional[dict[str, Any]] = None
 
     def metadata(self) -> dict[str, Any]:
         return {
             "source": "MinerU",
+            "profile": self.profile_info,
+            "profile_rules_version": PROFILE_RULES_VERSION,
             "backend": self.backend,
             "method": self.method,
             "pages": self.pages,
@@ -1273,6 +1283,78 @@ class DocumentNormalizer:
         token = (value_match.group(1) if value_match else header_match.group(1) if header_match else "")
         token = token.strip().replace(" ", "")
         return cls._UNIT_ALIASES.get(token)
+
+    # -- M61: profile-driven date formats and table rules --------------------
+    def _profile_value(self, value: Any, field_path: str, header: str = "") -> CanonicalValue:
+        """Typed normalization, then the profile's ordered ``date_formats``.
+
+        With a profile, a textual date is accepted only when the declared
+        formats yield exactly one calendar date. No match, or two formats that
+        give different dates (day/month ambiguity), keeps the original string
+        for review; the convention is never inferred.
+        """
+        result = self._normalize_document_value(value, field_path, header)
+        profile = getattr(self, "profile", None)
+        spec = FIELD_SPECS.get(field_path)
+        if profile is None or spec is None or spec.quantity != "date" or not isinstance(value, str):
+            return result
+        raw = value.strip()
+        if not raw:
+            return result
+        hits: dict[Any, str] = {}
+        for fmt in profile.date_formats:
+            try:
+                parsed = datetime.strptime(raw, fmt).date()
+            except ValueError:  # silent-ok: try the next declared format; outcome is reported below
+                continue
+            hits.setdefault(parsed, fmt)
+        formats = ", ".join(profile.date_formats)
+        tag = f"profile {profile.key} v{profile.version}"
+        if len(hits) == 1:
+            parsed, fmt = next(iter(hits.items()))
+            return CanonicalValue(field_path, value, parsed.isoformat(), expected_type=result.expected_type,
+                                  conversion_rule=f"date_format {fmt} ({tag})")
+        reason = (
+            f"Date {raw!r} matches none of the {tag} date formats ({formats}); review the date."
+            if not hits else
+            f"Date {raw!r} is ambiguous under the {tag} date formats ({formats}): "
+            + " / ".join(f"{d.isoformat()} by {f}" for d, f in hits.items()) + "; choose the date."
+        )
+        return CanonicalValue(field_path, value, None, expected_type=result.expected_type,
+                              validation_state="needs_review", review_reason=reason)
+
+    def _profile_row_skip(self, row: Sequence[Any], state: dict[str, Any]) -> Optional[str]:
+        """Reason a row is ignored by the profile's ``table_rules``, else ``None``.
+
+        ``stop_markers``: the marker row and every later row of the same table
+        are ignored. ``skip_rows_containing``: matching rows are ignored. Every
+        ignored row is reported with its reason and source; nothing is dropped
+        silently.
+        """
+        profile = getattr(self, "profile", None)
+        rules = (profile.table_rules or {}) if profile is not None else {}
+        if not rules:
+            return None
+        tag = f"profile {profile.key} v{profile.version}"
+        if state.get("stopped"):
+            return f"after stop marker {state['stopped']!r} ({tag})"
+        text = " ".join(str(cell) for cell in row if cell not in (None, "")).lower()
+        for marker in rules.get("stop_markers") or []:
+            if str(marker).strip() and str(marker).strip().lower() in text:
+                state["stopped"] = str(marker)
+                return f"stop marker {str(marker)!r} ({tag})"
+        for token in rules.get("skip_rows_containing") or []:
+            if str(token).strip() and str(token).strip().lower() in text:
+                return f"skip rule {str(token)!r} ({tag})"
+        return None
+
+    def _profile_table_skip(self, table_context: str) -> Optional[str]:
+        profile = getattr(self, "profile", None)
+        rules = (profile.table_rules or {}) if profile is not None else {}
+        for token in rules.get("skip_tables_containing") or []:
+            if str(token).strip() and str(token).strip().lower() in table_context:
+                return f"table skip rule {str(token)!r} (profile {profile.key} v{profile.version})"
+        return None
 
     @classmethod
     def _normalize_document_value(cls, value: Any, field_path: str, header: str = "") -> CanonicalValue:
@@ -1424,9 +1506,45 @@ class DocumentNormalizer:
                         }
                     )
             storage_key = self._storage_key(table_context, table_fields)
+            table_skip = self._profile_table_skip(table_context)
+            if table_skip is not None:
+                warnings.append(
+                    {
+                        "level": "review",
+                        "message": f"Ignored table with {len(rows)} row(s) by {table_skip}.",
+                        "rule": table_skip,
+                        "profile_rules_version": PROFILE_RULES_VERSION,
+                        "source": self._table_source(table.provenance, table),
+                    }
+                )
+                table_fields = [None] * len(table_fields)
             if any(field_path for field_path in table_fields):
                 table_records: list[dict[str, Any]] = []
+                rule_state: dict[str, Any] = {}
                 for row_number, row in enumerate(rows, 1):
+                    rule_reason = self._profile_row_skip(row, rule_state)
+                    if rule_reason is not None:
+                        warnings.append(
+                            {
+                                "level": "review",
+                                "message": f"Ignored row by {rule_reason}; it was not mapped as report data.",
+                                "rule": rule_reason,
+                                "profile_rules_version": PROFILE_RULES_VERSION,
+                                "value": " | ".join(str(cell) for cell in row if cell not in (None, "")),
+                                "source": Provenance(
+                                    document.source_file,
+                                    table.provenance.source_page,
+                                    table.provenance.source_sheet,
+                                    row_number,
+                                    None,
+                                    table.provenance.bounding_box,
+                                    table.provenance.extraction_method,
+                                    table.provenance.confidence,
+                                    source_table=table.name,
+                                ).to_dict(),
+                            }
+                        )
+                        continue
                     row_class = self._classify_row(row, headers, table_fields)
                     if row_class != "data":
                         warnings.append(
@@ -1458,7 +1576,7 @@ class DocumentNormalizer:
                         spec = FIELD_SPECS.get(field_path)
                         normalized_value = value
                         normalization = (
-                            self._normalize_document_value(
+                            self._profile_value(
                                 value, field_path, self._profile_header(headers[index], field_path)
                             )
                             if spec is not None else None
@@ -1606,7 +1724,7 @@ class DocumentNormalizer:
             spec = FIELD_SPECS.get(field_path)
             text_header = raw_text.split(":", 1)[0] if ":" in raw_text else raw_text
             normalization = (
-                self._normalize_document_value(value, field_path, text_header)
+                self._profile_value(value, field_path, text_header)
                 if spec is not None else None
             )
             normalized_value = value if normalization is None else (normalization.value if normalization.ok else None)
@@ -1742,6 +1860,17 @@ class DocumentNormalizer:
             raw_document=raw_document,
             backend=document.backend,
             method=document.method,
+            profile_info=(
+                {
+                    "key": self.profile.key,
+                    "version": self.profile.version,
+                    "date_formats": list(self.profile.date_formats),
+                    "table_rules": dict(self.profile.table_rules),
+                    "continuation": bool(self.profile.continuation),
+                    "confidence_threshold": float(self.profile.confidence_threshold),
+                }
+                if getattr(self, "profile", None) is not None else None
+            ),
         )
 
     @staticmethod

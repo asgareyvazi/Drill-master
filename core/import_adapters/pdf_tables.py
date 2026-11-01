@@ -150,7 +150,7 @@ def _pymupdf_structured_tables(page, page_no: int) -> List[Dict[str, Any]]:
     return outputs
 
 
-def extract_tables(path, pages="all") -> Dict[str, Any]:
+def extract_tables(path, pages="all", continuation: bool = True) -> Dict[str, Any]:
     """Return tables plus parser metrics; never silently discard failures.
 
     3-tier extraction for professional platform.
@@ -208,14 +208,15 @@ def extract_tables(path, pages="all") -> Dict[str, Any]:
                 # (headers, columns, wrapped cells, margins, continuation).
                 has_images = bool(page.get_images(full=False))
                 generic_pages.append((page_no, float(page.rect.height), page_words(page), has_images))
-            generic = generic_document_tables(generic_pages)
-            tables = join_ruled_continuations(tables) + generic["tables"]
+            generic = generic_document_tables(generic_pages, continuation=continuation)
+            tables = (join_ruled_continuations(tables) if continuation else tables) + generic["tables"]
             tables.sort(key=lambda item: (item.get("page") or 0))
             scan_info = {
                 "scanned_pages": generic["scanned_pages"],
                 "ocr": generic["ocr"],
                 "margin_lines_removed": generic["margin_lines_removed"],
                 "generic_version": generic["version"],
+                "continuation": generic["continuation"],
             }
             if tables:
                 result = {

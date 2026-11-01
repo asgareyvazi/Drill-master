@@ -269,7 +269,9 @@ def text_tables(lines: List[Tuple[float, List[Word]]], carry: Optional[Dict[str,
 # ---------------------------------------------------------------------------
 # Multi-page assembly
 # ---------------------------------------------------------------------------
-def join_continuations(page_tables: Sequence[Tuple[int, List[Dict[str, Any]], bool]]) -> List[Dict[str, Any]]:
+def join_continuations(
+    page_tables: Sequence[Tuple[int, List[Dict[str, Any]], bool]], join: bool = True
+) -> List[Dict[str, Any]]:
     """Join tables continued across pages.
 
     ``page_tables`` is ``[(page_no, tables, starts_at_top)]`` where
@@ -284,7 +286,8 @@ def join_continuations(page_tables: Sequence[Tuple[int, List[Dict[str, Any]], bo
             table = {**table, "pages": [page_no], "row_pages": [page_no] * len(table["rows"])}
             last = joined[-1] if joined else None
             if (
-                position == 0
+                join
+                and position == 0
                 and (starts_at_top or table.get("continuation_of_previous"))
                 and last is not None
                 and previous_page == page_no - 1
@@ -312,7 +315,9 @@ def page_words(page) -> List[Word]:
     return [(w[0], w[1], w[2], w[3], str(w[4])) for w in page.get_text("words")]
 
 
-def generic_document_tables(pages: Sequence[Tuple[int, float, List[Word], bool]]) -> Dict[str, Any]:
+def generic_document_tables(
+    pages: Sequence[Tuple[int, float, List[Word], bool]], continuation: bool = True
+) -> Dict[str, Any]:
     """Generic extraction for pages without form sections.
 
     ``pages`` is ``[(page_no, page_height, words, has_images)]``. Returns
@@ -337,7 +342,7 @@ def generic_document_tables(pages: Sequence[Tuple[int, float, List[Word], bool]]
         kept, dropped = strip_margins(height, lines, repeated)
         removed += dropped
         tables, leftover, ends_at_bottom = text_tables(
-            kept, carry if carry_page is not None and carry_page == page_no - 1 else None
+            kept, carry if continuation and carry_page is not None and carry_page == page_no - 1 else None
         )
         carry = tables[-1] if tables and ends_at_bottom else None
         carry_page = page_no if carry is not None else None
@@ -355,7 +360,7 @@ def generic_document_tables(pages: Sequence[Tuple[int, float, List[Word], bool]]
                            "version": GENERIC_TABLES_VERSION},
             })
     payloads: List[Dict[str, Any]] = []
-    for table in join_continuations(per_page):
+    for table in join_continuations(per_page, join=continuation):
         records = [dict(zip(table["headers"], row)) for row in table["rows"]]
         if not records:
             continue
@@ -377,6 +382,7 @@ def generic_document_tables(pages: Sequence[Tuple[int, float, List[Word], bool]]
         "scanned_pages": scanned,
         "ocr": ocr_status(),
         "margin_lines_removed": removed,
+        "continuation": bool(continuation),
         "version": GENERIC_TABLES_VERSION,
     }
 
