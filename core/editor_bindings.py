@@ -15,6 +15,15 @@ def invoke(subject, method, *args, **kwargs):
     return detail if isinstance(detail, SaveOutcome) else value
 
 
+EDITOR_SNAPSHOT_EXCLUDE = "editor_snapshot_exclude"
+
+
+def exclude_from_editor_snapshot(widget):
+    """Mark a display-only widget so unsaved-change tracking ignores it."""
+    widget.setProperty(EDITOR_SNAPSHOT_EXCLUDE, True)
+    return widget
+
+
 def editor_snapshot(*roots):
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import (
@@ -29,6 +38,10 @@ def editor_snapshot(*roots):
     )
 
     def read(widget):
+        # Display-only panels (document links, navigation timelines) refresh on their
+        # own when other tabs change data; they are not user edits of this record.
+        if widget.property(EDITOR_SNAPSHOT_EXCLUDE):
+            return None
         if isinstance(widget, QTableWidget):
             return tuple(
                 tuple(

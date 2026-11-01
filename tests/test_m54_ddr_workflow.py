@@ -262,3 +262,22 @@ def test_duplicate_dialog_review_is_explicit_and_warns_on_an_existing_date(app):
     assert "WARNING" not in dialog.review_label.text()
     assert dialog.options()["copy_time_log"] is True
     dialog.deleteLater()
+
+
+def test_display_panels_do_not_count_as_unsaved_edits_but_real_edits_do(db_widget, synthetic):
+    """M54 regression: a document link made in another tab refreshed the read-only
+    related-documents table, the snapshot changed and New report opened a modal prompt."""
+    from PySide6.QtWidgets import QTableWidgetItem
+
+    from core.editor_bindings import configure
+
+    db, ids = synthetic
+    configure(db_widget)
+    db_widget.load_report_by_id(_ordered(db, ids["dev"])[0]["id"])
+    assert db_widget._has_unsaved_edits() is False
+    for panel_table in (db_widget.related_documents.table, db_widget.report_timeline):
+        panel_table.insertRow(0)
+        panel_table.setItem(0, 0, QTableWidgetItem("refreshed elsewhere"))
+    assert db_widget._has_unsaved_edits() is False
+    db_widget.report_number.setValue(db_widget.report_number.value() + 1)
+    assert db_widget._has_unsaved_edits() is True

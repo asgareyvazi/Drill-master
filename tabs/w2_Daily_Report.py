@@ -17,6 +17,7 @@ from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 from PySide6.QtGui import QTextOption
 
 from core.editor_state import editor_loaded, editor_saved
+from core.editor_bindings import exclude_from_editor_snapshot
 from core.base_tab import DrillTabBase
 from core.permissions import require_permission, permissions
 from core.text_utils import fmt_num
@@ -520,6 +521,7 @@ class DailyReportWidget(DrillTabBase):
         # M45: documents linked to this report (read-only; links are edited in Documents).
         from tabs.related_documents import RelatedDocumentsPanel
         self.related_documents = RelatedDocumentsPanel(self.db_manager, "report")
+        exclude_from_editor_snapshot(self.related_documents)
         main_layout.addWidget(self.related_documents)
 
         central_widget = QWidget()
@@ -1404,6 +1406,7 @@ class DailyReportWidget(DrillTabBase):
             ["Date", "Report #", "Depth @ 24:00 (m)", "Status", "Summary"]
         )
         self.report_timeline.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        exclude_from_editor_snapshot(self.report_timeline)
         self.report_timeline.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.report_timeline.setSelectionMode(QAbstractItemView.SingleSelection)
         self.report_timeline.verticalHeader().setVisible(False)
