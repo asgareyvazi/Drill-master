@@ -175,7 +175,11 @@ def _alive(pid: int) -> bool:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
-    return Path(f"/proc/{pid}/stat").is_file() and ") Z " not in Path(f"/proc/{pid}/stat").read_text()
+    try:   # read once: the process may be reaped between a check and a read (TOCTOU)
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except (FileNotFoundError, ProcessLookupError):
+        return False
+    return ") Z " not in stat
 
 
 def test_a_child_left_running_is_an_orphan_that_fails_the_repetition_and_is_killed(tmp_path):
