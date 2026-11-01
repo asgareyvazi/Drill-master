@@ -522,7 +522,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.tabs.addTab(self._create_fishing_tab(), "🎣 Fishing")
         self.tabs.addTab(self._create_dp_table_tab(), "📋 DP Database")
 
-
+        # M56: find / favourite / reopen calculators (index built from the live tabs above)
+        from tabs.calculator_finder import CalculatorFinder
+        self.calculator_finder = CalculatorFinder(self.tabs, parent=self)
+        main_layout.addWidget(self.calculator_finder)
         main_layout.addWidget(self.tabs)
 
     # ==================== Tab Creators ====================
