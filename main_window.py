@@ -1147,6 +1147,12 @@ class MainWindow(QMainWindow):
             self.engineering_calc_tab, "⚙️ Eng. Calc"
         )
 
+        # M67: unified calculation history + Engineering Report Center
+        from tabs.calculation_history_tab import CalculationHistoryTab
+        self.calculation_history_tab = CalculationHistoryTab(self.db_manager, self)
+        self.tab_widget.addTab(self.calculation_history_tab, "🗂️ Calc History")
+        self.sel_manager.well_changed.connect(self.calculation_history_tab.set_well)
+
         # Tab 18: Reference (software)
         self.reference_tab = ReferenceTablesWidget(
             self.db_manager, self
