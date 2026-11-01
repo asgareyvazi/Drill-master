@@ -78,10 +78,13 @@ def test_opening_a_result_navigates_and_records_a_bounded_recent_list(tree):
     finder.open_path("Volume")
     finder.open_path("Hydraulics › Bit Hydraulics")
     assert store.data["recents"] == ["Hydraulics › Bit Hydraulics", "Volume"]
-    for _ in range(12):
-        for entry in finder.entries:
-            finder.open_path(entry.path)
-    assert len(store.data["recents"]) <= 8
+    for title in [f"Extra {n}" for n in range(10)]:        # more distinct calculators than the bound
+        tree.addTab(_page(), title)
+    finder.reindex()
+    assert len(finder.entries) == 15
+    for entry in finder.entries:
+        finder.open_path(entry.path)
+    assert store.data["recents"] == [e.path for e in reversed(finder.entries)][:8]   # newest first, bounded
     assert not finder.open_path("Retired calculator") and "no longer available" in finder.status_label.text()
 
 

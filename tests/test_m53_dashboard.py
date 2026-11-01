@@ -118,6 +118,7 @@ def test_filters_scope_every_figure_consistently(enriched):
     # Filter choices always come from ALL wells, whatever the filter.
     assert nobody.options == full.options and "SYN-RIG-A" in full.options["rigs"]
     assert (ids["dev"], "SYN-DEV-01") in full.options["wells"]
+    assert rig_b.options == full.options and full.options["rigs"] == ["SYN-RIG-A", "SYN-RIG-B"]   # can switch rig
 
 
 def test_period_widens_reports_npt_and_cost(enriched):

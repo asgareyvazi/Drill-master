@@ -108,6 +108,17 @@ def test_j_profile_matches_closed_form_arc_geometry():
     assert r.targets[0]["hit"] is True and r.targets[0]["distance"] < 0.05
 
 
+def test_a_target_off_the_plan_or_without_a_radius_is_not_reported_as_hit():
+    segments = [{"type": "hold", "length": 500}, {"type": "curve", "inc": 30, "azi": 135, "dls": 3},
+                {"type": "hold_to_tvd", "tvd": 1500}]
+    r = design_plan(segments, step=30, vs_azimuth=135, targets=[
+        {"name": "mirror", "north": 345.58, "east": 345.58, "tvd": 1500, "radius": 10},   # azimuth 45, not 135
+        {"name": "no radius", "north": -345.58, "east": 345.58, "tvd": 1500}])
+    mirror, unsized = r.targets
+    assert mirror["hit"] is False and mirror["distance"] > 10.0
+    assert unsized["hit"] is False and unsized["radius"] == 0.0 and unsized["distance"] < 0.05
+
+
 def test_s_profile_drop_and_dls_limit_warning():
     r = design_plan([{"type": "hold", "length": 300}, {"type": "curve", "inc": 20, "azi": 90, "dls": 2},
                      {"type": "hold", "length": 200}, {"type": "curve", "inc": 0, "azi": 90, "dls": 4}],
