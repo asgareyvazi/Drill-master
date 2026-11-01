@@ -28,6 +28,29 @@ Dependencies: **M52 adds no runtime or development dependency.** `pyproject.toml
 
 Owner decisions opened by this review: welleng ISCWSA error models (scipy/pyproj, reference validation); LGPL pro-well-plan (pwptemp, torque_drag); any GPL (ejbo2001) or CC BY-NC (nmamzada) code; OCR engines and embedding models used by the DDR/RAG repositories (and, pre-existing, the AGPL licence of the already-locked PyMuPDF); well-control calculators (kill-sheet).
 
+## M53–M60 update
+
+This register stays the single source of truth. **M53–M60 performed no new repository survey and copied no upstream code.** All 50 classifications above are unchanged. The work in this programme is independent implementation; none of it is ADOPT or ADAPT.
+
+| M53–M60 deliverable | Relation to the register |
+|---|---|
+| `core/import_adapters/pdf_generic_tables.py` (M54: scanned-page detection, header/footer margins, continued and ruled tables) | Own design. The page-classification and table-continuation ideas come from INSPIRE ONLY entries (pdf-report-table-extractor, DDR_UTAH_FORGE, wellbrief). Generic labels only; no dataset-specific rules; nothing copied |
+| `core/ddr_report_profiles.py` (M54 versioned report profiles) | Own design. No upstream equivalent was used |
+| `core/survey_file_import.py`, `core/well_plan_designer.py` (M55) | Own design on the canonical `TrajectoryCalculator` (minimum curvature). Plan-vs-actual reuses the M52 REUSE ALGORITHM module `core/trajectory_compare.py` (welleng method ideas, Apache-2.0); no welleng code is used. The designer was verified against an independent closed-form arc calculation, not against any library's test vectors |
+| `tabs/calculator_finder.py` (M56) | Own design |
+| Torque & drag | Unchanged. LGPL `pro-well-plan/torque_drag` remains OWNER REVIEW REQUIRED and was not used |
+| Thermal (M59) | BoreTHM (Apache-2.0) remains INSPIRE ONLY and is not integrated |
+
+**Dependencies:** M53–M60 adds no runtime or development dependency. `pyproject.toml`, `requirements-lock.txt` and `THIRD_PARTY_NOTICES.md` are unchanged from the M52 baseline (`git diff 36a847a -- …` is empty).
+
+**Risk items unchanged:**
+* PyMuPDF (AGPL-3.0, pre-existing locked dependency, used by the PDF importers);
+* OCR engines and embedding models (none installed; "OCR unavailable" is shown);
+* welleng ISCWSA error models;
+* LGPL/GPL/CC-NC code.
+
+All of these are owner decisions.
+
 ## Overview
 
 | # | Repository | Group | Licence (file) | Classification |
