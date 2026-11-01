@@ -250,10 +250,10 @@ def test_dashboard_loads_in_worker_thread_for_file_database(app, synthetic, monk
     threads = []
     real = operations_dashboard.build_snapshot
 
-    def spy(manager, today=None):
+    def spy(manager, today=None, filters=None):
         threads.append(threading.get_ident())
         assert manager is not db                       # a read-only worker view, not the shared manager
-        return real(manager, today=today)
+        return real(manager, today=today, filters=filters)
     monkeypatch.setattr(operations_dashboard, "build_snapshot", spy)
     home = _home(db)
     assert threads and threads[0] != threading.get_ident()
@@ -287,7 +287,7 @@ def test_dashboard_load_failure_keeps_previous_figures_marked_stale(app, monkeyp
     home = _home(db)
     assert home.load_count == 1
 
-    def broken(_db, today=None):
+    def broken(_db, today=None, filters=None):
         raise RuntimeError("synthetic failure")
     monkeypatch.setattr(operations_dashboard, "build_snapshot", broken)
     _load(app, home)

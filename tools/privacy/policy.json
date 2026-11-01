@@ -342,6 +342,31 @@
       "path": "docs/mission-reports/m52-screenshots/m52_ddr_time_log_reorder.png",
       "sha256": "fd11c97f40d29d63e65496c76a47796c9f7b4c9b85ac3e4c803b1bdbc33f3b4e",
       "provenance": "reviewed M52: W2 time log after an NPT record was moved up; cell styles intact; offscreen Linux capture by tools/screenshots/capture_m52.py, one fresh interpreter per image, real widget classes on a throw-away temporary database or a synthetic PDF in a temporary directory (SYN-* names, relative synthetic coordinates); no language model; no identity, absolute location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m53-screenshots/m53_dashboard_overview.png",
+      "sha256": "107b0ac26ffa5ffdc8970fa7a1a2f3584789cd22c24a76878204b96bc553ecd7",
+      "provenance": "reviewed M53: Operations Dashboard overview, all wells, dark theme, no well selected; offscreen Linux capture by tools/screenshots/capture_m53.py, one fresh interpreter per image, real tabs.home_tab.HomeTab on a throw-away temporary database filled by tests/synthetic_operations.py + tests/synthetic_dashboard.py (SYN-* names, SYNTHETIC company/project, synthetic costs); no language model; no identity, location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m53-screenshots/m53_dashboard_selected_well.png",
+      "sha256": "478c407eb7bfd703332ea523d2611b94fa29309ce48f48c176e57fdfb3c2cdf7",
+      "provenance": "reviewed M53: Operations Dashboard with SYN-DEV-01 selected: charts and trajectory preview from stored synthetic rows; offscreen Linux capture by tools/screenshots/capture_m53.py, one fresh interpreter per image, real tabs.home_tab.HomeTab on a throw-away temporary database filled by tests/synthetic_operations.py + tests/synthetic_dashboard.py (SYN-* names, SYNTHETIC company/project, synthetic costs); no language model; no identity, location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m53-screenshots/m53_dashboard_empty.png",
+      "sha256": "a2ce3cdeb467d5f75c7c80dca9cb453cabf441641a83231e9a6079a3590ec559",
+      "provenance": "reviewed M53: Operations Dashboard on an empty database: empty state and No data KPIs; offscreen Linux capture by tools/screenshots/capture_m53.py, one fresh interpreter per image, real tabs.home_tab.HomeTab on a throw-away temporary database filled by tests/synthetic_operations.py + tests/synthetic_dashboard.py (SYN-* names, SYNTHETIC company/project, synthetic costs); no language model; no identity, location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m53-screenshots/m53_dashboard_alerts.png",
+      "sha256": "36b36507d330e2a2c2716f68d8a293843080bd576c437fe7f1af51abea8c41bc",
+      "provenance": "reviewed M53: Operations Dashboard filtered to Active wells with SYN-QA-03 selected: alerts and unavailable chart states with reasons; offscreen Linux capture by tools/screenshots/capture_m53.py, one fresh interpreter per image, real tabs.home_tab.HomeTab on a throw-away temporary database filled by tests/synthetic_operations.py + tests/synthetic_dashboard.py (SYN-* names, SYNTHETIC company/project, synthetic costs); no language model; no identity, location or real values"
+    },
+    {
+      "path": "docs/mission-reports/m53-screenshots/m53_dashboard_light.png",
+      "sha256": "f53bcab40031e8fd41368d440f35beac5780145a5d6a2f762d1f617ae8439052",
+      "provenance": "reviewed M53: Operations Dashboard light theme, single-well filter: cost per metre and NPT cost estimate; offscreen Linux capture by tools/screenshots/capture_m53.py, one fresh interpreter per image, real tabs.home_tab.HomeTab on a throw-away temporary database filled by tests/synthetic_operations.py + tests/synthetic_dashboard.py (SYN-* names, SYNTHETIC company/project, synthetic costs); no language model; no identity, location or real values"
     }
   ],
   "text_patterns": [
