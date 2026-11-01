@@ -98,10 +98,11 @@ class CalculationHistoryTab(QWidget):
 
     # -- data ---------------------------------------------------------------
     def set_well(self, well_id: Optional[int], _well_data=None) -> None:
-        """Follow the selection; a hidden tab reloads when it is shown (M70.7)."""
+        """Follow the selection. A tab hidden inside a tab set reloads when it is
+        shown (M70.7); a stand-alone widget loads at once."""
         self.well_id = well_id or None
         self._stale = True
-        if self.isVisible():
+        if self.isVisible() or self.parentWidget() is None:
             self.refresh()
         else:
             self.entries = []
