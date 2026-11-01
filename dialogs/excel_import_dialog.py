@@ -208,8 +208,8 @@ class ImportPreviewDialog(QDialog):
         self.profile_label = QLabel(self.profile_summary(profile_info))
         self.profile_label.setStyleSheet("color: #2c3e50; padding: 2px 4px;")
         layout.addWidget(self.profile_label)
-        counts = review_counts(((self.extracted or {}).get("metadata") or {}).get("review_matrix")
-                               or report.get("review_matrix"), profile_info)
+        counts = review_counts(report.get("review") or report.get("review_matrix")
+                               or ((self.extracted or {}).get("metadata") or {}).get("review_matrix"), profile_info)
         self.threshold_label = QLabel(
             f"Acceptance threshold {counts['threshold']:.0%}: {counts['eligible']} eligible, "
             f"{counts['review']} need review, {counts['low']} low, {counts['not_assessed']} not scored."
@@ -254,9 +254,9 @@ class ImportPreviewDialog(QDialog):
                 conf = item.get("confidence", 0)
                 try:
                     conf_f = float(conf)
-                    if conf_f >= 0.95:
+                    if conf_f >= self.accept_threshold:
                         it.setBackground(QColor("#d5f5e3"))
-                    elif conf_f >= 0.70:
+                    elif conf_f >= self.low_threshold:
                         it.setBackground(QColor("#fef9e7"))
                     else:
                         it.setBackground(QColor("#fadbd8"))

@@ -278,3 +278,29 @@ def test_pdf_fallback_forwards_a_disabled_continuation(monkeypatch):
         with pytest.raises(MinerUOutputError):
             parse_pdf_native_fallback("synthetic.pdf", continuation=flag)
     assert seen == [{}, {"continuation": False}]
+
+
+def test_preview_bulk_accept_follows_the_profile_and_skips_values_needing_review():
+    from PySide6 import QtWidgets
+    from dialogs.excel_import_dialog import ImportPreviewDialog
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    review = [{"confidence": 0.99, "validation_state": "needs_review", "target_field": "daily_report.report_date"},
+              {"confidence": 0.90, "target_field": "mud_report.mw"},
+              {"confidence": 0.50, "target_field": "mud_report.pv"}]
+    dialogs = []
+    try:
+        for profile, expected in (({"confidence_threshold": 0.85}, ["REVIEW", "ACCEPT", "REVIEW"]),
+                                  (None, ["REVIEW", "REVIEW", "REVIEW"])):
+            dlg = ImportPreviewDialog("synthetic.pdf", {}, {"review": [dict(r) for r in review], "profile": profile})
+            dialogs.append(dlg)
+            dlg._accept_high()
+            assert [dlg.table.item(r, 9).text() for r in range(3)] == expected
+        assert dialogs[0].threshold_label.text() == (
+            "Acceptance threshold 85%: 1 eligible, 1 need review, 1 low, 0 not scored.")
+        dialogs[0]._reject_low()
+        assert dialogs[0].table.item(2, 9).text() == "REJECT"
+    finally:
+        for dlg in dialogs:
+            dlg.deleteLater()
+        app.processEvents()
