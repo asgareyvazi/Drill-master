@@ -1,0 +1,268 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m61_ddr_profile_rules.py",
+      "tests/test_m62_directional_plans.py",
+      "tests/test_m63_calculation_cases.py",
+      "tests/test_m67_calculation_history.py"
+    ],
+    "exit": 0,
+    "summary": "46 passed in 13.18s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "ME-ambiguous-date-accepted",
+      "path": "core/mineru_engine.py",
+      "note": "a day/month-ambiguous date is accepted with the first reading",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.18s"
+    },
+    {
+      "id": "ME-stop-marker-not-sticky",
+      "path": "core/mineru_engine.py",
+      "note": "rows after a stop marker are imported again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.15s"
+    },
+    {
+      "id": "ME-skip-row-rule-ignored",
+      "path": "core/mineru_engine.py",
+      "note": "skip_rows_containing has no effect",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.16s"
+    },
+    {
+      "id": "PG-continuation-flag-ignored",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a profile that disables continuation still joins pages",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.15s"
+    },
+    {
+      "id": "EI-profile-threshold-ignored",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "the profile confidence threshold does not change acceptance",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.51s"
+    },
+    {
+      "id": "EI-needs-review-bulk-accepted",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "Accept-all-high accepts values that still need review",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 1.20s"
+    },
+    {
+      "id": "Q-in-batch-duplicate-missed",
+      "path": "core/ddr_import_queue.py",
+      "note": "byte-identical files in one batch are imported twice",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.52s"
+    },
+    {
+      "id": "Q-saved-result-removable",
+      "path": "core/ddr_import_queue.py",
+      "note": "a saved file can be removed from the batch record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.51s"
+    },
+    {
+      "id": "Q-reimport-counted-as-saved",
+      "path": "core/ddr_import_queue.py",
+      "note": "an already-imported source is reported as a new save",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.52s"
+    },
+    {
+      "id": "EI-cancel-ignored",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "Cancel remaining does not stop files that have not started",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m61_ddr_profile_rules.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 1.30s"
+    },
+    {
+      "id": "WP-station-only-target-distance",
+      "path": "core/well_plan_designer.py",
+      "note": "target distance falls back to the closest station",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m62_directional_plans.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.13s"
+    },
+    {
+      "id": "WP-antiparallel-unguarded",
+      "path": "core/well_plan_designer.py",
+      "note": "an antiparallel curve is designed with an undefined plane",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m62_directional_plans.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.15s"
+    },
+    {
+      "id": "WP-non-finite-unchecked",
+      "path": "core/well_plan_designer.py",
+      "note": "NaN/inf inputs reach the designer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m62_directional_plans.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.15s"
+    },
+    {
+      "id": "DP-revision-number-reused",
+      "path": "core/directional_plans.py",
+      "note": "a revise overwrites/collides with the latest revision number",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m62_directional_plans.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 1.80s"
+    },
+    {
+      "id": "DP-archived-reactivated",
+      "path": "core/directional_plans.py",
+      "note": "an archived revision can be made active again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m62_directional_plans.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.93s"
+    },
+    {
+      "id": "CC-rerun-loses-parent",
+      "path": "core/calculation_cases.py",
+      "note": "a re-run is not linked to the case it came from",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m63_calculation_cases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.79s"
+    },
+    {
+      "id": "CC-empty-inputs-accepted",
+      "path": "core/calculation_cases.py",
+      "note": "a case without inputs is stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m63_calculation_cases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.78s"
+    },
+    {
+      "id": "CH-well-filter-ignored",
+      "path": "core/calculation_history.py",
+      "note": "the history of one well shows other wells' calculations",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m67_calculation_history.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.70s"
+    },
+    {
+      "id": "CH-recalc-always-match",
+      "path": "core/calculation_history.py",
+      "note": "a recalculation that differs from the stored result is reported as a match",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m67_calculation_history.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.67s"
+    }
+  ],
+  "killed": [
+    "ME-ambiguous-date-accepted",
+    "ME-stop-marker-not-sticky",
+    "ME-skip-row-rule-ignored",
+    "PG-continuation-flag-ignored",
+    "EI-profile-threshold-ignored",
+    "EI-needs-review-bulk-accepted",
+    "Q-in-batch-duplicate-missed",
+    "Q-saved-result-removable",
+    "Q-reimport-counted-as-saved",
+    "EI-cancel-ignored",
+    "WP-station-only-target-distance",
+    "WP-antiparallel-unguarded",
+    "WP-non-finite-unchecked",
+    "DP-revision-number-reused",
+    "DP-archived-reactivated",
+    "CC-rerun-loses-parent",
+    "CC-empty-inputs-accepted",
+    "CH-well-filter-ignored",
+    "CH-recalc-always-match"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
