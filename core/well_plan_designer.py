@@ -13,9 +13,12 @@ Segments (MD in metres, angles in degrees, DLS in deg/30 m):
 * ``{"type": "curve", "inc": I, "azi": A, "dls": D}`` – build/drop/turn to (I, A)
 * ``{"type": "hold_to_tvd", "tvd": T}``         – hold until TVD T (inc < 90)
 
-Targets ``{"name", "north", "east", "tvd", "radius"}`` are evaluated against the
-plan stations (closest station distance, within radius or not). A segment above
-the DLS limit is reported, never silently clipped. Planning aid only.
+Targets ``{"name", "north", "east", "tvd", "radius"}`` are evaluated (M62)
+against the continuous minimum-curvature path between stations, not only the
+stations; the closest station is reported alongside. A target without a radius
+is never a hit. A segment above the DLS limit is reported, never silently
+clipped. Non-finite inputs and antiparallel curves (undefined arc plane) are
+explicit errors. Planning aid only.
 """
 
 from __future__ import annotations
@@ -24,7 +27,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-PLAN_VERSION = "M55 plan designer v1"
+PLAN_VERSION = "M62 plan designer v2"
+ANTIPARALLEL_TOL_DEG = 1e-6
 METHOD = "Minimum curvature (canonical TrajectoryCalculator); constant-curvature arcs"
 
 
@@ -78,6 +82,10 @@ def design_plan(segments: Sequence[Dict[str, Any]], *, step: float = 30.0, dls_l
     from core.engineering.engines.trajectory import TrajectoryCalculator
 
     result = PlanResult()
+    problem = _non_finite(segments, targets, tie_in, step, dls_limit, vs_azimuth)
+    if problem:
+        result.error = problem
+        return result
     if step <= 0:
         result.error = "Station step must be positive."
         return result
@@ -118,6 +126,12 @@ def design_plan(segments: Sequence[Dict[str, Any]], *, step: float = 30.0, dls_l
             if dogleg < 1e-9:
                 result.warnings.append(f"Segment {number}: already at the target direction; no curve added.")
                 continue
+            if dogleg > 180.0 - ANTIPARALLEL_TOL_DEG:
+                result.error = (
+                    f"Segment {number}: the target direction is antiparallel to the current one "
+                    f"(dogleg {dogleg:.4f} deg); the curve plane is undefined. Split it into two curves."
+                )
+                return result
             length = dogleg / dls * 30.0
             v1, v2 = _vector(inc, azi), _vector(target_inc, target_azi)
             n = max(1, math.ceil(length / step))
@@ -161,10 +175,103 @@ def design_plan(segments: Sequence[Dict[str, Any]], *, step: float = 30.0, dls_l
         return result
     result.stations = TrajectoryCalculator.calculate(raw, vs_azimuth=vs_azimuth)
     for target in targets:
-        best = min(result.stations, key=lambda s: math.dist((s["north"], s["east"], s["tvd"]),
-                                                             (target["north"], target["east"], target["tvd"])))
-        distance = math.dist((best["north"], best["east"], best["tvd"]), (target["north"], target["east"], target["tvd"]))
-        radius = float(target.get("radius", 0) or 0)
-        result.targets.append({"name": target.get("name", "Target"), "closest_md": best["md"], "distance": distance,
-                               "radius": radius, "hit": radius > 0 and distance <= radius})
+        result.targets.append(evaluate_target(result.stations, target))
     return result
+
+
+def _non_finite(segments, targets, tie_in, step, dls_limit, vs_azimuth) -> Optional[str]:
+    """First non-finite numeric input, as an explicit error (never propagated as NaN)."""
+    def bad(value):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and not math.isfinite(value)
+
+    for name, value in (("station step", step), ("DLS limit", dls_limit), ("VS azimuth", vs_azimuth)):
+        if bad(value):
+            return f"The {name} is not a finite number."
+    for key, value in (tie_in or {}).items():
+        if bad(value):
+            return f"Tie-in {key} is not a finite number."
+    for number, segment in enumerate(segments, 1):
+        for key, value in segment.items():
+            if bad(value):
+                return f"Segment {number}: {key} is not a finite number."
+    for target in targets:
+        for key, value in target.items():
+            if bad(value):
+                return f"Target {target.get('name', '?')}: {key} is not a finite number."
+    return None
+
+
+def arc_point(s1: Dict[str, float], s2: Dict[str, float], frac: float) -> tuple:
+    """(md, north, east, tvd) at ``frac`` of the minimum-curvature arc s1 -> s2.
+
+    Between two survey stations minimum curvature is a circular arc of length
+    L and dogleg beta in the plane of the two tangents: p(theta) = p1 +
+    R(sin(theta) t1 + (1 - cos(theta)) n) with R = L / beta and n the unit
+    normal towards t2. A straight segment (beta ~ 0) is the limit.
+    """
+    t1, t2 = _vector(s1["inc"], s1["azi"]), _vector(s2["inc"], s2["azi"])
+    length = s2["md"] - s1["md"]
+    p1 = (s1["north"], s1["east"], s1["tvd"])
+    beta = math.acos(max(-1.0, min(1.0, sum(a * b for a, b in zip(t1, t2)))))
+    if beta < 1e-9:
+        return (s1["md"] + frac * length,) + tuple(p + frac * length * t for p, t in zip(p1, t1))
+    radius, theta = length / beta, frac * beta
+    normal = tuple((b - math.cos(beta) * a) / math.sin(beta) for a, b in zip(t1, t2))
+    return (s1["md"] + frac * length,) + tuple(
+        p + radius * (math.sin(theta) * t + (1 - math.cos(theta)) * n) for p, t, n in zip(p1, t1, normal)
+    )
+
+
+def closest_on_path(stations: Sequence[Dict[str, float]], point: Sequence[float]) -> Dict[str, float]:
+    """Continuous closest approach of the minimum-curvature path to ``point`` (N, E, TVD).
+
+    Each interval is sampled, then the best bracket is refined by golden
+    section to 1e-9 of the interval; the result is not limited to stations.
+    """
+    best = None
+    golden = (math.sqrt(5) - 1) / 2
+
+    def dist(s1, s2, f):
+        md, n, e, tvd = arc_point(s1, s2, f)
+        return math.dist((n, e, tvd), point), md, (n, e, tvd)
+
+    for s1, s2 in zip(stations, stations[1:]):
+        if s2["md"] - s1["md"] <= 0:
+            continue
+        samples = 32
+        values = [dist(s1, s2, k / samples) for k in range(samples + 1)]
+        k = min(range(samples + 1), key=lambda i: values[i][0])
+        lo, hi = max(0.0, (k - 1) / samples), min(1.0, (k + 1) / samples)
+        a, b = hi - golden * (hi - lo), lo + golden * (hi - lo)
+        while hi - lo > 1e-9:
+            if dist(s1, s2, a)[0] <= dist(s1, s2, b)[0]:
+                hi, b = b, a
+                a = hi - golden * (hi - lo)
+            else:
+                lo, a = a, b
+                b = lo + golden * (hi - lo)
+        candidate = min([values[k], dist(s1, s2, (lo + hi) / 2)], key=lambda v: v[0])
+        if best is None or candidate[0] < best[0]:
+            best = candidate
+    if best is None:
+        only = stations[0]
+        best = (math.dist((only["north"], only["east"], only["tvd"]), point), only["md"],
+                (only["north"], only["east"], only["tvd"]))
+    distance, md, (north, east, tvd) = best
+    return {"distance": distance, "md": md, "north": north, "east": east, "tvd": tvd}
+
+
+def evaluate_target(stations: Sequence[Dict[str, float]], target: Dict[str, Any]) -> Dict[str, Any]:
+    """Target miss distance on the continuous arc; the closest station is kept for transparency."""
+    point = (float(target["north"]), float(target["east"]), float(target["tvd"]))
+    near = closest_on_path(stations, point)
+    station = min(stations, key=lambda s: math.dist((s["north"], s["east"], s["tvd"]), point))
+    radius = float(target.get("radius", 0) or 0)
+    return {
+        "name": target.get("name", "Target"), "closest_md": near["md"], "distance": near["distance"],
+        "closest_point": {"north": near["north"], "east": near["east"], "tvd": near["tvd"]},
+        "closest_station_md": station["md"],
+        "station_distance": math.dist((station["north"], station["east"], station["tvd"]), point),
+        "radius": radius, "hit": radius > 0 and near["distance"] <= radius,
+        "method": "continuous minimum-curvature arc (golden-section refined)",
+    }

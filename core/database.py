@@ -1943,6 +1943,59 @@ class DDRReportProfile(Base):
     created_at = Column(DateTime, default=_now_utc, nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"))
 
+class DirectionalPlanRevision(Base):
+    """M62: one immutable revision of a directional well plan.
+
+    Inputs and results are written once; a change is a new revision with
+    ``parent_id`` pointing at the revision it came from. Only ``status`` may
+    change afterwards (draft -> approved -> archived), never the plan content.
+    """
+
+    __tablename__ = "directional_plan_revisions"
+    __table_args__ = (UniqueConstraint("plan_key", "revision", name="uq_directional_plan_revision"),)
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"))
+    plan_key = Column(String(64), nullable=False)
+    name = Column(String(200), nullable=False)
+    revision = Column(Integer, nullable=False)
+    parent_id = Column(Integer, ForeignKey("directional_plan_revisions.id", ondelete="SET NULL"))
+    status = Column(String(20), nullable=False, default="draft")
+    method = Column(String(200), nullable=False)
+    method_version = Column(String(100), nullable=False)
+    inputs = Column(JSON, nullable=False)
+    results = Column(JSON, nullable=False)
+    note = Column(Text)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+
+class CalculationCase(Base):
+    """M63: an immutable, named engineering calculation run (insert-only).
+
+    ``inputs`` is the exact input set, ``results`` the displayed outputs, and
+    ``method``/``method_version`` the calculator that produced them. Cloning
+    or recalculating inserts a new case with ``parent_id``; nothing is edited.
+    """
+
+    __tablename__ = "calculation_cases"
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"))
+    wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"))
+    calculator = Column(String(200), nullable=False)
+    name = Column(String(200), nullable=False)
+    method = Column(String(200), nullable=False)
+    method_version = Column(String(100), nullable=False)
+    inputs = Column(JSON, nullable=False)
+    results = Column(JSON, nullable=False)
+    parent_id = Column(Integer, ForeignKey("calculation_cases.id", ondelete="SET NULL"))
+    note = Column(Text)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+
 class PlannedActivity(Base):
     """فعالیت‌های برنامه‌ریزی شده برای هر چاه و سکشن"""
     __tablename__ = "planned_activities"

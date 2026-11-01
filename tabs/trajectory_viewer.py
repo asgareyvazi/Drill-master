@@ -137,7 +137,7 @@ class TrajectoryViewerTab(QWidget):
         self.compare_panel = TrajectoryComparePanel(self.db_manager)     # M52 screening comparison
         self.view_tabs.addTab(self.compare_panel, "Compare / clearance")
         from tabs.well_plan_designer_panel import WellPlanDesignerPanel
-        self.plan_designer = WellPlanDesignerPanel(handover=True)                     # M55 planning aid
+        self.plan_designer = WellPlanDesignerPanel(handover=True, db_manager=self.db_manager)  # M55/M62 planning aid
         self.plan_designer.plan_ready.connect(self.use_designed_plan)
         self.view_tabs.addTab(self.plan_designer, "Plan designer")
         splitter.addWidget(self.view_tabs)
@@ -198,6 +198,9 @@ class TrajectoryViewerTab(QWidget):
     def set_context(self, well_id: Optional[int], report_id: Optional[int] = None):
         well_changed = well_id != self.well_id
         self.well_id, self.report_id = well_id, report_id
+        designer = getattr(self, "plan_designer", None)
+        if designer is not None:
+            designer.set_well(well_id)
         if well_changed:
             self.compare_panel.set_well(well_id)
         self.reload()

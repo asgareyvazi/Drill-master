@@ -116,6 +116,11 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     # M54 report profiles: immutable versions, inserted with the import
     # permission; never updated or deleted (history is the audit trail).
     "ddr_report_profiles": TablePolicy(write=(NOBODY,), delete=(NOBODY,), insert=(IMPORT,)),
+    # M62: plan revisions are inserted by report editors; only the status
+    # column is updated (core.directional_plans enforces content immutability).
+    "directional_plan_revisions": TablePolicy(write=(EDIT,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    # M63: calculation cases are insert-only; they leave only with their well.
+    "calculation_cases": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }

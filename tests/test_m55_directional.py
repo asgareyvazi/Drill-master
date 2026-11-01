@@ -183,11 +183,11 @@ def test_the_designer_panel_designs_exports_and_hands_the_plan_over(app, tmp_pat
     assert "T1: closest 0.0 m at MD 1623.9 m — inside radius" in text
     assert panel.use_btn.isEnabled() and panel.send_to_compare()
     rows, source = received[0]
-    assert source.startswith("Designed plan (M55 plan designer v1)") and rows[-1]["md"] == pytest.approx(1623.903, abs=1e-3)
+    assert source.startswith("Designed plan (M62 plan designer v2)") and rows[-1]["md"] == pytest.approx(1623.903, abs=1e-3)
     out = tmp_path / "plan.csv"
     assert panel.export_csv(str(out))
     lines = list(csv.reader(out.open(encoding="utf-8")))
-    assert lines[0][0].startswith("# M55 plan designer v1; Minimum curvature")
+    assert lines[0][0].startswith("# M62 plan designer v2; Minimum curvature")
     assert lines[1][0].startswith("# WARNING: Segment 2") and lines[2][0] == "MD (m)"
     panel.deleteLater()
 
@@ -259,7 +259,7 @@ def test_the_viewer_sends_a_designed_plan_to_plan_vs_actual(app, vertical_well):
         designer.add_segment("hold", length=900)                 # vertical plan on a vertical well
         assert designer.design().ok and designer.send_to_compare()
         assert viewer.view_tabs.currentWidget() is compare and compare.mode == "plan"
-        assert compare.plan_label.text().startswith("Designed plan (M55 plan designer v1)")
+        assert compare.plan_label.text().startswith("Designed plan (M62 plan designer v2)")
         compare.run()
         assert compare.wait_until_idle()
         assert compare.result.status == tc.ASSESSED and compare.result.kind == "plan_vs_actual"

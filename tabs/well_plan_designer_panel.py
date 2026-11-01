@@ -17,17 +17,27 @@ from typing import Callable, Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel,
-    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGridLayout, QHBoxLayout,
+    QInputDialog, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
+from core import directional_plans as dp
 from core.well_plan_designer import METHOD, PLAN_VERSION, design_plan
+
+try:
+    import pyqtgraph as pg
+except ImportError:  # pragma: no cover  # silent-ok: pyqtgraph is a core requirement; plots then show a message
+    pg = None
 
 logger = logging.getLogger(__name__)
 
 SEGMENT_TYPES = (("hold", "Vertical / hold (length m)"), ("curve", "Build / drop / turn (inc, azi, DLS)"),
                  ("hold_to_tvd", "Hold to TVD (m)"))
 STATION_COLUMNS = ("MD (m)", "Inc (deg)", "Azi (deg)", "TVD (m)", "North (m)", "East (m)", "VS (m)", "DLS (deg/30m)")
+
+
+PLOTS = (("inc", "Inclination (deg) vs MD"), ("azi", "Azimuth (deg) vs MD"),
+         ("dls", "DLS (deg/30 m) vs MD"), ("tvd", "TVD (m) vs MD"))
 
 
 class WellPlanDesignerPanel(QWidget):
@@ -39,12 +49,44 @@ class WellPlanDesignerPanel(QWidget):
     plan_ready = Signal(list, str)
 
     def __init__(self, parent=None, use_plan: Optional[Callable[[list, str], None]] = None,
-                 handover: bool = False):
+                 handover: bool = False, db_manager=None):
         super().__init__(parent)
         self.use_plan = use_plan
         self.handover = bool(handover)
         self.result = None
+        self.db_manager = db_manager
+        self.well_id: Optional[int] = None
+        self.current_plan: Optional[dict] = None      # M62: open saved revision (DTO)
         layout = QVBoxLayout(self)
+
+        # M62: saved, versioned plans of the selected well.
+        library = QHBoxLayout()
+        library.addWidget(QLabel("Saved plans:"))
+        self.plan_combo = QComboBox()
+        self.plan_combo.setMinimumWidth(260)
+        self.plan_combo.currentIndexChanged.connect(self._plan_selection_changed)
+        library.addWidget(self.plan_combo, 1)
+        self.open_plan_btn = QPushButton("Open")
+        self.open_plan_btn.clicked.connect(self._open_clicked)
+        self.save_new_btn = QPushButton("Save as new plan…")
+        self.save_new_btn.clicked.connect(self._save_new_clicked)
+        self.save_rev_btn = QPushButton("Save revision")
+        self.save_rev_btn.setToolTip("Store the current inputs as the next revision; earlier revisions are never changed.")
+        self.save_rev_btn.clicked.connect(self._save_revision_clicked)
+        self.clone_btn = QPushButton("Clone…")
+        self.clone_btn.clicked.connect(self._clone_clicked)
+        self.archive_btn = QPushButton("Archive")
+        self.archive_btn.clicked.connect(self._archive_clicked)
+        self.compare_plan_btn = QPushButton("Compare with open")
+        self.compare_plan_btn.setToolTip("Compare the selected saved revision with the open one.")
+        self.compare_plan_btn.clicked.connect(self._compare_clicked)
+        for button in (self.open_plan_btn, self.save_new_btn, self.save_rev_btn, self.clone_btn,
+                       self.archive_btn, self.compare_plan_btn):
+            library.addWidget(button)
+        layout.addLayout(library)
+        self.plan_status_label = QLabel("No saved plan open.")
+        self.plan_status_label.setWordWrap(True)
+        layout.addWidget(self.plan_status_label)
 
         layout.addWidget(QLabel("Segments (top to bottom). Planning aid — not an approved well plan."))
         self.segment_table = QTableWidget(0, 5)
@@ -101,8 +143,25 @@ class WellPlanDesignerPanel(QWidget):
         self.station_table.setHorizontalHeaderLabels(list(STATION_COLUMNS))
         self.station_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.station_table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.station_table, 1)
+        self.result_tabs = QTabWidget()
+        self.result_tabs.addTab(self.station_table, "Stations")
+        self.plot_widgets = {}
+        if pg is not None:
+            plots = QWidget()
+            grid = QGridLayout(plots)
+            for index, (key, title) in enumerate(PLOTS):
+                widget = pg.PlotWidget(background="w")
+                widget.setTitle(title)
+                widget.setLabel("bottom", "MD (m)")
+                widget.showGrid(x=True, y=True, alpha=0.3)
+                grid.addWidget(widget, index // 2, index % 2)
+                self.plot_widgets[key] = widget
+            self.result_tabs.addTab(plots, "Plots")
+        else:
+            self.result_tabs.addTab(QLabel("Plots need pyqtgraph (a core requirement)."), "Plots")
+        layout.addWidget(self.result_tabs, 1)
         self._set_result_actions(False)
+        self._refresh_plan_actions()
 
     @staticmethod
     def _spin(lo, hi, value, suffix):
@@ -213,8 +272,163 @@ class WellPlanDesignerPanel(QWidget):
                   for t in result.targets]
         lines += [f"WARNING: {w}" for w in result.warnings]
         self.summary_label.setText("\n".join(lines))
+        self._plot(result.stations)
         self._set_result_actions(True)
+        self._refresh_plan_actions()
         return result
+
+    # -- M62 plots -------------------------------------------------------
+    def _plot(self, stations) -> None:
+        md = [s["md"] for s in stations]
+        for key, widget in self.plot_widgets.items():
+            widget.clear()
+            if stations:
+                widget.plot(md, [s[key] for s in stations], pen=pg.mkPen("#1f77b4", width=2))
+        if "tvd" in self.plot_widgets:
+            self.plot_widgets["tvd"].getPlotItem().invertY(True)
+
+    def plot_series(self, key: str) -> list:
+        """Y values currently drawn on the ``key`` plot (for tests and export)."""
+        widget = self.plot_widgets.get(key)
+        if widget is None:
+            return []
+        items = widget.getPlotItem().listDataItems()
+        return list(items[0].yData) if items else []
+
+    # -- M62 saved plans -------------------------------------------------
+    def set_well(self, well_id: Optional[int]) -> None:
+        if well_id != self.well_id:
+            self.current_plan = None
+            self.plan_status_label.setText("No saved plan open.")
+        self.well_id = well_id
+        self.refresh_plans()
+
+    def refresh_plans(self) -> None:
+        self.plan_combo.clear()
+        if self.db_manager is not None and self.well_id:
+            for plan in dp.list_plans(self.db_manager, self.well_id):
+                self.plan_combo.addItem(
+                    f"{plan['name']} — rev {plan['revision']} ({plan['status']})", plan["id"])
+        self._refresh_plan_actions()
+
+    def _refresh_plan_actions(self) -> None:
+        can_store = self.db_manager is not None and bool(self.well_id)
+        designed = self.result is not None and self.result.ok
+        has_selection = self.plan_combo.currentData() is not None
+        self.open_plan_btn.setEnabled(can_store and has_selection)
+        self.save_new_btn.setEnabled(can_store and designed)
+        self.save_rev_btn.setEnabled(can_store and designed and self.current_plan is not None)
+        self.clone_btn.setEnabled(can_store and self.current_plan is not None)
+        self.archive_btn.setEnabled(can_store and self.current_plan is not None)
+        self.compare_plan_btn.setEnabled(can_store and has_selection and self.current_plan is not None)
+
+    def current_inputs(self) -> dict:
+        segments, targets = self.gather()
+        return dp.plan_inputs(segments, targets=targets, step=self.step_spin.value(),
+                              dls_limit=self.dls_limit_spin.value() or None,
+                              vs_azimuth=self.vs_azimuth_spin.value())
+
+    def _show_plan(self, plan: dict, verb: str) -> None:
+        self.current_plan = plan
+        self.plan_status_label.setText(
+            f"{verb} {plan['name']} rev {plan['revision']} ({plan['status']}) — {plan['method_version']}"
+            + (f"; parent revision id {plan['parent_id']}" if plan.get("parent_id") else ""))
+        self.refresh_plans()
+        index = self.plan_combo.findData(plan["id"])
+        if index >= 0:
+            self.plan_combo.setCurrentIndex(index)
+
+    def save_new_plan(self, name: str) -> Optional[dict]:
+        if self.design() is None or not self.result.ok:
+            return None
+        plan = dp.save_plan(self.db_manager, well_id=self.well_id, name=name, inputs=self.current_inputs(),
+                            result=self.result)
+        self._show_plan(plan, "Saved")
+        return plan
+
+    def save_revision(self, note: str = "") -> Optional[dict]:
+        if self.current_plan is None or self.design() is None or not self.result.ok:
+            return None
+        plan = dp.revise_plan(self.db_manager, self.current_plan["id"], self.current_inputs(), note=note)
+        self._show_plan(plan, "Saved revision of")
+        return plan
+
+    def open_plan(self, revision_id: int) -> dict:
+        plan = dp.get_plan(self.db_manager, revision_id)
+        inputs = plan["inputs"]
+        self.segment_table.setRowCount(0)
+        for seg in inputs.get("segments", []):
+            self.add_segment(seg["type"], seg.get("length", seg.get("tvd")), seg.get("inc"), seg.get("azi"),
+                             seg.get("dls"))
+        self.target_table.setRowCount(0)
+        for target in inputs.get("targets", []):
+            self.add_target(target.get("name", "Target"), target["north"], target["east"], target["tvd"],
+                            target.get("radius"))
+        self.step_spin.setValue(float(inputs.get("step", 30.0)))
+        self.dls_limit_spin.setValue(float(inputs.get("dls_limit") or 0.0))
+        self.vs_azimuth_spin.setValue(float(inputs.get("vs_azimuth", 0.0)))
+        self.design()
+        if plan["method_version"] != PLAN_VERSION:
+            self.summary_label.setText(
+                self.summary_label.text() + f"\nNOTE: saved with {plan['method_version']}; redesigned with "
+                f"{PLAN_VERSION}. The stored revision is unchanged.")
+        self._show_plan(plan, "Opened")
+        return plan
+
+    def clone_plan(self, name: str) -> Optional[dict]:
+        if self.current_plan is None:
+            return None
+        plan = dp.clone_plan(self.db_manager, self.current_plan["id"], name)
+        self._show_plan(plan, "Cloned to")
+        return plan
+
+    def archive_plan(self) -> Optional[dict]:
+        if self.current_plan is None:
+            return None
+        plan = dp.set_status(self.db_manager, self.current_plan["id"], "archived")
+        self.current_plan = None
+        self.refresh_plans()
+        self.plan_status_label.setText(f"Archived {plan['name']} rev {plan['revision']}; it is kept read-only.")
+        return plan
+
+    def compare_with(self, revision_id: int) -> Optional[dict]:
+        if self.current_plan is None:
+            return None
+        other = dp.get_plan(self.db_manager, revision_id)
+        report = dp.compare_plans(self.current_plan, other)
+        lines = [f"Compare {report['a']} vs {report['b']}"]
+        lines += [f"input {d['input']}: {d['a']} → {d['b']}" for d in report["inputs"]] or ["inputs identical"]
+        lines += [f"{r['quantity']}: {r['a']} → {r['b']}" + (f" (Δ {r['delta']:+.2f})" if r["delta"] is not None
+                                                            else "") for r in report["results"]]
+        self.plan_status_label.setText("\n".join(lines))
+        return report
+
+    def _plan_selection_changed(self, _index=0):
+        self._refresh_plan_actions()
+
+    def _open_clicked(self, _checked=False):
+        if self.plan_combo.currentData() is not None:
+            self.open_plan(self.plan_combo.currentData())
+
+    def _save_new_clicked(self, _checked=False):
+        name, ok = QInputDialog.getText(self, "Save plan", "Plan name:")
+        if ok and name.strip():
+            self.save_new_plan(name.strip())
+
+    def _save_revision_clicked(self, _checked=False):
+        self.save_revision()
+
+    def _clone_clicked(self, _checked=False):
+        name, ok = QInputDialog.getText(self, "Clone plan", "New plan name:")
+        if ok and name.strip():
+            self.clone_plan(name.strip())
+
+    def _archive_clicked(self, _checked=False):
+        self.archive_plan()
+
+    def _compare_clicked(self, _checked=False):
+        if self.plan_combo.currentData() is not None:
+            self.compare_with(self.plan_combo.currentData())
 
     def plan_rows(self) -> list:
         if self.result is None or not self.result.ok:
