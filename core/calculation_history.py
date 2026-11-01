@@ -53,6 +53,8 @@ class HistoryEntry:
     inputs: Dict[str, Any] = field(default_factory=dict)
     results: Dict[str, Any] = field(default_factory=dict)
     parent: str = ""
+    full_results: Dict[str, Any] = field(default_factory=dict)   # complete stored result (verification)
+    wellbore_id: Optional[int] = None
 
     @property
     def key(self) -> str:
@@ -116,7 +118,8 @@ def _adapters():
         return HistoryEntry("Directional plan", "directional_plan_revisions", row.id, row.well_id,
                             f"{row.name} rev {row.revision} ({row.status})", row.method, row.method_version,
                             row.created_at, "PLANNING AID", row.inputs or {}, headline,
-                            f"revision id {row.parent_id}" if row.parent_id else "")
+                            f"revision id {row.parent_id}" if row.parent_id else "", full_results=results,
+                            wellbore_id=row.wellbore_id)
 
     adapters += [(d.TrajectoryCalculation, trajectory), (d.CalculationCase, case), (d.DirectionalPlanRevision, plan)]
     return adapters
@@ -201,6 +204,17 @@ def _footer(well_label: str) -> str:
             "not a substitute for an engineer's review.</p>")
 
 
+def well_label(db, well_id: Optional[int]) -> str:
+    """Label of the record's OWN well (never the current selection); explicit when unknown."""
+    if well_id is None:
+        return "no well (software-level calculation)"
+    from core.database import Well
+
+    with db.session_scope() as session:
+        well = session.get(Well, well_id)
+        return f"{well.name} (id {well_id})" if well is not None else f"well id {well_id} (deleted)"
+
+
 def render_entry_report(entry: HistoryEntry, *, well_label: str = "") -> str:
     meta = [("Source", entry.source), ("Record", entry.key), ("Name", entry.name), ("Method", entry.method),
             ("Method version", entry.version), ("Created", entry.to_row()["created_at"]), ("Scope", entry.scope),
@@ -261,34 +275,57 @@ def recalculate_entry(entry: HistoryEntry) -> Dict[str, Any]:
                 "current_method": getattr(recalc, "method", "") or "", "detail": outcome.detail or "",
                 "values": dict(recalc.values) if getattr(recalc, "success", False) else {}}
     if entry.table == "directional_plan_revisions":
-        from core.directional_plans import run_inputs
-        from core.well_plan_designer import PLAN_VERSION
+        from core.directional_plans import verify_plan_record
 
-        result = run_inputs(entry.inputs)
-        if not result.ok:
-            return {"status": "NOT_REPRODUCIBLE", "method_matches": entry.version == PLAN_VERSION,
-                    "current_method": PLAN_VERSION, "detail": result.error, "values": {}}
-        last = result.stations[-1]
-        values = {"stations": len(result.stations), "td_md": last["md"], "td_tvd": last["tvd"],
-                  "max_dls": max(s["dls"] for s in result.stations), "targets": result.targets,
-                  "warnings": result.warnings}
-        same = all(abs(float(values[k]) - float(entry.results.get(k, float("nan")))) <= 1e-6
-                   for k in ("td_md", "td_tvd", "max_dls"))
-        return {"status": "MATCH" if same else "DIFFERENT", "method_matches": entry.version == PLAN_VERSION,
-                "current_method": PLAN_VERSION, "detail": "", "values": values}
+        return verify_plan_record(entry.inputs, entry.full_results, entry.version)
     return {"status": "NOT_REPRODUCIBLE", "method_matches": None, "current_method": "",
             "detail": f"No recalculation adapter for {entry.source}; reopen it in its calculator instead.",
             "values": {}}
 
 
+def lineage(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
+    """Structured lineage of an entry: its source (for a case) and the cases derived from it.
+
+    Each item: ``direction`` (source/derived), ``key`` (``table:id`` of the other
+    record), ``label`` and the link fields.
+    """
+    from core.calculation_cases import derived_cases, source_links
+
+    items: List[Dict[str, Any]] = []
+    if entry.table == "calculation_cases":
+        for link in source_links(db, entry.record_id):
+            changed = "; METHOD CHANGED" if link["method_changed"] else ""
+            items.append(dict(link, direction="source", key=f"{link['source_table']}:{link['source_id']}",
+                              label=f"Source: {link['source_table']} #{link['source_id']} "
+                                    f"({link['link_type']}, {link['verification_status']}{changed})"))
+    for link in derived_cases(db, entry.table, entry.record_id):
+        changed = "; METHOD CHANGED" if link["method_changed"] else ""
+        items.append(dict(link, direction="derived", key=f"calculation_cases:{link['case_id']}",
+                          label=f"Derived: case #{link['case_id']} ({link['link_type']}, "
+                                f"{link['verification_status']}{changed})"))
+    return items
+
+
 def save_recalculation(db, entry: HistoryEntry, outcome: Dict[str, Any]) -> Dict[str, Any]:
-    """Store a recalculation as a NEW calculation case linked to the original by note."""
+    """Store a recalculation as a NEW calculation case with structured lineage to the original.
+
+    The case and its ``calculation_source_links`` row are written in one
+    transaction; the source must still exist and belong to the same well. The
+    original record is never written.
+    """
     from core.calculation_cases import save_case
 
     if not outcome.get("values"):
         raise ValueError(f"Nothing to store: recalculation status {outcome.get('status')}.")
+    method_changed = outcome.get("method_matches") is False
     note = (f"Recalculated from {entry.key} ({entry.version}); verification {outcome['status']}"
-            + ("" if outcome.get("method_matches") in (True, None) else "; METHOD CHANGED since the original"))
-    return save_case(db, calculator=f"{entry.source} recalculation", name=f"{entry.name} (recalc)",
-                     inputs=entry.inputs, results=outcome["values"], method=outcome.get("current_method") or entry.method,
-                     method_version=outcome.get("current_method") or entry.version, well_id=entry.well_id, note=note)
+            + ("; METHOD CHANGED since the original" if method_changed else ""))
+    current = outcome.get("current_method") or entry.method
+    return save_case(
+        db, calculator=f"{entry.source} recalculation", name=f"{entry.name} (recalc)", inputs=entry.inputs,
+        results=outcome["values"], method=current, method_version=outcome.get("current_method") or entry.version,
+        well_id=entry.well_id, wellbore_id=entry.wellbore_id, note=note,
+        source_link={"link_type": "recalculation_of", "source_table": entry.table, "source_id": entry.record_id,
+                     "source_method": entry.method, "source_method_version": entry.version,
+                     "recalc_method": current, "recalc_method_version": outcome.get("current_method") or "",
+                     "verification_status": outcome["status"], "method_changed": method_changed})

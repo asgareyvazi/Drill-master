@@ -37,7 +37,14 @@ def _dto(row) -> Dict[str, Any]:
 def save_case(db, *, calculator: str, name: str, inputs: Dict[str, Any], results: Dict[str, Any],
               method: str = "", method_version: str = W13_UNVERSIONED, well_id: Optional[int] = None,
               wellbore_id: Optional[int] = None, parent_id: Optional[int] = None, note: str = "",
-              user_id: Optional[int] = None) -> Dict[str, Any]:
+              user_id: Optional[int] = None, source_link: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Insert one immutable case; with ``source_link`` also its structured lineage (same transaction).
+
+    ``source_link``: ``link_type``, ``source_table``, ``source_id``,
+    ``verification_status`` and optionally ``source_method``,
+    ``source_method_version``, ``recalc_method``, ``recalc_method_version``,
+    ``method_changed``. The source row must exist and belong to ``well_id``.
+    """
     from core.database import CalculationCase
 
     if not str(calculator or "").strip():
@@ -54,7 +61,81 @@ def save_case(db, *, calculator: str, name: str, inputs: Dict[str, Any], results
         )
         session.add(row)
         session.flush()
+        if source_link is not None:
+            _add_source_link(session, row, source_link)
         return _dto(row)
+
+
+LINK_TYPES = ("recalculation_of", "rerun_of", "clone_of")
+
+
+def _source_row(session, table: str, record_id: int):
+    from core.database import Base
+
+    by_table = {mapper.class_.__tablename__: mapper.class_ for mapper in Base.registry.mappers}
+    model = by_table.get(table)
+    if model is None:
+        raise ValueError(f"Unknown lineage source table {table!r}.")
+    return session.get(model, record_id)
+
+
+def _add_source_link(session, case_row, link: Dict[str, Any]) -> None:
+    from core.database import CalculationSourceLink
+
+    link_type = link.get("link_type", "recalculation_of")
+    if link_type not in LINK_TYPES:
+        raise ValueError(f"Unknown lineage type {link_type!r}.")
+    table, record_id = str(link.get("source_table") or ""), link.get("source_id")
+    if not table or not isinstance(record_id, int):
+        raise ValueError("A lineage link needs the source table and record id.")
+    if not link.get("verification_status"):
+        raise ValueError("A lineage link needs a verification status.")
+    source = _source_row(session, table, record_id)
+    if source is None:
+        raise LookupError(f"Lineage source {table}:{record_id} does not exist.")
+    source_well = getattr(source, "well_id", None)
+    if source_well != case_row.well_id:
+        raise ValueError(f"Lineage source {table}:{record_id} belongs to well {source_well}, "
+                         f"not to the case's well {case_row.well_id}.")
+    session.add(CalculationSourceLink(
+        case_id=case_row.id, link_type=link_type, source_table=table, source_id=record_id,
+        source_well_id=source_well, source_wellbore_id=getattr(source, "wellbore_id", None),
+        source_method=link.get("source_method"), source_method_version=link.get("source_method_version"),
+        recalc_method=link.get("recalc_method"), recalc_method_version=link.get("recalc_method_version"),
+        verification_status=str(link["verification_status"]), method_changed=bool(link.get("method_changed")),
+    ))
+    session.flush()
+
+
+def _link_dto(row) -> Dict[str, Any]:
+    return {"id": row.id, "case_id": row.case_id, "link_type": row.link_type, "source_table": row.source_table,
+            "source_id": row.source_id, "source_well_id": row.source_well_id,
+            "source_wellbore_id": row.source_wellbore_id, "source_method": row.source_method,
+            "source_method_version": row.source_method_version, "recalc_method": row.recalc_method,
+            "recalc_method_version": row.recalc_method_version,
+            "verification_status": row.verification_status, "method_changed": bool(row.method_changed),
+            "created_at": row.created_at.isoformat() if row.created_at else None}
+
+
+def source_links(db, case_id: int) -> list:
+    """Where a case came from (structured lineage)."""
+    from core.database import CalculationSourceLink
+
+    with db.session_scope() as session:
+        rows = session.query(CalculationSourceLink).filter(CalculationSourceLink.case_id == case_id) \
+            .order_by(CalculationSourceLink.id).all()
+        return [_link_dto(r) for r in rows]
+
+
+def derived_cases(db, source_table: str, source_id: int) -> list:
+    """Cases derived from one history record (recalculations, re-runs, clones), oldest first."""
+    from core.database import CalculationSourceLink
+
+    with db.session_scope() as session:
+        rows = session.query(CalculationSourceLink).filter(
+            CalculationSourceLink.source_table == source_table, CalculationSourceLink.source_id == source_id) \
+            .order_by(CalculationSourceLink.id).all()
+        return [_link_dto(r) for r in rows]
 
 
 def get_case(db, case_id: int) -> Dict[str, Any]:
@@ -127,4 +208,10 @@ def record_rerun(db, original: Dict[str, Any], results: Dict[str, Any], *, input
     return save_case(db, calculator=original["calculator"], name=name or f"{original['name']} (recalc)",
                      inputs=inputs if inputs is not None else original["inputs"], results=results,
                      method=original["method"], method_version=method_version, well_id=original["well_id"],
-                     wellbore_id=original["wellbore_id"], parent_id=original["id"], note=note)
+                     wellbore_id=original["wellbore_id"], parent_id=original["id"], note=note,
+                     source_link={"link_type": "rerun_of", "source_table": "calculation_cases",
+                                  "source_id": original["id"], "source_method": original["method"],
+                                  "source_method_version": original["method_version"],
+                                  "recalc_method": original["method"], "recalc_method_version": method_version,
+                                  "verification_status": "RERUN",
+                                  "method_changed": method_version != original["method_version"]})

@@ -82,6 +82,15 @@ class CalculationHistoryTab(QWidget):
         for button in (self.compare_btn, self.recalc_btn, self.save_recalc_btn, self.report_btn, self.export_btn):
             actions.addWidget(button)
         layout.addLayout(actions)
+        lineage = QHBoxLayout()
+        lineage.addWidget(QLabel("Lineage:"))
+        self.lineage_combo = QComboBox()
+        self.lineage_combo.setToolTip("Where the selected calculation came from, and the cases derived from it.")
+        self.open_linked_btn = QPushButton("Open linked")
+        self.open_linked_btn.clicked.connect(self._open_linked_clicked)
+        lineage.addWidget(self.lineage_combo, 1)
+        lineage.addWidget(self.open_linked_btn)
+        layout.addLayout(lineage)
         self.status = QLabel("")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -89,10 +98,30 @@ class CalculationHistoryTab(QWidget):
 
     # -- data ---------------------------------------------------------------
     def set_well(self, well_id: Optional[int], _well_data=None) -> None:
-        self.well_id = well_id
-        self.refresh()
+        """Follow the selection; a hidden tab reloads when it is shown (M70.7)."""
+        self.well_id = well_id or None
+        self._stale = True
+        if self.isVisible():
+            self.refresh()
+        else:
+            self.entries = []
+            self.table.setRowCount(0)
+            self.detail.clear()
+            self.last_outcome = None
+            self._load_lineage(None)
+            self._update_actions()
+
+    def clear_selection(self) -> None:
+        """The selection was cleared (e.g. the well was deleted): drop everything shown."""
+        self.set_well(None)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if getattr(self, "_stale", False):
+            self.refresh()
 
     def refresh(self) -> None:
+        self._stale = False
         self.entries = []
         if self.db is not None:
             well = self.well_id if self.well_only.isChecked() else None
@@ -110,6 +139,7 @@ class CalculationHistoryTab(QWidget):
                 self.table.setItem(row, col, QTableWidgetItem(str(data[key])))
         self.detail.clear()
         self.last_outcome = None
+        self._load_lineage(None)
         self._update_actions()
 
     def selected(self) -> List[ch.HistoryEntry]:
@@ -136,9 +166,10 @@ class CalculationHistoryTab(QWidget):
     def report_html(self) -> str:
         chosen = self.selected()
         if len(chosen) == 1:
-            return ch.render_entry_report(chosen[0])
+            return ch.render_entry_report(chosen[0], well_label=ch.well_label(self.db, chosen[0].well_id))
         if len(chosen) == 2:
-            return ch.render_comparison_report(chosen[0], chosen[1])
+            labels = {ch.well_label(self.db, e.well_id) for e in chosen}
+            return ch.render_comparison_report(chosen[0], chosen[1], well_label=" / ".join(sorted(labels)))
         return ""
 
     def compare(self) -> Optional[dict]:
@@ -194,8 +225,42 @@ class CalculationHistoryTab(QWidget):
         chosen = self.selected()
         self.last_outcome = None
         if len(chosen) == 1:
-            self.detail.setHtml(ch.render_entry_report(chosen[0]))
+            self.detail.setHtml(self.report_html())
+        self._load_lineage(chosen[0] if len(chosen) == 1 else None)
         self._update_actions()
+
+    # -- lineage (M70.5) ------------------------------------------------------
+    def _load_lineage(self, entry: Optional[ch.HistoryEntry]) -> None:
+        self.lineage_combo.clear()
+        if entry is None or self.db is None:
+            self.open_linked_btn.setEnabled(False)
+            return
+        for link in ch.lineage(self.db, entry):
+            self.lineage_combo.addItem(link["label"], link["key"])
+        if not self.lineage_combo.count():
+            self.lineage_combo.addItem("No linked calculations", None)
+        self.open_linked_btn.setEnabled(self.lineage_combo.currentData() is not None)
+
+    def open_linked(self, key: Optional[str] = None) -> bool:
+        """Select the linked record; filters that hide it are cleared first."""
+        key = key or self.lineage_combo.currentData()
+        if not key:
+            return False
+        rows = [i for i, e in enumerate(self.entries) if e.key == key]
+        if not rows:
+            self.source_combo.setCurrentIndex(0)
+            self.text_edit.clear()
+            self.refresh()
+            rows = [i for i, e in enumerate(self.entries) if e.key == key]
+        if not rows:
+            self.status.setText(f"{key} is not available (deleted, or outside the selected well).")
+            return False
+        self.select_rows(rows[:1])
+        self.table.scrollToItem(self.table.item(rows[0], 0))
+        return True
+
+    def _open_linked_clicked(self, _checked=False):
+        self.open_linked()
 
     def _refresh_clicked(self, *_):
         self.refresh()
