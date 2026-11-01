@@ -113,6 +113,9 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     # Document links (M45): curated with the library permission; they also
     # leave with an audited report or well delete (report-child sweep).
     "document_links": TablePolicy(write=(IMPORT,), delete=(IMPORT, DELETE_REPORTS, DELETE_WELL)),
+    # M54 report profiles: immutable versions, inserted with the import
+    # permission; never updated or deleted (history is the audit trail).
+    "ddr_report_profiles": TablePolicy(write=(NOBODY,), delete=(NOBODY,), insert=(IMPORT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }

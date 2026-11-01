@@ -161,6 +161,10 @@ class ImportPreviewDialog(QDialog):
                 "color: #7a4b00; background: #fff4e0; padding: 6px; border-radius: 4px;"
             )
             layout.addWidget(self.pdf_state_label)
+        profile_info = report.get("profile")
+        self.profile_label = QLabel(self.profile_summary(profile_info))
+        self.profile_label.setStyleSheet("color: #2c3e50; padding: 2px 4px;")
+        layout.addWidget(self.profile_label)
         self._add_pdf_split_section(layout, report)
 
         # Table
@@ -241,6 +245,13 @@ class ImportPreviewDialog(QDialog):
         self.table.setSortingEnabled(True)
         self.table.resizeColumnsToContents()
         layout.addWidget(self.table, 1)
+        # M54 review workspace: full provenance of the selected field.
+        self.detail_label = QLabel("Select a row to see its source, mapping, confidence and warning.")
+        self.detail_label.setWordWrap(True)
+        self.detail_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.detail_label.setStyleSheet("background: #f4f6f7; padding: 6px; border-radius: 4px;")
+        layout.addWidget(self.detail_label)
+        self.table.currentCellChanged.connect(self._show_field_detail)
 
         # Action buttons as per spec
         btn_layout = QHBoxLayout()
@@ -308,6 +319,51 @@ class ImportPreviewDialog(QDialog):
         ranges = ", ".join(s["page_range"] for s in split.get("segments", []))
         return (f"This PDF holds {len(split['segments'])} daily reports (pages {ranges}). Importing it as one "
                 "report would mix them. Save one PDF per report and import each one.")
+
+    @staticmethod
+    def profile_summary(profile_info):
+        if not profile_info:
+            return "Report profile: none — canonical aliases only."
+        count = len(profile_info.get("mappings") or [])
+        return (f"Report profile: {profile_info.get('name')} v{profile_info.get('version')} — "
+                f"{count} column/label mapping(s) came from the profile.")
+
+    @staticmethod
+    def field_detail_text(payload, profile_info=None):
+        """Plain-text provenance of one review row (source → decision)."""
+        if not payload:
+            return "Validation issue row — see the Decision column."
+        location = payload.get("source") if isinstance(payload.get("source"), dict) else {}
+        target = payload.get("target_field", payload.get("canonical_field", ""))
+        method = payload.get("mapping_method") or "canonical mapper"
+        for hit in (profile_info or {}).get("mappings") or []:
+            if hit.get("field") == target:
+                method = f"report profile {hit.get('profile')} v{hit.get('version')} (label '{hit.get('label')}')"
+                break
+        confidence = payload.get("confidence")
+        warning = (payload.get("review_reason") or payload.get("reason") or payload.get("message")
+                   or payload.get("warning") or "none")
+        page = payload.get("page", location.get("page", location.get("source_page", "")))
+        parts = [
+            f"Source: {payload.get('sheet', payload.get('file', '')) or '—'}"
+            + (f", page {page}" if page not in (None, "") else "")
+            + f", cell {payload.get('source_cell', '') or '—'}",
+            f"Original: {payload.get('original_value', payload.get('source_value', '')) or '—'}",
+            f"Normalized: {payload.get('normalized_value', payload.get('value', '')) or '—'} {payload.get('unit', '') or ''}".rstrip(),
+            f"Target field: {target or 'unmapped'}  |  Mapped by: {method}",
+            "Confidence: " + (f"{float(confidence):.0%}" if confidence not in (None, "") else "not assessed"),
+            f"Warning: {warning}",
+            f"Decision: {payload.get('decision', 'REVIEW')}",
+        ]
+        return "\n".join(parts)
+
+    def _show_field_detail(self, row, _col=0, _prev_row=0, _prev_col=0):
+        item = self.table.item(row, 0) if row is not None and row >= 0 else None
+        if item is None:
+            return
+        index = item.data(Qt.UserRole)
+        payload = self._row_payloads[index] if isinstance(index, int) and index < len(self._row_payloads) else None
+        self.detail_label.setText(self.field_detail_text(payload, (self.import_report or {}).get("profile")))
 
     @staticmethod
     def pdf_extraction_note(report):
@@ -667,6 +723,20 @@ class ExcelImportDialog(QDialog, DDRImportService):
         ai_row.addWidget(self.ai_model_combo, 1)
         il.addLayout(ai_row)
 
+        # M54: optional versioned report profile used as mapping context.
+        profile_row = QHBoxLayout()
+        profile_row.addWidget(QLabel("Report profile:"))
+        self.profile_combo = QComboBox()
+        self.profile_combo.setToolTip(
+            "Profile aliases are tried before the canonical aliases; every profile mapping is shown in the preview."
+        )
+        profile_row.addWidget(self.profile_combo, 1)
+        self.profiles_btn = QPushButton("Manage profiles…")
+        self.profiles_btn.clicked.connect(self._open_profile_editor)
+        profile_row.addWidget(self.profiles_btn)
+        il.addLayout(profile_row)
+        self.refresh_profile_choices()
+
         import_btn = QPushButton("📥 Import Report(s) - With Preview")
         import_btn.setStyleSheet(
             "background: #27ae60; color: white; padding: 14px; "
@@ -691,6 +761,35 @@ class ExcelImportDialog(QDialog, DDRImportService):
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
         layout.addWidget(cancel_btn)
+
+    def refresh_profile_choices(self, select_key=None):
+        combo = getattr(self, "profile_combo", None)
+        if combo is None:
+            return
+        current = select_key or (combo.currentData().key if combo.currentData() is not None else None)
+        combo.clear()
+        combo.addItem("None — canonical aliases only", None)
+        try:
+            from core.ddr_report_profiles import list_latest_profiles
+            profiles = list_latest_profiles(self.db) if self.db is not None else []
+        except Exception as exc:
+            logger.error("Report profiles unavailable: %s", exc)
+            profiles = []
+        for profile in profiles:
+            combo.addItem(profile.label(), profile)
+            if profile.key == current:
+                combo.setCurrentIndex(combo.count() - 1)
+
+    def active_profile(self):
+        combo = getattr(self, "profile_combo", None)
+        return combo.currentData() if combo is not None else None
+
+    def _open_profile_editor(self):
+        from core.permissions import permissions as _perms
+        from dialogs.ddr_profile_dialog import ReportProfileDialog
+        dialog = ReportProfileDialog(self.db, self, user_id=_perms.user_id)
+        dialog.exec()
+        self.refresh_profile_choices()
 
     def _select_ai_model(self, index):
         model = self.ai_model_combo.itemData(index) if hasattr(self, "ai_model_combo") else None
@@ -791,7 +890,9 @@ class ExcelImportDialog(QDialog, DDRImportService):
         """Return canonical data and review metadata for a successful parse."""
         if not parse_result or not parse_result.success or parse_result.document is None:
             raise MinerUError(parse_result.error if parse_result else "MinerU produced no result")
-        normalized = DocumentNormalizer().normalize(parse_result.document)
+        profile = self.active_profile() if hasattr(self, "active_profile") else None
+        normalizer = DocumentNormalizer(profile=profile)
+        normalized = normalizer.normalize(parse_result.document)
         if not normalized.validation.valid:
             raise MinerUNormalizationError(
                 "MinerU output failed canonical schema validation: "
@@ -858,6 +959,12 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 or {}
             ),
             "fallback_diagnostics": fallback_diagnostics or {},
+            # M54: which report profile (if any) supplied mappings.
+            "profile": (
+                {"key": profile.key, "version": profile.version, "name": profile.name,
+                 "mappings": list(normalizer.profile_mappings)}
+                if profile is not None else None
+            ),
         }
         logger.info(
             "MinerU normalized: file=%s pages=%d tables=%d fields=%d warnings=%d",

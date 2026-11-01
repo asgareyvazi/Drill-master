@@ -1215,6 +1215,31 @@ class DocumentNormalizer:
     the header or value before a unit-bearing number can enter canonical data.
     """
 
+    def __init__(self, profile=None):
+        # M54: optional versioned report profile (core.ddr_report_profiles).
+        # Profile aliases are tried first; every hit is recorded for review.
+        self.profile = profile
+        self.profile_mappings: list[dict[str, Any]] = []
+
+    def _resolve_mapped(self, label: str, context: str = "") -> Optional[str]:
+        profile = getattr(self, "profile", None)
+        if profile is not None:
+            hit = profile.resolve(label)
+            if hit:
+                self.profile_mappings.append(
+                    {"label": str(label), "field": hit, "profile": profile.key, "version": profile.version}
+                )
+                return hit
+        return self._resolve_field(label, context)
+
+    def _profile_header(self, header: str, field_path: Optional[str]) -> str:
+        """Header with the profile's declared source unit when the header has none."""
+        profile = getattr(self, "profile", None)
+        unit = profile.source_unit(field_path) if profile is not None and field_path else None
+        if unit and not re.search(r"[\[(].*[\])]\s*$", str(header)):
+            return f"{header} ({unit})"
+        return header
+
     _UNIT_ALIASES = {
         "ppg": "ppg", "lb/gal": "ppg", "lbgal": "ppg",
         "pcf": "pcf", "lb/ft3": "lb/ft3", "lb/ft³": "lb/ft3",
@@ -1384,11 +1409,11 @@ class DocumentNormalizer:
             table_fields: list[Optional[str]] = []
             table_context = f"{table.name} {' '.join(headers)}".lower()
             for header in headers:
-                field_path = self._resolve_field(header, table_context)
+                field_path = self._resolve_mapped(header, table_context)
                 if field_path is None:
                     # Units are mapping context, not part of the alias.
                     stripped_header = re.sub(r"\s*[\[(].*?[\])]?\s*$", "", str(header)).strip()
-                    field_path = self._resolve_field(stripped_header, table_context)
+                    field_path = self._resolve_mapped(stripped_header, table_context)
                 table_fields.append(field_path)
                 if field_path is None and header.strip():
                     warnings.append(
@@ -1433,7 +1458,9 @@ class DocumentNormalizer:
                         spec = FIELD_SPECS.get(field_path)
                         normalized_value = value
                         normalization = (
-                            self._normalize_document_value(value, field_path, headers[index])
+                            self._normalize_document_value(
+                                value, field_path, self._profile_header(headers[index], field_path)
+                            )
                             if spec is not None else None
                         )
                         if normalization is not None:
@@ -1768,7 +1795,7 @@ class DocumentNormalizer:
         label, value = match.groups()
         # The label's surrounding page/table headings are part of the mapping
         # decision. Bare ambiguous labels stay unresolved for review.
-        return self._resolve_field(label, context or label), value.strip()
+        return self._resolve_mapped(label, context or label), value.strip()
 
     def _storage_key(self, context: str, fields: list[Optional[str]]) -> str:
         sections = [field_path.split(".", 1)[0] for field_path in fields if field_path]

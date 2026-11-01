@@ -1925,6 +1925,24 @@ class ExportTemplate(Base):
 
     creator = relationship("User", foreign_keys=[created_by])
 
+
+class DDRReportProfile(Base):
+    """M54: one immutable version of a DDR report profile (insert-only)."""
+
+    __tablename__ = "ddr_report_profiles"
+    __table_args__ = (UniqueConstraint("profile_key", "version", name="uq_ddr_report_profile_version"),)
+
+    id = Column(Integer, primary_key=True)
+    profile_key = Column(String(100), nullable=False)
+    version = Column(Integer, nullable=False)
+    name = Column(String(200), nullable=False)
+    operator = Column(String(200))
+    report_format = Column(String(20), nullable=False, default="any")
+    payload = Column(JSON, nullable=False)
+    note = Column(Text)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
 class PlannedActivity(Base):
     """فعالیت‌های برنامه‌ریزی شده برای هر چاه و سکشن"""
     __tablename__ = "planned_activities"
