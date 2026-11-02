@@ -259,3 +259,13 @@ OWNER REVIEW REQUIRED. Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT 
 | Lineage navigation | PASS | Case source / derived links plus revision parent / child (survey, architecture, plan, case) and architecture uses / survey used by. "Open linked" now jumps to the record's own page (it previously failed for records outside the current page) |
 | Still captured-only | PARTIAL | Trajectory calculations (legacy, unversioned) and the 20 NOT_SUPPORTED W13 calculators remain NOT REPRODUCIBLE, with the reason shown |
 
+### M89 – Architecture ↔ casing and cement worksheet
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Immutable wellbore-scoped architecture revisions | PASS (M74) | `core/well_architecture.py`, immutability trigger, SHA-256 on read; history source since M88 |
+| Casing strength records the architecture revision and the origin of every input | PASS | W13 CSG/CMT "Load from architecture" (`casing_inputs`): OD/ID/weight `architecture`, wall `derived` (OD−ID)/2, yield always `unknown` until entered (`user`; never inferred from the grade); a value edited after loading becomes `user`; required unknowns refuse the calculation; snapshot `source` holds revision id/number/SHA-256/string/provenance; a run for another well cannot be saved. Engine is the TR 5C3 subset (SCREENING). `tests/test_m89_architecture_casing_cement.py` |
+| Cement worksheet: segment geometry, declared caliper, explicit excess, History | PASS (WORKSHEET) | Segments by outer boundary with `outer_source` (casing ID / declared average caliper / entered open hole / recorded hole size / unknown); excess on open hole only and only when declared ("none" ≠ 0 %); case `m89.cement_annulus` v1 with wellbore and lineage "uses architecture revision" |
+| Lineage architecture ↔ casing / cement | PASS | `uses` / `used_by` in the History lineage combo |
+| Cement worksheet re-run | NOT IMPLEMENTED | Worksheet cases are captured only (NOT REPRODUCIBLE, reason shown) |
+

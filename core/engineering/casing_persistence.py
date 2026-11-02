@@ -26,6 +26,7 @@ Design rules honored:
 """
 from __future__ import annotations
 
+import json
 import math
 from typing import Any, Dict, Mapping, Optional
 
@@ -67,13 +68,19 @@ def _clean_number(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
-def build_snapshot(*, inputs: Mapping[str, Any], method: str) -> Dict[str, Any]:
+def build_snapshot(*, inputs: Mapping[str, Any], method: str,
+                   source: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     """Build the deterministic historical input snapshot for one casing run.
 
     ``inputs`` is the exact kwargs mapping used to call ``CasingEngine.evaluate``.
     Numeric fields are frozen exactly (no rounding); ``None`` optional loads are
     preserved as ``None`` so reconstruction reproduces the identical call. The
     returned dict is JSON-serializable and self-contained.
+
+    M89: ``source`` (optional) records where the inputs came from - the
+    architecture revision id / number / SHA-256 and string, and the origin of
+    every value (architecture / derived / preset / user). It is provenance
+    only: reconstruction never reads it, so the schema version is unchanged.
     """
     params: Dict[str, Any] = {}
     for key in _ENGINE_PARAMS:
@@ -81,11 +88,14 @@ def build_snapshot(*, inputs: Mapping[str, Any], method: str) -> Dict[str, Any]:
     for key in _ENGINE_TEXT_PARAMS:
         val = inputs.get(key)
         params[key] = str(val) if val not in (None, "") else ""
-    return {
+    snapshot: Dict[str, Any] = {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "method": method,
         "parameters": params,
     }
+    if source:
+        snapshot["source"] = json.loads(json.dumps(dict(source), sort_keys=True, default=str))
+    return snapshot
 
 
 def snapshot_to_engine_args(snapshot: Mapping[str, Any]) -> Dict[str, Any]:

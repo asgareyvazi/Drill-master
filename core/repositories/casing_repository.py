@@ -92,6 +92,7 @@ class CasingCalculationRepository(BaseRepository):
         label: str = "",
         well_id: Optional[int] = None,
         created_by: Optional[int] = None,
+        source: Optional[Mapping[str, Any]] = None,
     ) -> int:
         """Persist ONE casing run as an immutable historical record; returns id.
 
@@ -100,7 +101,7 @@ class CasingCalculationRepository(BaseRepository):
         ``session_scope`` unit of work so a failure leaves no partial row. Each
         call is a distinct run — never deduplicated.
         """
-        snapshot = build_snapshot(inputs=inputs, method=method)
+        snapshot = build_snapshot(inputs=inputs, method=method, source=source)
         summary = result_summary(result_values or {})
 
         with self.db.session_scope() as session:

@@ -512,13 +512,37 @@ _PARENT_CHAINS = {"survey_revisions": "Survey revision", "well_architecture_revi
                   "directional_plan_revisions": "Plan revision", "calculation_cases": "Case"}
 
 
+def architecture_ref(inputs: Dict[str, Any]) -> Optional[int]:
+    """M89: the architecture revision a casing run (snapshot ``source``) or cement worksheet case used."""
+    source = inputs.get("source") if isinstance(inputs.get("source"), dict) else {}
+    value = source.get("architecture_revision_id", inputs.get("architecture_revision_id"))
+    if isinstance(value, dict):                    # calculation-case inputs are {label, value}
+        value = value.get("value")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _architecture_users(session, d, revision_id: int, well_id: Optional[int]) -> List[str]:
+    keys = []
+    for model, column in ((d.CasingCalculationRecord, "input_snapshot_json"), (d.CalculationCase, "inputs")):
+        rows = session.query(model.id, getattr(model, column)).filter(model.well_id == well_id).order_by(model.id)
+        keys += [f"{model.__tablename__}:{rid}" for rid, data in rows if architecture_ref(_json(data)) == revision_id]
+    return keys
+
+
 def _revision_links(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
-    """M88: parent / child revisions of the same kind and the architecture <-> survey link."""
+    """M88: parent / child revisions of the same kind and the architecture <-> survey link.
+
+    M89: casing runs and cement worksheets that used an architecture revision
+    (``uses`` / ``used_by``)."""
     from core import database as d
 
+    items: List[Dict[str, Any]] = []
+    used = architecture_ref(entry.inputs) if entry.table in ("casing_calculations", "calculation_cases") else None
+    if used is not None:
+        items.append({"direction": "uses", "key": f"well_architecture_revisions:{used}",
+                      "label": f"Uses: architecture revision id {used}"})
     models = {"survey_revisions": d.SurveyRevision, "well_architecture_revisions": d.WellArchitectureRevision,
               "directional_plan_revisions": d.DirectionalPlanRevision, "calculation_cases": d.CalculationCase}
-    items: List[Dict[str, Any]] = []
     model = models.get(entry.table)
     if model is None:
         return items
@@ -536,6 +560,9 @@ def _revision_links(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
         if entry.table == "well_architecture_revisions" and row.survey_revision_id:
             items.append({"direction": "uses", "key": f"survey_revisions:{row.survey_revision_id}",
                           "label": f"Uses: survey revision id {row.survey_revision_id}"})
+        if entry.table == "well_architecture_revisions":
+            for key in _architecture_users(session, d, row.id, row.well_id):
+                items.append({"direction": "used_by", "key": key, "label": f"Used by: {key.replace(':', ' #')}"})
         if entry.table == "survey_revisions":
             arch = d.WellArchitectureRevision
             for used in session.query(arch.id).filter(arch.survey_revision_id == row.id).order_by(arch.id):

@@ -7,6 +7,7 @@ Engineering Calculator - ادغام شده از نرم‌افزار قبلی
 import math
 import logging
 import os
+from typing import Optional
 
 import pandas as pd
 
@@ -3763,6 +3764,24 @@ class EngineeringCalculatorTab(DrillTabBase):
         select_btn.clicked.connect(self._csg_select_from_db)
         g1_lay.addWidget(select_btn)
 
+        # M89: inputs from the selected well's latest architecture revision, with the origin of each value
+        arch_row = QHBoxLayout()
+        self.csg_arch_string = QComboBox()
+        self.csg_arch_string.setToolTip("Casing, liner and tubing strings of the latest architecture revision "
+                                        "of the selected well.")
+        self.csg_arch_btn = QPushButton("🏗 Load from architecture")
+        self.csg_arch_btn.setToolTip("Fill OD / ID / weight from the well architecture revision and derive the "
+                                     "wall; the yield strength is never inferred from the grade.")
+        self.csg_arch_btn.clicked.connect(self._csg_arch_clicked)
+        arch_row.addWidget(QLabel("Architecture string:"))
+        arch_row.addWidget(self.csg_arch_string, 1)
+        arch_row.addWidget(self.csg_arch_btn)
+        g1_lay.addLayout(arch_row)
+        self.csg_source_label = QLabel(self._CSG_MANUAL_SOURCE)
+        self.csg_source_label.setWordWrap(True)
+        g1_lay.addWidget(self.csg_source_label)
+        self._csg_origin = None
+
         csg_form = QFormLayout()
         self.csg_od = self._make_dspin(9.625, 0, 50, 3, " in")
         self.csg_wt_ppf = self._make_dspin(47, 0, 500, 1, " ppf")
@@ -3934,6 +3953,87 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     # ========== Casing/Cement Methods ==========
 
+    _CSG_FIELDS = (("od_in", "csg_od", "OD"), ("id_in", "csg_id_calc", "ID"), ("wall_in", "csg_wall", "wall"),
+                   ("weight_ppf", "csg_wt_ppf", "weight"), ("yield_psi", "csg_yield", "yield strength"))
+    _CSG_REQUIRED = ("od_in", "id_in", "wall_in", "yield_psi")
+    _CSG_MANUAL_SOURCE = "Source: values entered in this calculator (user)."
+
+    def _csg_values(self) -> dict:
+        return {key: getattr(self, attr).value() for key, attr, _label in self._CSG_FIELDS}
+
+    def _csg_reset_origin(self) -> None:
+        """M89: another well (or none) - an architecture origin no longer applies."""
+        if getattr(self, "_csg_origin", None) is not None:
+            self._csg_origin = None
+            self._csg_last_run = None
+        if hasattr(self, "csg_arch_string"):
+            self.csg_arch_string.clear()
+            self.csg_source_label.setText(self._CSG_MANUAL_SOURCE)
+
+    def load_casing_from_architecture(self, string_name: Optional[str] = None) -> Optional[dict]:
+        """M89: fill the casing inputs from the well's latest architecture revision (hash-checked)."""
+        from core import well_architecture as wa
+
+        well = getattr(self, "current_well_id", None)
+        if getattr(self, "db", None) is None or not well:
+            self.csg_source_label.setText("Select a well with a frozen architecture revision first.")
+            return None
+        try:
+            revisions = wa.list_revisions(self.db, well)
+            rev = wa.get_revision(self.db, revisions[0]["id"]) if revisions else None
+        except (LookupError, wa.ArchitectureError) as exc:
+            self.csg_source_label.setText(f"Architecture not loaded: {exc}")
+            return None
+        if rev is None:
+            self.csg_source_label.setText("The selected well has no architecture revision "
+                                          "(freeze one on W3b › Architecture).")
+            return None
+        names = [c["name"] for c in rev["components"] if c.get("kind") in wa.STRINGS and c.get("name")]
+        wanted = string_name or self.csg_arch_string.currentText()
+        self.csg_arch_string.blockSignals(True)
+        self.csg_arch_string.clear()
+        self.csg_arch_string.addItems(names)
+        if wanted in names:
+            self.csg_arch_string.setCurrentIndex(names.index(wanted))
+        self.csg_arch_string.blockSignals(False)
+        name = self.csg_arch_string.currentText()
+        if not name:
+            self.csg_source_label.setText(f"Architecture rev {rev['revision']} has no casing, liner or tubing string.")
+            return None
+        data = wa.casing_inputs(rev["components"], name)
+        for key, attr, _label in self._CSG_FIELDS:
+            value = data["values"][key]
+            getattr(self, attr).setValue(value if value is not None else 0.0)   # 0 shown, recorded as unknown
+        self._csg_origin = {
+            "kind": "architecture", "well_id": well, "wellbore_id": rev.get("wellbore_id"),
+            "architecture_revision_id": rev["id"], "architecture_revision": rev["revision"],
+            "components_sha256": rev["components_sha256"], "string": name, "grade": data["values"]["grade"],
+            "version": data["version"], "loaded": self._csg_values(), "provenance": dict(data["provenance"])}
+        self._csg_last_run = None
+        unknown = [label for key, _attr, label in self._CSG_FIELDS if data["provenance"][key] == "unknown"]
+        self.csg_source_label.setText(
+            f"Source: architecture rev {rev['revision']}, {name}"
+            + (f" (grade {data['values']['grade']})" if data["values"]["grade"] else "")
+            + ". OD / ID / weight from the revision, wall derived as (OD - ID) / 2."
+            + (f" Unknown: {', '.join(unknown)} - enter the value(s); they are recorded as user-entered."
+               if unknown else ""))
+        return self._csg_origin
+
+    def csg_provenance(self) -> dict:
+        """Origin of each casing input now: architecture / derived / preset / user / unknown."""
+        origin = getattr(self, "_csg_origin", None)
+        if origin is not None and origin.get("well_id") not in (None, getattr(self, "current_well_id", None)):
+            self._csg_reset_origin()
+            origin = None
+        current = self._csg_values()
+        if origin is None:
+            return {key: "user" for key in current}
+        return {key: origin["provenance"][key] if abs(value - origin["loaded"][key]) <= 1e-12 else "user"
+                for key, value in current.items()}
+
+    def _csg_arch_clicked(self, _checked=False):
+        self.load_casing_from_architecture()
+
     def _csg_select_from_db(self):
         from dialogs.engineering_dialogs import AddCasingDialog
         dlg = AddCasingDialog(self)
@@ -3951,9 +4051,26 @@ class EngineeringCalculatorTab(DrillTabBase):
                     self.csg_burst_res.setText(f"{data['burst']:.0f} psi (preset ref)")
                 if data.get('collapse'):
                     self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (preset ref)")
+                provenance = {key: "preset" for key in ("od_in", "id_in", "wall_in", "weight_ppf")}
+                provenance["yield_psi"] = "user"
+                self._csg_origin = {"kind": "preset", "well_id": None, "loaded": self._csg_values(),
+                                    "provenance": provenance}
+                self.csg_source_label.setText("Source: built-in preset table (convenience values, not a catalog); "
+                                              "yield strength entered by the user.")
 
     def _csg_calc_strength(self):
         from core.engineering.engines.casing import CasingEngine
+        provenance = self.csg_provenance()
+        unknown = [label for key, _attr, label in self._CSG_FIELDS
+                   if key in self._CSG_REQUIRED and provenance[key] == "unknown"]
+        if unknown:
+            origin = self._csg_origin or {}
+            self.csg_burst_res.setText(f"Not calculated: {', '.join(unknown)} unknown in architecture rev "
+                                       f"{origin.get('architecture_revision')} - enter the value(s).")
+            for label in (self.csg_collapse_res, self.csg_tensile_res, self.csg_combined_res, self.csg_vme_res):
+                label.setText("")
+            self._csg_last_run = None
+            return
         axial = self.csg_axial.value() or None
         pi = self.csg_pi.value() or None
         pe = self.csg_pe.value() or None
@@ -3981,10 +4098,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         # Cache the exact inputs + result of this successful run so it can be
         # persisted verbatim (the snapshot is built from these, not re-read from
         # widgets, so a later widget edit cannot alter a saved run).
+        origin = {k: v for k, v in (self._csg_origin or {"kind": "user"}).items() if k != "loaded"}
         self._csg_last_run = {
             "inputs": inputs,
             "result_values": r.values,
             "method": CasingEngine.METHOD,
+            "source": {**origin, "provenance": provenance},     # M89: origin of every input value
         }
         v = r.values
         self.csg_burst_res.setText(
@@ -4050,13 +4169,23 @@ class EngineeringCalculatorTab(DrillTabBase):
                 self, "Save Calculation",
                 "No database is available, so calculations cannot be saved.")
             return
+        source = run.get("source") or {}
+        if source.get("kind") == "architecture" and source.get("well_id") != getattr(self, "current_well_id", None):
+            QMessageBox.warning(
+                self, "Save Calculation",
+                "This run used the architecture of another well; recalculate for the selected well.")
+            return
+        label = "Casing Strength"
+        if source.get("kind") == "architecture":
+            label = f"Casing Strength - {source['string']} (arch rev {source['architecture_revision']})"
         try:
             calc_id = repo.save_run(
                 inputs=run["inputs"],
                 result_values=run["result_values"],
                 method=run["method"],
-                label="Casing Strength",
+                label=label,
                 well_id=getattr(self, "current_well_id", None),
+                source=source or None,
             )
         except Exception as exc:
             logger.exception("Failed to save casing calculation")
@@ -5904,11 +6033,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.current_well_id = well_id
         self.current_well_data = well_data or {}
         self._update_well_context_label()
+        origin = getattr(self, "_csg_origin", None)
+        if origin is not None and origin.get("well_id") not in (None, well_id):
+            self._csg_reset_origin()
 
     def on_selection_cleared(self):
         """M83: the selected record no longer exists; show the empty state."""
         self.current_well_data = {}
         self._update_well_context_label()
+        if (getattr(self, "_csg_origin", None) or {}).get("kind") == "architecture":
+            self._csg_reset_origin()
 
     def _current_well_label_text(self) -> str:
         """Human-readable name for the well saved calculations attribute to."""

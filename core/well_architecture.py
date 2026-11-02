@@ -7,7 +7,11 @@ Values are canonical (MD in metres, sizes in inches); an unknown value is
 ``validate``; a revision with errors is refused. The schematic is generated
 from the stored records through the existing ``wellbore_schematic_engine``,
 and ``cement_annulus`` derives annular intervals for the cement worksheet
-from the same records (WORKSHEET: nominal sizes, no caliper, no excess).
+from the same records (WORKSHEET: nominal sizes unless an average caliper
+is declared; excess only when declared, open hole only - M89).
+``casing_inputs`` (M89) hands a string's geometry to the casing-strength
+calculator with the origin of every value; material properties are never
+inferred.
 """
 
 from __future__ import annotations
@@ -28,6 +32,10 @@ POINT_KINDS = ("shoe", "packer", "accessory")
 NUMERIC = ("top_md", "bottom_md", "od_in", "id_in", "hole_in", "weight_ppf")
 TEXT = ("kind", "name", "grade", "note")
 DEPTH_TOLERANCE = 0.01   # m: a shoe "at" a string bottom
+CEMENT_WORKSHEET_VERSION = "M89 cement annulus worksheet v1"
+CEMENT_WORKSHEET_METHOD = "m89.cement_annulus"
+CASING_SOURCE_VERSION = "M89 casing inputs from architecture v1"
+MAX_EXCESS_PCT = 500.0
 
 
 class ArchitectureError(ValueError):
@@ -283,17 +291,33 @@ def to_schematic(components: Iterable[Dict[str, Any]], *, well_name: str = "", w
 
 
 # ---- cement worksheet geometry -----------------------------------------------------------------
+def _declared(value: Optional[float], label: str, low: float, high: float) -> Optional[float]:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) \
+            or not low <= value <= high:
+        raise ArchitectureError(f"{label} must be between {low:g} and {high:g}.")
+    return float(value)
+
+
 def cement_annulus(components: Iterable[Dict[str, Any]], string_name: str, *,
-                   open_hole_in: Optional[float] = None) -> Dict[str, Any]:
+                   open_hole_in: Optional[float] = None, caliper_in: Optional[float] = None,
+                   excess_pct: Optional[float] = None) -> Dict[str, Any]:
     """Annular intervals between ``string_name`` and its outer boundary, TOC to cement bottom.
 
-    Cased sections use the ID of the larger string covering the depth; the
-    open hole uses ``open_hole_in`` or the string's recorded hole size. An
-    unknown size leaves that interval's volume ``None`` (never zero).
-    Capacity reuses ``AdvancedHydraulicsEngine.calc_annular_capacity_bbl_ft``.
+    Cased sections use the ID of the larger string covering the depth. The open
+    hole uses, in this order, a declared average ``caliper_in``, the
+    ``open_hole_in`` override or the string's recorded hole size; each interval
+    records which (``outer_source``). An unknown size leaves that interval's
+    volume ``None`` (never zero). M89: ``excess_pct`` is applied to open-hole
+    intervals only and only when declared (``None`` = no excess, stated in the
+    label). Capacity reuses ``AdvancedHydraulicsEngine.calc_annular_capacity_bbl_ft``.
+    The result remains a WORKSHEET.
     """
     from core.hydraulics_engine import AdvancedHydraulicsEngine as engine
 
+    caliper_in = _declared(caliper_in, "The average caliper", 0.0, 60.0)
+    excess_pct = _declared(excess_pct, "The excess", 0.0, MAX_EXCESS_PCT)
     items = normalize(components)[0]
     string = next((i for i in items if i["kind"] in STRINGS and i["name"] == string_name), None)
     cement = next((i for i in items if i["kind"] == "cement" and i["name"] == string_name), None)
@@ -301,23 +325,74 @@ def cement_annulus(components: Iterable[Dict[str, Any]], string_name: str, *,
         raise ArchitectureError(f"'{string_name}' has no string and cement record in this architecture.")
     if string["od_in"] is None:
         raise ArchitectureError(f"'{string_name}' has no OD; the annulus cannot be derived.")
-    hole = open_hole_in if open_hole_in is not None else string["hole_in"]
+    if caliper_in is not None and caliper_in <= string["od_in"]:
+        raise ArchitectureError(f"The average caliper ({caliper_in:g} in) is not larger than the string OD "
+                                f"({string['od_in']:g} in).")
+    if caliper_in is not None:
+        hole, hole_source = caliper_in, "declared average caliper"
+    elif open_hole_in is not None:
+        hole, hole_source = open_hole_in, "open-hole size entered"
+    elif string["hole_in"] is not None:
+        hole, hole_source = string["hole_in"], "recorded hole size"
+    else:
+        hole, hole_source = None, "unknown"
     outers = sorted((i for i in items if i["kind"] in ("casing", "liner") and i is not string
                      and i["id_in"] is not None and i["id_in"] > string["od_in"]
                      and i["top_md"] is not None and i["bottom_md"] is not None), key=lambda i: i["bottom_md"])
     cuts = sorted({cement["top_md"], cement["bottom_md"],
                    *[o[k] for o in outers for k in ("top_md", "bottom_md")
                      if cement["top_md"] < o[k] < cement["bottom_md"]]})
-    intervals, total = [], 0.0
+    intervals: List[Dict[str, Any]] = []
+    total: Optional[float] = 0.0
+    base_total: Optional[float] = 0.0
     for top, bottom in zip(cuts, cuts[1:]):
         middle = (top + bottom) / 2
         host = next((o for o in outers if o["top_md"] <= middle <= o["bottom_md"]), None)
         outer = host["id_in"] if host else hole
         capacity = (engine.calc_annular_capacity_bbl_ft(outer, string["od_in"]) * 3.28084
                     if outer is not None and outer > string["od_in"] else None)
-        volume = capacity * (bottom - top) if capacity is not None else None
+        base = capacity * (bottom - top) if capacity is not None else None
+        excess = base * excess_pct / 100.0 if base is not None and host is None and excess_pct is not None else None
+        volume = base + (excess or 0.0) if base is not None else None
         intervals.append({"top_md": top, "bottom_md": bottom, "outer": host["name"] if host else "open hole",
-                          "outer_id_in": outer, "capacity_bbl_m": capacity, "volume_bbl": volume})
+                          "outer_id_in": outer, "outer_source": f"{host['name']} ID" if host else hole_source,
+                          "capacity_bbl_m": capacity, "base_volume_bbl": base, "excess_bbl": excess,
+                          "volume_bbl": volume})
         total = total + volume if volume is not None and total is not None else None
+        base_total = base_total + base if base is not None and base_total is not None else None
+    sizes = "declared average caliper" if caliper_in is not None else "nominal sizes"
+    extra = f"excess {excess_pct:g} % on open hole (declared)" if excess_pct is not None else "no excess"
     return {"string": string_name, "string_od_in": string["od_in"], "intervals": intervals,
-            "total_bbl": total, "label": "WORKSHEET (nominal sizes; no caliper, no excess)"}
+            "base_total_bbl": base_total, "total_bbl": total, "caliper_in": caliper_in, "excess_pct": excess_pct,
+            "open_hole_source": hole_source, "method": CEMENT_WORKSHEET_METHOD, "version": CEMENT_WORKSHEET_VERSION,
+            "label": f"WORKSHEET ({sizes}; {extra})"}
+
+
+def casing_inputs(components: Iterable[Dict[str, Any]], string_name: str) -> Dict[str, Any]:
+    """M89: casing-strength inputs of one string with the origin of every value.
+
+    ``provenance`` per field: ``architecture`` (stored on the revision),
+    ``derived`` (wall = (OD - ID) / 2) or ``unknown``. The yield strength is
+    never inferred from the grade text: it is always ``unknown`` here and must
+    be entered by the user (recorded as ``user`` by the calculator).
+    """
+    items = normalize(components)[0]
+    string = next((i for i in items if i["kind"] in STRINGS and i["name"] == string_name), None)
+    if string is None:
+        raise ArchitectureError(f"'{string_name}' is not a casing, liner or tubing string in this architecture.")
+    values: Dict[str, Any] = {}
+    provenance: Dict[str, str] = {}
+    for key in ("od_in", "id_in", "weight_ppf"):
+        values[key] = string[key]
+        provenance[key] = "architecture" if string[key] is not None else "unknown"
+    values["grade"] = string["grade"] or None
+    provenance["grade"] = "architecture" if string["grade"] else "unknown"
+    od, inner = string["od_in"], string["id_in"]
+    if od is not None and inner is not None and od > inner:
+        values["wall_in"], provenance["wall_in"] = (od - inner) / 2.0, "derived"
+    else:
+        values["wall_in"], provenance["wall_in"] = None, "unknown"
+    values["yield_psi"], provenance["yield_psi"] = None, "unknown"
+    return {"string": string_name, "kind": string["kind"], "top_md": string["top_md"],
+            "bottom_md": string["bottom_md"], "values": values, "provenance": provenance,
+            "version": CASING_SOURCE_VERSION}

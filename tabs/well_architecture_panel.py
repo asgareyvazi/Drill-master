@@ -59,12 +59,27 @@ class WellArchitecturePanel(QWidget):
         self.hole_spin.setDecimals(3)
         self.hole_spin.setSpecialValueText("recorded")      # 0 = use the recorded hole size, never assume one
         self.hole_spin.setSuffix(" in")
+        self.caliper_spin = QDoubleSpinBox()          # M89: declared average open-hole caliper
+        self.caliper_spin.setRange(0.0, 60.0)
+        self.caliper_spin.setDecimals(3)
+        self.caliper_spin.setSpecialValueText("none")
+        self.caliper_spin.setSuffix(" in")
+        self.caliper_spin.setToolTip("Average open-hole caliper from a log; 'none' = not declared.")
+        self.excess_spin = QDoubleSpinBox()           # M89: explicit excess on open hole only
+        self.excess_spin.setRange(-1.0, wa.MAX_EXCESS_PCT)
+        self.excess_spin.setDecimals(1)
+        self.excess_spin.setValue(-1.0)
+        self.excess_spin.setSpecialValueText("none")
+        self.excess_spin.setSuffix(" %")
+        self.excess_spin.setToolTip("Excess applied to open-hole intervals only; 'none' = no excess (0 % is a "
+                                    "declared zero).")
         self.cement_btn = QPushButton("Cement annulus")
         self.cement_btn.clicked.connect(lambda _c=False: self.cement_selected())
         self.save_cement_btn = QPushButton("Save worksheet")
         self.save_cement_btn.clicked.connect(lambda _c=False: self.save_cement_case())
         self.last_cement: Optional[Dict[str, Any]] = None
-        for widget in (QLabel("String:"), self.string_combo, QLabel("Open hole:"), self.hole_spin, self.cement_btn,
+        for widget in (QLabel("String:"), self.string_combo, QLabel("Open hole:"), self.hole_spin,
+                       QLabel("Caliper:"), self.caliper_spin, QLabel("Excess:"), self.excess_spin, self.cement_btn,
                        self.save_cement_btn):
             cement.addWidget(widget)
         layout.addLayout(cement)
@@ -180,20 +195,24 @@ class WellArchitecturePanel(QWidget):
         if rev is None or not self.string_combo.currentText():
             return None
         hole = self.hole_spin.value() or None
+        caliper = self.caliper_spin.value() or None
+        excess = self.excess_spin.value() if self.excess_spin.value() >= 0 else None
         try:
-            result = wa.cement_annulus(rev["components"], self.string_combo.currentText(), open_hole_in=hole)
+            result = wa.cement_annulus(rev["components"], self.string_combo.currentText(), open_hole_in=hole,
+                                       caliper_in=caliper, excess_pct=excess)
         except (wa.ArchitectureError, ValueError) as exc:
             self.status.setText(f"Cement annulus not derived: {exc}")
             return None
-        parts = [f"{i['top_md']:g}-{i['bottom_md']:g} m in {i['outer']}: "
+        parts = [f"{i['top_md']:g}-{i['bottom_md']:g} m in {i['outer']} ({i['outer_source']}): "
                  + (f"{i['volume_bbl']:.2f} bbl" if i["volume_bbl"] is not None else "size unknown")
+                 + (f" incl. {i['excess_bbl']:.2f} bbl excess" if i["excess_bbl"] else "")
                  for i in result["intervals"]]
         total = f"{result['total_bbl']:.2f} bbl" if result["total_bbl"] is not None else "not computable"
         self.status.setText(f"{result['label']} - architecture rev {rev['revision']}: " + "; ".join(parts)
                             + f". Total {total}.")
         self.last_cement = {**result, "architecture_revision_id": rev["id"],
                             "architecture_revision": rev["revision"], "components_sha256": rev["components_sha256"],
-                            "open_hole_in": hole}
+                            "open_hole_in": hole, "wellbore_id": rev.get("wellbore_id")}
         self._update_actions()
         return self.last_cement
 
@@ -206,16 +225,24 @@ class WellArchitecturePanel(QWidget):
             return None
         inputs = {key: {"label": label, "value": work[key]} for key, label in (
             ("architecture_revision_id", "Architecture revision id"), ("architecture_revision", "Architecture rev"),
-            ("components_sha256", "Components SHA-256"), ("string", "String"), ("open_hole_in", "Open hole (in)"))}
-        results = {"total_bbl": {"label": "Total annular volume", "value": work["total_bbl"], "unit": "bbl"}}
+            ("components_sha256", "Components SHA-256"), ("string", "String"), ("open_hole_in", "Open hole (in)"),
+            ("caliper_in", "Average caliper (in)"), ("excess_pct", "Excess on open hole (%)"))}
+        results = {"total_bbl": {"label": "Total annular volume", "value": work["total_bbl"], "unit": "bbl"},
+                   "base_total_bbl": {"label": "Annular volume without excess", "value": work["base_total_bbl"],
+                                      "unit": "bbl"}}
         for index, part in enumerate(work["intervals"], start=1):
-            results[f"interval_{index}"] = {"label": f"{part['top_md']:g}-{part['bottom_md']:g} m in {part['outer']}",
+            results[f"interval_{index}"] = {"label": f"{part['top_md']:g}-{part['bottom_md']:g} m in {part['outer']}"
+                                                     f" ({part['outer_source']})",
                                             "value": part["volume_bbl"], "unit": "bbl"}
+            if part["excess_bbl"] is not None:
+                results[f"interval_{index}_excess"] = {"label": f"Excess in interval {index}",
+                                                       "value": part["excess_bbl"], "unit": "bbl"}
         try:
             case = cc.save_case(self.db, calculator="Architecture › Cement annulus",
                                 name=f"Cement annulus {work['string']} (arch rev {work['architecture_revision']})",
-                                inputs=inputs, results=results, method="m74.cement_annulus",
-                                method_version=wa.ARCHITECTURE_VERSION, well_id=self.well_id,
+                                inputs=inputs, results=results, method=work["method"],
+                                method_version=work["version"], well_id=self.well_id,
+                                wellbore_id=work.get("wellbore_id"),
                                 note=work["label"])
         except (ValueError, AuthorizationError) as exc:
             self.status.setText(f"Not saved: {exc}")
