@@ -168,7 +168,7 @@ def test_export_writes_label_scope_and_blank_for_missing(env, tmp_path):
     daily = next(p for p in written if p.endswith("_daily.csv"))
     rows = list(csv.reader(open(daily, encoding="utf-8")))
     meta = {r[0]: r[1] for r in rows if r and r[0].startswith("# ")}
-    assert meta["# status"] == oa.LABEL and "Wellbore" in meta["# scope"] and meta["# method"] == oa.OA_VERSION
+    assert meta["# status"] == oa.LABEL and f"(wellbore #{out['bore']})" in meta["# scope"] and meta["# method"] == oa.OA_VERSION
     header = rows.index(list(oa.COLUMNS["daily"]))
     third = rows[header + 3]
     assert third[4] == "" and "missing" in third[9]                     # missing footage exported blank, not 0

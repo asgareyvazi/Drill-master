@@ -344,3 +344,28 @@ Audit of the existing DDR path against the M84 list; two defects fixed (file ide
 | Document index and search | PASS (pre-existing) | `DocumentLibrary` text index and `search()`; `test_document_library`, `test_documents_tab`, `test_m49_knowledge_retrieval` |
 | Manual well confirmation | PASS (pre-existing) | Well-name matches are only suggestions; a link is saved after the user confirms (`test_document_links`) |
 | No OCR | PASS (standard build) / OWNER REVIEW | No OCR package is in `requirements-lock.txt`; the M44 RapidOCR hook activates only if the optional requirements are installed, and its pages stay unapproved until reviewed. Keeping or removing the optional hook is the owner's OCR decision |
+
+### M94 – UI-path journeys A–R
+
+`tests/test_m94_e2e_journeys.py`: three connected journeys through one real MainWindow (well → W12 Operational Analysis → drill-down → W11 export worker with provenance → well switch without leakage → Persian-named well exported right-to-left) and a register test that fails if any referenced test function disappears. All 20 referenced files: 264 passed, 0 failed, 0 skipped (offscreen Linux, stub GL/xkb/dbus libraries; **not** Windows desktop acceptance). Found and fixed: the Operational Analysis scope showed "Well #2" instead of the well name (now name + id, wellbore by name).
+
+| Journey | Scope | State | Tests |
+|---|---|---|---|
+| A | Context: select / switch / clear well, no leakage | PASS (offscreen) | `test_switching_wells_leaves_no_identifier_of_the_previous_well`; `test_clear_leaves_an_empty_state_and_clean_edit_baselines` |
+| B | DDR authoring: edit, reorder, navigate, unsaved edits | PASS (offscreen) | `test_a_reordered_time_log_survives_save_and_reload`; `test_unsaved_edits_are_not_discarded_without_confirmation`; `test_previous_and_next_follow_date_order_and_stop_at_the_ends` |
+| C | DDR batch import: worker, cancel, file identity | PASS (offscreen) | `test_cancel_during_preparation_saves_nothing_and_cancels_the_rest`; `test_a_late_result_cannot_be_saved_for_another_well`; `test_a_file_changed_during_preview_is_never_saved` |
+| D | Survey: revision, reference declaration, conversion | PASS (offscreen) | `test_freeze_import_preview_and_compare_from_the_panel`; `test_panel_requires_declaration_and_converts_with_explicit_values` |
+| E | Directional plan from an inclined tie-in | PASS (offscreen) | `test_designer_panel_solves_from_an_inclined_survey_tie_in`; `test_designer_ties_in_solves_and_hands_a_continuous_plan_to_compare` |
+| F | Plan vs actual / closest approach (SCREENING) | PASS (offscreen) | `test_closest_approach_between_skew_lines_is_found_between_stations`; `test_unconfirmed_crs_and_missing_datum_are_not_assessed_with_every_reason` |
+| G | Well architecture revision and cement worksheet | PASS (offscreen) | `test_w3b_architecture_page_freezes_reloads_and_derives_cement`; `test_w3b_cement_worksheet_with_caliper_and_excess_is_saved_with_lineage` |
+| H | W13 case: save, reopen, re-run, clone, export | PASS (offscreen) | `test_bit_case_save_reopen_rerun_clone_export_and_verify`; `test_w13_casing_from_architecture_reaches_history_with_lineage` |
+| I | History lineage and navigation | PASS (offscreen) | `test_history_tab_opens_a_linked_record_on_another_page`; `test_lineage_follows_revision_chains_and_the_architecture_survey_link` |
+| J | Operational analysis with drill-down | PASS (offscreen) | `test_w12_page_refresh_drilldown_invalidation_and_export`; `test_journey_context_to_operational_analysis_drilldown_and_switch` |
+| K | Report export with provenance | PASS (offscreen) | `test_every_engine_writes_provenance_in_every_format`; `test_journey_report_export_through_w11_carries_the_selected_well_only` |
+| L | Stale async results are discarded | PASS (offscreen) | `test_context_token_changes_on_every_selection_event`; `test_a_late_result_cannot_be_saved_for_another_well` |
+| M | Well delete: history goes with the well, audited, authorised | PASS (offscreen) | `test_deleting_a_well_removes_its_history_rows_with_one_audit_record`; `test_a_viewer_cannot_delete_a_well_with_history`; `test_deleting_the_project_of_the_selected_well_clears_the_selection` |
+| N | Backup / restore | PASS (offscreen) | `test_file_database_backup_corruption_restore_and_reopen`; `test_restore_brings_back_revisions_with_their_immutability_guards` |
+| O | Offline: no network library on the product path | PASS (offscreen) | `test_new_modules_import_no_network_library` |
+| P | Language: Persian data, right-to-left output | PASS (offscreen) | `test_persian_answer_is_right_to_left_and_long_passages_are_elided`; `test_rtl_reaches_html_pdf_layout_and_excel`; `test_journey_persian_well_report_right_to_left` |
+| Q | Method catalogue, no self-approval | PASS (offscreen) | `test_help_menu_opens_a_read_only_catalogue`; `test_no_self_approval` |
+| R | Authorisation: viewers cannot write | PASS (offscreen) | `test_a_viewer_cannot_save_a_conversion`; `test_viewers_cannot_save_an_architecture` |

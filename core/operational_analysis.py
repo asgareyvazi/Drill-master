@@ -78,6 +78,20 @@ def _num(value, *, allow_negative: bool = False) -> Optional[float]:
     return number if state == ev.STATE_VALUE else None
 
 
+def _scope_label(db, scope) -> str:
+    """Well and wellbore by name (ids kept) so a shown or exported result names what it covers."""
+    from core.database import Well, Wellbore
+
+    with db.session_scope() as session:
+        well = session.get(Well, scope.well_id)
+        bore = session.get(Wellbore, scope.wellbore_id) if scope.wellbore_id else None
+        label = f"{well.name} (well #{well.id})" if well is not None else f"Well #{scope.well_id} (not found)"
+        if scope.wellbore_id:
+            label += (f" / {bore.name} (wellbore #{bore.id})" if bore is not None
+                      else f" / Wellbore #{scope.wellbore_id} (not found)")
+        return label + ("" if scope.wellbore_id else " (whole well)")
+
+
 def _sum(values: List[Optional[float]]) -> Optional[float]:
     """Sum of known values, or None when any is unknown (an incomplete sum is not a total)."""
     if not values or any(v is None for v in values):
@@ -113,6 +127,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
     tables: Dict[str, Tuple[Sequence[str], List[list]]] = {}
     drill: Dict[str, List[Optional[int]]] = {}
     mapper = ActivityMapper()
+    scope_label = _scope_label(db, scope)
 
     with db.session_scope() as session:
         reports = [r for r in ev.scoped_reports_query(session, scope)
@@ -321,7 +336,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
     }
     if time_summary["unknown_duration_count"]:
         notes.append(f"{time_summary['unknown_duration_count']} time log(s) without a duration: totals not assessed")
-    return OperationalAnalysis(scope.label(), start, end, summary, tables, drill, notes,
+    return OperationalAnalysis(scope_label, start, end, summary, tables, drill, notes,
                                datetime.now(timezone.utc).isoformat(timespec="seconds"))
 
 
