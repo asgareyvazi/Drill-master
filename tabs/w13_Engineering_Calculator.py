@@ -4386,6 +4386,13 @@ class EngineeringCalculatorTab(DrillTabBase):
         ks_scroll.setWidgetResizable(True)
         ks_container = QWidget()
         ks_layout = QVBoxLayout(ks_container)
+        # M76: the kill sheet is a TRAINING AID; the label travels with the page, not only with history
+        self.wc_training_notice = QLabel(
+            "TRAINING AID - not an operational kill sheet. Verify every value against the rig's "
+            "approved well-control procedure and a certified well-control calculation.")
+        self.wc_training_notice.setWordWrap(True)
+        self.wc_training_notice.setStyleSheet("color: #e67e22; font-weight: bold;")
+        ks_layout.addWidget(self.wc_training_notice)
 
         # Well Info
         g_well = QGroupBox("🛢️ Well Information")

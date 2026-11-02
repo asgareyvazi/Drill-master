@@ -210,6 +210,11 @@ def test_w3b_architecture_page_freezes_reloads_and_derives_cement(tmp_path, monk
         panel.string_combo.setCurrentText("7 liner")
         cement = panel.cement_selected()
         assert cement["architecture_revision_id"] == rev["id"] and "WORKSHEET" in panel.status.text()
+        case = panel.save_cement_case()
+        assert case["inputs"]["architecture_revision_id"]["value"] == rev["id"]
+        assert case["inputs"]["components_sha256"]["value"] == rev["components_sha256"]
+        assert case["results"]["total_bbl"]["value"] == pytest.approx(cement["total_bbl"])
+        assert "WORKSHEET" in case["note"]
     finally:
         tab.deleteLater()
         app.processEvents()

@@ -61,7 +61,11 @@ class WellArchitecturePanel(QWidget):
         self.hole_spin.setSuffix(" in")
         self.cement_btn = QPushButton("Cement annulus")
         self.cement_btn.clicked.connect(lambda _c=False: self.cement_selected())
-        for widget in (QLabel("String:"), self.string_combo, QLabel("Open hole:"), self.hole_spin, self.cement_btn):
+        self.save_cement_btn = QPushButton("Save worksheet")
+        self.save_cement_btn.clicked.connect(lambda _c=False: self.save_cement_case())
+        self.last_cement: Optional[Dict[str, Any]] = None
+        for widget in (QLabel("String:"), self.string_combo, QLabel("Open hole:"), self.hole_spin, self.cement_btn,
+                       self.save_cement_btn):
             cement.addWidget(widget)
         layout.addLayout(cement)
         self.status = QLabel("")
@@ -106,6 +110,7 @@ class WellArchitecturePanel(QWidget):
         return self.revisions[rows[0].row()] if rows and rows[0].row() < len(self.revisions) else None
 
     def _selection_changed(self) -> None:
+        self.last_cement = None
         rev = self._selected()
         self.string_combo.clear()
         if rev is not None:
@@ -125,6 +130,7 @@ class WellArchitecturePanel(QWidget):
         self.freeze_btn.setEnabled(has_well)
         self.load_btn.setEnabled(selected)
         self.cement_btn.setEnabled(selected and self.string_combo.count() > 0)
+        self.save_cement_btn.setEnabled(getattr(self, "last_cement", None) is not None)
 
     # -- actions --------------------------------------------------------------
     def current_components(self) -> List[Dict[str, Any]]:
@@ -185,4 +191,35 @@ class WellArchitecturePanel(QWidget):
         total = f"{result['total_bbl']:.2f} bbl" if result["total_bbl"] is not None else "not computable"
         self.status.setText(f"{result['label']} - architecture rev {rev['revision']}: " + "; ".join(parts)
                             + f". Total {total}.")
-        return {**result, "architecture_revision_id": rev["id"]}
+        self.last_cement = {**result, "architecture_revision_id": rev["id"],
+                            "architecture_revision": rev["revision"], "components_sha256": rev["components_sha256"],
+                            "open_hole_in": hole}
+        self._update_actions()
+        return self.last_cement
+
+    def save_cement_case(self) -> Optional[Dict[str, Any]]:
+        """Store the worksheet as an immutable calculation case pinned to the architecture revision."""
+        from core import calculation_cases as cc
+
+        work = self.last_cement
+        if work is None or self.db is None or not self.well_id:
+            return None
+        inputs = {key: {"label": label, "value": work[key]} for key, label in (
+            ("architecture_revision_id", "Architecture revision id"), ("architecture_revision", "Architecture rev"),
+            ("components_sha256", "Components SHA-256"), ("string", "String"), ("open_hole_in", "Open hole (in)"))}
+        results = {"total_bbl": {"label": "Total annular volume", "value": work["total_bbl"], "unit": "bbl"}}
+        for index, part in enumerate(work["intervals"], start=1):
+            results[f"interval_{index}"] = {"label": f"{part['top_md']:g}-{part['bottom_md']:g} m in {part['outer']}",
+                                            "value": part["volume_bbl"], "unit": "bbl"}
+        try:
+            case = cc.save_case(self.db, calculator="Architecture › Cement annulus",
+                                name=f"Cement annulus {work['string']} (arch rev {work['architecture_revision']})",
+                                inputs=inputs, results=results, method="m74.cement_annulus",
+                                method_version=wa.ARCHITECTURE_VERSION, well_id=self.well_id,
+                                note=work["label"])
+        except (ValueError, AuthorizationError) as exc:
+            self.status.setText(f"Not saved: {exc}")
+            return None
+        self.status.setText(f"Worksheet saved as calculation case #{case['id']} "
+                            f"(architecture revision {work['architecture_revision']}).")
+        return case
