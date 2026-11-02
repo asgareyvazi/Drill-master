@@ -249,3 +249,13 @@ OWNER REVIEW REQUIRED. Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT 
 | Fixed defects | PASS | Quick Calc contract bound "length" to the annulus length (two "Length" labels) so correct cases verified DIFFERENT; legacy cases with a repeated label are now UNREADABLE. Build/Turn "Overall DLS" was sqrt(BR²+TR²) — now the minimum-curvature dogleg severity; an MD interval of 0 showed 0 deg/30 m — now "Not assessed". Cement "Displacement" showed 0.00 when missing — now n/a |
 | Open engine notes for M90 | PARTIAL | HP & FP converts pcf→ppg with 7.48 while the bit page uses 7.48052 (0.007 %); currency of rig/bit cost is not recorded (owner-gated money model) |
 
+### M88 – History coverage, recalculation and lineage
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| One history schema over every stored calculation and revision | PASS | `core/calculation_history.py`: 11 sources (6 engine snapshots, trajectory, W13 cases, directional plans, **survey revisions**, **architecture revisions**); database filters and paging, including text search on tables without a `method` column. `tests/test_m88_history_lineage.py` |
+| Recalculate from stored inputs (survey, architecture) | PASS | Survey: minimum curvature from the stored stations after the SHA-256 check (hand-derived golden); architecture: current validator on the stored components after the SHA-256 check. A failed hash → UNREADABLE and nothing is stored; altered stored results → DIFFERENT; method or version drift reported |
+| New immutable linked records | PASS | `save_recalculation` creates a case with a `recalculation_of` link; the original revision is unchanged (hash re-checked in the test) |
+| Lineage navigation | PASS | Case source / derived links plus revision parent / child (survey, architecture, plan, case) and architecture uses / survey used by. "Open linked" now jumps to the record's own page (it previously failed for records outside the current page) |
+| Still captured-only | PARTIAL | Trajectory calculations (legacy, unversioned) and the 20 NOT_SUPPORTED W13 calculators remain NOT REPRODUCIBLE, with the reason shown |
+

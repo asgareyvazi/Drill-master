@@ -8,7 +8,15 @@ modified here: the adapters only read. Sources:
   kill sheet) sharing ``label / method / snapshot_schema_version /
   input_snapshot_json / result_json``;
 * ``trajectory_calculations`` (``parameters_json`` / ``results_json``);
-* ``calculation_cases`` (M63) and ``directional_plan_revisions`` (M62).
+* ``calculation_cases`` (M63) and ``directional_plan_revisions`` (M62);
+* M88: ``survey_revisions`` (M72/M85) and ``well_architecture_revisions``
+  (M74). Their recalculation re-runs minimum curvature / the architecture
+  validator from the stored stations / components after the SHA-256 check;
+  a failed check is UNREADABLE, never recomputed from tampered data.
+
+``lineage`` follows the structured case links, the revision parent chains
+(survey, architecture, plan, case) and the architecture -> survey revision
+link in both directions.
 
 The Engineering Report Center renders one entry, or a comparison of two, to
 self-contained HTML with the method, version, inputs, results, scope and the
@@ -36,7 +44,9 @@ SNAPSHOT_SOURCES = {
     "mud_volume_calculations": ("Mud volume", "WORKSHEET"),
     "well_control_kill_sheet_calculations": ("Kill sheet", "TRAINING AID"),
 }
-SOURCES = tuple(v[0] for v in SNAPSHOT_SOURCES.values()) + ("Trajectory", "Calculation case", "Directional plan")
+REVISION_SOURCES = {"survey_revisions": "Survey revision", "well_architecture_revisions": "Well architecture"}
+SOURCES = (tuple(v[0] for v in SNAPSHOT_SOURCES.values()) + ("Trajectory", "Calculation case", "Directional plan")
+           + tuple(REVISION_SOURCES.values()))
 
 
 @dataclass
@@ -121,18 +131,61 @@ def _adapters():
                             f"revision id {row.parent_id}" if row.parent_id else "", full_results=results,
                             wellbore_id=row.wellbore_id)
 
-    adapters += [(d.TrajectoryCalculation, trajectory), (d.CalculationCase, case), (d.DirectionalPlanRevision, plan)]
+    def survey(row):
+        from core.survey_revisions import stations_sha256
+
+        stations = json.loads(row.stations_json or "[]")
+        positions = json.loads(row.results_json or "[]")
+        integrity = "VERIFIED" if stations_sha256(stations) == row.stations_sha256 else "HASH MISMATCH"
+        headline: Dict[str, Any] = {"stations": row.station_count, "integrity": integrity,
+                                    "azimuth_reference": row.azimuth_reference, "depth_datum": row.depth_datum}
+        if positions:
+            last = positions[-1]
+            headline.update({f"td_{k}": last[k] for k in ("md", "tvd", "north", "east") if k in last})
+        inputs = {"stations": stations, "source_unit": row.source_unit, "source_type": row.source_type,
+                  "azimuth_reference": row.azimuth_reference, "depth_datum": row.depth_datum,
+                  "mode": row.mode, "stations_sha256": row.stations_sha256}
+        return HistoryEntry("Survey revision", "survey_revisions", row.id, row.well_id,
+                            f"Survey rev {row.revision} ({row.mode}, {row.source_type})", row.method,
+                            row.method_version, row.created_at, "SURVEY (minimum curvature)", inputs, headline,
+                            f"revision id {row.parent_id}" if row.parent_id else "",
+                            full_results={"positions": positions}, wellbore_id=row.wellbore_id)
+
+    def architecture(row):
+        from core.well_architecture import components_sha256
+
+        components = json.loads(row.components_json or "[]")
+        validation = _json(row.validation_json)
+        integrity = "VERIFIED" if components_sha256(components) == row.components_sha256 else "HASH MISMATCH"
+        headline = {"components": row.component_count, "integrity": integrity,
+                    "errors": len(validation.get("errors", [])), "warnings": len(validation.get("warnings", [])),
+                    "survey_revision_id": row.survey_revision_id}
+        inputs = {"components": components, "survey_revision_id": row.survey_revision_id,
+                  "components_sha256": row.components_sha256}
+        return HistoryEntry("Well architecture", "well_architecture_revisions", row.id, row.well_id,
+                            f"Architecture rev {row.revision}" + (f" - {row.note}" if row.note else ""),
+                            "well architecture validation", row.schema_version, row.created_at,
+                            "ARCHITECTURE (validation only)", inputs, headline,
+                            f"revision id {row.parent_id}" if row.parent_id else "",
+                            full_results=validation, wellbore_id=row.wellbore_id)
+
+    adapters += [(d.TrajectoryCalculation, trajectory), (d.CalculationCase, case), (d.DirectionalPlanRevision, plan),
+                 (d.SurveyRevision, survey), (d.WellArchitectureRevision, architecture)]
     return adapters
 
 
 _NAME_COLUMN = {"trajectory_calculations": "description", "calculation_cases": "name",
-                "directional_plan_revisions": "name"}
+                "directional_plan_revisions": "name", "survey_revisions": "source_type",
+                "well_architecture_revisions": "note"}
+_METHOD_COLUMN = {"well_architecture_revisions": "schema_version"}
 
 
 def _source_of(model, adapt) -> str:
     table = model.__tablename__
     if table in SNAPSHOT_SOURCES:
         return SNAPSHOT_SOURCES[table][0]
+    if table in REVISION_SOURCES:
+        return REVISION_SOURCES[table]
     return {"trajectory_calculations": "Trajectory", "calculation_cases": "Calculation case",
             "directional_plan_revisions": "Directional plan"}[table]
 
@@ -151,7 +204,8 @@ def _filtered(session, model, *, well_id, since, until, needle):
     if needle:
         name = getattr(model, _NAME_COLUMN.get(model.__tablename__, "label"))
         pattern = f"%{needle}%"
-        query = query.filter(or_(func.lower(name).like(pattern), func.lower(model.method).like(pattern)))
+        method = getattr(model, _METHOD_COLUMN.get(model.__tablename__, "method"))
+        query = query.filter(or_(func.lower(name).like(pattern), func.lower(method).like(pattern)))
     return query
 
 
@@ -211,7 +265,8 @@ def entry_status(entry: HistoryEntry) -> Dict[str, str]:
 
     readable = isinstance(entry.inputs, dict) and isinstance(entry.results, dict) and bool(entry.inputs)
     numbers = [v for v in flatten(entry.results).values() if _number(v) is not None]
-    if entry.table in PERSISTENCE_MODULES or entry.table == "directional_plan_revisions":
+    if entry.table in PERSISTENCE_MODULES or entry.table == "directional_plan_revisions" \
+            or entry.table in REVISION_SOURCES:
         reproducible, why = "REPRODUCIBLE", "a recalculation adapter exists"
     elif entry.table == "calculation_cases":
         reproducible, why = contracts.reproducibility(entry.method, entry.version)
@@ -403,16 +458,98 @@ def recalculate_entry(entry: HistoryEntry) -> Dict[str, Any]:
         from core import calculator_contracts as contracts
 
         return contracts.verify_case(entry.method, entry.version, entry.inputs, entry.results)
+    if entry.table == "survey_revisions":
+        return _verify_survey(entry)
+    if entry.table == "well_architecture_revisions":
+        return _verify_architecture(entry)
     return {"status": "NOT_REPRODUCIBLE", "method_matches": None, "current_method": "",
             "detail": f"No recalculation adapter for {entry.source}; reopen it in its calculator instead.",
             "values": {}}
 
 
-def lineage(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
-    """Structured lineage of an entry: its source (for a case) and the cases derived from it.
+def _verify_survey(entry: HistoryEntry) -> Dict[str, Any]:
+    """M88: minimum curvature again from the stored stations, after the SHA-256 check."""
+    from core import survey_revisions as sr
 
-    Each item: ``direction`` (source/derived), ``key`` (``table:id`` of the other
-    record), ``label`` and the link fields.
+    stations = entry.inputs.get("stations") or []
+    if sr.stations_sha256(stations) != entry.inputs.get("stations_sha256"):
+        return {"status": "UNREADABLE", "method_matches": None, "current_method": sr.SURVEY_METHOD,
+                "detail": "The stored stations fail their SHA-256 check; nothing was recomputed.", "values": {}}
+    stored = entry.full_results.get("positions") or []
+    check = sr.verify_results({"stations": stations, "results": stored})
+    fresh = sr.compute(stations)
+    values: Dict[str, Any] = {}
+    if fresh:
+        values = {f"td_{k}": fresh[-1][k] for k in ("md", "tvd", "north", "east") if k in fresh[-1]}
+        values["max_position_difference_m"] = check.get("max_position_difference_m")
+    detail = check.get("detail") or f"largest position difference {check.get('max_position_difference_m', 0.0):.3g} m"
+    return {"status": check["status"], "method_matches": entry.method == sr.SURVEY_METHOD,
+            "current_method": sr.SURVEY_METHOD, "detail": detail, "values": values}
+
+
+def _verify_architecture(entry: HistoryEntry) -> Dict[str, Any]:
+    """M88: the current validator again on the stored components, after the SHA-256 check."""
+    from core import well_architecture as wa
+
+    components = entry.inputs.get("components") or []
+    if wa.components_sha256(components) != entry.inputs.get("components_sha256"):
+        return {"status": "UNREADABLE", "method_matches": None, "current_method": wa.ARCHITECTURE_VERSION,
+                "detail": "The stored components fail their SHA-256 check; nothing was re-validated.", "values": {}}
+    fresh = wa.validate(components)
+    stored = entry.full_results
+    same = all(sorted(fresh.get(k, [])) == sorted(stored.get(k, [])) for k in ("errors", "warnings"))
+    return {"status": "MATCH" if same else "DIFFERENT", "method_matches": entry.version == wa.ARCHITECTURE_VERSION,
+            "current_method": wa.ARCHITECTURE_VERSION,
+            "detail": "validation messages identical" if same else
+            f"stored {len(stored.get('errors', []))} error(s)/{len(stored.get('warnings', []))} warning(s), "
+            f"now {len(fresh.get('errors', []))}/{len(fresh.get('warnings', []))}",
+            "values": {"components": len(components), "errors": len(fresh.get("errors", [])),
+                       "warnings": len(fresh.get("warnings", []))}}
+
+
+# table -> label of the record kind (every table here has a ``parent_id`` column)
+_PARENT_CHAINS = {"survey_revisions": "Survey revision", "well_architecture_revisions": "Architecture revision",
+                  "directional_plan_revisions": "Plan revision", "calculation_cases": "Case"}
+
+
+def _revision_links(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
+    """M88: parent / child revisions of the same kind and the architecture <-> survey link."""
+    from core import database as d
+
+    models = {"survey_revisions": d.SurveyRevision, "well_architecture_revisions": d.WellArchitectureRevision,
+              "directional_plan_revisions": d.DirectionalPlanRevision, "calculation_cases": d.CalculationCase}
+    items: List[Dict[str, Any]] = []
+    model = models.get(entry.table)
+    if model is None:
+        return items
+    kind = _PARENT_CHAINS[entry.table]
+    with db.session_scope() as session:
+        row = session.get(model, entry.record_id)
+        if row is None:
+            return items
+        if row.parent_id:
+            items.append({"direction": "parent", "key": f"{entry.table}:{row.parent_id}",
+                          "label": f"Parent: {kind.lower()} id {row.parent_id}"})
+        for child in session.query(model.id).filter(model.parent_id == row.id).order_by(model.id):
+            items.append({"direction": "child", "key": f"{entry.table}:{child.id}",
+                          "label": f"Child: {kind.lower()} id {child.id}"})
+        if entry.table == "well_architecture_revisions" and row.survey_revision_id:
+            items.append({"direction": "uses", "key": f"survey_revisions:{row.survey_revision_id}",
+                          "label": f"Uses: survey revision id {row.survey_revision_id}"})
+        if entry.table == "survey_revisions":
+            arch = d.WellArchitectureRevision
+            for used in session.query(arch.id).filter(arch.survey_revision_id == row.id).order_by(arch.id):
+                items.append({"direction": "used_by", "key": f"well_architecture_revisions:{used.id}",
+                              "label": f"Used by: architecture revision id {used.id}"})
+    return items
+
+
+def lineage(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
+    """Structured lineage of an entry.
+
+    Each item: ``direction`` (source / derived for case links; parent / child /
+    uses / used_by for revisions, M88), ``key`` (``table:id`` of the other
+    record), ``label`` and, for case links, the link fields.
     """
     from core.calculation_cases import derived_cases, source_links
 
@@ -428,7 +565,16 @@ def lineage(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
         items.append(dict(link, direction="derived", key=f"calculation_cases:{link['case_id']}",
                           label=f"Derived: case #{link['case_id']} ({link['link_type']}, "
                                 f"{link['verification_status']}{changed})"))
-    return items
+    return items + _revision_links(db, entry)
+
+
+def page_of(db, key: str, *, page_size: int, **filters) -> Optional[int]:
+    """M88: the 0-based page holding ``key`` under ``filters`` (``load_history`` order), or None."""
+    total = count_history(db, **filters)
+    for page in range(max(1, -(-total // page_size))):
+        if any(e.key == key for e in load_history(db, limit=page_size, offset=page * page_size, **filters)):
+            return page
+    return None
 
 
 def save_recalculation(db, entry: HistoryEntry, outcome: Dict[str, Any]) -> Dict[str, Any]:

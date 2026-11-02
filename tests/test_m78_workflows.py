@@ -56,7 +56,7 @@ def test_b_contract_case_is_verified_recalculated_and_reported_from_history(app,
         case = calc.case_bar.save_case("SYN workflow B")
         assert case["well_id"] == ids["A"][0]
         history.set_well(ids["A"][0])
-        row = next(i for i, e in enumerate(history.entries) if e.record_id == case["id"])
+        row = next(i for i, e in enumerate(history.entries) if e.key == f"calculation_cases:{case['id']}")
         history.select_rows([row])
         assert "Reproducible: REPRODUCIBLE" in history.statuses_label.text()
         assert history.recalculate()["status"] == "MATCH"
@@ -87,7 +87,8 @@ def test_c_architecture_worksheet_reaches_history_with_its_revision(app, env):
         panel.string_combo.setCurrentText("7 liner")
         panel.cement_selected()
         case = panel.save_cement_case()
-        (entry,) = [e for e in ch.load_history(manager, well_id=ids["A"][0]) if e.record_id == case["id"]]
+        (entry,) = [e for e in ch.load_history(manager, well_id=ids["A"][0])
+                    if e.key == f"calculation_cases:{case['id']}"]
         assert entry.source == "Calculation case" and f"arch rev {rev['revision']}" in entry.name
         state = ch.entry_status(entry)
         assert state["readable"] == "READABLE" and state["reproducible"] == "NOT REPRODUCIBLE"   # no contract
@@ -123,7 +124,7 @@ def test_f_reports_escape_markup_keep_unicode_and_carry_statuses(env):
     name = "<b>SYN</b> & 'q' — ΔP 深度 عمق"
     case = cc.save_case(manager, calculator="x", name=name, inputs={"<i>k</i>": {"label": "x", "value": "<v>"}},
                         results={"r": {"label": "z", "value": 1.5}}, well_id=ids["A"][0])
-    (entry,) = [e for e in ch.load_history(manager) if e.record_id == case["id"]]
+    (entry,) = [e for e in ch.load_history(manager) if e.key == f"calculation_cases:{case['id']}"]
     report = ch.render_entry_report(entry, well_label=ch.well_label(manager, ids["A"][0]))
     assert "<b>SYN</b>" not in report and "&lt;b&gt;SYN&lt;/b&gt; &amp;" in report
     assert "ΔP 深度 عمق" in report and "&lt;v&gt;" in report and "<i>k</i>" not in report

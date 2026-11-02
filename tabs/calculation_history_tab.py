@@ -284,9 +284,17 @@ class CalculationHistoryTab(QWidget):
         if not key:
             return False
         rows = [i for i, e in enumerate(self.entries) if e.key == key]
-        if not rows:
+        if not rows and self.db is not None:
+            for widget in (self.source_combo, self.text_edit):     # no refresh per cleared filter
+                widget.blockSignals(True)
             self.source_combo.setCurrentIndex(0)
             self.text_edit.clear()
+            for widget in (self.source_combo, self.text_edit):
+                widget.blockSignals(False)
+            well = self.well_id if self.well_only.isChecked() else None
+            page = ch.page_of(self.db, key, page_size=PAGE_SIZE, well_id=well)    # M88: the record's own page
+            if page is not None:
+                self.page = page
             self.refresh()
             rows = [i for i, e in enumerate(self.entries) if e.key == key]
         if not rows:
