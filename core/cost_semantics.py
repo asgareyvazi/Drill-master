@@ -21,6 +21,9 @@ from __future__ import annotations
 from typing import Optional, List, Dict, Any
 from core.engineering.result import optional_number, require_number, EngineeringError
 
+# M93: identifies the cost rules (per currency, no conversion) in report provenance.
+COST_SEMANTICS_VERSION = "M53 cost semantics v1"
+
 
 # Persisted CostRecord columns this helper reads/writes for the AFE worksheet.
 AFE_PERSISTED_FIELDS = ("category", "planned_cost", "actual_cost", "currency",

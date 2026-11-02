@@ -1,6 +1,9 @@
 """Recorded time reductions shared by analytics and exports (no Qt/DB writes)."""
 from core.engineering.result import optional_number, EngineeringError
 
+# M93: identifies the time-log reduction rules in report provenance (bump when the rules change).
+TIME_SUMMARY_VERSION = "M53 time-log summary v1"
+
 
 def summarize_time_logs(logs):
     """Unknown/invalid durations do not become zero or a complete denominator.

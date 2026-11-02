@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 from core.text_utils import wrap_html, safe_str, fmt_num, not_recorded_text
 from core.operational_time import summarize_time_logs
+from core import report_provenance
 
 
 def _cell(value):
@@ -103,13 +104,7 @@ class DDRReportEngine:
 
             html = self._build_html(data)
 
-            if format == "pdf":
-                return self._save_pdf(html, output_path)
-            elif format == "html":
-                return self._save_html(html, output_path)
-            elif format == "excel":
-                return self._save_excel(data, output_path)
-            return False
+            return report_provenance.emit(self, "ddr", report_id, data, html, output_path, format)
         except Exception as e:
             logger.error(f"DDR generation error: {e}")
             return False
@@ -715,13 +710,7 @@ class EOWRReportEngine:
             # _collect_data has no "plan" key; planning is optional here.
             html = self._build_html(data, selected_sections=None)
 
-            if format == "pdf":
-                return self._save_pdf(html, output_path)
-            elif format == "html":
-                return self._save_html(html, output_path)
-            elif format == "excel":
-                return self._save_excel(data, output_path, selected_sections=None)
-            return False
+            return report_provenance.emit(self, "eowr", well_id, data, html, output_path, format, {"selected_sections": None})
         except Exception as e:
             logger.error(f"EOWR report error: {e}", exc_info=True)
             return False
@@ -1419,13 +1408,7 @@ class NPTReportEngine:
             if not data:
                 return False
             html = self._build_html(data)
-            if format == "pdf":
-                return self._save_pdf(html, output_path)
-            elif format == "html":
-                return self._save_html(html, output_path)
-            elif format == "excel":
-                return self._save_excel(data, output_path)
-            return False
+            return report_provenance.emit(self, "npt", well_id, data, html, output_path, format)
         except Exception as e:
             logger.error(f"NPT report error: {e}")
             return False
@@ -1817,13 +1800,7 @@ class CostReportEngine:
             if not data:
                 return False
             html = self._build_html(data)
-            if format == "pdf":
-                return self._save_pdf(html, output_path)
-            elif format == "html":
-                return self._save_html(html, output_path)
-            elif format == "excel":
-                return self._save_excel(data, output_path)
-            return False
+            return report_provenance.emit(self, "cost", well_id, data, html, output_path, format)
         except Exception as e:
             logger.error(f"Cost report error: {e}")
             return False
@@ -2078,13 +2055,7 @@ class PlanReportEngine:
             if not data:
                 return False
             html = self._build_html(data)
-            if format == "pdf":
-                return self._save_pdf(html, output_path)
-            elif format == "html":
-                return self._save_html(html, output_path)
-            elif format == "excel":
-                return self._save_excel(data, output_path)
-            return False
+            return report_provenance.emit(self, "plan", well_id, data, html, output_path, format)
         except Exception as e:
             logger.error(f"Plan report error: {e}")
             return False

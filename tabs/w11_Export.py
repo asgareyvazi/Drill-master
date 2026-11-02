@@ -51,6 +51,19 @@ class ExportWidget(DrillTabBase):
         self.tab_widget.addTab(self._create_plan_tab(), "📋 Drilling Plan")
         self.tab_widget.addTab(self._create_batch_tab(), "📦 Batch Export")
 
+        # M93: every report carries scope, sources, revisions, methods and the UNSIGNED label;
+        # the document text direction is chosen here for all report kinds.
+        direction_row = QHBoxLayout()
+        direction_row.addWidget(QLabel("Document direction:"))
+        self.direction_combo = QComboBox()
+        self.direction_combo.addItem("Left-to-right (LTR)", "ltr")
+        self.direction_combo.addItem("Right-to-left (RTL)", "rtl")
+        direction_row.addWidget(self.direction_combo)
+        provenance = QLabel("Reports include a provenance section (scope, sources, revisions, methods) and are "
+                            "labelled UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.")
+        provenance.setWordWrap(True)
+        direction_row.addWidget(provenance, 1)
+        layout.addLayout(direction_row)
         layout.addWidget(self.tab_widget)
 
     # ==================== Well Selection Header ====================
@@ -108,6 +121,10 @@ class ExportWidget(DrillTabBase):
         lbl.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic; padding: 0 6px;")
         return lbl
 
+    def direction(self) -> str:
+        combo = getattr(self, "direction_combo", None)
+        return combo.currentData() if combo is not None else "ltr"
+
     def _format_selector(self):
         """ساخت انتخابگر فرمت"""
         w = QWidget()
@@ -115,7 +132,7 @@ class ExportWidget(DrillTabBase):
         hl.setContentsMargins(0, 0, 0, 0)
         hl.addWidget(QLabel("Format:"))
         combo = QComboBox()
-        combo.addItems(["PDF", "HTML", "Excel"])
+        combo.addItems(["PDF", "HTML", "Excel", "CSV"])
         hl.addWidget(combo)
         hl.addStretch()
         return w, combo
@@ -236,7 +253,8 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        job = ExportJob("ddr", "DDR", fn, target, fmt, watermark=self.ddr_watermark.text())
+        job = ExportJob("ddr", "DDR", fn, target, fmt, watermark=self.ddr_watermark.text(),
+                        direction=self.direction())
         self._start_single_export(job, self.ddr_status)
 
     # ==================== 2. EOWR Tab ====================
@@ -286,7 +304,8 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        job = ExportJob("eowr", "EOWR", fn, target, fmt, watermark=self.eowr_watermark.text())
+        job = ExportJob("eowr", "EOWR", fn, target, fmt, watermark=self.eowr_watermark.text(),
+                        direction=self.direction())
         self._start_single_export(job, self.eowr_status)
 
     # ==================== 3. NPT Tab ====================
@@ -350,7 +369,7 @@ class ExportWidget(DrillTabBase):
             return
         date_from = self.npt_from.date().toPython()
         date_to = self.npt_to.date().toPython()
-        job = ExportJob("npt", "NPT", fn, target, fmt, args=(date_from, date_to))
+        job = ExportJob("npt", "NPT", fn, target, fmt, args=(date_from, date_to), direction=self.direction())
         self._start_single_export(job, self.npt_status)
 
     # ==================== 4. Cost Tab ====================
@@ -426,7 +445,7 @@ class ExportWidget(DrillTabBase):
         spread = self.cost_spread.value() or None
         if rig is None or spread is None:
             rig = spread = None
-        job = ExportJob("cost", "Cost", fn, target, fmt, args=(rig, spread))
+        job = ExportJob("cost", "Cost", fn, target, fmt, args=(rig, spread), direction=self.direction())
         self._start_single_export(job, self.cost_status)
 
     # ==================== 5. Plan Tab ====================
@@ -473,7 +492,7 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        job = ExportJob("plan", "Plan", fn, target, fmt)
+        job = ExportJob("plan", "Plan", fn, target, fmt, direction=self.direction())
         self._start_single_export(job, self.plan_status)
 
     # ==================== 6. Batch Tab ====================
@@ -562,6 +581,7 @@ class ExportWidget(DrillTabBase):
             return
 
         fmt = self.batch_fmt.currentText().lower()
+        direction = self.direction()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         selected = [kind for kind, box in (
             ("professional", self.batch_professional), ("eowr", self.batch_eowr),
@@ -574,7 +594,8 @@ class ExportWidget(DrillTabBase):
             # Runs in the worker with its own read-only connection.
             reports = db.get_daily_reports_by_well(wid) if "ddr" in selected else []
             return plan_batch(well_id=wid, folder=folder, fmt=fmt, timestamp=ts,
-                              selected=selected, report_id=report_id, ddr_reports=reports)
+                              selected=selected, report_id=report_id, ddr_reports=reports,
+                              direction=direction)
 
         def progress(done, total, outcome):
             self.batch_log.append(f"[{done}/{total}] {self._outcome_text(outcome)}")

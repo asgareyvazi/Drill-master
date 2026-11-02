@@ -310,7 +310,7 @@ Help › "📐 Method Catalogue" (`dialogs/method_catalogue_dialog.py`) over `co
 
 | Capability | State | Evidence / limits |
 |---|---|---|
-| One catalogue over every method source | PASS | 50 entries: 10 engines (incl. hydraulics), 7 W13 contracts + 1 legacy runnable version, 20 W13 calculators without a contract (NOT SUPPORTED), 4 specialist methods (M79), 8 directional / survey / architecture / analysis methods. Versions and method strings are read from the running code; a test discovers engine classes from the source and fails if one is missing |
+| One catalogue over every method source | PASS | 50 entries at M92 (52 since M93 added the time-log and cost-per-currency methods): 10 engines (incl. hydraulics), 7 W13 contracts + 1 legacy runnable version, 20 W13 calculators without a contract (NOT SUPPORTED), 4 specialist methods (M79), 8 directional / survey / architecture / analysis methods. Versions and method strings are read from the running code; a test discovers engine classes from the source and fails if one is missing |
 | Fields | PASS | ID, title, family, source, status, label, version, reference, licence, limits, approval, blocker, module; details pane; CSV export with the UNSIGNED label |
 | No self-approval | PASS | Approval only from `OWNER_APPROVALS`, an immutable mapping in the source (empty in this build); every method reads "NOT APPROVED — OWNER REVIEW REQUIRED" with "owner engineering approval" as a blocker; no approve, edit or delete control; table not editable |
 | Misleading-entry guard | PASS | `violations()`: duplicate id, unknown status or label, IMPLEMENTED without version/limits/module/reference, not implemented without a blocker, approval for an unknown method |
@@ -330,3 +330,17 @@ Audit of the existing DDR path against the M84 list; two defects fixed (file ide
 | Truthful cancel | PASS | Not-started files are cancelled; a running third-party parse cannot be interrupted (no thread killing) — its result is discarded at the next step and nothing is committed after a cancel; closing the dialog while a worker runs is refused and turns into a cancel (`test_m71_ddr_background`) |
 | Clean-up after cancel | PASS (M84) | Parser results of files cancelled or found duplicate before they ran are released (previously leaked until exit) |
 | Never auto-import, no OCR | PASS | Every file passes the user preview; scanned pages are reported, never OCR-ed |
+
+### M93 – Reports and Document Intelligence
+
+`core/report_provenance.py` (`M93 report provenance v1`) is the single output step of the five W11 report engines (DDR, EOWR, NPT, cost, plan). `tests/test_m93_report_provenance.py` (11, offscreen Qt; 6 hand mutants killed); report/export regression 567 passed (the two release-boundary failures were the untracked new module before staging).
+
+| Capability | State | Evidence / limits |
+|---|---|---|
+| Scope, sources, revisions, methods and label on every report | PASS | Label banner first and a provenance block last: well, wellbore (DDR's own or "all wellbores of the well"), report or period; tables read (checked against the schema) and daily-report count; latest report / survey (SHA-256) / architecture (SHA-256) / directional-plan revision or "none recorded"; catalogue method IDs with versions read from the code and their approval state; generation time |
+| HTML / PDF / Excel / CSV | PASS | PDF through Qt `QTextDocument` (no PyMuPDF — AST-checked); Excel gets a first "Provenance" sheet; CSV (new) writes one file per sheet of the engine's own workbook with `#` provenance rows first; W11 format lists PDF / HTML / Excel / CSV |
+| RTL / LTR | PASS | W11 "Document direction" applies to every report kind and the batch; `dir` on `<html>` and the body; Qt lays out every block right-to-left (checked on the PDF's document model); Excel sheets right-to-left |
+| Professional 16-sheet Excel / professional PDF (batch) | PARTIAL | Separate exporter (`core/professional_export.py`); not yet routed through the provenance step |
+| Document index and search | PASS (pre-existing) | `DocumentLibrary` text index and `search()`; `test_document_library`, `test_documents_tab`, `test_m49_knowledge_retrieval` |
+| Manual well confirmation | PASS (pre-existing) | Well-name matches are only suggestions; a link is saved after the user confirms (`test_document_links`) |
+| No OCR | PASS (standard build) / OWNER REVIEW | No OCR package is in `requirements-lock.txt`; the M44 RapidOCR hook activates only if the optional requirements are installed, and its pages stay unapproved until reviewed. Keeping or removing the optional hook is the owner's OCR decision |

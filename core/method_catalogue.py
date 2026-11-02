@@ -156,7 +156,8 @@ def _specialist() -> List[CatalogueEntry]:
 
 
 def _workflow_methods() -> List[CatalogueEntry]:
-    from core import operational_analysis, survey_revisions, trajectory_compare, well_architecture
+    from core import cost_semantics, operational_analysis, operational_time, survey_revisions, trajectory_compare
+    from core import well_architecture
     from core import well_plan_designer as wpd
 
     return [
@@ -191,6 +192,16 @@ def _workflow_methods() -> List[CatalogueEntry]:
                        "Segment annulus volumes with declared caliper and explicit excess", OWN_CODE,
                        "Excess on open hole only and only when declared", "re-run NOT IMPLEMENTED",
                        "core/well_architecture.py"),
+        CatalogueEntry("analysis.time_log_summary", "Time-log hours and NPT reduction", "Operations",
+                       "operational time", "IMPLEMENTED", "", operational_time.TIME_SUMMARY_VERSION,
+                       "Arithmetic over recorded durations and NPT flags", OWN_CODE,
+                       "Unknown durations are never zero; a NULL NPT flag never proves productive time", "",
+                       "core/operational_time.py"),
+        CatalogueEntry("analysis.cost_per_currency", "Cost totals per currency", "Operations", "cost semantics",
+                       "IMPLEMENTED", "", cost_semantics.COST_SEMANTICS_VERSION,
+                       "Arithmetic over recorded planned/actual cost", OWN_CODE,
+                       "No currency conversion; unknown currency is never assumed (money migration owner-gated)",
+                       "", "core/cost_semantics.py"),
         CatalogueEntry("analysis.operational", "Operational analysis", "Operations", "operational analysis",
                        "IMPLEMENTED", "", operational_analysis.OA_VERSION,
                        "Arithmetic over stored reports (footage, time-weighted ROP, NPT, bit runs, cost)", OWN_CODE,

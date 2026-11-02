@@ -39,7 +39,7 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Seque
 
 logger = logging.getLogger(__name__)
 
-EXTENSIONS: Dict[str, str] = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx"}
+EXTENSIONS: Dict[str, str] = {"pdf": ".pdf", "html": ".html", "excel": ".xlsx", "csv": ".csv"}
 
 # Batch order (unchanged): professional pair, then EOWR, NPT, Cost, Plan, DDRs.
 BATCH_KINDS: Tuple[str, ...] = ("professional", "eowr", "npt", "cost", "plan", "ddr")
@@ -64,6 +64,7 @@ class ExportJob:
     args: Tuple[Any, ...] = ()
     report_id: Optional[int] = None
     watermark: Optional[str] = None
+    direction: str = "ltr"          # M93: text direction of the document (ltr / rtl)
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,7 @@ def _report_engine(class_name: str) -> Callable[[Any, ExportJob], Any]:
         engine = getattr(report_engine, class_name)(db)
         if job.watermark is not None:
             engine.branding.watermark = job.watermark
+        engine.direction = job.direction
         return engine.generate(job.target_id, job.path, job.fmt, *job.args)
 
     return generate
@@ -136,6 +138,7 @@ def plan_batch(
     selected: Iterable[str],
     report_id: Optional[int] = None,
     ddr_reports: Sequence[Mapping[str, Any]] = (),
+    direction: str = "ltr",
 ) -> List[ExportJob]:
     """Batch jobs in the historical order with the historical file names."""
     import os
@@ -156,12 +159,13 @@ def plan_batch(
     for kind, label, stem in (("eowr", "EOWR", "EOWR"), ("npt", "NPT", "NPT"),
                               ("cost", "Cost", "Cost"), ("plan", "Plan", "Plan")):
         if kind in chosen:
-            jobs.append(ExportJob(kind, label, os.path.join(folder, f"{stem}_{timestamp}{ext}"), well_id, fmt))
+            jobs.append(ExportJob(kind, label, os.path.join(folder, f"{stem}_{timestamp}{ext}"), well_id, fmt,
+                                  direction=direction))
     if "ddr" in chosen:
         for report in ddr_reports:
             name = f"DDR_{report.get('report_number', '')}_{report.get('report_date', '')}{ext}"
             jobs.append(ExportJob("ddr", f"DDR #{report.get('report_number', '')}",
-                                  os.path.join(folder, name), int(report["id"]), fmt))
+                                  os.path.join(folder, name), int(report["id"]), fmt, direction=direction))
     return _without_path_collisions(jobs)
 
 
