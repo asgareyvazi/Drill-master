@@ -73,8 +73,8 @@ MUTANTS = [
            T74, "a saved architecture revision's components can be rewritten"),
     # ---- M72 solver and survey pin ----------------------------------------------------------
     Mutant("WP-inside-build-circle-accepted", WP,
-           "    if d < radius:\n        out[\"reason\"] = (f\"Infeasible: the target lies inside the build circle",
-           "    if False:\n        out[\"reason\"] = (f\"Infeasible: the target lies inside the build circle",
+           "        if rho < radius:\n            return _fail(out, \"INSIDE_TURN_RADIUS\",",
+           "        if False:\n            return _fail(out, \"INSIDE_TURN_RADIUS\",",
            T72, "a target inside the build circle is not reported infeasible"),
     Mutant("WP-tie-in-shift-dropped", WP,
            "    d_tvd = float(tie_in[\"tvd\"]) - stations[0][\"tvd\"]",

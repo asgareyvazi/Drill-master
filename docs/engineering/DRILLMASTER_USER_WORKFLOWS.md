@@ -85,7 +85,7 @@ Automated evidence for these workflows comes from offscreen Qt tests on Linux wi
    * high/low and right/left deviation;
    * along-hole difference.
 3. **Save** writes a new comparison record (append-only). **Export CSV** writes the table.
-4. Offset mode: choose an offset well and confirm both wells share a CRS. The result is **SCREENING – centre-to-centre, no ISCWSA uncertainty, NOT APPROVED**. Separation factor and ellipse clearance are not offered, because no uncertainty model is available.
+4. Offset mode: choose an offset well and confirm both wells share a CRS. The result is **SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre)**. Separation factor and ellipse clearance are not offered, because no uncertainty model is available.
 
 ## 7. Engineering calculators (W13)
 

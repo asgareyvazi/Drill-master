@@ -213,7 +213,7 @@ def test_the_solver_handles_a_survey_tie_in_and_a_target_straight_below():
 @pytest.mark.parametrize("target,kw,reason", [
     ({"tvd": 600.0, "north": 300.0, "east": 0.0}, {}, "inside the build circle"),
     ({"tvd": 400.0, "north": 10.0, "east": 0.0}, {}, "not below the KOP"),
-    ({"tvd": 2000.0, "north": 100.0, "east": 0.0}, {"tie_in": {"md": 100.0, "inc": 5.0, "azi": 0.0}}, "vertical tie-in"),
+    # M86: an inclined tie-in is now solved (see test_m86_directional_solver), no longer refused
     ({"tvd": 1100.0, "north": 3000.0, "east": 0.0}, {"max_inc": 60.0}, "exceeds the limit"),
     ({"tvd": float("inf"), "north": 1.0, "east": 0.0}, {}, "finite"),
     ({"tvd": 1500.0, "north": 1.0, "east": 0.0}, {"dls_value": 0.0}, "positive"),

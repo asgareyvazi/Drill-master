@@ -227,3 +227,14 @@ OWNER REVIEW REQUIRED. Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT 
 | CRS / grid coordinates | NOT IMPLEMENTED | No CRS is stored; convergence is a user value, not derived from a CRS |
 | Plan file azimuth reference | PARTIAL | Plan-vs-actual checks the survey revision's integrity, but imported plan files carry no declared reference |
 
+### M86 – Directional solver and screening
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Curve-hold target solver from any tie-in direction (inclined / horizontal / survey tie-in) | PASS | `core/well_plan_designer.solve_build_hold` ("M86 curve-hold target solver v2"), Trajectory viewer → Plan designer → Solve; closed-form goldens (build, drop, horizontal turn, pure hold, M72 J-profile) and 60 seeded targets verified by the forward minimum-curvature engine; `tests/test_m86_directional_solver.py`. The M72 test row that asserted the old "vertical tie-in only" refusal was replaced by these positive goldens |
+| Structured infeasibility | PASS | `code` = INVALID_INPUT / NON_POSITIVE_RATE / KOP_ABOVE_TIE_IN / TARGET_NOT_BELOW_KOP / TARGET_AT_KOP / TARGET_BEHIND / INSIDE_TURN_RADIUS / TURN_TOO_LARGE / INC_LIMIT plus a reason; shown in the panel |
+| Inclination limit along the whole arc | PASS | `_max_inc_along_arc`, checked against dense sampling |
+| Build / drop / hold / turn segments, DLS-limit warning, targets with radius and TVD | PASS (pre-existing M55/M62) | Designer segments; target hit evaluated on the continuous arc |
+| Multi-segment optimisation (S-profile, build-turn-hold with separate rates, multiple targets) | NOT IMPLEMENTED | The solver aims at the first target with one arc and one tangent |
+| Plan vs actual, offset closest approach | PASS (SCREENING, pre-existing M52/M72) | Label now `SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre)`; no separation factor or ellipses (no error model) |
+

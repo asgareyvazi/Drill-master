@@ -19,7 +19,7 @@ Rules applied: no-licence repositories are ideas only; GPL/LGPL/CC-NC code is ow
 
 What reached the product: two independent re-implementations, no copied code:
 
-* `core/trajectory_compare.py` (plan vs actual and offset-well centre-to-centre screening, exact minimum-curvature arc, continuous closest approach). Method ideas from **welleng** (Apache-2.0). Labelled `SCREENING - centre-to-centre, no ISCWSA uncertainty, NOT APPROVED`.
+* `core/trajectory_compare.py` (plan vs actual and offset-well centre-to-centre screening, exact minimum-curvature arc, continuous closest approach). Method ideas from **welleng** (Apache-2.0). Labelled `SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre)` (M86 wording).
 * `CementEngine.balanced_plug` (SCREENING). Method from **cement-calc** (MIT), attribution in `THIRD_PARTY_NOTICES.md`.
 
 Own designs informed by INSPIRE ONLY entries (nothing copied): `core/ddr_pdf_split.py` (one PDF holding several daily reports is split per report, with page references, warnings and confidence, before review) follows the page-classification / report-boundary idea of the DDR PDF repositories (DDR_UTAH_FORGE, pdf-report-table-extractor, wellbrief) with generic header labels and no dataset-specific rules.

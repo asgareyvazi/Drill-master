@@ -419,7 +419,7 @@ class WellPlanDesignerPanel(QWidget):
         answer = solve_build_hold(targets[0], kop_md=self.kop_spin.value(), dls=self.build_spin.value(),
                                   tie_in=tie_in)
         if not answer["feasible"]:
-            self.summary_label.setText(f"Not solved: {answer['reason']}")
+            self.summary_label.setText(f"Not solved [{answer.get('code', '')}]: {answer['reason']}")
             return answer
         self.segment_table.setRowCount(0)
         for seg in answer["segments"]:
@@ -427,7 +427,7 @@ class WellPlanDesignerPanel(QWidget):
         self.design()
         self.summary_label.setText(
             self.summary_label.text() + f"\nSolved ({answer['method']}): hold {answer['inc']:.3f} deg at azimuth "
-            f"{answer['azi']:.3f} deg, tangent {answer['hold_length']:.2f} m.")
+            f"{answer['azi']:.3f} deg, dogleg {answer['dogleg_deg']:.3f} deg, tangent {answer['hold_length']:.2f} m.")
         return answer
 
     def _show_plan(self, plan: dict, verb: str) -> None:

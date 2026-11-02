@@ -205,71 +205,114 @@ def _shift_to_tie_in(stations, tie_in, vs_azimuth):
     return out
 
 
-SOLVER_VERSION = "M72 build-hold target solver v1"
+SOLVER_VERSION = "M86 curve-hold target solver v2"
+
+
+def _fail(out: Dict[str, Any], code: str, reason: str) -> Dict[str, Any]:
+    out.update({"feasible": False, "code": code, "reason": reason, "segments": []})
+    return out
+
+
+def _max_inc_along_arc(t0: Sequence[float], n: Sequence[float], phi: float) -> float:
+    """Largest inclination (deg) on the arc t(psi) = cos(psi) t0 + sin(psi) n, psi in [0, phi]."""
+    candidates = [0.0, phi]
+    base = math.atan2(n[2], t0[2])
+    for k in range(-2, 3):
+        psi = base + k * math.pi
+        if 0.0 < psi < phi:
+            candidates.append(psi)
+    lowest = min(math.cos(psi) * t0[2] + math.sin(psi) * n[2] for psi in candidates)
+    return math.degrees(math.acos(max(-1.0, min(1.0, lowest))))
 
 
 def solve_build_hold(target: Dict[str, float], *, kop_md: float, dls: float,
                      tie_in: Optional[Dict[str, float]] = None, max_inc: float = 90.0) -> Dict[str, Any]:
-    """Closed-form J-profile (vertical hold - build - tangent hold) through a target centre.
+    """Closed-form curve-hold profile from any tie-in direction through a target centre.
 
-    Objective: pass exactly through the target centre (TVD, N, E). Constraints:
-    a vertical tie-in (inclination 0) at or above the KOP, a constant build rate
-    ``dls`` (deg/30 m) and a hold inclination <= ``max_inc``. In the vertical
-    plane of the target azimuth with horizontal offset H and depth V below the
-    KOP, the build radius is R = 5400/(pi*dls) and the hold angle is
-    theta = atan2(V, R - H) - acos(R/d), d = sqrt((R - H)^2 + V^2); the
-    tangent length is sqrt(d^2 - R^2). The target is infeasible when it lies
-    inside the build circle (d < R), above the KOP, or needs theta > max_inc.
-    No iteration: the answer is deterministic. Returns ``{"feasible": bool,
-    "reason", "segments", "inc", "azi", "hold_length", ...}``.
+    The tie-in (MD, inc, azi, TVD, N, E; default: surface, vertical) is held in
+    its own direction t0 down to the KOP P0. One constant-curvature arc (radius
+    R = 5400/(pi*dls)) then a tangent hold reach the target T. The arc lies in
+    the plane of t0 and d = T - P0: with a = d.t0, b = |d - a t0| and the unit
+    normal n = (d - a t0)/b, tangency requires a sin(phi) + (R - b) cos(phi) = R,
+    so phi = atan2(a, R - b) - acos(R/rho) (mod 360 deg), rho = hypot(a, R - b),
+    and the tangent length is sqrt(rho^2 - R^2). For a vertical tie-in this is
+    the M72 J-profile formula. Infeasible (structured ``code`` + ``reason``, no
+    approximation): target inside the turn circle (rho < R), directly behind the
+    tie-in direction, a dogleg >= 180 deg, an inclination above ``max_inc``
+    anywhere on the arc, KOP above the tie-in, non-finite inputs. Planning aid.
     """
     tie_in = dict(tie_in or {})
-    out: Dict[str, Any] = {"feasible": False, "method": SOLVER_VERSION, "segments": []}
+    out: Dict[str, Any] = {"feasible": False, "method": SOLVER_VERSION, "segments": [], "code": ""}
     values = [kop_md, dls, max_inc] + [target.get(k) for k in ("tvd", "north", "east")]
+    values += [tie_in.get(k, 0.0) for k in ("md", "inc", "azi", "north", "east")]
+    if "tvd" in tie_in:
+        values.append(tie_in["tvd"])
     if any(not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) for v in values):
-        out["reason"] = "Target TVD/N/E, KOP, build rate and max inclination must be finite numbers."
-        return out
-    if abs(float(tie_in.get("inc", 0.0))) > 1e-9:
-        out["reason"] = "Only a vertical tie-in is supported by this solver (3D tie-in solving is not implemented)."
-        return out
-    tie_md = float(tie_in.get("md", 0.0))
+        return _fail(out, "INVALID_INPUT",
+                     "Target TVD/N/E, tie-in, KOP, build rate and max inclination must be finite numbers.")
+    tie_md, tie_inc, tie_azi = (float(tie_in.get(k, 0.0)) for k in ("md", "inc", "azi"))
+    if not 0.0 <= tie_inc <= 180.0:
+        return _fail(out, "INVALID_INPUT", f"The tie-in inclination {tie_inc:g} deg is outside 0-180 deg.")
     tie_tvd = float(tie_in.get("tvd", tie_md))
     tie_n, tie_e = float(tie_in.get("north", 0.0)), float(tie_in.get("east", 0.0))
     if dls <= 0:
-        out["reason"] = "The build rate must be positive."
-        return out
+        return _fail(out, "NON_POSITIVE_RATE", "The build rate must be positive.")
     if kop_md < tie_md:
-        out["reason"] = f"The KOP {kop_md:g} m is above the tie-in MD {tie_md:g} m."
-        return out
-    kop_tvd = tie_tvd + (kop_md - tie_md)
-    dn, de = float(target["north"]) - tie_n, float(target["east"]) - tie_e
-    h, v = math.hypot(dn, de), float(target["tvd"]) - kop_tvd
-    if v <= 0:
-        out["reason"] = "The target is not below the KOP."
-        return out
+        return _fail(out, "KOP_ABOVE_TIE_IN", f"The KOP {kop_md:g} m is above the tie-in MD {tie_md:g} m.")
+    t0 = _vector(tie_inc, tie_azi)                       # (north, east, down)
+    lead = kop_md - tie_md
+    p0 = (tie_n + lead * t0[0], tie_e + lead * t0[1], tie_tvd + lead * t0[2])
+    d = (float(target["north"]) - p0[0], float(target["east"]) - p0[1], float(target["tvd"]) - p0[2])
+    vertical = tie_inc <= 1e-9
+    if vertical and d[2] <= 0:
+        return _fail(out, "TARGET_NOT_BELOW_KOP", "The target is not below the KOP.")
+    if math.sqrt(sum(c * c for c in d)) <= 1e-9:
+        return _fail(out, "TARGET_AT_KOP", "The target coincides with the KOP; nothing to solve.")
     radius = 5400.0 / (math.pi * dls)
-    d = math.hypot(radius - h, v)
-    if d < radius:
-        out["reason"] = (f"Infeasible: the target lies inside the build circle (radius {radius:.1f} m); "
+    a = sum(x * y for x, y in zip(d, t0))
+    perp = tuple(x - a * y for x, y in zip(d, t0))
+    b = math.sqrt(sum(c * c for c in perp))
+    common = {"build_radius": radius, "kop_tvd": p0[2], "kop_north": p0[0], "kop_east": p0[1],
+              "horizontal_offset": math.hypot(d[0], d[1]), "along_tie_in": a, "off_tie_in": b}
+    out.update(common)
+    if b <= 1e-9:
+        if a <= 0:
+            return _fail(out, "TARGET_BEHIND",
+                         "Infeasible: the target lies directly behind the tie-in direction (turn plane undefined).")
+        phi, n, hold = 0.0, (0.0, 0.0, 0.0), a
+    else:
+        n = tuple(c / b for c in perp)
+        rho = math.hypot(a, radius - b)
+        if rho < radius:
+            return _fail(out, "INSIDE_TURN_RADIUS",
+                         f"Infeasible: the target lies inside the build circle (radius {radius:.1f} m); "
                          "raise the build rate or move the KOP up.")
-        return out
-    theta = math.degrees(math.atan2(v, radius - h) - math.acos(radius / d))
-    if h <= 1e-9:
-        theta = 0.0
-    if theta > max_inc + 1e-9:
-        out["reason"] = f"Infeasible: the hold inclination {theta:.2f} deg exceeds the limit {max_inc:g} deg."
-        return out
-    azi = math.degrees(math.atan2(de, dn)) % 360.0 if h > 1e-9 else 0.0
-    hold = math.sqrt(max(d * d - radius * radius, 0.0))
+        phi = (math.atan2(a, radius - b) - math.acos(radius / rho)) % (2.0 * math.pi)
+        if phi > 2.0 * math.pi - 1e-12:
+            phi = 0.0
+        hold = math.sqrt(max(rho * rho - radius * radius, 0.0))
+    dogleg = math.degrees(phi)
+    if dogleg >= 180.0 - 1e-9:
+        return _fail(out, "TURN_TOO_LARGE",
+                     f"Infeasible: the target needs a dogleg of {dogleg:.1f} deg (>= 180 deg) at this build rate.")
+    peak = _max_inc_along_arc(t0, n, phi) if phi > 0 else tie_inc
+    if peak > max_inc + 1e-9:
+        return _fail(out, "INC_LIMIT", f"Infeasible: the hold inclination {peak:.2f} deg exceeds the limit "
+                                       f"{max_inc:g} deg.")
+    end = tuple(math.cos(phi) * x + math.sin(phi) * y for x, y in zip(t0, n))
+    inc, azi = _angles(end)
+    if inc <= 1e-9:
+        azi = 0.0
     segments = []
-    if kop_md - tie_md > 1e-9:
-        segments.append({"type": "hold", "length": kop_md - tie_md})
-    if theta > 1e-9:
-        segments.append({"type": "curve", "inc": theta, "azi": azi, "dls": float(dls)})
+    if lead > 1e-9:
+        segments.append({"type": "hold", "length": lead})
+    if dogleg > 1e-9:
+        segments.append({"type": "curve", "inc": inc, "azi": azi, "dls": float(dls)})
     if hold > 1e-9:
         segments.append({"type": "hold", "length": hold})
-    out.update({"feasible": True, "reason": "", "segments": segments, "inc": theta, "azi": azi,
-                "hold_length": hold, "build_radius": radius, "kop_tvd": kop_tvd, "horizontal_offset": h})
+    out.update({"feasible": True, "code": "OK", "reason": "", "segments": segments, "inc": inc, "azi": azi,
+                "hold_length": hold, "dogleg_deg": dogleg, "curve_length": radius * phi,
+                "max_inc_on_arc": peak})
     return out
 
 

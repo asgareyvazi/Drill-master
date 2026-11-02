@@ -44,7 +44,7 @@ from typing import Iterable, Optional, Sequence
 from core.well_trajectory import compose_well_trajectory
 
 METHOD_VERSION = "M52 centre-to-centre screening v1"
-LABEL = "SCREENING - centre-to-centre, no ISCWSA uncertainty, NOT APPROVED"
+LABEL = "SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre)"
 ASSESSED = "ASSESSED"
 NOT_ASSESSED = "NOT ASSESSED"
 DEFAULT_STEP_M = 10.0

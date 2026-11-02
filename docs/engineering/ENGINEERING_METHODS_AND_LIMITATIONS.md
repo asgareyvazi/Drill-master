@@ -59,7 +59,7 @@ Scope: the calculation and data-ingestion methods that DrillMaster exposes to us
 **Plan vs actual and offsets (M52, reused by M55)**
 * Uses the exact MinCurv arc and continuous closest approach.
 * Reports high-side and right-side (HL/RL) deviation along the well.
-* **SCREENING – centre-to-centre, no ISCWSA uncertainty, NOT APPROVED.** Separation factor and ellipse clearance are not computed, because no uncertainty data or validated error model exists.
+* **SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre).** Separation factor and ellipse clearance are not computed, because no uncertainty data or validated error model exists.
 * welleng ISCWSA error models remain owner-gated.
 
 ## Drilling engineering engines (pre-existing; audited in M53–M60, not changed)
