@@ -751,6 +751,7 @@ class MainWindow(QMainWindow):
         help_menu = menubar.addMenu("❓ Help")
         for text, shortcut, slot in [
             ("📚 Help", "F1", self.show_help),
+            ("📐 Method Catalogue", "", self.show_method_catalogue),
             ("ℹ️ About", "", self.show_about),
         ]:
             act = QAction(text, self)
@@ -2703,6 +2704,15 @@ class MainWindow(QMainWindow):
         btn.rejected.connect(dialog.reject)
         layout.addWidget(btn)
         dialog.exec()
+
+    def show_method_catalogue(self):
+        """Help › Method Catalogue (M92): read-only; no approval from the application."""
+        from dialogs.method_catalogue_dialog import MethodCatalogueDialog
+        dialog = MethodCatalogueDialog(self.db_manager, self.sel_manager.current_well_id, self)
+        self._method_catalogue = dialog
+        dialog.setAttribute(Qt.WA_DeleteOnClose)
+        dialog.show()
+        return dialog
 
     def show_about(self):
         QMessageBox.about(

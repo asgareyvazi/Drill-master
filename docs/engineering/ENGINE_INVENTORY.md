@@ -11,7 +11,7 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 |---|---|---|---|
 | `AntiCollisionEngine` (anti_collision.py) | Linear-interpolated 3D centerline separation screening | SCREENING | 2 |
 | `BitPerformanceEngine` (bit_performance.py) | Daily Report bit run roll-up | - | 8 |
-| `CasingEngine` (casing.py) | API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2) | - | 11 |
+| `CasingEngine` (casing.py) | API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2) | - | 12 |
 | `CementEngine` (cement.py) | Oilfield capacity (D²/1029.4) + stacked column hydrostatic | - | 8 |
 | `FishingEngine` (fishing.py) | Legacy free-point/stretch chart approximations — SCREENING | SCREENING | 3 |
 | `MSEEngine` (mse.py) | Teale (1965) Mechanical Specific Energy | - | 9 |

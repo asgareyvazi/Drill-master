@@ -303,3 +303,16 @@ W12 page "🧭 Operational Analysis" (`tabs/operational_analysis_panel.py`) over
 | Plan vs actual | PARTIAL | Existing `get_actual_vs_plan` (whole well; no wellbore or date filter) |
 | Drill-down | PASS | Row → source daily report via `SelectionManager.select_full_context`, refused for another well; the result is kept for the same well/wellbore and cleared otherwise |
 | Export | PASS | CSV (one file per table) and XLSX with scope, method version, generation time and label |
+
+### M92 – Method Catalogue
+
+Help › "📐 Method Catalogue" (`dialogs/method_catalogue_dialog.py`) over `core/method_catalogue.py` (`M92 method catalogue v1`). `tests/test_m92_method_catalogue.py` (6, offscreen Qt through the real MainWindow; 6 hand mutants killed).
+
+| Capability | State | Evidence / limits |
+|---|---|---|
+| One catalogue over every method source | PASS | 50 entries: 10 engines (incl. hydraulics), 7 W13 contracts + 1 legacy runnable version, 20 W13 calculators without a contract (NOT SUPPORTED), 4 specialist methods (M79), 8 directional / survey / architecture / analysis methods. Versions and method strings are read from the running code; a test discovers engine classes from the source and fails if one is missing |
+| Fields | PASS | ID, title, family, source, status, label, version, reference, licence, limits, approval, blocker, module; details pane; CSV export with the UNSIGNED label |
+| No self-approval | PASS | Approval only from `OWNER_APPROVALS`, an immutable mapping in the source (empty in this build); every method reads "NOT APPROVED — OWNER REVIEW REQUIRED" with "owner engineering approval" as a blocker; no approve, edit or delete control; table not editable |
+| Misleading-entry guard | PASS | `violations()`: duplicate id, unknown status or label, IMPLEMENTED without version/limits/module/reference, not implemented without a blocker, approval for an unknown method |
+| Stored use | PASS | Count of stored W13 cases per method and version, database-wide and for the selected well |
+| Engine references | PARTIAL | Hydraulics: published reference not recorded in the source (blocker shown); references are statements, not owner-verified citations |
