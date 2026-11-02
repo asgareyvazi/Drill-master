@@ -33,6 +33,12 @@ T61 = ["tests/test_m61_ddr_profile_rules.py"]
 T62 = ["tests/test_m62_directional_plans.py"]
 T63 = ["tests/test_m63_calculation_cases.py"]
 T67 = ["tests/test_m67_calculation_history.py"]
+SG = "core/storage_guards.py"
+T70Q = ["tests/test_m70_queue_lifecycle.py"]
+T70I = ["tests/test_m70_integrity.py"]
+T70L = ["tests/test_m70_verification_lineage.py"]
+T71 = ["tests/test_m71_ddr_background.py"]
+T73 = ["tests/test_m73_contracts_history.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------------ M61 profile rules / queue
@@ -60,10 +66,10 @@ MUTANTS = [
            "                    continue  # ambiguous/unparsed values are never bulk-accepted",
            "                    pass",
            T61, "Accept-all-high accepts values that still need review"),
-    Mutant("Q-in-batch-duplicate-missed", Q,
-           "            if twin is not None:",
-           "            if False:",
-           T61, "byte-identical files in one batch are imported twice"),
+    Mutant("Q-in-batch-duplicate-missed", Q,   # retargeted in M81: M70.6 moved the check into _mark_twin
+           "        if twin is None:\n            return False",
+           "        if True:\n            return False",
+           T61 + T70Q, "byte-identical files in one batch are imported twice"),
     Mutant("Q-saved-result-removable", Q,
            "REMOVABLE = {QUEUED, FAILED, CANCELLED, SKIPPED, DUPLICATE}",
            "REMOVABLE = {QUEUED, FAILED, CANCELLED, SKIPPED, DUPLICATE, SAVED}",
@@ -72,10 +78,10 @@ MUTANTS = [
            "    if result.get(\"reimport\"):",
            "    if False:",
            T61, "an already-imported source is reported as a new save"),
-    Mutant("EI-cancel-ignored", EI,
-           "            if entry.status == DUPLICATE or queue.cancel_requested:",
-           "            if entry.status == DUPLICATE:",
-           T61, "Cancel remaining does not stop files that have not started"),
+    Mutant("EI-cancel-ignored", EI,   # retargeted in M81: M71 moved the check into the run loop
+           "            runnable = (entry.status not in FINAL and not queue.cancel_requested\n",
+           "            runnable = (entry.status not in FINAL\n",
+           T61 + T70Q + T71, "Cancel remaining does not stop files that have not started"),
     # ------------------------------------------------------------------ M62 plans
     Mutant("WP-station-only-target-distance", WP,
            "\"name\": target.get(\"name\", \"Target\"), \"closest_md\": near[\"md\"], \"distance\": near[\"distance\"],",
@@ -91,27 +97,27 @@ MUTANTS = [
            "    problem = None",
            T62, "NaN/inf inputs reach the designer"),
     Mutant("DP-revision-number-reused", DP,
-           "            revision = (latest[0] if latest else 0) + 1",
-           "            revision = latest[0] if latest else 1",
-           T62, "a revise overwrites/collides with the latest revision number"),
-    Mutant("DP-archived-reactivated", DP,
-           "        if row.status == \"archived\" and status != \"archived\":",
-           "        if False:",
-           T62, "an archived revision can be made active again"),
+           "    return (latest[0] if latest else 0) + 1",   # retargeted in M81: M70 _next_revision
+           "    return latest[0] if latest else 1",
+           T62 + T70I, "a revise overwrites/collides with the latest revision number"),
+    Mutant("DP-archived-reactivated", SG,   # retargeted in M81: one transition table drives service + trigger
+           "    \"archived\": (\"archived\",),",
+           "    \"archived\": (\"archived\", \"draft\", \"approved\"),",
+           T62 + T70I, "an archived revision can be made active again"),
     # ------------------------------------------------------------------ M63 cases
     Mutant("CC-rerun-loses-parent", CC,
-           "wellbore_id=original[\"wellbore_id\"], parent_id=original[\"id\"], note=note)",
-           "wellbore_id=original[\"wellbore_id\"], parent_id=None, note=note)",
-           T63, "a re-run is not linked to the case it came from"),
+           "wellbore_id=original[\"wellbore_id\"], parent_id=original[\"id\"], note=note,",   # retargeted in M81
+           "wellbore_id=original[\"wellbore_id\"], parent_id=None, note=note,",
+           T63 + T70L, "a re-run is not linked to the case it came from"),
     Mutant("CC-empty-inputs-accepted", CC,
            "    if not inputs:\n        raise ValueError(\"The case has no inputs to store.\")",
            "    if False:\n        raise ValueError(\"The case has no inputs to store.\")",
            T63, "a case without inputs is stored"),
     # ------------------------------------------------------------------ M67 history
     Mutant("CH-well-filter-ignored", CH,
-           "                query = query.filter(model.well_id == well_id)",
-           "                pass",
-           T67, "the history of one well shows other wells' calculations"),
+           "        query = query.filter(model.well_id == well_id)",   # retargeted in M81: M73 DB-side filters
+           "        pass",
+           T67 + T73, "the history of one well shows other wells' calculations"),
     Mutant("CH-recalc-always-match", CH,
            "        return {\"status\": outcome.status, \"method_matches\": outcome.method_matches,",
            "        return {\"status\": \"MATCH\", \"method_matches\": outcome.method_matches,",

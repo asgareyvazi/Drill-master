@@ -31,6 +31,7 @@ CON = "core/calculator_contracts.py"
 CH = "core/calculation_history.py"
 WA = "core/well_architecture.py"
 GOLD = ["tests/test_engineering_independent_golden.py", "tests/test_engineering_ground_truth.py"]
+T40 = ["tests/test_hydraulics_m40_regressions.py"]  # asserts PV/YP from Fann readings
 T72 = ["tests/test_m72_surveys_solver.py"]
 T73 = ["tests/test_m73_contracts_history.py"]
 T74 = ["tests/test_m74_well_architecture.py"]
@@ -50,17 +51,17 @@ MUTANTS = [
            "        return gpm / (3.0 * tfa_in2)",
            GOLD, "nozzle jet velocity uses a wrong constant"),
     Mutant("HY-annular-capacity-constant", HY,
-           "        return AdvancedHydraulicsEngine._annular_area_factor_in2(hole_id, pipe_od) / 1029.4",
-           "        return AdvancedHydraulicsEngine._annular_area_factor_in2(hole_id, pipe_od) / 1000.0",
+           "        return AdvancedHydraulicsEngine._annular_area_factor_in2(hole_id, pipe_od) / 1029.4\n",
+           "        return AdvancedHydraulicsEngine._annular_area_factor_in2(hole_id, pipe_od) / 1000.0\n",
            GOLD + T74, "annular capacity uses a wrong constant"),
     Mutant("HY-pipe-capacity-constant", HY,
-           "        return pipe_id**2 / 1029.4",
-           "        return pipe_id**2 / 1000.0",
+           "        return pipe_id**2 / 1029.4\n",
+           "        return pipe_id**2 / 1000.0\n",
            GOLD + T73, "pipe capacity uses a wrong constant"),
     Mutant("HY-fann-pv", HY,
            "        pv = theta600 - theta300\n        yp = theta300 - pv",
            "        pv = theta600 - 0.9 * theta300\n        yp = theta300 - pv",
-           GOLD, "plastic viscosity from Fann readings is wrong"),
+           GOLD + T40, "plastic viscosity from Fann readings is wrong"),
     Mutant("MSE-rotary-term", MSE,
            "            rotary = (TEALE_120_PI * n * tq) / denominator",
            "            rotary = (480.0 * n * tq) / denominator",
