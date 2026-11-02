@@ -56,22 +56,22 @@ def _quick_case(db, *, od=5.0, inner=4.276, length=1000.0, capacity=None, versio
     inputs = {"QDoubleSpinBox:1": {"label": "OD", "value": od}, "QDoubleSpinBox:2": {"label": "ID", "value": inner},
               "QDoubleSpinBox:3": {"label": "Length", "value": length}}
     results = {"QLabel:1": {"label": "Capacity", "value": f"{cap:.5f} bbl/m  |  {cap / FT_PER_M:.5f} bbl/ft"}}
-    inputs, results, missing = contracts.annotate(contracts.QUICK_CALC, inputs, results)
+    inputs, results, missing = contracts.annotate(contracts.QUICK_CALC_V1, inputs, results)
     assert missing == []
-    return cc.save_case(db, calculator=contracts.QUICK_CALC.calculator, name="SYN quick", inputs=inputs,
-                        results=results, method=contracts.QUICK_CALC.method_id,
-                        method_version=version or contracts.QUICK_CALC.method_version)
+    return cc.save_case(db, calculator=contracts.QUICK_CALC_V1.calculator, name="SYN quick", inputs=inputs,
+                        results=results, method=contracts.QUICK_CALC_V1.method_id,
+                        method_version=version or contracts.QUICK_CALC_V1.method_version)
 
 
 # ---- contracts --------------------------------------------------------------------------------------
 def test_the_quick_calc_contract_reproduces_an_independent_reference():
-    current = contracts.QUICK_CALC.recalculate({"od": 5.0, "id": 4.276, "length": 1000.0})
+    current = contracts.QUICK_CALC_V1.recalculate({"od": 5.0, "id": 4.276, "length": 1000.0})
     assert current["capacity"] / FT_PER_M == pytest.approx(4.276 ** 2 / 1029.4, rel=1e-9)     # 0.017762 bbl/ft
     assert current["displacement"] / FT_PER_M == pytest.approx((5.0 ** 2 - 4.276 ** 2) / 1029.4, rel=1e-9)
     assert current["volume"] == pytest.approx(current["capacity"] * 1000.0)
-    assert contracts.QUICK_CALC.recalculate({"od": 5.0, "id": 4.276, "length": 0.0})["volume"] is None
+    assert contracts.QUICK_CALC_V1.recalculate({"od": 5.0, "id": 4.276, "length": 0.0})["volume"] is None
     with pytest.raises(ValueError):
-        contracts.QUICK_CALC.recalculate({"od": 4.0, "id": 4.276, "length": 10.0})
+        contracts.QUICK_CALC_V1.recalculate({"od": 4.0, "id": 4.276, "length": 10.0})
 
 
 def test_contract_cases_verify_match_different_unavailable_and_unreadable(db, monkeypatch):
@@ -82,11 +82,11 @@ def test_contract_cases_verify_match_different_unavailable_and_unreadable(db, mo
     outcome = ch.recalculate_entry(_entry(db, wrong["id"]))
     assert outcome["status"] == "DIFFERENT" and outcome["differences"][0]["field_id"] == "capacity"
     assert outcome["differences"][0]["tolerance"] == pytest.approx(5e-6)      # half the last displayed decimal
-    legacy = cc.save_case(db, calculator=contracts.QUICK_CALC.calculator, name="SYN legacy",
+    legacy = cc.save_case(db, calculator=contracts.QUICK_CALC_V1.calculator, name="SYN legacy",
                           inputs={"k": {"label": "OD", "value": 5.0}}, results={"r": {"label": "Capacity", "value": "1"}})
     out = ch.recalculate_entry(_entry(db, legacy["id"]))
     assert out["status"] == "NOT_REPRODUCIBLE" and "without a method version" in out["detail"]
-    monkeypatch.setitem(contracts.AVAILABLE_METHODS, contracts.QUICK_CALC.method_id, ())
+    monkeypatch.setitem(contracts.AVAILABLE_METHODS, contracts.QUICK_CALC_V1.method_id, ())
     out = ch.recalculate_entry(_entry(db, good["id"]))
     assert out["status"] == "NOT_REPRODUCIBLE" and "no longer available" in out["detail"]
     monkeypatch.undo()

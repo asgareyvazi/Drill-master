@@ -529,6 +529,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         # M63: named, immutable calculation cases for the open calculator
         from tabs.calculation_cases_panel import CaseBar
         self.case_bar = CaseBar(self.tabs, self.calculator_finder, db=self.db, owner=self, parent=self)
+        from tabs.calculation_cases_panel import stamp_contract_widgets
+        stamp_contract_widgets(self)        # M87: stable object names for contract field binding
         main_layout.addWidget(self.case_bar)
         main_layout.addWidget(self.tabs)
 
@@ -4155,13 +4157,18 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"Shoe track: {v['shoe_track_volume_bbl']:.2f} bbl\n"
             f"Spacer: {v['spacer_volume_bbl']:.2f} bbl\n"
             f"Slurry: {v['slurry_volume_bbl']:.2f} bbl  sacks: {sacks_s}\n"
-            f"Displacement: {v.get('displacement_volume_bbl') or 0:.2f} bbl\n"
+            f"Displacement: {self._fmt_optional(v.get('displacement_volume_bbl'), '.2f', ' bbl')}\n"
             f"Total pump: {v['total_pump_bbl']:.2f} bbl  time: {pt_s}\n"
             f"Hydrostatic: {h_s}\n"
             f"Lead: {lead.get('slurry_bbl', '--')} bbl  Tail: {tail.get('slurry_bbl', '--')} bbl\n"
             "NOT laboratory cement design (no UCA / thickening time / gas migration)."
         )
         self.cmt_result.setText(text)
+
+    @staticmethod
+    def _fmt_optional(value, spec: str, suffix: str = "") -> str:
+        """A value or "n/a" - a missing quantity is never shown as zero."""
+        return f"{value:{spec}}{suffix}" if isinstance(value, (int, float)) else "n/a"
 
     def _cement_repo(self):
         """Lazily build the cement calculation-history repository (or None)."""
@@ -5735,16 +5742,23 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.dd_summary.setText("")
 
     def _dd_calc_rates(self):
-        br = self.engine.calc_build_rate(
-            self.dd_init_inc.value(), self.dd_final_inc.value(), self.dd_interval.value()
-        )
-        tr = self.engine.calc_turn_rate(
-            self.dd_init_azi.value(), self.dd_final_azi.value(), self.dd_interval.value()
-        )
+        from core.well_plan_designer import dogleg_deg
+
+        interval = self.dd_interval.value()
+        if interval <= 0:      # M87: never a fake 0 deg/30 m
+            self.dd_rates.setText("Not assessed: the MD interval must be greater than zero.")
+            return
+        inc1, inc2 = self.dd_init_inc.value(), self.dd_final_inc.value()
+        azi1, azi2 = self.dd_init_azi.value(), self.dd_final_azi.value()
+        br = self.engine.calc_build_rate(inc1, inc2, interval)
+        tr = self.engine.calc_turn_rate(azi1, azi2, interval)
+        # M87: dogleg severity from the minimum-curvature dogleg angle; the former
+        # sqrt(BR^2 + TR^2) ignored the sin(inclination) weighting of the turn.
+        dls = dogleg_deg(inc1, azi1, inc2, azi2) * 30.0 / interval
         self.dd_rates.setText(
             f"Build Rate: {br:.2f} °/30m\n"
             f"Turn Rate: {tr:.2f} °/30m\n"
-            f"Overall DLS: {math.sqrt(br**2 + tr**2):.2f} °/30m"
+            f"Dogleg severity: {dls:.2f} °/30m"
         )
         
     # ==================== Fishing Tab ====================

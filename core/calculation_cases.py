@@ -215,3 +215,45 @@ def record_rerun(db, original: Dict[str, Any], results: Dict[str, Any], *, input
                                   "recalc_method": original["method"], "recalc_method_version": method_version,
                                   "verification_status": "RERUN",
                                   "method_changed": method_version != original["method_version"]})
+
+
+def clone_case(db, original: Dict[str, Any], name: str, *, user_id: Optional[int] = None) -> Dict[str, Any]:
+    """M87: a new immutable case with the original's inputs and results (link ``clone_of``).
+
+    The clone keeps the original's method and version: nothing was recalculated.
+    """
+    return save_case(db, calculator=original["calculator"], name=name, inputs=original["inputs"],
+                     results=original["results"], method=original["method"],
+                     method_version=original["method_version"], well_id=original["well_id"],
+                     wellbore_id=original["wellbore_id"], parent_id=original["id"],
+                     note=f"Clone of case #{original['id']}", user_id=user_id,
+                     source_link={"link_type": "clone_of", "source_table": "calculation_cases",
+                                  "source_id": original["id"], "source_method": original["method"],
+                                  "source_method_version": original["method_version"],
+                                  "verification_status": "CLONE", "method_changed": False})
+
+
+EXPORT_LABEL = "UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED"
+
+
+def export_case_csv(case: Dict[str, Any]) -> str:
+    """M87: one case as CSV (metadata, then every input and result with field id and unit)."""
+    import csv
+    import io
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    for key in ("id", "name", "calculator", "method", "method_version", "well_id", "wellbore_id", "parent_id",
+                "created_at", "note"):
+        writer.writerow(["#", key, case.get(key, "")])
+    writer.writerow(["#", "label", EXPORT_LABEL])
+    writer.writerow(["section", "key", "label", "field_id", "unit", "source", "value"])
+    for section in ("inputs", "results"):
+        for key, entry in (case.get(section) or {}).items():
+            entry = entry if isinstance(entry, dict) else {"value": entry}
+            value = entry.get("value")
+            if not isinstance(value, (str, int, float, bool)) and value is not None:
+                value = json.dumps(value, sort_keys=True)
+            writer.writerow([section, key, entry.get("label", ""), entry.get("field_id", ""), entry.get("unit", ""),
+                             entry.get("source", "captured"), "" if value is None else value])
+    return buffer.getvalue()

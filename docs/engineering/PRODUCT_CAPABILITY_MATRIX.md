@@ -238,3 +238,14 @@ OWNER REVIEW REQUIRED. Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT 
 | Multi-segment optimisation (S-profile, build-turn-hold with separate rates, multiple targets) | NOT IMPLEMENTED | The solver aims at the first target with one arc and one tangent |
 | Plan vs actual, offset closest approach | PASS (SCREENING, pre-existing M52/M72) | Label now `SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre)`; no separation factor or ellipses (no error model) |
 
+### M87 – W13 calculator contracts and cases
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Contract status for every W13 leaf calculator (27 leaves) | PASS | `core/calculator_contracts.CALCULATOR_STATUS` via `calculator_status`; shown under the W13 finder; test fails on any unlisted or stale path. `tests/test_m87_w13_contracts.py` |
+| Re-runnable contracts (ID, method version, field IDs bound by widget object name, units, validation, adapter, independent goldens, UI parity) | PARTIAL | 7 of 27: Quick Calc v2 (pipe + annulus), Bit Hydraulics page (hydraulics with nozzle program, MSE Teale, cost/ft), TFA, Hydrostatic & FP, Cement Volume (WORKSHEET), OWR, Build/Turn & DLS. The other 20 show NOT_SUPPORTED with the reason; their cases are stored as captured and are NOT REPRODUCIBLE |
+| Case save / reopen / compare / re-run / clone / export, never overwritten | PASS | W13 case bar (Clone…, Export… CSV with the UNSIGNED label); re-run and clone are new linked cases (`rerun_of`, `clone_of`) |
+| Structured results and method-change detection | PASS | Adapter results stored at engine precision (`source: contract`), compared with a 1e-9 relative tolerance; a changed method gives DIFFERENT, a removed version NOT_REPRODUCIBLE |
+| Fixed defects | PASS | Quick Calc contract bound "length" to the annulus length (two "Length" labels) so correct cases verified DIFFERENT; legacy cases with a repeated label are now UNREADABLE. Build/Turn "Overall DLS" was sqrt(BR²+TR²) — now the minimum-curvature dogleg severity; an MD interval of 0 showed 0 deg/30 m — now "Not assessed". Cement "Displacement" showed 0.00 when missing — now n/a |
+| Open engine notes for M90 | PARTIAL | HP & FP converts pcf→ppg with 7.48 while the bit page uses 7.48052 (0.007 %); currency of rig/bit cost is not recorded (owner-gated money model) |
+
