@@ -31,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from core import analysis_evidence as ev
 
@@ -76,6 +76,32 @@ class OperationalAnalysis:
 def _num(value, *, allow_negative: bool = False) -> Optional[float]:
     state, number, _reason = ev.classify_number(value, allow_negative=allow_negative)
     return number if state == ev.STATE_VALUE else None
+
+
+class _Mapped(NamedTuple):
+    """The only mapping fields the analysis consumes (``confidence`` is description-dependent and not used)."""
+    canonical_id: str
+    method: str
+
+
+def _map(mapper, cache: Dict[tuple, Any], code, description) -> _Mapped:
+    """``mapper.map_activity`` memoised (M95: the mapper was ~90 % of a year's analysis).
+
+    A learned or exact code match decides ``canonical_id`` and ``method`` from the code alone (the description
+    only nudges ``confidence``), so it is cached per code; otherwise the description decides and the result is
+    cached per (code, description).
+    """
+    by_code = cache.get((code,))
+    if by_code is None and code:
+        found = mapper.map_activity(code, "")
+        by_code = cache[(code,)] = _Mapped(found.canonical_id, found.method)
+    if by_code is not None and by_code.method in ("learned", "exact"):
+        return by_code
+    key = (code, description)
+    if key not in cache:
+        found = mapper.map_activity(code, description)
+        cache[key] = _Mapped(found.canonical_id, found.method)
+    return cache[key]
 
 
 def _scope_label(db, scope) -> str:
@@ -127,6 +153,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
     tables: Dict[str, Tuple[Sequence[str], List[list]]] = {}
     drill: Dict[str, List[Optional[int]]] = {}
     mapper = ActivityMapper()
+    mapped_cache: Dict[tuple, Any] = {}
     scope_label = _scope_label(db, scope)
 
     with db.session_scope() as session:
@@ -166,7 +193,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
             drilling, npt, logged = [], [], []
             for log in logs:
                 duration = _num(log.duration)
-                mapped = mapper.map_activity(log.code or log.sub_code, log.description)
+                mapped = _map(mapper, mapped_cache, log.code or log.sub_code, log.description)
                 if mapped.method == "unresolved":
                     name = "UNRESOLVED"
                 elif mapped.method in TRUSTED_MAPPING:

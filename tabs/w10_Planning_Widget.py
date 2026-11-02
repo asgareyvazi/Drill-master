@@ -2615,6 +2615,28 @@ class MaterialInventoryTab(QWidget):
         self.load_data()
 
 # ==================== Main Planning Widget ====================
+def _clear_child_context(tab) -> None:
+    """Drop a sub-tab's section/report so a re-selected well is not still filtered by the old section."""
+    tab = getattr(tab, "_inner", tab)
+    for name in ("current_section_id", "current_report_id"):
+        if hasattr(tab, name):
+            setattr(tab, name, None)
+
+
+def _await_section(tab, well_id, tables) -> None:
+    """Point a section-filtered sub-tab at a new well without loading it; its section load follows.
+
+    Sub-tabs are ``ui.utils.make_scrollable`` wrappers that forward reads and calls to ``_inner``: state must
+    be written on the inner widget, or its section load would run against the previous well.
+    """
+    tab = getattr(tab, "_inner", tab)
+    tab.current_well_id = well_id
+    tab.current_report_id = None
+    tab.current_section_id = None
+    for name in tables:
+        getattr(tab, name).setRowCount(0)
+
+
 class PlanningWidget(DrillTabBase):
     def __init__(self, db_manager=None, parent=None):
         super().__init__("PlanningWidget", db_manager, parent)
@@ -2789,12 +2811,25 @@ class PlanningWidget(DrillTabBase):
         # Load sections
         self.load_sections(well_id)
         
-        # Update all sub-tabs
+        # Update all sub-tabs.  M95: during a deferred context apply (first visit after a selection) a pending
+        # section follows immediately and reloads the section-filtered code and plan views, so their
+        # whole-well load (measured ~0.25 s of chart layout + code statistics) is skipped; they are cleared so
+        # the previous well's rows can never be shown if the section step fails.
+        section_follows = self._pending_section is not None and self._pending_section[0] is not None
+        for sub in (self.lookahead_tab, self.npt_tab, self.code_tab, self.milestones_tab, self.well_plan_tab,
+                    self.drilling_params_tab, self.mud_params_tab, self.material_inventory_tab):
+            _clear_child_context(sub)    # a well selection clears section/report (re-selecting the same well too)
         self.lookahead_tab.set_current_well(well_id)
         self.npt_tab.set_current_well(well_id)
-        self.code_tab.set_current_well(well_id)
+        if section_follows:
+            _await_section(self.code_tab, well_id, ("code_table", "status_summary_table"))
+            _await_section(self.well_plan_tab, well_id, ("fact_table", "plan_table"))
+            self.well_plan_tab.clear_chart()
+        else:
+            self.code_tab.set_current_well(well_id)
         self.milestones_tab.set_current_well(well_id)
-        self.well_plan_tab.set_current_well(well_id)
+        if not section_follows:
+            self.well_plan_tab.set_current_well(well_id)
         self.drilling_params_tab.set_current_well(well_id)
         self.mud_params_tab.set_current_well(well_id)
         self.material_inventory_tab.set_current_well(well_id)

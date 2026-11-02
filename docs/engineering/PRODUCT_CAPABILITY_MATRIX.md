@@ -369,3 +369,19 @@ Audit of the existing DDR path against the M84 list; two defects fixed (file ide
 | P | Language: Persian data, right-to-left output | PASS (offscreen) | `test_persian_answer_is_right_to_left_and_long_passages_are_elided`; `test_rtl_reaches_html_pdf_layout_and_excel`; `test_journey_persian_well_report_right_to_left` |
 | Q | Method catalogue, no self-approval | PASS (offscreen) | `test_help_menu_opens_a_read_only_catalogue`; `test_no_self_approval` |
 | R | Authorisation: viewers cannot write | PASS (offscreen) | `test_a_viewer_cannot_save_a_conversion`; `test_viewers_cannot_save_an_architecture` |
+
+### M95 – UX responsiveness audit (measured)
+
+Tool: `tools/quality/ux_responsiveness_m95.py` (real MainWindow, file SQLite, synthetic M70 world + 365 daily reports × 8 time-logs on one well, production GUI-thread GC policy). `max gap` = longest interval between 5 ms GUI timer ticks, i.e. the longest time the event loop could not run. **Offscreen Linux (2 CPUs, stub GL/xkb/dbus libraries): not a Windows desktop measurement; no Windows responsiveness claim is made.**
+
+| Path | Before M95 (ms / max gap) | After M95 (ms / max gap) | State |
+|---|---|---|---|
+| Operational Analysis refresh, 1 year (median of 5) | 421 / 437 | 65 / 81 | PASS – `ActivityMapper` was ~90 % of the time; memoised per call (`_map`, returns only `canonical_id`/`method`; parity tested, whole analysis identical) |
+| W10 Planning first visit after a selection | 326–397 / 332–397 | 144 / 148 | PASS – the whole-well code statistics and FACT/PLAN chart were built and then rebuilt for the pending section; the whole-well pass is skipped only when a section follows |
+| Well switch (median of 5) | 11.6 / 30 | 10.5 / 30 | PASS |
+| Other 18 selection-scoped tabs, first visit | ≤ 76 / ≤ 93 | ≤ 65 / ≤ 77 | PASS |
+| Method Catalogue open | 11 / 11 | 11 / 11 | PASS |
+| W11 EOWR HTML export (worker) | 57 / 9 | 63 / 9 | PASS – GUI never blocked |
+| MainWindow startup (construction + show) | 1333 / 1306 | 1349 / 1318 | PARTIAL – one blocking construction of all tabs; pre-existing, not changed in M95 (lazy tab construction would be a structural change) |
+
+Defects found by the audit tests and fixed: (1) W10 sub-tabs are `make_scrollable` wrappers – sub-tab state must be written on `_inner`, otherwise a section load would run against the previous well (regression test); (2) re-selecting the same well without a section left the W10 sub-tabs filtered by the old section while the combo showed "All Sections" – a well selection now clears sub-tab section/report. Tests: `tests/test_m95_ux_responsiveness.py` (13 incl. 8 parity cases); hand mutants 4/4 killed (no `_inner`, no child clear, no table clear on await, per-code cache for all methods). Regression over all W10/OA/selection/journey files: 179 passed.
