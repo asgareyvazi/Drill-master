@@ -39,6 +39,8 @@ def test_freeze_import_preview_and_compare_from_the_panel(viewer, tmp_path):
     assert widget.view_tabs.indexOf(panel) >= 0
     assert panel.freeze_current() is None and "depth datum" in panel.status.text()     # declared, never assumed
     panel.datum_edit.setText("RKB")
+    assert panel.freeze_current() is None and "azimuth reference" in panel.status.text()  # M85: no default
+    panel.azimuth_combo.setCurrentIndex(panel.azimuth_combo.findData("true"))
     first = panel.freeze_current()
     assert first["revision"] == 1 and panel.table.rowCount() == 1
     assert widget.plan_designer.tie_combo.count() == 2                                 # tie-in list refreshed
@@ -64,7 +66,7 @@ def test_freeze_import_preview_and_compare_from_the_panel(viewer, tmp_path):
 def test_designer_ties_in_solves_and_hands_a_continuous_plan_to_compare(viewer):
     widget, manager, ids = viewer
     well = ids["A"][0]
-    rev = sr.save_revision(manager, well, J_STATIONS[:2], depth_datum="RKB")          # vertical to MD 500
+    rev = sr.save_revision(manager, well, J_STATIONS[:2], depth_datum="RKB", azimuth_reference="true")          # vertical to MD 500
     designer, compare = widget.plan_designer, widget.compare_panel
     designer.refresh_tie_ins()
     designer.tie_combo.setCurrentIndex(designer.tie_combo.findData(rev["id"]))
@@ -83,7 +85,7 @@ def test_designer_ties_in_solves_and_hands_a_continuous_plan_to_compare(viewer):
     assert compare.plan_rows[0]["md"] == 0.0 and "tied to survey rev" in compare.plan_source
     assert compare.plan_targets and compare.plan_targets[0]["name"] == "T"
     # actual = the frozen J survey; the plan continues it, so the first 800 m coincide
-    actual = sr.save_revision(manager, well, J_STATIONS, mode="replace", parent_id=rev["id"], depth_datum="RKB")
+    actual = sr.save_revision(manager, well, J_STATIONS, mode="replace", parent_id=rev["id"], depth_datum="RKB", azimuth_reference="true")
     compare.refresh_actual_sources()
     compare.actual_combo.setCurrentIndex(compare.actual_combo.findData(actual["id"]))
     compare.run()
@@ -107,7 +109,7 @@ def test_designer_ties_in_solves_and_hands_a_continuous_plan_to_compare(viewer):
 def test_a_plan_whose_revision_is_missing_is_not_redesigned_from_the_surface(viewer):
     widget, manager, ids = viewer
     designer = widget.plan_designer
-    rev = sr.save_revision(manager, ids["A"][0], J_STATIONS[:2], depth_datum="RKB")
+    rev = sr.save_revision(manager, ids["A"][0], J_STATIONS[:2], depth_datum="RKB", azimuth_reference="true")
     designer.refresh_tie_ins()
     designer.tie_combo.setCurrentIndex(designer.tie_combo.findData(rev["id"]))
     designer.add_segment("hold", 100.0, None, None, None)

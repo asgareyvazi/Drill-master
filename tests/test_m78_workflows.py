@@ -101,7 +101,7 @@ def test_e_well_delete_removes_every_new_record_of_that_well_only(env):
     counts = {}
     for code in ("A", "B"):
         well, bore = ids[code]
-        survey = sr.save_revision(manager, well, STATIONS, depth_datum="RKB", wellbore_id=bore)
+        survey = sr.save_revision(manager, well, STATIONS, depth_datum="RKB", wellbore_id=bore, azimuth_reference="true")
         wa.save_revision(manager, well, ARCH, wellbore_id=bore, survey_revision_id=survey["id"])
         cc.save_case(manager, calculator="x", name=f"SYN {code}", inputs={"a": 1}, results={"r": 1}, well_id=well)
         dp.save_plan(manager, well_id=well, name=f"SYN plan {code}", inputs=dp.plan_inputs(

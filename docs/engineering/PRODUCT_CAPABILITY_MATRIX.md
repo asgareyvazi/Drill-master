@@ -1,4 +1,4 @@
-# Product capability matrix (M53–M69)
+# Product capability matrix (M53–M100)
 
 States: **COMPLETE** (usable in the product, tested) / **PARTIAL** (usable, with named gaps) / **SCREENING** (usable, labelled as a check aid and not a design approval) / **OWNER REVIEW REQUIRED** / **NOT IMPLEMENTED** / **NOT RUN**.
 
@@ -197,3 +197,33 @@ Same states and evidence rules as above. Offscreen Qt and unit tests on syntheti
 | Specialist method registry | COMPLETE (registry); methods OWNER REVIEW | `core/specialist_methods.py` |
 | Backup/restore of new revisions | COMPLETE | `tests/test_m80_recovery_offline.py` |
 | Windows desktop acceptance | OWNER REVIEW REQUIRED | Checklist M80-01..12 in `packaging/WINDOWS_RELEASE_ACCEPTANCE.md`, NOT EXECUTED |
+
+## M82–M100 – Product completion programme
+
+Statuses here use the M82 vocabulary: PASS / PARTIAL / BLOCKED / NOT IMPLEMENTED / NOT RUN /
+OWNER REVIEW REQUIRED. Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.
+
+### M83 – Selection lifecycle
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Clearing the selection empties every well-scoped tab (11 tabs were stale before) | PASS | `on_selection_cleared` + `DrillTabBase.reset_context_view`; `tests/test_m83_selection_lifecycle.py` |
+| A→B well switch leaves no identifiers of A; viewing tabs creates no fake unsaved edits | PASS | Same tests. Fixed defects: spin-box snapshot faked an edit on first show (W3c Cement, `core/editor_bindings._spin_display`); W10 Lookahead reset read as an edit; W3c well-switch branch was dead code so cement/casing values carried over to the next well |
+| Deleting the current well / report / company / project clears the selection | PARTIAL | `_forget_selection_if_gone`; deleting a report clears the whole selection, not only the report |
+| Context token (`SelectionManager.context_token()` / `is_current()`) | PARTIAL | Central token exists; workers still use their own tab-local tokens (W12, analysis views, trajectory compare) |
+| Company / project / rig / date / period selection signals | NOT IMPLEMENTED | Only well, wellbore and report are selection signals |
+| Probe coverage | PARTIAL | The leak probe checks well identifiers only; W2 daily-report form fields of the previous report are not cleared; W10 clears milestones/combos only (CodeManagementTab is global) |
+| No-section prompt on navigation | PARTIAL (UX) | W2 asks "No Section — create one now?" modally when a well without sections is opened; tests patch it (M95) |
+
+### M85 – Survey references and integrity
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Azimuth reference must be declared (no silent "true" default in API or panel) | PASS | `core/survey_revisions.py` (`preview`, `save_revision`, `snapshot_survey_points`); panel "— declare —" placeholder; `tests/test_m85_survey_references.py` |
+| Explicit azimuth conversion true/grid/magnetic as a new linked revision | PASS | `transform_revision` ("M85 azimuth reference transform v1"); Survey revisions → **Convert azimuths**. Needs the declination (east +) and/or grid convergence (grid north east of true +), their source, and a date when a declination is used; parameters, convention and source hash stored in `source_ref`. Never looked up online |
+| Station hash verified on every read; failed revisions blocked from conversion, tie-in and plan-vs-actual | PASS | `integrity` VERIFIED / HASH MISMATCH in the revision list; `verify_results` recomputes positions. The hash covers stations, not computed results |
+| Independent minimum-curvature benchmarks | PASS | Vertical, hold, build arc, horizontal quarter turn, azimuth wrap, near-zero dogleg, rotation invariance of converted positions |
+| Depth-datum transform | NOT IMPLEMENTED | The trajectory model has no datum elevation / TVD-offset field; revisions with different datums are not compared |
+| CRS / grid coordinates | NOT IMPLEMENTED | No CRS is stored; convergence is a user value, not derived from a CRS |
+| Plan file azimuth reference | PARTIAL | Plan-vs-actual checks the survey revision's integrity, but imported plan files carry no declared reference |
+

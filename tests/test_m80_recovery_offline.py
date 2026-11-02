@@ -32,7 +32,7 @@ def test_restore_brings_back_revisions_with_their_immutability_guards(env):  # n
     manager, backups, restore, _initial = env
     well = _well(manager)
     survey = sr.save_revision(manager, well, [{"md": 0, "inc": 0, "azi": 0}, {"md": 300, "inc": 0, "azi": 0}],
-                              depth_datum="RKB")
+                              depth_datum="RKB", azimuth_reference="true")
     first = wa.save_revision(manager, well, ARCH, survey_revision_id=survey["id"])
     snapshot = backups.create_backup(ADMIN)
     assert snapshot.ok

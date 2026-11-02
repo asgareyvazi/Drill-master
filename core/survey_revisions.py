@@ -6,9 +6,15 @@ A survey revision is a numbered, insert-only snapshot of a well's stations
 * units: MD is converted to metres from the declared source unit (``m`` or
   ``ft``; 1 ft = 0.3048 m exactly).  Angles are degrees.  An unknown unit is
   refused, never assumed.
-* azimuth reference (``true``/``grid``/``magnetic``) and depth datum are
-  declared and stored, never converted: no declination or grid convergence is
-  known, so revisions with different references are not compared.
+* azimuth reference (``true``/``grid``/``magnetic``) and depth datum must be
+  declared (no default reference since M85) and are stored. Revisions with
+  different references are not compared. A reference is converted only by
+  ``transform_revision`` with a user-supplied declination/convergence, its
+  source and date; the result is a new revision (mode ``azimuth_transform``).
+  Depth-datum shifts are not implemented (no TVD-offset field in the model).
+* integrity: every read recomputes the SHA-256 of the canonical stations
+  (``integrity``: VERIFIED / HASH MISMATCH). It covers the stations, not the
+  computed positions; ``verify_results`` recomputes those explicitly.
 * ordering: rows are sorted by MD with a warning; duplicate MDs with the same
   angles are kept once with a warning; duplicate MDs with different angles are
   an error (the user must resolve the conflict).
@@ -38,6 +44,12 @@ SURVEY_REVISION_VERSION = "M72 survey revision v1"
 UNITS = {"m": 1.0, "ft": 0.3048}
 AZIMUTH_REFERENCES = ("true", "grid", "magnetic")
 MODES = ("initial", "replace", "append", "branch")
+TRANSFORM_MODE = "azimuth_transform"
+TRANSFORM_VERSION = "M85 azimuth reference transform v1"
+# true = magnetic + declination (east positive); true = grid + convergence
+# (positive when grid north lies east of true north).
+TRANSFORM_CONVENTION = ("true = magnetic + declination (east positive); "
+                        "true = grid + convergence (grid north east of true north positive)")
 MD_TOLERANCE = 1e-6          # m: two stations closer than this are the same MD
 ANGLE_TOLERANCE = 1e-9       # deg: identical angles for a duplicate station
 
@@ -52,7 +64,7 @@ class SurveyPreview:
     warnings: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     source_unit: str = "m"
-    azimuth_reference: str = "true"
+    azimuth_reference: str = ""
     depth_datum: str = ""
 
     @property
@@ -68,7 +80,7 @@ def _finite(value) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
-def preview(rows, *, source_unit: str = "m", azimuth_reference: str = "true", depth_datum: str = "") -> SurveyPreview:
+def preview(rows, *, source_unit: str = "m", azimuth_reference: str = "", depth_datum: str = "") -> SurveyPreview:
     """Validate and normalise survey rows (``md``, ``inc``, ``azi``) without saving."""
     out = SurveyPreview(source_unit=str(source_unit or "").strip().lower(),
                         azimuth_reference=str(azimuth_reference or "").strip().lower(),
@@ -76,7 +88,8 @@ def preview(rows, *, source_unit: str = "m", azimuth_reference: str = "true", de
     if out.source_unit not in UNITS:
         out.errors.append(f"Unknown depth unit {source_unit!r}; declare 'm' or 'ft'.")
     if out.azimuth_reference not in AZIMUTH_REFERENCES:
-        out.errors.append(f"Unknown azimuth reference {azimuth_reference!r}; declare true, grid or magnetic.")
+        out.errors.append("Declare the azimuth reference (true, grid or magnetic)." if not out.azimuth_reference else
+                          f"Unknown azimuth reference {azimuth_reference!r}; declare true, grid or magnetic.")
     if not out.depth_datum:
         out.errors.append("Declare the depth datum (for example RKB or MSL).")
     if out.errors:
@@ -143,6 +156,8 @@ def _record(row) -> Dict[str, Any]:
         "warnings": json.loads(row.warnings_json or "[]"), "method": row.method,
         "method_version": row.method_version, "note": row.note or "",
         "created_at": row.created_at, "created_by": row.created_by,
+        "integrity": "VERIFIED" if stations_sha256(json.loads(row.stations_json)) == row.stations_sha256
+        else "HASH MISMATCH",
     }
 
 
@@ -168,7 +183,7 @@ def list_revisions(db, well_id) -> List[Dict[str, Any]]:
 
 
 def save_revision(db, well_id: int, rows, *, mode: str = "initial", parent_id: Optional[int] = None,
-                  wellbore_id: Optional[int] = None, source_unit: str = "m", azimuth_reference: str = "true",
+                  wellbore_id: Optional[int] = None, source_unit: str = "m", azimuth_reference: str = "",
                   depth_datum: str = "", source_type: str = "manual", source_ref: str = "",
                   tie_in_md: Optional[float] = None, note: str = "", user_id: Optional[int] = None) -> Dict[str, Any]:
     """Validate, compute and insert a new revision; nothing existing is changed."""
@@ -198,7 +213,7 @@ def save_revision(db, well_id: int, rows, *, mode: str = "initial", parent_id: O
             if parent.azimuth_reference != checked.azimuth_reference or parent.depth_datum != checked.depth_datum:
                 raise SurveyRevisionError(
                     f"The parent uses azimuth reference {parent.azimuth_reference!r} and datum "
-                    f"{parent.depth_datum!r}; mixing references is refused (no conversion data).")
+                    f"{parent.depth_datum!r}; mixing references is refused; use 'Convert azimuths' (a separate revision) first.")
             base = json.loads(parent.stations_json)
             if mode == "replace":
                 stations = new_rows
@@ -236,7 +251,7 @@ def save_revision(db, well_id: int, rows, *, mode: str = "initial", parent_id: O
         return _record(row)
 
 
-def snapshot_survey_points(db, well_id: int, *, depth_datum: str, azimuth_reference: str = "true",
+def snapshot_survey_points(db, well_id: int, *, depth_datum: str, azimuth_reference: str,
                            wellbore_id: Optional[int] = None, user_id: Optional[int] = None,
                            note: str = "") -> Dict[str, Any]:
     """Freeze the well's current ``survey_points`` (stored in metres) as a new revision."""
@@ -253,12 +268,120 @@ def snapshot_survey_points(db, well_id: int, *, depth_datum: str, azimuth_refere
                          note=note, user_id=user_id)
 
 
+def _correction_to_true(reference: str, declination, convergence) -> float:
+    if reference == "true":
+        return 0.0
+    if reference == "magnetic":
+        return declination
+    return convergence
+
+
+def azimuth_correction(from_ref: str, to_ref: str, *, declination_deg: Optional[float] = None,
+                       convergence_deg: Optional[float] = None) -> float:
+    """Degrees to add to an azimuth in ``from_ref`` to express it in ``to_ref``.
+
+    Uses only explicit values (no lookup): true = magnetic + declination (east
+    positive) and true = grid + convergence (positive when grid north is east
+    of true north). A needed value that is missing or not finite is refused.
+    """
+    for ref in (from_ref, to_ref):
+        if ref not in AZIMUTH_REFERENCES:
+            raise SurveyRevisionError(f"Unknown azimuth reference {ref!r}.")
+    if from_ref == to_ref:
+        raise SurveyRevisionError("The revision already uses that azimuth reference.")
+    needed = {from_ref, to_ref}
+    values = {}
+    for name, ref, value, limit in (("declination", "magnetic", declination_deg, 180.0),
+                                    ("grid convergence", "grid", convergence_deg, 90.0)):
+        if ref not in needed:
+            continue
+        number = _finite(value)
+        if number is None:
+            raise SurveyRevisionError(f"Converting {from_ref} to {to_ref} needs the {name} (degrees); "
+                                      "it is not looked up or assumed.")
+        if abs(number) >= limit:
+            raise SurveyRevisionError(f"The {name} {number:g} deg is outside the accepted range (|value| < {limit:g}).")
+        values[ref] = number
+    return (_correction_to_true(from_ref, values.get("magnetic"), values.get("grid"))
+            - _correction_to_true(to_ref, values.get("magnetic"), values.get("grid")))
+
+
+def transform_revision(db, revision_id: int, to_reference: str, *, declination_deg: Optional[float] = None,
+                       convergence_deg: Optional[float] = None, parameter_source: str = "",
+                       reference_date: str = "", note: str = "", user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Save a new revision with every azimuth converted to ``to_reference``.
+
+    The source revision is unchanged; the new one has mode ``azimuth_transform``,
+    the source as parent, and the exact parameters, convention, their source
+    and date in ``source_ref`` (canonical JSON). A declination needs its date.
+    """
+    from core.database import SurveyRevision
+
+    source = get_revision(db, revision_id)
+    if source is None:
+        raise SurveyRevisionError(f"Survey revision {revision_id} does not exist.")
+    if source["integrity"] != "VERIFIED":
+        raise SurveyRevisionError("The source revision failed its station hash check; it is not converted.")
+    shift = azimuth_correction(source["azimuth_reference"], to_reference, declination_deg=declination_deg,
+                               convergence_deg=convergence_deg)
+    if not str(parameter_source or "").strip():
+        raise SurveyRevisionError("State where the declination/convergence value comes from.")
+    uses_declination = "magnetic" in (source["azimuth_reference"], to_reference)
+    if uses_declination and not str(reference_date or "").strip():
+        raise SurveyRevisionError("A declination changes with time; give the date it applies to.")
+    stations = [{"md": st["md"], "inc": st["inc"], "azi": round((st["azi"] + shift) % 360.0, 10)}
+                for st in source["stations"]]
+    provenance = json.dumps({
+        "method_version": TRANSFORM_VERSION, "from": source["azimuth_reference"], "to": to_reference,
+        "declination_deg": _finite(declination_deg) if uses_declination else None,
+        "convergence_deg": _finite(convergence_deg) if "grid" in (source["azimuth_reference"], to_reference) else None,
+        "correction_deg": shift, "convention": TRANSFORM_CONVENTION,
+        "parameter_source": str(parameter_source).strip(), "reference_date": str(reference_date or "").strip(),
+        "source_revision_id": source["id"], "source_stations_sha256": source["stations_sha256"],
+    }, sort_keys=True)
+    results = compute(stations)
+    with db.session_scope() as session:
+        number = (session.query(func.max(SurveyRevision.revision))
+                  .filter(SurveyRevision.well_id == int(source["well_id"])).scalar() or 0) + 1
+        row = SurveyRevision(
+            well_id=source["well_id"], wellbore_id=source["wellbore_id"], revision=number, parent_id=source["id"],
+            mode=TRANSFORM_MODE, source_type=TRANSFORM_MODE, source_ref=provenance,
+            source_unit=source["source_unit"], azimuth_reference=to_reference, depth_datum=source["depth_datum"],
+            stations_json=json.dumps(stations), station_count=len(stations),
+            stations_sha256=stations_sha256(stations), results_json=json.dumps(results),
+            warnings_json=json.dumps([f"Azimuths converted {source['azimuth_reference']} -> {to_reference} by "
+                                      f"{shift:+.6f} deg ({str(parameter_source).strip()})."]),
+            method=SURVEY_METHOD, method_version=SURVEY_REVISION_VERSION, note=str(note or ""), created_by=user_id,
+        )
+        session.add(row)
+        try:
+            session.flush()
+        except IntegrityError as exc:
+            raise SurveyRevisionError("Another revision was saved at the same time; reload and try again.") from exc
+        return _record(row)
+
+
+def verify_results(revision: Dict[str, Any], *, tolerance_m: float = 1e-6) -> Dict[str, Any]:
+    """Recompute positions from the stored stations and compare with the stored results."""
+    fresh = compute(revision["stations"])
+    stored = revision["results"]
+    if len(fresh) != len(stored):
+        return {"status": "DIFFERENT", "detail": f"{len(stored)} stored vs {len(fresh)} recomputed stations"}
+    worst = 0.0
+    for a, b in zip(stored, fresh):
+        for key in ("tvd", "north", "east"):
+            if key in a and key in b:
+                worst = max(worst, abs(float(a[key]) - float(b[key])))
+    return {"status": "MATCH" if worst <= tolerance_m else "DIFFERENT", "max_position_difference_m": worst}
+
+
 def compare_revisions(older: Dict[str, Any], newer: Dict[str, Any], *, tolerance_m: float = 1e-6,
                       tolerance_deg: float = 1e-7) -> Dict[str, Any]:
     """Station-by-station difference at common MDs plus added/removed stations."""
     if older["azimuth_reference"] != newer["azimuth_reference"] or older["depth_datum"] != newer["depth_datum"]:
         return {"comparable": False,
-                "reason": "Different azimuth reference or depth datum; no conversion data, not compared."}
+                "reason": ("Different azimuth reference or depth datum; not compared. Convert the azimuth "
+                           "reference first (new revision); datum shifts are not supported.")}
     a = {round(s["md"], 6): s for s in older["results"]}
     b = {round(s["md"], 6): s for s in newer["results"]}
     changed = []
@@ -283,6 +406,9 @@ def compare_revisions(older: Dict[str, Any], newer: Dict[str, Any], *, tolerance
 
 def tie_in_from_revision(revision: Dict[str, Any], md: Optional[float] = None) -> Dict[str, Any]:
     """A plan tie-in at a station of the revision (default: its last station), pinned by id and hash."""
+    if revision.get("integrity", "VERIFIED") != "VERIFIED":
+        raise SurveyRevisionError(f"Survey revision {revision['revision']} failed its station hash check; "
+                                  "it cannot be used as a tie-in.")
     stations = revision["results"]
     station = stations[-1] if md is None else next(
         (s for s in stations if abs(s["md"] - float(md)) <= MD_TOLERANCE), None)

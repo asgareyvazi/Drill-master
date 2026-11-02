@@ -40,30 +40,31 @@ def env(request, tmp_path, monkeypatch):
 
 def _save(manager, well, rows=J_STATIONS, **kw):
     kw.setdefault("depth_datum", "RKB")
+    kw.setdefault("azimuth_reference", "true")
     return sr.save_revision(manager, well, rows, **kw)
 
 
 # ---- preview rules -----------------------------------------------------------------------------
 def test_preview_converts_feet_exactly_and_refuses_undeclared_units_references_and_datums():
     checked = sr.preview([{"md": 1000, "inc": 0, "azi": 0}, {"md": 2000, "inc": 5, "azi": 10}],
-                         source_unit="ft", depth_datum="RKB")
+                         source_unit="ft", depth_datum="RKB", azimuth_reference="true")
     assert checked.ok and [s["md"] for s in checked.stations] == [304.8, 609.6]
     assert "Unknown depth unit" in sr.preview(J_STATIONS, source_unit="yd", depth_datum="RKB").errors[0]
     assert "azimuth reference" in sr.preview(J_STATIONS, azimuth_reference="north", depth_datum="RKB").errors[0]
-    assert "depth datum" in sr.preview(J_STATIONS).errors[0]
+    assert "depth datum" in sr.preview(J_STATIONS, azimuth_reference="true").errors[0]
 
 
 def test_preview_orders_deduplicates_and_reports_conflicts_and_bad_values():
     rows = [{"md": 100, "inc": 1, "azi": 370}, {"md": 0, "inc": 0, "azi": 0}, {"md": 100, "inc": 1, "azi": 10}]
-    checked = sr.preview(rows, depth_datum="RKB")
+    checked = sr.preview(rows, depth_datum="RKB", azimuth_reference="true")
     assert checked.ok and [s["md"] for s in checked.stations] == [0.0, 100.0]
     assert any("normalised to 10" in w for w in checked.warnings)
     assert any("sorted by MD" in w for w in checked.warnings) and any("kept once" in w for w in checked.warnings)
     conflict = sr.preview([{"md": 0, "inc": 0, "azi": 0}, {"md": 50, "inc": 1, "azi": 0},
-                           {"md": 50, "inc": 2, "azi": 0}], depth_datum="RKB")
+                           {"md": 50, "inc": 2, "azi": 0}], depth_datum="RKB", azimuth_reference="true")
     assert not conflict.ok and "appears twice with different angles" in conflict.errors[0]
     bad = sr.preview([{"md": 0, "inc": 0, "azi": 0}, {"md": 10, "inc": 181, "azi": 0},
-                      {"md": -1, "inc": 0, "azi": 0}, {"md": float("nan"), "inc": 0, "azi": 0}], depth_datum="RKB")
+                      {"md": -1, "inc": 0, "azi": 0}, {"md": float("nan"), "inc": 0, "azi": 0}], depth_datum="RKB", azimuth_reference="true")
     assert len(bad.errors) == 3 and not bad.ok
 
 
@@ -134,7 +135,7 @@ def test_snapshot_freezes_survey_points_and_compare_reports_differences(env):
     manager, _path, ids = env
     well = ids["A"][0]
     manager.save_survey_points([dict(s, well_id=well) for s in J_STATIONS])
-    first = sr.snapshot_survey_points(manager, well, depth_datum="RKB")
+    first = sr.snapshot_survey_points(manager, well, depth_datum="RKB", azimuth_reference="true")
     assert first["source_type"] == "survey_points" and first["station_count"] == 4 and first["mode"] == "initial"
     edited = [dict(s) for s in J_STATIONS[:3]] + [{"md": 800.0, "inc": 31.0, "azi": 135.0},
                                                    {"md": 900.0, "inc": 31.0, "azi": 135.0}]

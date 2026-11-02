@@ -269,6 +269,9 @@ class TrajectoryComparePanel(QWidget):
                 if revision is None or revision["well_id"] != self.well_id:
                     self._clear_result("The selected survey revision is not available for this well.")
                     return None
+                if revision.get("integrity") != "VERIFIED":
+                    self._clear_result("The selected survey revision failed its station hash check; not compared.")
+                    return None
                 inputs["actual_rows"] = [dict(st) for st in revision["stations"]]
                 inputs["actual_survey_revision_id"] = revision["id"]
                 inputs["actual_survey_sha256"] = revision["stations_sha256"]

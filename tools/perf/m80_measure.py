@@ -71,7 +71,7 @@ def main(argv=None) -> int:
         "history_count_and_first_page": _timed(lambda: (ch.count_history(db, well_id=well_id),
                                                         ch.load_history(db, well_id=well_id, limit=200))),
         "survey_revision_save_2000_stations": _timed(
-            lambda: sr.save_revision(db, well_id, stations, depth_datum="RKB"), repeat=3),
+            lambda: sr.save_revision(db, well_id, stations, depth_datum="RKB", azimuth_reference="true"), repeat=3),
         "architecture_revision_save": _timed(lambda: wa.save_revision(db, well_id, ARCH)),
         "build_hold_solver_x1000": _timed(lambda: [solve_build_hold(
             {"north": -300.0, "east": 300.0, "tvd": 1400.0}, kop_md=500.0, dls=3.0) for _ in range(1000)], repeat=3),

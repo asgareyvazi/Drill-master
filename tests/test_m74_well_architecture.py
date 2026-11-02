@@ -99,7 +99,7 @@ def test_revisions_are_numbered_tied_and_refused_when_invalid_or_foreign(env):
     manager, path, ids = env
     (well, bore), (other_well, other_bore) = ids["A"], ids["B"]
     survey = sr.save_revision(manager, well, [{"md": 0, "inc": 0, "azi": 0}, {"md": 500, "inc": 0, "azi": 0}],
-                              depth_datum="RKB")
+                              depth_datum="RKB", azimuth_reference="true")
     first = wa.save_revision(manager, well, ARCH, wellbore_id=bore, survey_revision_id=survey["id"])
     assert (first["revision"], first["component_count"], first["schema_version"]) == (1, 12, wa.ARCHITECTURE_VERSION)
     assert first["components_sha256"] == wa.components_sha256(first["components"])
