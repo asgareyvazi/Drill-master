@@ -200,6 +200,20 @@ class ImportQueue:
         entry.attempts += 1
         return True
 
+    def verify_identity(self, entry: QueueEntry) -> Optional[str]:
+        """M84: re-read the file just before the atomic save. Returns why it must NOT be saved, or None.
+
+        The fingerprint was taken when the file started; a file that changed or vanished while it was read,
+        parsed or previewed would otherwise be saved under the identity of bytes nobody reviewed.
+        """
+        current = file_fingerprint(entry.path)
+        if current is None:
+            return "The file can no longer be read; nothing was saved"
+        if entry.fingerprint and current != entry.fingerprint:
+            return ("The file changed after it was read and previewed; nothing was saved. "
+                    "Retry to import the current content")
+        return None
+
     def set_stage(self, entry: QueueEntry, stage: str) -> None:
         if entry.status == RUNNING:
             entry.stage = stage

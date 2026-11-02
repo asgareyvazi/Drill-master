@@ -1160,6 +1160,10 @@ class ExcelImportDialog(QDialog, DDRImportService):
             if not runnable:
                 if entry.status not in FINAL:
                     entry.status, entry.stage = CANCELLED, "cancelled before start"
+                # M84: a parser result prepared for a file that never runs is released too.
+                unused = mineru_results.get(self._result_key(source))
+                if unused is not None and getattr(unused, "success", False):
+                    unused.cleanup()
                 results.append({
                     "file": source, "imported": 0, "failed": int(entry.status == FAILED),
                     "skipped": int(entry.status != FAILED),
@@ -1225,6 +1229,10 @@ class ExcelImportDialog(QDialog, DDRImportService):
 
                 if entry.status == CANCELLED:
                     raise RuntimeError("Cancelled before saving")
+                pipeline_stage = self._queue_stage("identity")
+                identity_problem = queue.verify_identity(entry)      # M84: same bytes as previewed
+                if identity_problem:
+                    raise RuntimeError(identity_problem)
                 preview.apply_review_changes(extracted)
                 # Decisions and edits are now part of the audit payload and
                 # the exact canonical object sent to the atomic save boundary.
@@ -1262,6 +1270,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
                     "validation": "import.validation",
                     "meaningful_data": "validation.meaningful_data",
                     "ui_preview": "ui.preview",
+                    "identity": "import.file_identity",
                     "persistence": "import.persistence",
                 }.get(pipeline_stage, "import.unknown")
                 if pipeline_stage != "persistence" and pipeline_stage != "ui_preview":

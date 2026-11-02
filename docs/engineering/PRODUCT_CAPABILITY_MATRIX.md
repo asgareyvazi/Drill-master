@@ -316,3 +316,17 @@ Help › "📐 Method Catalogue" (`dialogs/method_catalogue_dialog.py`) over `co
 | Misleading-entry guard | PASS | `violations()`: duplicate id, unknown status or label, IMPLEMENTED without version/limits/module/reference, not implemented without a blocker, approval for an unknown method |
 | Stored use | PASS | Count of stored W13 cases per method and version, database-wide and for the selected well |
 | Engine references | PARTIAL | Hydraulics: published reference not recorded in the source (blocker shown); references are statements, not owner-verified citations |
+
+### M84 – DDR authoring and batch import
+
+Audit of the existing DDR path against the M84 list; two defects fixed (file identity before commit, parser clean-up for files that never ran). `tests/test_m84_ddr_identity_cleanup.py` (4, offscreen Qt; 3 hand mutants killed); DDR regression 247 tests, 0 failures, 2 expected skips.
+
+| Capability | State | Evidence / limits |
+|---|---|---|
+| In-app create / edit / navigate / timeline / duplicate with validation | PASS (pre-existing) | W2 report timeline, duplicate-for-review with copy options, canonical `TimeLogValidator` on save (blocking issues refuse the save); `test_m52_ddr_manual_edit`, `test_m54_ddr_workflow` |
+| Time-log edit / reorder, overlap and gap checks | PASS (pre-existing) | Row up/down (`move_time_log_row`), `time_log_issues` (overlap, gap, 24 h total, midnight crossing — same rules as import) |
+| Batch import: worker DTOs, profiles, unmapped columns, atomic persist, duplicates | PASS (pre-existing) | M71 preparation worker returns plain DTOs; M54/M61 explainable profiles and column summary; atomic `DDRImportService` save; in-batch and already-imported duplicates by SHA-256 (`test_m61_ddr_profile_rules`, `test_m70_queue_lifecycle`) |
+| File identity re-checked before commit | PASS (M84) | `ImportQueue.verify_identity` re-hashes the file after the preview and immediately before the atomic save; a changed or vanished file is FAILED at stage `import.file_identity` and nothing is saved |
+| Truthful cancel | PASS | Not-started files are cancelled; a running third-party parse cannot be interrupted (no thread killing) — its result is discarded at the next step and nothing is committed after a cancel; closing the dialog while a worker runs is refused and turns into a cancel (`test_m71_ddr_background`) |
+| Clean-up after cancel | PASS (M84) | Parser results of files cancelled or found duplicate before they ran are released (previously leaked until exit) |
+| Never auto-import, no OCR | PASS | Every file passes the user preview; scanned pages are reported, never OCR-ed |
