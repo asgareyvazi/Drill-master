@@ -113,10 +113,10 @@ Document-to-well matching is a suggestion only. Every imported value goes throug
 
 - **Survey revisions** (`core/survey_revisions.py`, `SURVEY_REVISION_VERSION = "M72 survey revision v1"`):
   numbered per well, insert-only (storage trigger), stations stored canonically (MD m, angles deg) with the
-  declared source unit (m or ft; ft = 0.3048 m exactly), azimuth reference and depth datum. Undeclared unit,
-  reference or datum is refused; no azimuth or datum conversion is performed, and mixing references across
-  revisions is refused. Modes `initial`/`replace`/`append`/`branch` with `parent_id`; the minimum-curvature
-  result (`core.well_trajectory`) and its SHA-256 are stored with the revision.
+  declared source unit (m or ft; ft = 0.3048 m exactly), azimuth reference (true/grid/magnetic, default true)
+  and depth datum. A missing datum or an unknown unit or reference is refused; no azimuth or datum conversion is
+  performed, and a replace/append/branch revision whose reference or datum differs from its parent is refused.
+  Modes `initial`/`replace`/`append`/`branch` with `parent_id`; the SHA-256 of the canonical stations and the minimum-curvature result (`core.well_trajectory`) are stored with the revision.
 - **Plan tie-in** (`PLAN_VERSION = "M72 plan designer v3"`): a plan may pin a survey revision station through
   `inputs.tie_in` (`survey_revision_id`, `survey_sha256`, MD/inc/azi/TVD/N/E). Saving checks that the revision
   belongs to the well (and wellbore), that its SHA-256 still matches and that the tie-in is one of its
