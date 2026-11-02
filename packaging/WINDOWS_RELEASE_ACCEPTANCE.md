@@ -625,6 +625,27 @@ Use a disposable, supported, clean Windows 10/11 x64 VM or test workstation. Do 
 5. Uninstall through Windows Apps/Programs. Verify the application is removed and user data remains available for explicit operator backup/removal; never imply that uninstall removes user data.
 6. Record observed results and any deviations in a separately approved operator acceptance record. A CI package smoke or this checklist alone is not evidence that the steps were executed.
 
+## M70-M81 desktop feature acceptance (manual; NOT EXECUTED)
+
+Run on the same disposable VM after the installation procedure, with a synthetic database only. Nothing in
+this list has been executed by automation or by the repository maintainer; offscreen Qt tests on Linux
+and the Windows CI gate are not desktop acceptance. Record pass/fail per row in the operator record.
+
+| id | step | expected |
+| --- | --- | --- |
+| M80-01 | W6 Trajectory -> Survey revisions: freeze the stations without a depth datum, then with `RKB` | refused first ("depth datum"), then revision 1 is listed |
+| M80-02 | Import a survey file in feet with the unit set to `ft`; compare it with revision 1 | stations converted exactly (x 0.3048); differences listed |
+| M80-03 | Plan designer: tie in to the survey revision, solve to a target, save | plan starts at the tie-in station; infeasible targets give a reason, never a plan |
+| M80-04 | Send the plan to Compare / clearance with the survey revision as actual; save | target lines labelled SCREENING; saved record names the survey revision |
+| M80-05 | W13 Volume -> Quick Calc: save a case, open Calculation history, select it | `Reproducible: REPRODUCIBLE`; Recalculate gives MATCH; Save recalculation links to the original |
+| M80-06 | History with more than 200 records: page forward and back, change the filter | page indicator correct; a filter change returns to page 1 |
+| M80-07 | W3b -> Architecture: freeze an invalid drawing (liner larger than its host), then a valid one | first refused with the rule; then revision 1; Load into schematic redraws from the records |
+| M80-08 | Architecture: Cement annulus for a cemented string, then Save worksheet | intervals per outer boundary; unknown hole size shows "size unknown"; case visible in History |
+| M80-09 | W13 Well Control -> Kill Sheet | TRAINING AID notice visible at the top of the page |
+| M80-10 | Import two DDR files; cancel the second during preparation; try to close the dialog while it runs | UI stays responsive; cancelled file listed; dialog refuses to close until the worker stops |
+| M80-11 | Delete a synthetic well that has survey, architecture, plan and case records | all of that well's records gone; other wells untouched; audit entry written |
+| M80-12 | Backup, add an architecture revision, restore the backup | restored list matches the backup; saved revisions still cannot be edited |
+
 ## Explicit external boundaries
 
 - The synthetic workbook test is an automated parser/database scenario only. It is **not** real DDR Excel/operator acceptance.
