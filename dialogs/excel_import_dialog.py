@@ -25,33 +25,30 @@ from PySide6.QtWidgets import (
     QTextEdit, QTableWidget, QTableWidgetItem, QApplication,
     QInputDialog,
 )
-from PySide6.QtCore import Signal, Qt, QDir
+from PySide6.QtCore import QEventLoop, Signal, Qt
 from PySide6.QtGui import QColor
 
 from core.import_quality import (
-    ImportValidator, find_duplicates, TimeLogValidator, unresolved_review_items,
-    build_review_manifest, apply_review_decisions,
+    unresolved_review_items,
+    apply_review_decisions,
 )
 from core.import_diagnostics import (
     PersistenceIssue, ImportStatus,
 )
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
+from core import async_workers as _async_workers
 from core.async_workers import FunctionWorker, release_when_finished
+from core.ddr_import_pipeline import STAGES, PreparedImport, mineru_extracted, pdf_split_info, prepare_import
 from core.import_router import route_file
 from core.ddr_import_queue import CANCELLED, DUPLICATE, FAILED, FINAL, ImportQueue
 from core.mineru_engine import (
-    DocumentNormalizer,
     MinerUAdapter,
-    MinerUError,
-    MinerUNormalizationError,
     MinerUParseResult,
-    PROFILE_RULES_VERSION,
-    parse_pdf_native_fallback,
 )
 from core.unit_manager import UnitManager
 from dialogs.smart_template_dialog import FIELD_LABELS
 
-from core.ddr_import_service import DDRImportService, _canonical_review_row
+from core.ddr_import_service import DDRImportService
 from core import ddr_pdf_split
 
 logger = logging.getLogger(__name__)
@@ -204,10 +201,16 @@ class ImportPreviewDialog(QDialog):
                 "color: #7a4b00; background: #fff4e0; padding: 6px; border-radius: 4px;"
             )
             layout.addWidget(self.pdf_state_label)
-        profile_info = report.get("profile")
+        profile_info = report.get("profile") or ((self.extracted or {}).get("metadata") or {}).get("profile")
         self.profile_label = QLabel(self.profile_summary(profile_info))
         self.profile_label.setStyleSheet("color: #2c3e50; padding: 2px 4px;")
         layout.addWidget(self.profile_label)
+        # M71: every source column with its target; unmapped columns and the
+        # explainable profile suggestion are shown, never applied silently.
+        self.column_label = QLabel(self.column_summary(report, (profile_info or {}).get("key")))
+        self.column_label.setWordWrap(True)
+        self.column_label.setVisible(bool(self.column_label.text()))
+        layout.addWidget(self.column_label)
         counts = review_counts(report.get("review") or report.get("review_matrix")
                                or ((self.extracted or {}).get("metadata") or {}).get("review_matrix"), profile_info)
         self.threshold_label = QLabel(
@@ -414,6 +417,27 @@ class ImportPreviewDialog(QDialog):
         index = item.data(Qt.UserRole)
         payload = self._row_payloads[index] if isinstance(index, int) and index < len(self._row_payloads) else None
         self.detail_label.setText(self.field_detail_text(payload, (self.import_report or {}).get("profile")))
+
+    @staticmethod
+    def column_summary(report, current_key=None) -> str:
+        """Column-mapping and profile-suggestion text for the preview, or ``""``."""
+        report = report or {}
+        parts = []
+        mapping = report.get("column_mapping") or {}
+        if mapping.get("columns"):
+            text = f"Columns: {mapping['columns']} read, {mapping['mapped']} mapped"
+            if mapping.get("unmapped"):
+                text += ("; not mapped to a report field (review them, they are not saved as fields): "
+                         + ", ".join(mapping["unmapped"]))
+            parts.append(text + ".")
+        for hint in report.get("profile_suggestions") or []:
+            if hint["key"] == current_key:
+                continue
+            parts.append(f"Suggested profile: {hint['name']} v{hint['version']} - its aliases match "
+                         f"{hint['matched']} of {hint['total']} headers ({', '.join(hint['matched_headers'][:6])}). "
+                         "Select it and re-import to use it.")
+            break
+        return " ".join(parts)
 
     @staticmethod
     def pdf_extraction_note(report):
@@ -724,6 +748,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
         self.db = db_manager
         self.well_id = well_id
         self._mineru_worker = None
+        self._prepare_worker = None
         self._import_busy = False
         self._pending_import_files = []
         self._mineru_results = {}
@@ -820,7 +845,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
         self.queue_retry_btn.setToolTip("Re-run failed, skipped and cancelled files.")
         self.queue_retry_btn.clicked.connect(self._queue_retry)
         self.queue_cancel_btn = QPushButton("Cancel remaining")
-        self.queue_cancel_btn.setToolTip("Files not yet started are cancelled; the running file finishes atomically.")
+        self.queue_cancel_btn.setToolTip("Files not yet started are cancelled; the running file stops at its next step unless it is already saving.")
         self.queue_cancel_btn.clicked.connect(self._queue_cancel)
         for button in (self.queue_remove_btn, self.queue_retry_btn, self.queue_cancel_btn):
             queue_buttons.addWidget(button)
@@ -928,7 +953,11 @@ class ExcelImportDialog(QDialog, DDRImportService):
             raise
 
     def _queue_cancel(self) -> None:
-        count = self._queue().cancel()
+        queue = self._queue()
+        count = queue.cancel()
+        current = getattr(self, "_queue_current", None)
+        if current is not None and queue.cancel_running(current):
+            count += 1
         self._refresh_queue_view()
         self.import_status.setText(f"Cancel requested: {count} file(s) not started were cancelled.")
 
@@ -1025,100 +1054,69 @@ class ExcelImportDialog(QDialog, DDRImportService):
         self._run_import_pipeline(self._pending_import_files, {})
 
     def _mineru_extracted(self, source, parse_result, *, source_label="MinerU", fallback_diagnostics=None):
-        """Return canonical data and review metadata for a successful parse."""
-        if not parse_result or not parse_result.success or parse_result.document is None:
-            raise MinerUError(parse_result.error if parse_result else "MinerU produced no result")
+        """Canonical data for a successful parse with the dialog's active profile (GUI thread)."""
         profile = self.active_profile() if hasattr(self, "active_profile") else None
-        normalizer = DocumentNormalizer(profile=profile)
-        normalized = normalizer.normalize(parse_result.document)
-        if not normalized.validation.valid:
-            raise MinerUNormalizationError(
-                "MinerU output failed canonical schema validation: "
-                + "; ".join(item.get("message", "invalid value") for item in normalized.validation.errors)
-            )
-        extracted = dict(normalized.canonical_data)
-        review_rows = []
-        for warning in normalized.warnings:
-            source_details = warning.get("source") if isinstance(warning.get("source"), dict) else {}
-            location = " ".join(
-                part for part in (
-                    f"page {source_details.get('source_page')}" if source_details.get("source_page") is not None else "",
-                    f"row {source_details.get('source_row')}" if source_details.get("source_row") is not None else "",
-                    f"column {source_details.get('source_column')}" if source_details.get("source_column") is not None else "",
-                ) if part
-            )
-            review_rows.append(
-                {
-                    "file": Path(source).name,
-                    "sheet": source_details.get("source_sheet", ""),
-                    "page": source_details.get("source_page"),
-                    "row": source_details.get("source_row", 0) or 0,
-                    "column": source_details.get("source_column", ""),
-                    "detected_table": "MinerU document",
-                    "source_table": source_details.get("source_table", ""),
-                    "source_cell": location,
-                    "coordinates": source_details.get("bounding_box"),
-                    "extraction_method": source_details.get("extraction_method", ""),
-                    "original_value": warning.get("value", ""),
-                    "normalized_value": warning.get("normalized_value"),
-                    "value": warning.get("normalized_value"),
-                    "target_field": warning.get("field", ""),
-                    "canonical_field": warning.get("field", ""),
-                    "expected_type": warning.get("expected_type", ""),
-                    "confidence": source_details.get("confidence"),
-                    "decision": "REVIEW",
-                    "status": "REVIEW_REQUIRED",
-                    "validation_state": "needs_review",
-                    "review_state": "unreviewed",
-                    "reason": warning.get("message", "Review required"),
-                    "mapping_method": "MinerU document normalization",
-                }
-            )
-        review_rows = [_canonical_review_row(item) for item in review_rows]
-        extracted["metadata"] = {
-            "source": source_label,
-            "source_engine": source_label,
-            "backend": parse_result.document.backend,
-            "method": parse_result.document.method,
-            "pages": parse_result.document.page_count,
-            "tables": parse_result.document.table_count,
-            "fields_extracted": normalized.fields_extracted,
-            "warnings": normalized.warnings,
-            "review_matrix": review_rows,
-            "review_manifest": build_review_manifest(review_rows),
-            "mineru_provenance": normalized.provenance,
-            "raw_ir": normalized.raw_document.to_dict(include_cells=True) if normalized.raw_document is not None else None,
-            "output_dir": parse_result.document.output_dir,
-            "output_files": parse_result.document.raw_files,
-            "assets": list(parse_result.document.images),
-            "diagnostics": dict(
-                getattr(parse_result, "diagnostics", {})
-                or parse_result.document.metadata.get("diagnostics", {})
-                or {}
-            ),
-            "fallback_diagnostics": fallback_diagnostics or {},
-            # M54: which report profile (if any) supplied mappings.
-            "profile": (
-                {"key": profile.key, "version": profile.version, "name": profile.name,
-                 "mappings": list(normalizer.profile_mappings),
-                 # M61: profile behaviour that shaped this result.
-                 "confidence_threshold": float(profile.confidence_threshold),
-                 "date_formats": list(profile.date_formats),
-                 "table_rules": dict(profile.table_rules),
-                 "continuation": bool(profile.continuation),
-                 "rules_version": PROFILE_RULES_VERSION}
-                if profile is not None else None
-            ),
-        }
-        logger.info(
-            "MinerU normalized: file=%s pages=%d tables=%d fields=%d warnings=%d",
-            Path(source).name,
-            parse_result.document.page_count,
-            parse_result.document.table_count,
-            normalized.fields_extracted,
-            len(normalized.warnings),
+        return mineru_extracted(source, parse_result, profile=profile, source_label=source_label,
+                                fallback_diagnostics=fallback_diagnostics)
+
+    def _expected_well_name(self):
+        return ddr_pdf_split.expected_well_name(self.db, self.well_id)
+
+    def _profile_choices(self) -> list:
+        combo = getattr(self, "profile_combo", None)
+        if combo is None:
+            return []
+        return [combo.itemData(i) for i in range(combo.count()) if combo.itemData(i) is not None]
+
+    def _prepare_in_background(self, source, parse_result, profile, entry):
+        """Run ``prepare_import`` in a worker thread and wait without blocking the GUI.
+
+        The local event loop only waits: painting, the queue's cancel button and
+        window moves keep working.  The DTO is written by the worker and read here
+        after the thread has finished, so no Qt or database object is shared.
+        """
+        holder = {}
+        kwargs = dict(
+            parse_result=parse_result, profile=profile, profiles=self._profile_choices(),
+            expected_well=self._expected_well_name(), route=route_file,
+            template_matcher=self._auto_match_template, extract_file=self.extract_file,
+            meaningful=has_meaningful_canonical_data,
+            should_cancel=lambda: entry.status == CANCELLED,
         )
-        return extracted
+
+        def job():
+            holder["prepared"] = prepare_import(source, **kwargs)
+
+        worker = _async_workers.FunctionWorker(job)
+        self._prepare_worker = worker
+        loop = QEventLoop(self)
+        worker.finished.connect(loop.quit)
+        worker.start()
+        if not worker.isFinished():
+            loop.exec()
+        worker.wait()
+        self._prepare_worker = None
+        release_when_finished(worker)
+        prepared = holder.get("prepared")
+        if prepared is None:                       # the worker itself failed before returning
+            prepared = PreparedImport(source=str(source), error=RuntimeError("Background preparation failed"))
+        return prepared
+
+    def _workers_running(self) -> bool:
+        return any(w is not None and w.isRunning() for w in (self._prepare_worker, self._mineru_worker))
+
+    def done(self, result):
+        """Never destroy the dialog under a running worker (Qt would abort the process)."""
+        if self._workers_running():
+            current = getattr(self, "_queue_current", None)
+            queue = self._queue()
+            queue.cancel()
+            if current is not None:
+                queue.cancel_running(current)
+            self._refresh_queue_view()
+            self.import_status.setText("Cancelling: the dialog can close once the current step has finished.")
+            return
+        super().done(result)
 
     def _run_import_pipeline(self, files, mineru_results):
         """Run the batch, then release the one-batch-at-a-time guard."""
@@ -1129,14 +1127,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
 
     def _pdf_split_info(self, source) -> dict:
         """M52: report split of a PDF (several daily reports in one file), before any extraction."""
-        if not str(source).lower().endswith(".pdf"):
-            return {}
-        try:
-            split = ddr_pdf_split.analyse_pdf(
-                source, expected_well=ddr_pdf_split.expected_well_name(self.db, self.well_id))
-        except ddr_pdf_split.PdfSplitError as exc:
-            return {"pdf_split_error": str(exc)}
-        return {"pdf_split": split.to_json()}
+        return pdf_split_info(source, self._expected_well_name())
 
     @staticmethod
     def _pdf_split_details(info) -> list:
@@ -1152,6 +1143,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
         results = []
         successful_files = []
         failed_files = []
+        batch_well_id = self.well_id
 
         for number, source in enumerate(files, 1):
             self.import_status.setText(
@@ -1183,161 +1175,31 @@ class ExcelImportDialog(QDialog, DDRImportService):
             parse_result = None
             error_status = ImportStatus.PERSISTENCE_ERROR.value
             pipeline_stage = self._queue_stage("route")
-            pdf_split_info = self._pdf_split_info(source)
+            pdf_split_info = {}
             try:
-                route = route_file(source, template_matcher=self._auto_match_template)
                 parse_result = mineru_results.get(self._result_key(source))
-                path = source
-                extracted = None
-                pipeline_stage = self._queue_stage("open")
-
-                if route.engine == "mineru" and parse_result and parse_result.success:
-                    self.import_status.setText(
-                        f"{os.path.basename(source)} - Normalizing MinerU document and validating schema..."
-                    )
-                    QApplication.processEvents()
-                    extracted = self._mineru_extracted(source, parse_result)
-                elif route.engine == "mineru" and route.fallback_engine == "pdf_fallback":
-                    # PDF fallback remains PDF-native and is adapted directly
-                    # into the same common document IR.  It must never create
-                    # or parse an intermediate workbook.
-                    primary_reason = parse_result.error if parse_result else "MinerU was unavailable"
-                    logger.warning("MinerU PDF fallback: file=%s reason=%s", Path(source).name, primary_reason)
-                    self.import_status.setText(
-                        f"{os.path.basename(source)} - MinerU unavailable; using PDF-native fallback..."
-                    )
-                    try:
-                        fallback_document = parse_pdf_native_fallback(
-                            source, continuation=(profile.continuation if profile is not None else True))
-                        fallback_result = MinerUParseResult(
-                            source_file=str(source),
-                            success=True,
-                            document=fallback_document,
-                        )
-                        extracted = self._mineru_extracted(
-                            source,
-                            fallback_result,
-                            source_label="PDF native fallback",
-                            fallback_diagnostics={
-                                "primary": {
-                                    "error_type": parse_result.error_type if parse_result else "not-run",
-                                    "error": primary_reason,
-                                },
-                                "fallback": {
-                                    "engine": fallback_document.method,
-                                    "pages": fallback_document.page_count,
-                                    "tables": fallback_document.table_count,
-                                    # M54: explicit scanned-page / OCR state.
-                                    "scanned_pages": fallback_document.metadata.get("scanned_pages", []),
-                                    "ocr": fallback_document.metadata.get("ocr"),
-                                    "warning": fallback_document.metadata.get("warning"),
-                                },
-                            },
-                        )
-                    except Exception as fallback_exc:
-                        raise MinerUError(
-                            "PDF_IMPORT_FAILED: MinerU cause: "
-                            f"{primary_reason}; PDF fallback cause: {fallback_exc}"
-                        ) from fallback_exc
-                elif route.engine == "mineru" and route.fallback_engine == "excel_intelligence":
-                    # Unknown XLSX can still use the established smart importer
-                    # if MinerU is unavailable or fails.
-                    reason = parse_result.error if parse_result else "MinerU was unavailable"
-                    logger.warning("MinerU XLSX fallback to existing importer: file=%s reason=%s", Path(source).name, reason)
-                elif route.engine == "mineru":
-                    reason = parse_result.error if parse_result else "MinerU worker did not return a result"
-                    raise MinerUError(
-                        f"MinerU could not parse {Path(source).name}: {reason}. "
-                        "Configure MINERU_EXECUTABLE or MINERU_PYTHON in Settings/environment."
-                    )
-
-                # Known structured workbooks have exactly one canonical path:
-                # openpyxl -> ExcelIntelligence -> canonical JSON.  The legacy
-                # SmartTemplate dialog is not run first and cannot overwrite
-                # or compete with this result.
-                if extracted is None and route.engine == "excel_intelligence":
-                    pipeline_stage = self._queue_stage("mapping")
-                    rep, extracted = self.extract_file(path)
-
-                if extracted is None:
-                    if route.engine == "csv":
-                        from core.document_import import csv_to_xlsx
-                        clean = Path(os.path.join(QDir.tempPath(), Path(source).stem + "_csv_import.xlsx"))
-                        csv_to_xlsx(source, clean)
-                        path = str(clean)
-                    elif route.engine == "unsupported":
-                        raise ValueError(route.reason)
-                    elif path.lower().endswith(".xls"):
-                        raise ValueError("Legacy .xls requires conversion to .xlsx before import")
-
-                    # A converter or a MinerU failure is not permission to
-                    # enter the retired heuristic/profile importer.  Without
-                    # a canonical template there is no safe mapping contract.
-                    if route.engine in {"csv", "mineru"}:
-                        raise ValueError(
-                            "No canonical template was available after the "
-                            f"{route.engine} fallback; import stopped before persistence"
-                        )
-
-                    # No heuristic/profile importer is reachable from the
-                    # universal route.  Every successful branch above has
-                    # already produced the canonical payload.
-
-                # Existing quality and time-log validation remains the source
-                # of truth for the database import boundary.
-                pipeline_stage = self._queue_stage("validation")
-                report_data = extracted.get("daily_report", {})
-                quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
-                time_logs = extracted.get("time_logs_24h", []) or []
-                time_report = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
-                quality.total += time_report.total
-                quality.issues.extend(time_report.issues)
-                for item in time_report.review.items:
-                    quality.review.items.append(item)
-
-                duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
-                if duplicate_indexes:
-                    quality.warning("Time Logs", 0, f"Skipped {len(duplicate_indexes)} duplicate time-log rows")
-
-                review_with_file = []
-                for item in quality.review.as_rows():
-                    item["file"] = os.path.basename(source)
-                    item.setdefault("detected_table", item.get("record_type", ""))
-                    item.setdefault("source_cell", f"{item.get('column','')}{item.get('row','')}")
-                    item.setdefault("original_value", item.get("source_value"))
-                    item.setdefault("normalized_value", item.get("value"))
-                    item.setdefault("unit", item.get("unit", ""))
-                    item.setdefault("target_field", item.get("canonical_field", ""))
-                    review_with_file.append(item)
-                quality.review.items = []
-                for item in review_with_file:
-                    quality.review.add(**item)
-
-                metadata = extracted.get("metadata") or {}
-                for item in metadata.get("review_matrix", []):
-                    item["file"] = os.path.basename(source)
-                    quality.review.add(**item)
-
-                import_report_dict = quality.as_dict()
-                if metadata.get("source") in {"MinerU", "PDF native fallback"}:
-                    import_report_dict.update(
-                        {
-                            "source_engine": "MinerU",
-                            "backend": metadata.get("backend", ""),
-                            "method": metadata.get("method", ""),
-                            "pages": metadata.get("pages", 0),
-                            "tables": metadata.get("tables", 0),
-                            "fields_extracted": metadata.get("fields_extracted", 0),
-                            "warnings": len(metadata.get("warnings", [])),
-                        }
-                    )
-
-                if not has_meaningful_canonical_data(extracted):
-                    error_status = ImportStatus.VALIDATION_ERROR.value
-                    pipeline_stage = self._queue_stage("meaningful_data")
-                    raise ValueError("No meaningful canonical report data was detected")
-
-                import_report_dict.update(pdf_split_info)          # M52: shown in the preview
+                self.import_status.setText(
+                    f"Processing {number}/{len(files)}: {os.path.basename(source)} - "
+                    "reading and validating in the background..."
+                )
+                # M71: routing, extraction, normalization and validation run in
+                # a worker; only plain values cross the thread boundary.
+                prepared = self._prepare_in_background(source, parse_result, profile, entry)
+                pdf_split_info = prepared.pdf_split_info
+                for stage in STAGES[:STAGES.index(prepared.stage) + 1]:
+                    pipeline_stage = self._queue_stage(stage)
+                if prepared.cancelled:
+                    results.append({
+                        "file": source, "skipped": 1, "imported": 0, "failed": 0, "queue_status": CANCELLED,
+                        "details": [f"⏭️ {os.path.basename(source)}: cancelled during {prepared.stage}; nothing saved"],
+                    })
+                    failed_files.append(f"{os.path.basename(source)}: Cancelled")
+                    continue
+                if prepared.error is not None:
+                    raise prepared.error
+                extracted, import_report_dict = prepared.extracted, prepared.import_report
+                if self.well_id != batch_well_id:
+                    raise RuntimeError("The import target well changed during preparation; nothing was saved")
 
                 pipeline_stage = self._queue_stage("ui_preview")
                 self.import_status.setText(
@@ -1361,6 +1223,8 @@ class ExcelImportDialog(QDialog, DDRImportService):
                         dialog.deleteLater()
                     continue
 
+                if entry.status == CANCELLED:
+                    raise RuntimeError("Cancelled before saving")
                 preview.apply_review_changes(extracted)
                 # Decisions and edits are now part of the audit payload and
                 # the exact canonical object sent to the atomic save boundary.
