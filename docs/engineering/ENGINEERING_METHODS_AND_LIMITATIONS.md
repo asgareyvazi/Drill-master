@@ -202,8 +202,9 @@ Document-to-well matching is a suggestion only. Every imported value goes throug
   adapter, validation cases). The other 20 are `NOT_SUPPORTED`: their cases are stored as captured and are NOT
   REPRODUCIBLE.
 - Cases and history records are immutable. A re-run, clone or recalculation is a new linked record. The
-  verdicts are MATCH / DIFFERENT / METHOD CHANGED / NOT_REPRODUCIBLE / UNREADABLE. Comparison is unit-aware:
-  values in different units are never compared numerically.
+  verdicts are MATCH / DIFFERENT / NOT_REPRODUCIBLE (method version no longer available) / UNREADABLE. A
+  link whose method version differs from the original is annotated "METHOD CHANGED". Comparison is
+  unit-aware: values in different units are never compared numerically.
 
 ## Casing and cement against an architecture revision (M89)
 

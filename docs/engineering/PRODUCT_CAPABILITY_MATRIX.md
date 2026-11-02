@@ -403,3 +403,42 @@ Method: every table holding a foreign key to `wells`, `sections` or `daily_repor
 | Concurrency | WAL and `busy_timeout` ≥ 5 s on every connection; a reader never sees an uncommitted write; a second manager's commit is visible | PASS (single-machine SQLite; no multi-host claim) |
 
 Hand mutants 6/6 killed: (1) sweep list minus one table; (2) no insert guard; (3) no delete guard; (4) unlink without its scope; (5) unique-key message without the SQLite wording. Mutant 5 survives the plan-stale test alone (the service also matches the constraint name) but is killed by the guard test. Regression over 45 history, deletion, migration and authorization files: 731 passed.
+
+### M97 – Qualification (full suite, mutation, gates)
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Full suite on the exact checkpoint SHA | PASS | `python verify_release.py --coverage` on `c776e8cd863b88623df0a8719cf497fbede93d73` (2-CPU Linux sandbox, Python 3.11.2, PySide6 6.8.1.1 offscreen with a locally built EGL/xkbcommon/dbus and a stub libGL): collected 4454 = 4450 passed + 4 skipped, 0 failed, 0 errors, 1440 s. Baseline M81 4272 passed + 4 skipped; +178 = 178 items in the 14 new M83–M96 test files + 1 M73 gap test − 1 M72 parametrized case ("vertical tie-in" refusal) removed in M86 when the solver gained inclined tie-ins. Skips unchanged: the same 4 opt-in external acceptance tests |
+| Coverage (branch+line, tracked product files) | PASS | 66.29% over 240 tracked files (62289/93969); target 65 reached (floor 45.50, unchanged) |
+| Mutation – M83–M96 behaviour (new, `tools/quality/mutation_m83_m96.py`) | PASS | 20 mutants, 20 killed. The first run found one real gap: `entry_status` could report an UNREADABLE record as readable without any failing test. `test_entry_status_reports_records_whose_stored_data_cannot_be_read` added (M73 file) |
+| Mutation – earlier suites, full selection | PASS | m70_m76 18/18; m61_m67 19/19; m52 70 mutants: 69 killed + 1 declared equivalent (unchanged since M52, `W12-staged-paint-ignores-scope`). Two m52 anchors went stale or ambiguous after M84/M95 and were re-anchored to the code that now holds the behaviour (not weakened); both KILLED |
+| Ruff (new and modified files), lint ceiling, exception scan, privacy | PASS | 0 new ruff findings; lint 727 / ceiling 727; silent-exception ceiling held; privacy 0 findings over 1309 files |
+| Performance vs M80 (`tools/perf/m80_measure.py --cases 3000`, 3 runs, median ms) | PASS (evidence, not a gate) | History full load 80.63 → 48.8–49.2; first page 12.04 → 10.2–10.9; survey save 2000 stations 50.04 → 36.5–44.9; architecture save 1.08 → 0.83–1.29; build-hold solver ×1000 4.01 → 8.45–10.66 (slower: M86 replaced the vertical-only closed form with the general 3-D tie-in solver and a whole-arc inclination check; profiled, about 9 µs per solve, one solve per user action) |
+| Windows CI on the final code SHA | PASS | `c776e8cd863b88623df0a8719cf497fbede93d73`: Windows release validation run 41451853860 and Source release gate run 41451853825 (3.11/3.12/3.13), all jobs success. Windows CI is not desktop acceptance |
+
+### M98 – Owner desktop acceptance procedure
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Procedure for journeys A–R, M95 measurement on Windows, record template | PASS (document) | `packaging/WINDOWS_RELEASE_ACCEPTANCE.md` → "M82-M100 owner desktop acceptance procedure" |
+| Execution on a Windows desktop | OWNER REVIEW REQUIRED | NOT EXECUTED — OWNER DESKTOP ACCEPTANCE REQUIRED |
+
+### M99 – Reconciled starting defect register
+
+| Starting defect (M82) | Final state | Where |
+|---|---|---|
+| Selection lifecycle not uniform | PARTIAL | M83: clearing and A→B switches are uniform across tabs; workers still use tab-local tokens; no company/project/rig/date signals |
+| DDR cancellation cannot interrupt a third-party parse | PASS (truthful cancel) | M84: never commits after a cancel and releases parser results; the running parse itself is not interrupted (no thread killing, by design) |
+| Survey azimuth/datum stored but not transformed | PARTIAL | M85: azimuth conversions PASS; depth datum and CRS NOT IMPLEMENTED |
+| Solver handles a vertical tie-in only | PASS | M86: any tie-in direction; multi-segment optimisation NOT IMPLEMENTED |
+| Only Quick Calc has a W13 contract | PARTIAL | M87: 7 of 27 re-runnable; 20 NOT_SUPPORTED, shown as NOT REPRODUCIBLE |
+| Cement is a nominal worksheet | PARTIAL | M89: segment geometry, caliper, open-hole excess, History; still a WORKSHEET; re-run NOT IMPLEMENTED |
+| Casing does not record the architecture revision | PASS | M89 |
+| History coverage incomplete | PARTIAL | M88: 11 sources; legacy trajectory and NOT_SUPPORTED calculators are captured only |
+| Specialist registry not in the UI | PASS | M92: Help → Method catalogue (52 entries, all NOT APPROVED) |
+| No Operational Analysis code | PASS / PARTIAL | M91: footage, ROP, NPT, activity, bit runs, cost, drill-down, export PASS; MSE trend and plan vs actual PARTIAL |
+| Windows checklist not executed | OWNER REVIEW REQUIRED | M98 procedure written; NOT EXECUTED |
+
+Reconciled documents (M99): this matrix, `ENGINEERING_METHODS_AND_LIMITATIONS.md` (M85–M96 sections),
+`DRILLMASTER_USER_WORKFLOWS.md` (workflows 14–17), `ENGINE_INVENTORY.md` (regenerated, `--check` current),
+`packaging/WINDOWS_RELEASE_ACCEPTANCE.md` (M98 section, current branch name).

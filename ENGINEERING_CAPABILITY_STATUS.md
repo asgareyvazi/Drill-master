@@ -2,6 +2,8 @@
 
 > **Capability scope reference:** labels below are bounded implementation claims, not production/operator acceptance. Current repository and release status: [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md).
 
+> **Live per-capability register:** [docs/engineering/PRODUCT_CAPABILITY_MATRIX.md](docs/engineering/PRODUCT_CAPABILITY_MATRIX.md) supersedes the labels below wherever they differ.
+
 The labels below are a conservative capability-scope reference, not a branch
 identity or production-acceptance claim. Their original verification occurred
 on `arena/01a0c945-drill-master` and its predecessor `arena/01a07094-drill-master`;
