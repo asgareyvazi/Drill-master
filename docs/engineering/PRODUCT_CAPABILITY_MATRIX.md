@@ -269,3 +269,21 @@ OWNER REVIEW REQUIRED. Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT 
 | Lineage architecture ↔ casing / cement | PASS | `uses` / `used_by` in the History lineage combo |
 | Cement worksheet re-run | NOT IMPLEMENTED | Worksheet cases are captured only (NOT REPRODUCIBLE, reason shown) |
 
+### M90 – Per-engine qualification
+
+Independent goldens per engine family (closed forms written in the tests, never produced by the code under test). All engines remain SCREENING / WORKSHEET / TRAINING AID as labelled.
+
+| Engine | State | Golden evidence |
+|---|---|---|
+| Hydraulics (bit ΔP, jet velocity, HHP, impact) | PASS | `test_engineering_independent_golden` (Bernoulli, Cd 0.95 → 10858) |
+| Mud (hydrostatic, weight-up, **dilution**, mix, OWR) | PASS | `test_engineering_ground_truth`, `test_m87`, **`test_m90` dilution material balance** |
+| Bit / MSE (TFA, Teale) | PASS | `test_m87` (Teale 127,997.67 psi) |
+| Casing (burst, collapse, VME, **pipe-body yield**) | PASS (TR 5C3 subset) | `test_casing_vme_independent`, **`test_m90` tensile** |
+| Cement (displacement, annulus, **TOC from volume**) | PASS (WORKSHEET) | `test_m74`, `test_m89`, **`test_m90` TOC** |
+| Torque & drag (vertical, **straight inclined pickup / slack-off / rotating / torque**) | PASS (SCREENING) | `test_engineering_ground_truth`, **`test_m90` 30° and 60° tangents** |
+| Well control (kill MW, ICP, FCP, MAASP, kill sheet) | PASS (TRAINING AID) | `test_engineering_independent_golden` |
+| Fishing (free point, stretch, back-off, **overshot clearance**) | PASS (SCREENING) | `test_engineering_ground_truth`, **`test_m90` band edges** |
+| Directional (minimum curvature, build-hold solver) | PASS (PLANNING AID) | `test_m85`, `test_m86` |
+| pcf→ppg constant | DOCUMENTED DEVIATION | Hydraulics, unit manager and the bit page use 7.48052 gal/ft³ (exact 1728/231); the kill sheet, T&D, HP & FP and several W13 display handlers use 7.48 (relative 7·10⁻⁵, about 20× below the 0.1 pcf input resolution). Not changed: verification compares at 1e-6, so every stored kill-sheet, T&D and HP & FP record would turn DIFFERENT. Changing it needs versioned methods with legacy adapters — OWNER REVIEW REQUIRED |
+| Output rounding | DOCUMENTED | Engines round outputs (e.g. bit ΔP 0.1 psi, hydrostatic 0.01 psi); goldens use matching absolute tolerances, stored-vs-recalculated verification stays at 1e-6 |
+
