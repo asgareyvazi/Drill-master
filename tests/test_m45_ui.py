@@ -293,6 +293,8 @@ def window(app, tmp_path_factory):
     end = time.monotonic() + 10
     while win._hierarchy_worker is not None and time.monotonic() < end:
         _pump(0.05)
+    from core.selection_manager import SelectionManager
+    SelectionManager().clear()                      # the singleton must not carry this database's ids into later tests
     win._close_confirmed = True                     # skip the modal exit prompt
     win.close()
     _pump(0.2)

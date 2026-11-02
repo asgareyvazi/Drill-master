@@ -195,7 +195,7 @@ class CaseBar(QWidget):
 
         well_id = self._well_id()
         case = cc.save_case(self.db, calculator=self.calculator(), name=name, inputs=inputs, results=results,
-                            well_id=well_id, wellbore_id=SelectionManager().wellbore_for(well_id))
+                            well_id=well_id, wellbore_id=SelectionManager().wellbore_for(well_id, db=self.db))
         self.refresh()
         self.status.setText(f"Saved case '{case['name']}' (#{case['id']}) with {len(inputs)} inputs and "
                             f"{len(results)} results; {case['method_version']}.")
