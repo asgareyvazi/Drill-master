@@ -177,3 +177,23 @@ Same states and evidence rules as above. Offscreen Qt and unit tests on syntheti
 | Dashboard English/LTR dark | COMPLETE (pre-existing M53) | Unchanged |
 | Offline | COMPLETE | No network use added |
 | Windows desktop acceptance | OWNER REVIEW REQUIRED | CI Windows job is not desktop acceptance |
+
+## M70–M80 – Integrity, surveys, contracts, architecture
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Plan revision immutability (data layer) | COMPLETE | Storage triggers + service checks; `tests/test_m70_integrity.py` |
+| Structured lineage, well delete cascade | COMPLETE | `tests/test_m70_verification_lineage.py`, `tests/test_m70_integrity.py` |
+| DDR preparation in a worker (cancel, safe close) | PARTIAL | `tests/test_m71_ddr_background.py`; cancellation is cooperative between steps |
+| Immutable survey revisions + plan tie-in | COMPLETE | W6 Survey revisions tab; `tests/test_m72_*` (fresh and upgraded DBs) |
+| Build-hold target solver | PARTIAL | Closed form, vertical tie-in only; infeasibility reported |
+| Plan vs actual 3D target checks | COMPLETE (SCREENING) | Compare panel; saved with the survey revision |
+| Calculator contracts | PARTIAL | One contract (Quick Calc); other W13 calculators stay unversioned |
+| History statuses, unit-safe compare, paging | COMPLETE | `tests/test_m73_contracts_history.py` |
+| Well architecture revisions + schematic | COMPLETE | W3b Architecture tab; `tests/test_m74_well_architecture.py` |
+| Cement geometry from architecture | PARTIAL (WORKSHEET) | Annulus volumes saved as cases; not wired into the W13 cement engine |
+| Engine inventory, formula mutants | COMPLETE | `ENGINE_INVENTORY.md`, `tools/quality/mutation_m70_m76.py` |
+| Operations analysis on W12/W16 | PARTIAL (pre-existing) | W12 KPI evidence + Home dashboard; no new W12/W16 drill-down |
+| Specialist method registry | COMPLETE (registry); methods OWNER REVIEW | `core/specialist_methods.py` |
+| Backup/restore of new revisions | COMPLETE | `tests/test_m80_recovery_offline.py` |
+| Windows desktop acceptance | OWNER REVIEW REQUIRED | Checklist M80-01..12 in `packaging/WINDOWS_RELEASE_ACCEPTANCE.md`, NOT EXECUTED |

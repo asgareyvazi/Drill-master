@@ -119,3 +119,19 @@ Automated evidence for these workflows comes from offscreen Qt tests on Linux wi
 2. Select one entry to see its report; select two and **Compare selected (2)**.
 3. **Recalculate & verify** re-runs an engine snapshot or plan with the current method and reports MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE and whether the method changed. **Save recalculation** stores it as a new case; the original is untouched.
 4. **Export report…** writes HTML or PDF (UNSIGNED, not validated); **Export list CSV…** writes the filtered list.
+
+## 12. Survey revisions and tied plans (M72)
+
+Trajectory viewer -> **Survey revisions**: declare the depth datum (and the unit for a file), then *Freeze
+current survey* or *Import station file…* -> *Save previewed revision*. Each revision is numbered and cannot
+be edited; *Compare with parent* lists the differences. In the **Plan designer**, choose the survey revision
+station to tie in to, add a target and *Solve to first target*; an infeasible target shows the reason.
+*Use as plan for comparison* hands the plan, prefixed with the surveyed stations above the tie-in, to
+Compare / clearance, where the actual source can be a survey revision.
+
+## 13. Well architecture and cement worksheet (M74)
+
+W3b Wellbore schematic -> **Architecture**: build the drawing in the Casings / Formations / Completion tabs,
+*Validate drawing*, then *Freeze as revision* (optionally against a survey revision). *Load into schematic*
+redraws a stored revision. Select a revision and a cemented string, enter the open-hole size if it is not
+recorded, *Cement annulus*, then *Save worksheet* to store it as a calculation case.

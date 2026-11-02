@@ -108,3 +108,68 @@ Document-to-well matching is a suggestion only. Every imported value goes throug
 
 * Read-only adapters; the source records are never changed. Recalculation uses each engine's own `recalculate_from_snapshot` on the frozen snapshot and the shared `classify_verification`; a method change is flagged, and a recalculation is stored only as a new `calculation_cases` row whose note names the original record and verification status.
 * W13 cases (M63) capture what the calculator page shows; W13 calculators have no per-method version, which the case label states.
+
+## Survey revisions, plan tie-in and target solver (M72)
+
+- **Survey revisions** (`core/survey_revisions.py`, `SURVEY_REVISION_VERSION = "M72 survey revision v1"`):
+  numbered per well, insert-only (storage trigger), stations stored canonically (MD m, angles deg) with the
+  declared source unit (m or ft; ft = 0.3048 m exactly), azimuth reference and depth datum. Undeclared unit,
+  reference or datum is refused; no azimuth or datum conversion is performed, and mixing references across
+  revisions is refused. Modes `initial`/`replace`/`append`/`branch` with `parent_id`; the minimum-curvature
+  result (`core.well_trajectory`) and its SHA-256 are stored with the revision.
+- **Plan tie-in** (`PLAN_VERSION = "M72 plan designer v3"`): a plan may pin a survey revision station through
+  `inputs.tie_in` (`survey_revision_id`, `survey_sha256`, MD/inc/azi/TVD/N/E). Saving checks that the revision
+  belongs to the well (and wellbore), that its SHA-256 still matches and that the tie-in is one of its
+  stations (1e-6). The designed path is offset so its first station sits at the tie-in TVD/N/E; VS is
+  recomputed. An unavailable pin refuses to design; it never falls back to the surface. v2 plans verify as
+  METHOD CHANGED with numerically identical stations.
+- **Build-hold solver** (`SOLVER_VERSION = "M72 build-hold target solver v1"`), closed form, vertical tie-in
+  only: R = 5400/(pi*DLS); V = target TVD - KOP TVD; H = horizontal offset; d = hypot(R - H, V);
+  inclination = atan2(V, R - H) - acos(R/d); tangent = sqrt(d^2 - R^2); azimuth = atan2(dE, dN).
+  Infeasible (with the reason, no plan) when d < R, V <= 0, inclination > max_inc, KOP above the tie-in,
+  DLS <= 0, non-finite input or a non-vertical tie-in. Golden: KOP 500 m, 3 deg/30 m, target N -300 E 300
+  TVD 1400 m gives 30.0 deg at 135.0 deg and TD 1623.903201 m (miss 3e-13 m).
+- **Target checks in plan vs actual**: closest approach of the actual path to each 3D target
+  (`trajectory_compare.closest_point`), distance and hit within the target radius; without a radius, hit is
+  not judged. Labelled SCREENING; offsets are never fabricated.
+
+## Calculator contracts and history statuses (M73)
+
+- `core/calculator_contracts.py` (`CONTRACT_REGISTRY_VERSION = "M73 calculator contracts v1"`): stable ID,
+  schema version, method ID/version, field IDs and canonical units bound to the W13 form labels. First
+  contract: Volume > Quick Calc (`M73 pipe capacity v1`, capacity ID^2/1029.4 bbl/ft, displacement
+  (OD^2 - ID^2)/1029.4 bbl/ft, reusing `AdvancedHydraulicsEngine`).
+- Verification re-runs the current method: MATCH/DIFFERENT within the display rounding of each result
+  (0.5 x 10^-decimals); results never stored are listed as not compared. Cases without a method version
+  (before M73) or whose version is no longer available are NOT_REPRODUCIBLE; missing or rejected inputs give
+  UNREADABLE.
+- History shows three separate statuses (readable / comparable / reproducible with the reason) and a
+  unit-safe numeric comparison: values in different units are listed as UNIT MISMATCH and never converted.
+  Filters and paging (200 per page) run in the database; the text filter matches name and method.
+
+## Well architecture (M74)
+
+- `core/well_architecture.py` (`ARCHITECTURE_VERSION = "M74 well architecture v1"`): immutable numbered
+  revisions of sections, casing, liners, tubing, shoes, formations, packers, cement (TOC) and accessories,
+  tied to the wellbore and optionally a survey revision; SHA-256 checked on read. Unknown sizes stay unknown.
+- Validation (errors refuse the save): known kind and a name; top < bottom; depths >= 0; ID < OD; OD below
+  the hole size; liner top inside a larger string whose ID clears the liner OD; unique string names; shoe at
+  its string bottom (0.01 m); cement within its string; non-overlapping formations; packer within tubing.
+  Rules whose inputs are unknown are reported as warnings, not judged.
+- The W3b schematic is generated from the stored records through the existing renderer.
+- Cement annulus (WORKSHEET; nominal sizes, no caliper, no excess): TOC to cement bottom split at outer string
+  boundaries; cased intervals use the outer string ID, open hole the recorded or entered hole size; an
+  unknown size leaves that interval's volume empty (never zero). Capacity reuses
+  `AdvancedHydraulicsEngine.calc_annular_capacity_bbl_ft`. Saved worksheets are calculation cases pinned to
+  the architecture revision ID and SHA-256; they are NOT REPRODUCIBLE from History (no contract).
+
+## Engine inventory, labels and specialist methods (M75, M76, M79)
+
+- `docs/engineering/ENGINE_INVENTORY.md` is generated from the source (`tools/quality/engine_inventory.py`)
+  and checked by a test. Formula mutants (bit pressure drop, HHP, jet velocity, capacities, Fann PV, Teale MSE)
+  are in `tools/quality/mutation_m70_m76.py`.
+- Casing remains the TR 5C3 pipe-body subset (no connection ratings, no triaxial design envelope); torque and
+  drag remain Johancsik soft-string SCREENING; the kill sheet shows a TRAINING AID notice on its page.
+- `core/specialist_methods.py`: a method may be implemented only when reference, licence, inputs/units,
+  limits, independent benchmark and approval are all met. ISCWSA error model and the pwptemp temperature
+  model are OWNER REVIEW REQUIRED (licence); stiff-string T&D is NOT IMPLEMENTED (no benchmark).
