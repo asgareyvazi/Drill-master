@@ -304,7 +304,9 @@ def export_history_csv(entries: Iterable[HistoryEntry], path: str) -> int:
 # -- Engineering Report Center ---------------------------------------------------------------------
 _STYLE = ("body{font-family:sans-serif;font-size:10pt;color:#111}h1{font-size:15pt}h2{font-size:12pt;"
           "border-bottom:1px solid #999}table{border-collapse:collapse}td,th{border:1px solid #bbb;padding:2px 6px;"
-          "text-align:left}.note{color:#7a4b00}")
+          "text-align:left}.note{color:#7a4b00}"
+          # M78: printed reports keep rows whole and headings with their tables
+          "tr{page-break-inside:avoid}h1,h2{page-break-after:avoid}table{page-break-inside:auto}")
 
 
 def _table(pairs: Iterable[Tuple[Any, ...]], headers: Tuple[str, ...]) -> str:
@@ -335,6 +337,9 @@ def render_entry_report(entry: HistoryEntry, *, well_label: str = "") -> str:
     meta = [("Source", entry.source), ("Record", entry.key), ("Name", entry.name), ("Method", entry.method),
             ("Method version", entry.version), ("Created", entry.to_row()["created_at"]), ("Scope", entry.scope),
             ("Derived from", entry.parent or "—")]
+    state = entry_status(entry)          # M73/M78: the three statuses travel with the report
+    meta += [("Readable", state["readable"]), ("Comparable", state["comparable"]),
+             ("Reproducible", f"{state['reproducible']} ({state['reproducible_reason']})")]
     return (f"<html><head><meta charset='utf-8'><style>{_STYLE}</style></head><body>"
             f"<h1>Engineering calculation report — {html.escape(entry.name)}</h1>"
             f"{_table(meta, ('Field', 'Value'))}"
