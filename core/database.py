@@ -2059,6 +2059,35 @@ class SurveyRevision(Base):
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
 
 
+class WellArchitectureRevision(Base):
+    """M74: an immutable, numbered, validated well architecture.
+
+    Components (sections, casing, liners, tubing, shoes, formations, packers,
+    cement/TOC, accessories) are stored canonically (MD in metres, sizes in
+    inches) with their SHA-256 and the validation result. Tied to a wellbore
+    and, optionally, the survey revision it was drawn against. Insert-only
+    (storage trigger); a change is a new revision with ``parent_id``.
+    """
+
+    __tablename__ = "well_architecture_revisions"
+    __table_args__ = (UniqueConstraint("well_id", "revision", name="uq_well_architecture_revision"),)
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"))
+    survey_revision_id = Column(Integer, ForeignKey("survey_revisions.id", ondelete="SET NULL"))
+    revision = Column(Integer, nullable=False)
+    parent_id = Column(Integer, ForeignKey("well_architecture_revisions.id", ondelete="SET NULL"))
+    components_json = Column(Text, nullable=False)
+    component_count = Column(Integer, nullable=False)
+    components_sha256 = Column(String(64), nullable=False)
+    validation_json = Column(Text, nullable=False)
+    schema_version = Column(String(100), nullable=False)
+    note = Column(Text)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class PlannedActivity(Base):
     """فعالیت‌های برنامه‌ریزی شده برای هر چاه و سکشن"""
     __tablename__ = "planned_activities"

@@ -124,6 +124,7 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     "calculation_cases": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "calculation_source_links": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "survey_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    "well_architecture_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }

@@ -97,6 +97,10 @@ class WellboreSchematicTab(DrillTabBase):
         tabs.addTab(self._create_completion_tab(), "✅ Completion")
         # تب Settings
         tabs.addTab(self._create_settings_tab(), "⚙️ Settings")
+        # M74: validated, immutable architecture revisions of what is drawn here
+        from tabs.well_architecture_panel import WellArchitecturePanel
+        self.architecture_panel = WellArchitecturePanel(self)
+        tabs.addTab(self.architecture_panel, "🏗️ Architecture")
 
         layout.addWidget(tabs, 1)
 
@@ -482,10 +486,14 @@ class WellboreSchematicTab(DrillTabBase):
         self.current_wellbore_id = wellbore_id
         if self.current_well_id:
             self.auto_generate()
+        if getattr(self, "architecture_panel", None) is not None:
+            self.architecture_panel.refresh()
 
     def on_well_changed(self, well_id, well_data):
         """وقتی چاه تغییر می‌کند، شماتیک را به‌روزرسانی می‌کنیم."""
         self.current_well_id = well_id
+        if getattr(self, "architecture_panel", None) is not None:
+            self.architecture_panel.refresh()
         # A new well clears any prior bore scope (bore belongs to the old well).
         self.current_wellbore_id = getattr(
             self.sel_manager, "current_wellbore_id", None)
