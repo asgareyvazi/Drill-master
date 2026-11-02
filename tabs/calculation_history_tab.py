@@ -24,6 +24,7 @@ from core import calculation_history as ch
 
 logger = logging.getLogger(__name__)
 COLUMNS = ("Source", "Name", "Method", "Version", "Created", "Scope", "Derived from")
+PAGE_SIZE = 200          # M73: rows per page; filters and paging run in the database
 
 
 class CalculationHistoryTab(QWidget):
@@ -42,17 +43,27 @@ class CalculationHistoryTab(QWidget):
         for source in ch.SOURCES:
             self.source_combo.addItem(source, source)
         self.text_edit = QLineEdit()
-        self.text_edit.setPlaceholderText("Filter by name, method or input…")
+        self.text_edit.setPlaceholderText("Filter by name or method…")
         self.well_only = QCheckBox("Selected well only")
         self.well_only.setChecked(True)
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.clicked.connect(self._refresh_clicked)
         self.source_combo.currentIndexChanged.connect(self._refresh_clicked)
-        self.text_edit.returnPressed.connect(self.refresh)
+        self.text_edit.returnPressed.connect(self._refresh_clicked)
         self.well_only.toggled.connect(self._refresh_clicked)
         for widget in (QLabel("Source:"), self.source_combo, self.text_edit, self.well_only, self.refresh_btn):
             filters.addWidget(widget)
+        self.page, self.total = 0, 0
+        self.prev_btn, self.next_btn = QPushButton("◀ Newer"), QPushButton("Older ▶")
+        self.page_label = QLabel("")
+        self.prev_btn.clicked.connect(lambda _checked=False: self.go_page(self.page - 1))
+        self.next_btn.clicked.connect(lambda _checked=False: self.go_page(self.page + 1))
+        for widget in (self.prev_btn, self.page_label, self.next_btn):
+            filters.addWidget(widget)
         layout.addLayout(filters)
+        self.statuses_label = QLabel("")     # M73: readable / comparable / reproducible, separately
+        self.statuses_label.setWordWrap(True)
+        layout.addWidget(self.statuses_label)
 
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(list(COLUMNS))
@@ -100,6 +111,8 @@ class CalculationHistoryTab(QWidget):
     def set_well(self, well_id: Optional[int], _well_data=None) -> None:
         """Follow the selection. A tab hidden inside a tab set reloads when it is
         shown (M70.7); a stand-alone widget loads at once."""
+        if (well_id or None) != getattr(self, "well_id", None):
+            self.page = 0                     # another well starts at its newest page
         self.well_id = well_id or None
         self._stale = True
         if self.isVisible() or self.parentWidget() is None:
@@ -130,9 +143,17 @@ class CalculationHistoryTab(QWidget):
                 self.status.setText("Select a well, or clear 'Selected well only'.")
             else:
                 source = self.source_combo.currentData()
-                self.entries = ch.load_history(self.db, well_id=well, sources=[source] if source else None,
-                                               text=self.text_edit.text())
-                self.status.setText(f"{len(self.entries)} calculation(s).")
+                filters = {"well_id": well, "sources": [source] if source else None, "text": self.text_edit.text()}
+                self.total = ch.count_history(self.db, **filters)          # M73: COUNT and paging in the database
+                pages = max(1, -(-self.total // PAGE_SIZE))
+                self.page = min(max(0, self.page), pages - 1)
+                self.entries = ch.load_history(self.db, limit=PAGE_SIZE, offset=self.page * PAGE_SIZE, **filters)
+                self.status.setText(f"{self.total} calculation(s).")
+        pages = max(1, -(-self.total // PAGE_SIZE)) if self.entries else 1
+        self.page_label.setText(f"Page {self.page + 1} of {pages}")
+        self.prev_btn.setEnabled(self.page > 0)
+        self.next_btn.setEnabled(self.page + 1 < pages)
+        self.statuses_label.clear()
         self.table.setRowCount(len(self.entries))
         for row, entry in enumerate(self.entries):
             data = entry.to_row()
@@ -142,6 +163,10 @@ class CalculationHistoryTab(QWidget):
         self.last_outcome = None
         self._load_lineage(None)
         self._update_actions()
+
+    def go_page(self, page: int) -> None:
+        self.page = page
+        self.refresh()
 
     def selected(self) -> List[ch.HistoryEntry]:
         rows = sorted({index.row() for index in self.table.selectionModel().selectedRows()})
@@ -178,7 +203,14 @@ class CalculationHistoryTab(QWidget):
         if len(chosen) != 2:
             return None
         self.detail.setHtml(self.report_html())
-        return ch.compare_entries(*chosen)
+        numeric = ch.numeric_differences(*chosen)
+        for part in ("inputs", "results"):      # M73: unit-safe differences, inputs and results separately
+            lines = [f"{d['key']}: {d['status']} " + (f"{d['a']} → {d['b']} (Δ {d['delta']:.6g} {d['unit']})".rstrip()
+                                                      if d["status"] == "DIFFERENT"
+                                                      else f"{d['unit_a'] or 'no unit'} vs {d['unit_b'] or 'no unit'}")
+                     for d in numeric[part]]
+            self.detail.append(f"Numeric {part} differences: " + ("; ".join(lines) if lines else "none"))
+        return {**ch.compare_entries(*chosen), "numeric": numeric}
 
     def recalculate(self) -> Optional[dict]:
         chosen = self.selected()
@@ -225,8 +257,12 @@ class CalculationHistoryTab(QWidget):
     def _selection_changed(self):
         chosen = self.selected()
         self.last_outcome = None
+        self.statuses_label.clear()
         if len(chosen) == 1:
             self.detail.setHtml(self.report_html())
+            state = ch.entry_status(chosen[0])
+            self.statuses_label.setText(f"Readable: {state['readable']} · Comparable: {state['comparable']} · "
+                                        f"Reproducible: {state['reproducible']} ({state['reproducible_reason']})")
         self._load_lineage(chosen[0] if len(chosen) == 1 else None)
         self._update_actions()
 
@@ -264,6 +300,7 @@ class CalculationHistoryTab(QWidget):
         self.open_linked()
 
     def _refresh_clicked(self, *_):
+        self.page = 0
         self.refresh()
 
     def _compare_clicked(self, _checked=False):

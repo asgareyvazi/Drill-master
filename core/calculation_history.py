@@ -125,31 +125,147 @@ def _adapters():
     return adapters
 
 
+_NAME_COLUMN = {"trajectory_calculations": "description", "calculation_cases": "name",
+                "directional_plan_revisions": "name"}
+
+
+def _source_of(model, adapt) -> str:
+    table = model.__tablename__
+    if table in SNAPSHOT_SOURCES:
+        return SNAPSHOT_SOURCES[table][0]
+    return {"trajectory_calculations": "Trajectory", "calculation_cases": "Calculation case",
+            "directional_plan_revisions": "Directional plan"}[table]
+
+
+def _filtered(session, model, *, well_id, since, until, needle):
+    """M73: the well, period and text filters run in the database (indexed well_id, created_at)."""
+    from sqlalchemy import func, or_
+
+    query = session.query(model)
+    if well_id is not None:
+        query = query.filter(model.well_id == well_id)
+    if since is not None:
+        query = query.filter(model.created_at >= since)
+    if until is not None:
+        query = query.filter(model.created_at <= until)
+    if needle:
+        name = getattr(model, _NAME_COLUMN.get(model.__tablename__, "label"))
+        pattern = f"%{needle}%"
+        query = query.filter(or_(func.lower(name).like(pattern), func.lower(model.method).like(pattern)))
+    return query
+
+
 def load_history(db, *, well_id: Optional[int] = None, sources: Optional[Iterable[str]] = None, text: str = "",
-                 since: Optional[datetime] = None, until: Optional[datetime] = None) -> List[HistoryEntry]:
-    """Every matching entry, newest first. Read-only; sessions stay inside."""
+                 since: Optional[datetime] = None, until: Optional[datetime] = None,
+                 limit: Optional[int] = None, offset: int = 0) -> List[HistoryEntry]:
+    """Matching entries, newest first. Read-only; sessions stay inside.
+
+    Filters run in the database; sources that are not wanted are not queried.
+    The text filter matches the record name and method (case-insensitive).
+    With ``limit`` only one page is returned: each source is asked for its
+    newest ``offset + limit`` rows, the pages are merged by time and sliced.
+    """
     wanted = set(sources) if sources else None
     needle = text.strip().lower()
     out: List[HistoryEntry] = []
+    window = None if limit is None else max(0, int(offset)) + max(0, int(limit))
     with db.session_scope() as session:
         for model, adapt in _adapters():
-            query = session.query(model)
-            if well_id is not None:
-                query = query.filter(model.well_id == well_id)
-            for row in query.all():
-                entry = adapt(row)
-                if wanted is not None and entry.source not in wanted:
-                    continue
-                if since is not None and (entry.created_at is None or entry.created_at < since):
-                    continue
-                if until is not None and (entry.created_at is None or entry.created_at > until):
-                    continue
-                if needle and needle not in " ".join(
-                        [entry.name, entry.method, entry.source, " ".join(map(str, entry.inputs))]).lower():
-                    continue
-                out.append(entry)
+            if wanted is not None and _source_of(model, adapt) not in wanted:
+                continue
+            query = _filtered(session, model, well_id=well_id, since=since, until=until, needle=needle)
+            query = query.order_by(model.created_at.desc(), model.id.desc())
+            if window is not None:
+                query = query.limit(window)
+            out.extend(adapt(row) for row in query.all())
     out.sort(key=lambda e: (e.created_at or datetime.min, e.record_id), reverse=True)
+    if limit is not None:
+        return out[max(0, int(offset)):window]
     return out
+
+
+def count_history(db, *, well_id: Optional[int] = None, sources: Optional[Iterable[str]] = None, text: str = "",
+                  since: Optional[datetime] = None, until: Optional[datetime] = None) -> int:
+    """Number of matching entries (COUNT in the database), for the page indicator."""
+    wanted = set(sources) if sources else None
+    needle = text.strip().lower()
+    total = 0
+    with db.session_scope() as session:
+        for model, adapt in _adapters():
+            if wanted is not None and _source_of(model, adapt) not in wanted:
+                continue
+            total += _filtered(session, model, well_id=well_id, since=since, until=until, needle=needle).count()
+    return total
+
+
+def entry_status(entry: HistoryEntry) -> Dict[str, str]:
+    """M73: three separate answers instead of one label.
+
+    * readable - the stored inputs and results could be read as data;
+    * comparable - the results hold at least one numeric value to compare;
+    * reproducible - a recalculation path exists for this record and method
+      version (plans, engine snapshots, contract calculators); otherwise NOT
+      REPRODUCIBLE with the reason. ``recalculate_entry`` gives the verdict.
+    """
+    from core import calculator_contracts as contracts
+
+    readable = isinstance(entry.inputs, dict) and isinstance(entry.results, dict) and bool(entry.inputs)
+    numbers = [v for v in flatten(entry.results).values() if _number(v) is not None]
+    if entry.table in PERSISTENCE_MODULES or entry.table == "directional_plan_revisions":
+        reproducible, why = "REPRODUCIBLE", "a recalculation adapter exists"
+    elif entry.table == "calculation_cases":
+        reproducible, why = contracts.reproducibility(entry.method, entry.version)
+    else:
+        reproducible, why = "NOT REPRODUCIBLE", f"no recalculation adapter for {entry.source}"
+    return {"readable": "READABLE" if readable else "UNREADABLE",
+            "comparable": "COMPARABLE" if numbers else "NOT COMPARABLE",
+            "reproducible": reproducible, "reproducible_reason": why}
+
+
+def _number(value) -> Optional[float]:
+    """Leading number of a stored value ("0.05828 bbl/m | ..." -> 0.05828); None when there is none."""
+    import re
+
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    match = re.match(r"\s*([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)", str(value or ""))
+    return float(match.group(1)) if match else None
+
+
+def _unit(entry_value) -> str:
+    if isinstance(entry_value, dict):
+        return str(entry_value.get("unit") or "")
+    return ""
+
+
+def numeric_differences(a: HistoryEntry, b: HistoryEntry) -> Dict[str, List[Dict[str, Any]]]:
+    """Unit-safe numeric differences, inputs and results separately.
+
+    Values are compared only when both are numeric and carry the same unit
+    (an explicit unit or none on both); a unit mismatch is listed as
+    ``UNIT MISMATCH`` and never converted silently.
+    """
+    def side(left: Dict[str, Any], right: Dict[str, Any]) -> List[Dict[str, Any]]:
+        out = []
+        for key in sorted(set(left) | set(right)):
+            la, lb = left.get(key), right.get(key)
+            va = la.get("value") if isinstance(la, dict) and "value" in la else la
+            vb = lb.get("value") if isinstance(lb, dict) and "value" in lb else lb
+            na, nb = _number(va), _number(vb)
+            if na is None or nb is None:
+                continue
+            ua, ub = _unit(la), _unit(lb)
+            if ua != ub:
+                out.append({"key": key, "status": "UNIT MISMATCH", "a": va, "b": vb, "unit_a": ua, "unit_b": ub})
+                continue
+            if na != nb:
+                out.append({"key": key, "status": "DIFFERENT", "a": na, "b": nb, "unit": ua,
+                            "delta": nb - na, "relative": (nb - na) / abs(na) if na else None})
+        return out
+
+    return {"inputs": side(a.inputs, b.inputs), "results": side(a.results, b.results)}
 
 
 def flatten(data: Any, prefix: str = "") -> Dict[str, Any]:
@@ -278,6 +394,10 @@ def recalculate_entry(entry: HistoryEntry) -> Dict[str, Any]:
         from core.directional_plans import verify_plan_record
 
         return verify_plan_record(entry.inputs, entry.full_results, entry.version)
+    if entry.table == "calculation_cases":
+        from core import calculator_contracts as contracts
+
+        return contracts.verify_case(entry.method, entry.version, entry.inputs, entry.results)
     return {"status": "NOT_REPRODUCIBLE", "method_matches": None, "current_method": "",
             "detail": f"No recalculation adapter for {entry.source}; reopen it in its calculator instead.",
             "values": {}}

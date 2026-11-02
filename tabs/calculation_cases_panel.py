@@ -193,12 +193,23 @@ class CaseBar(QWidget):
             return None
         from core.selection_manager import SelectionManager
 
+        from core import calculator_contracts as contracts
+
         well_id = self._well_id()
+        method, version, note = "", cc.W13_UNVERSIONED, ""
+        contract = contracts.contract_for(self.calculator())
+        if contract is not None:   # M73: field IDs, units and the method version of a contract calculator
+            inputs, results, missing = contracts.annotate(contract, inputs, results)
+            if missing:            # cannot be re-run without these inputs: stored, but honestly unversioned
+                note = f"contract {contract.stable_id} inputs not found on the page: {', '.join(missing)}"
+            else:
+                method, version = contract.method_id, contract.method_version
         case = cc.save_case(self.db, calculator=self.calculator(), name=name, inputs=inputs, results=results,
+                            method=method, method_version=version, note=note,
                             well_id=well_id, wellbore_id=SelectionManager().wellbore_for(well_id, db=self.db))
         self.refresh()
         self.status.setText(f"Saved case '{case['name']}' (#{case['id']}) with {len(inputs)} inputs and "
-                            f"{len(results)} results; {case['method_version']}.")
+                            f"{len(results)} results; {case['method_version']}." + (f" {note}." if note else ""))
         return case
 
     def reopen(self, case_id: int) -> List[str]:
@@ -238,7 +249,14 @@ class CaseBar(QWidget):
         if not results:
             self.status.setText("The calculator produced no results after the re-run; nothing was stored.")
             return None
-        child = cc.record_rerun(self.db, case, results)
+        from core import calculator_contracts as contracts
+
+        contract = contracts.contract_for(case["calculator"])
+        if contract is not None and case["method"] == contract.method_id:
+            _unused, results, _missing = contracts.annotate(contract, {}, results)
+            child = cc.record_rerun(self.db, case, results, method_version=contract.method_version)
+        else:
+            child = cc.record_rerun(self.db, case, results)
         self.refresh()
         self.status.setText(f"Re-run stored as case #{child['id']} (parent #{case['id']}); the original is unchanged.")
         return child
