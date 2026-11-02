@@ -11,7 +11,8 @@ concurrency:
 jobs:
   source:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # 25 -> 40 in M81: the 3.12 coverage leg took 22m12s at 05920d0 and passed 25m at 5a464fa (4276 tests).
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
