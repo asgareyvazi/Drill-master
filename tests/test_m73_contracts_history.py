@@ -105,6 +105,17 @@ def test_entry_status_answers_readable_comparable_and_reproducible_separately(db
     assert state["comparable"] == "NOT COMPARABLE" and state["reproducible"] == "NOT REPRODUCIBLE"
 
 
+def test_entry_status_reports_records_whose_stored_data_cannot_be_read(db):
+    """M97 (mutation gap): the UNREADABLE answer itself was never asserted."""
+    from dataclasses import replace
+    entry = _entry(db, _quick_case(db)["id"])
+    for broken in (replace(entry, inputs={}), replace(entry, results="not a mapping"),
+                   replace(entry, inputs="not a mapping")):
+        state = ch.entry_status(broken)
+        assert state["readable"] == "UNREADABLE", broken
+    assert ch.entry_status(entry)["readable"] == "READABLE"
+
+
 def test_numeric_differences_are_unit_safe_and_split_inputs_from_results(db):
     a, b = _quick_case(db), _quick_case(db, inner=4.0)
     numeric = ch.numeric_differences(_entry(db, a["id"]), _entry(db, b["id"]))

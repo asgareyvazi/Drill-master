@@ -57,6 +57,7 @@ T_BP = ["tests/test_m52_balanced_plug.py"]
 T_DDR = ["tests/test_m52_ddr_manual_edit.py"]
 SP = "core/ddr_pdf_split.py"
 DLG = "dialogs/excel_import_dialog.py"
+PIPE = "core/ddr_import_pipeline.py"
 T_SP = ["tests/test_m52_ddr_pdf_split.py"]
 LS = "tools/quality/lifecycle_stress_m52.py"
 T_LS = ["tests/test_m52_lifecycle_stress.py"]
@@ -279,8 +280,10 @@ MUTANTS = [
            "            table.removeRow(current_row)",
            T_DDR, "Remove Row shifts Qt rows whose handlers still recalculate their old row (pre-M52)"),
     Mutant("DDR-nav-ignores-unsaved", W2,
-           "        if self._has_unsaved_edits() and not self.confirm_discard_edits():",
-           "        if False:",
+           # M97: the guard line also protects the timeline, duplicate and new-report paths
+           # (M84); the following ``return None`` pins the Previous/Next occurrence.
+           "        if self._has_unsaved_edits() and not self.confirm_discard_edits():\n            return None\n        target = order[index]",
+           "        if False:\n            return None\n        target = order[index]",
            T_DDR, "Previous/Next discards unsaved edits without asking"),
     Mutant("DDR-nav-order-reversed", W2,
            "        return [r[\"id\"] for r in reports]",
@@ -331,8 +334,10 @@ MUTANTS = [
            "        blocked = self._multi_report_block()\n        if blocked:\n            QMessageBox.warning",
            "        blocked = \"\"\n        if blocked:\n            QMessageBox.warning",
            T_SP, "Confirm Import maps a multi-report PDF to one report"),
-    Mutant("DLG-split-not-in-preview", DLG,
-           "                import_report_dict.update(pdf_split_info)          # M52: shown in the preview",
+    # M97: the split info moved from the dialog into the M71 worker pipeline (prepare_import); same behaviour,
+    # same ID, re-anchored so the mutant is applied instead of being reported as a stale anchor.
+    Mutant("DLG-split-not-in-preview", PIPE,
+           "        out.import_report.update(out.pdf_split_info)          # M52: shown in the preview",
            "",
            T_SP, "the preview never shows the report split"),
     Mutant("DLG-failure-hides-split", DLG,

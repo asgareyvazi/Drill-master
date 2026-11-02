@@ -646,6 +646,73 @@ and the Windows CI gate are not desktop acceptance. Record pass/fail per row in 
 | M80-11 | Delete a synthetic well that has survey, architecture, plan and case records | all of that well's records gone; other wells untouched; audit entry written |
 | M80-12 | Backup, add an architecture revision, restore the backup | restored list matches the backup; saved revisions still cannot be edited |
 
+## M82-M100 owner desktop acceptance procedure
+
+**Status: NOT EXECUTED — OWNER DESKTOP ACCEPTANCE REQUIRED.** Product label: UNSIGNED — NOT RELEASE-APPROVED —
+NOT FIELD-ACCEPTED.
+
+None of the rows below has been executed on a Windows desktop. What exists is offscreen Qt runs on Linux
+(stub GL library) and the Windows CI gate. Neither is desktop acceptance; they only show the paths exist and
+the automated tests pass. Each row names the automated test that covers the same path, so a failure on the
+desktop can be compared with it.
+
+### Prerequisites
+
+1. A disposable Windows 10/11 x64 VM with display scaling at 100 % and at 150 %. No production data on it.
+2. The application built from the exact commit under review, installed with the interactive procedure
+   above. Record the full commit SHA shown by `git rev-parse HEAD` on the build machine.
+3. A **synthetic** database only. Create it from a fresh start (or use the M70 link world fixture via
+   `tests/document_link_fixtures.py`). Never use real DDR or history files.
+4. An admin account and a viewer account (the viewer is needed for row R).
+5. Offline: disconnect the network adapter for row O.
+
+### Journeys
+
+| id | journey | step on the desktop | expected | automated counterpart |
+| --- | --- | --- | --- | --- |
+| A | Context | Select well A, then well B, then clear the selection; reopen each tab | every tab shows only the selected well; a "no selection" state is visible after clearing | `test_m83_selection_lifecycle` |
+| B | DDR authoring | W2: create a report, add/reorder time-log rows with an overlap and a gap, save | overlap and gap are reported before save; the saved report reopens unchanged | `test_m52_ddr_manual_edit` |
+| C | DDR import | Import two synthetic DDR files; modify the second file on disk after the preview, then confirm | the changed file is refused ("changed after it was read and previewed; nothing was saved") | `test_m84_ddr_identity_cleanup`, `test_m71_ddr_background` |
+| D | Survey | W6: freeze stations with azimuth reference `magnetic` and a datum; add a declination conversion with source and sign | the original revision is unchanged; the converted revision names its parent and source | `test_m85_survey_references` |
+| E | Plan | Plan designer: non-vertical tie-in, build/hold to a target with radius; then an infeasible target | the feasible plan is saved as a revision; the infeasible one gives a structured reason and no plan | `test_m86_directional_solver` |
+| F | Plan vs actual | Compare the plan with the survey revision | closest approach shown with the label "SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED" | `test_m52_trajectory_compare` |
+| G | Architecture | W3b: freeze an architecture revision; save a casing check and a cement worksheet against it | casing records the revision; cement shows "WORKSHEET" and the excess on open hole only | `test_m89_architecture_casing_cement` |
+| H | W13 case | Save a Quick Calc case, reopen, clone, re-run, compare | the re-run is a new linked case; the original is never overwritten | `test_m87_w13_contracts` |
+| I | Lineage | Calculation history: filter, page, compare two records, export | unit-aware comparison; METHOD CHANGED / NOT_REPRODUCIBLE shown where applicable | `test_m88_history_lineage` |
+| J | Operational Analysis | W12 → Operational analysis: refresh, drill down from a day, switch wells | the scope names the well; missing values show as missing, not zero; switching wells shows no previous-well rows | `test_m91_operational_analysis`, `test_m94_e2e_journeys` |
+| K | Report | W11: export EOWR as HTML, PDF and CSV, LTR and RTL | each output carries scope, sources, revisions, methods and the unsigned label | `test_m93_report_provenance`, `test_m94_e2e_journeys` |
+| L | Stale async | Start an analysis refresh or import, then switch wells before it finishes | the late result is discarded; no previous-well data appears | `test_m83_selection_lifecycle`, `test_m71_ddr_background` |
+| M | Well delete | Save a W13 casing calculation for well A, then delete well A | deletion succeeds; well A's records, revisions and calculations are gone; well B is untouched; one audit entry lists what was removed | `test_m96_persistence_audit`, `test_m70_integrity` |
+| N | Backup / restore | Back up, add a revision, restore | the restored list matches the backup; saved revisions still cannot be edited | `test_backup_restore_acceptance`, `test_m80_recovery_offline` |
+| O | Offline | With the network disconnected, run journeys A-K | everything works; no network prompt or error | `test_m80_recovery_offline` |
+| P | Language | Export a report for a well with a Persian name, in RTL | text is right-to-left and readable in the HTML and PDF outputs (no UI-language switcher exists) | `test_m94_e2e_journeys`, `test_m93_report_provenance` |
+| Q | Method catalogue | Help → Method catalogue | every method reads "NOT APPROVED — OWNER REVIEW REQUIRED"; there is no approve action | `test_m92_method_catalogue` |
+| R | Authorisation | Sign in as the viewer; try to save a survey conversion, an architecture and a well delete | every write is refused with a permission message; nothing changes | `test_m85_survey_references`, `test_m74_well_architecture`, `test_m96_persistence_audit` |
+
+### Measured responsiveness on the desktop (M95)
+
+On the VM, from a source checkout of the same SHA, run
+`python tools/quality/ux_responsiveness_m95.py --days 365 --logs 8 --n 5` without `QT_QPA_PLATFORM`
+(native Windows platform). Attach the JSON to the record. For orientation, the offscreen Linux values recorded
+in the capability matrix are: OA refresh 65 ms, W10 first visit 148 ms, startup 1349 ms. They are **not**
+Windows targets. The owner decides the acceptable limits.
+
+### Record template
+
+```
+operator:            <name>
+date (UTC):          <yyyy-mm-dd>
+VM image / build:    <Windows edition, build number, display scaling>
+commit SHA:          <40 hex>
+installer / archive: <file name + SHA-256 from the release manifest>
+rows A-R:            <id: PASS | FAIL (observation, screenshot file name)>
+M95 JSON:            <attached file name>
+decision:            <ACCEPTED FOR <scope> | NOT ACCEPTED> - signed by the owner
+```
+
+A row is PASS only when the expected result is observed on the desktop. A row that cannot be run is NOT RUN,
+never PASS.
+
 ## Explicit external boundaries
 
 - The synthetic workbook test is an automated parser/database scenario only. It is **not** real DDR Excel/operator acceptance.
@@ -655,4 +722,4 @@ and the Windows CI gate are not desktop acceptance. Record pass/fail per row in 
 
 ## Exact-SHA GitHub verification
 
-After pushing the final commit to `arena/01a0ec23-drill-master`, verify that remote `HEAD`, local `HEAD`, the Source release gate, and the Windows release workflow all identify the same full SHA. Use Git for branch/status/SHA and `gh run list` / `gh run view <run-id> --json headSha,status,conclusion,workflowName,url` for workflow evidence. A successful Linux Source gate is not Windows evidence; a green Windows build is not interactive-install evidence.
+After pushing the final commit to the working branch (currently `arena/72010272-drill-master`), verify that remote `HEAD`, local `HEAD`, the Source release gate, and the Windows release workflow all identify the same full SHA. Use Git for branch/status/SHA and `gh run list` / `gh run view <run-id> --json headSha,status,conclusion,workflowName,url` for workflow evidence. A successful Linux Source gate is not Windows evidence; a green Windows build is not interactive-install evidence.

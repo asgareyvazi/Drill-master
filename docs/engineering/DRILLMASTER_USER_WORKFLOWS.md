@@ -1,4 +1,4 @@
-# DrillMaster user workflows (M53–M60)
+# DrillMaster user workflows (M53–M60, extended through M96)
 
 Step-by-step workflows for the product capabilities added or completed in M53–M60. Screen names are those shown in the application.
 
@@ -135,3 +135,31 @@ W3b Wellbore schematic -> **Architecture**: build the drawing in the Casings / F
 *Validate drawing*, then *Freeze as revision* (optionally against a survey revision). *Load into schematic*
 redraws a stored revision. Select a revision and a cemented string, enter the open-hole size if it is not
 recorded, *Cement annulus*, then *Save worksheet* to store it as a calculation case.
+
+## 14. Operational analysis (W12 → Operational analysis, M91)
+
+1. Select a well (optionally a wellbore and a date range). The scope line names the well and wellbore,
+   e.g. "SYN-ALPHA-01 (well #2) (whole well)".
+2. **Refresh** builds daily footage, drilling hours, ROP, NPT, activity, bit-run, MSE and cost tables from the
+   stored reports. Cells that are unknown show as missing (never 0); activity rows marked `UNCERTAIN` come
+   from fuzzy mapping.
+3. Double-click a row that has a source report (or use **Open report**) to open that report in W2
+   (drill-down). **Export** writes Excel or CSV with the scope and method metadata.
+
+## 15. Method catalogue (Help → Method catalogue, M92)
+
+Read-only list of every method with status, version, reference, licence, limits and blockers. Approval is an
+owner decision outside the application; nothing in the catalogue can be approved from the UI.
+
+## 16. Report export with provenance (W11, M93)
+
+Choose the report, format (HTML, PDF, Excel, CSV) and direction (LTR/RTL), then export. The export runs on a
+worker (the window stays responsive). Every output starts with its provenance: scope, sources, revisions,
+methods and the unsigned label.
+
+## 17. Deleting a well, section or report (M96)
+
+Deleting a well removes its sections, reports, revisions, calculation cases, saved W13 calculations and other
+well-scoped records in one transaction, with one audit entry that lists what was removed. Deleting a section
+keeps the well's procedures but clears their section reference. Viewers cannot delete. If anything fails,
+nothing is deleted. Saved revisions and cases cannot be edited or deleted on their own.

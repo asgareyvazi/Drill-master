@@ -173,3 +173,75 @@ Document-to-well matching is a suggestion only. Every imported value goes throug
 - `core/specialist_methods.py`: a method may be implemented only when reference, licence, inputs/units,
   limits, independent benchmark and approval are all met. ISCWSA error model and the pwptemp temperature
   model are OWNER REVIEW REQUIRED (licence); stiff-string T&D is NOT IMPLEMENTED (no benchmark).
+
+## Survey references and conversions (M85)
+
+- Every revision stores its azimuth reference (`true`, `grid`, `magnetic` or unknown), depth datum, source and a
+  SHA-256 of its stations. The hash is checked on every read; a mismatch reads `HASH MISMATCH` (history:
+  `UNREADABLE`). It is never silently recomputed.
+- Conversions use explicit values only: true = magnetic + declination (east positive) and true = grid +
+  convergence (positive when grid north lies east of true north). There is no online or model lookup. An unknown
+  reference is never treated as true north. A conversion is a **new** revision that names its parent, the value,
+  its source and the convention.
+- NOT IMPLEMENTED: depth-datum shifts (no TVD-offset field) and CRS transforms. Mixing datums or references
+  is refused.
+
+## Directional solver (M86)
+
+- Build-hold to a target from a tie-in that may be inclined: R = 5400/(π·DLS) (DLS in °/30 m, R in m),
+  hold = √(ρ² − R²), φ = (atan2(a, R − b) − acos(R/ρ)) mod 2π. Build/drop/hold/turn segments are checked
+  against DLS and inclination limits; targets carry a radius and TVD.
+- An infeasible case returns a structured reason (`INSIDE_TURN_RADIUS`, `TURN_TOO_LARGE`, `TARGET_BEHIND`, …),
+  never a plan. Independent goldens: build-hold TD 1623.903201 m, J-profile VS 488.7133898 m.
+- Plan vs actual and closest approach are labelled **SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED**.
+  No separation factor is computed.
+
+## W13 calculator contracts (M87) and history lineage (M88)
+
+- 7 calculators have a full contract (IDs, method version, semantic field IDs, units, validation, recalculation
+  adapter, validation cases). The other 20 are `NOT_SUPPORTED`: their cases are stored as captured and are NOT
+  REPRODUCIBLE.
+- Cases and history records are immutable. A re-run, clone or recalculation is a new linked record. The
+  verdicts are MATCH / DIFFERENT / METHOD CHANGED / NOT_REPRODUCIBLE / UNREADABLE. Comparison is unit-aware:
+  values in different units are never compared numerically.
+
+## Casing and cement against an architecture revision (M89)
+
+- Casing checks record the architecture revision they used and mark each value as derived, user-entered or
+  unknown (API TR 5C3 pipe-body subset). Yield is never inferred from the grade name.
+- Cement stays a **WORKSHEET**: segment geometry per outer boundary. A declared excess applies to open-hole
+  intervals only; an unknown hole size gives an unknown volume (never zero). Cement re-run: NOT IMPLEMENTED.
+
+## Engine qualification (M90)
+
+Per-engine regressions for hydraulics, mud, bit, MSE, casing, cement, T&D, well control, fishing and
+directional. Documented deviation for owner review: 7.48 vs 7.48052 (gal/ft³ rounding).
+
+## Operational analysis (M91, W12 → Operational analysis)
+
+- Daily footage = depth at 24:00 − depth at 00:00 (a decrease is reported INVALID). Day ROP = footage / drilling
+  hours. Summary ROP is time-weighted: Σ footage / Σ drilling hours over the days where both are known, with
+  the count of such days shown.
+- A sum with any unknown member is unknown, not a partial total. Missing ≠ 0.
+- Activities are mapped by `ActivityMapper`. Only learned or exact code matches are trusted; fuzzy or
+  description matches are shown as `UNCERTAIN`. Mapping is memoised per analysis call (M95); results are
+  identical to unmemoised mapping (tested).
+- Costs are grouped per currency (no FX, no mixing). MSE trends are shown as saved, with no interpolation. Plan vs
+  actual: PARTIAL.
+
+## Method catalogue (M92) and report provenance (M93)
+
+- Help → Method catalogue lists 52 methods with ID, status, version, reference, licence, limits, approval and
+  blocker. Every entry reads "NOT APPROVED — OWNER REVIEW REQUIRED". There is no approve action.
+- EOWR/well/plan/daily/analysis reports (HTML, PDF via QTextDocument, Excel, CSV; LTR/RTL) carry scope, sources,
+  revisions (or "none recorded"), methods and the label **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED**.
+  The professional 16-sheet batch export is not yet routed through provenance (PARTIAL).
+
+## Persistence guarantees (M96)
+
+- Foreign keys are enforced on every connection (WAL, busy timeout). Deleting a company, project, well, section
+  or report through the application removes or unlinks every reference in one audited transaction; a refused
+  or failing delete changes nothing.
+- History tables (plan, survey and architecture revisions, calculation cases, lineage links) reject UPDATE, a
+  replacing INSERT and a direct DELETE at storage level. They leave only with their well's cascade. Well-less
+  calculation cases cannot be deleted.
