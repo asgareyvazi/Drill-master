@@ -4770,10 +4770,56 @@ class DatabaseManager:
             if obj is None:
                 return False
             name = getattr(obj, "name", None) or f"{entity_type} {entity_id}"
+            swept = self._sweep_unmapped_children(session, entity_type, entity_id)
             session.delete(obj)
             session.flush()  # cascade + authorization before the audit record
-            self._add_mandatory_audit(session, "delete", entity_type, entity_id, name)
+            details = ", ".join(f"{table}: {count}" for table, count in swept.items() if count)
+            self._add_mandatory_audit(session, "delete", entity_type, entity_id, name,
+                                      details=f"also removed/unlinked {details}" if details else None)
             return True
+
+    # M96: well-scoped tables whose well FK has no ON DELETE action and no ORM cascade (legacy W13 repository
+    # history).  Without this sweep any saved W13 calculation made its well undeletable (IntegrityError ->
+    # delete_well() == False).  They are removed with the well, like every other well-scoped history row.
+    _UNMAPPED_WELL_CHILDREN = ("casing_calculations", "cement_calculations", "mse_calculations",
+                               "mud_volume_calculations", "torque_drag_calculations",
+                               "well_control_kill_sheet_calculations")
+    # Section references with no ON DELETE action: the row belongs to the well, its section becomes unknown.
+    _UNMAPPED_SECTION_REFERENCES = (("operational_procedures", "section_id"),)
+
+    def _sweep_unmapped_children(self, session, entity_type: str, entity_id: int) -> Dict[str, int]:
+        if entity_type == "section":
+            well_ids, section_ids = [], [entity_id]
+        else:
+            column = {"company": Project.company_id, "project": Well.project_id, "well": Well.id}[entity_type]
+            query = session.query(Well.id)
+            if entity_type == "company":
+                query = query.join(Project, Well.project_id == Project.id)
+            well_ids = [row[0] for row in query.filter(column == entity_id)]
+            section_ids = [row[0] for row in session.query(Section.id).filter(Section.well_id.in_(well_ids))] \
+                if well_ids else []
+        from sqlalchemy import func, select
+        from core.authorization import HIERARCHY_DELETE_UNLINK, operation_scope
+        counts: Dict[str, int] = {}
+
+        def present(tbl, condition) -> int:
+            return session.execute(select(func.count()).select_from(tbl).where(condition)).scalar_one()
+
+        if section_ids:
+            for table, column_name in self._UNMAPPED_SECTION_REFERENCES:
+                tbl = Base.metadata.tables[table]
+                condition = tbl.c[column_name].in_(section_ids)
+                if present(tbl, condition):
+                    with operation_scope(HIERARCHY_DELETE_UNLINK):
+                        counts[table] = session.execute(tbl.update().where(condition)
+                                                        .values({column_name: None})).rowcount
+        if well_ids:
+            for table in self._UNMAPPED_WELL_CHILDREN:
+                tbl = Base.metadata.tables[table]
+                condition = tbl.c.well_id.in_(well_ids)
+                if present(tbl, condition):     # policy: DELETE_REPORTS / DELETE_WELL, checked by the ORM hook
+                    counts[table] = session.execute(tbl.delete().where(condition)).rowcount
+        return counts
 
     def delete_well(self, well_id: int) -> bool:
         """Delete a well (cascade) with a mandatory audit record; False on any failure."""

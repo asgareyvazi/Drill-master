@@ -385,3 +385,21 @@ Tool: `tools/quality/ux_responsiveness_m95.py` (real MainWindow, file SQLite, sy
 | MainWindow startup (construction + show) | 1333 / 1306 | 1349 / 1318 | PARTIAL – one blocking construction of all tabs; pre-existing, not changed in M95 (lazy tab construction would be a structural change) |
 
 Defects found by the audit tests and fixed: (1) W10 sub-tabs are `make_scrollable` wrappers – sub-tab state must be written on `_inner`, otherwise a section load would run against the previous well (regression test); (2) re-selecting the same well without a section left the W10 sub-tabs filtered by the old section while the combo showed "All Sections" – a well selection now clears sub-tab section/report. Tests: `tests/test_m95_ux_responsiveness.py` (13 incl. 8 parity cases); hand mutants 4/4 killed (no `_inner`, no child clear, no table clear on await, per-code cache for all methods). Regression over all W10/OA/selection/journey files: 179 passed.
+
+### M96 – Persistence audit
+
+Method: every table holding a foreign key to `wells`, `sections` or `daily_reports` gets one synthetic row (all NOT NULL columns filled) in a fresh world, then its parent is deleted **through the application path** (`delete_hierarchy_entity`). This runs on a fresh database and on one upgraded from an old schema. `tests/test_m96_persistence_audit.py`: 39 tests.
+
+| Area | Finding before M96 | State after M96 |
+|---|---|---|
+| Foreign keys | `PRAGMA foreign_keys=ON` on every pooled connection; `foreign_key_check` clean | PASS |
+| Well / project / company delete | **Defect:** 6 legacy W13 tables (`casing_`, `cement_`, `mse_`, `mud_volume_`, `torque_drag_`, `well_control_kill_sheet_calculations`) reference `wells` with no ON DELETE action and no ORM cascade. One W13 calculation saved with a well selected made that well (and its project/company) undeletable: `delete_well` returned False | PASS – removed in the same audited transaction, with per-table counts in the audit `details`. A model test fails if a new well FK has neither ON DELETE, an ORM cascade nor a sweep entry |
+| Section delete | **Defect:** `operational_procedures.section_id` (no ON DELETE action) blocked deletion of its section | PASS – the reference becomes unknown (NULL). This runs in a narrow `hierarchy_delete_unlink` scope (that column, update only) inside the policy-checked delete; a plain update by the same principal is still refused |
+| Report delete | Every report child removed or unlinked | PASS |
+| Wellbore delete | No standalone UI path (wellbores go only with their well); `ON DELETE SET NULL` on history keeps lineage (M70 test) | PASS (scope note) |
+| Rollback | A refused (viewer) delete and a failing audit both roll back the sweep; an exception inside a unit of work leaves nothing behind | PASS |
+| Immutability, every path | **Defect:** guards were BEFORE UPDATE only. `INSERT OR REPLACE` / `REPLACE INTO` overwrote an immutable calculation case (verified), and a direct `DELETE` removed a single history row | PASS – BEFORE INSERT guards (id clash; unique-key clash with SQLite's own `UNIQUE constraint failed: uq_…` wording, so concurrent-revision reporting is unchanged) and BEFORE DELETE guards (allowed only once the owning well/case is gone, i.e. its cascade) on all 5 history tables. Well-less calculation cases can never be deleted |
+| Migrations | New triggers install additively on start (versioned names); re-initialising is idempotent (schema identical, `install()` creates nothing); `integrity_check` ok on fresh and upgraded databases | PASS |
+| Concurrency | WAL and `busy_timeout` ≥ 5 s on every connection; a reader never sees an uncommitted write; a second manager's commit is visible | PASS (single-machine SQLite; no multi-host claim) |
+
+Hand mutants 6/6 killed: (1) sweep list minus one table; (2) no insert guard; (3) no delete guard; (4) unlink without its scope; (5) unique-key message without the SQLite wording. Mutant 5 survives the plan-stale test alone (the service also matches the constraint name) but is killed by the guard test. Regression over 45 history, deletion, migration and authorization files: 731 passed.

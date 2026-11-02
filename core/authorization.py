@@ -166,6 +166,12 @@ PLAN_LIFECYCLE = OperationScope(
     # (draft -> approved -> archived; also enforced by a storage trigger).
     "plan_lifecycle", EDIT, {"directional_plan_revisions": frozenset({"status"})}, frozenset({"update"}),
 )
+HIERARCHY_DELETE_UNLINK = OperationScope(
+    # M96: a section/well delete sets section references that have no ON DELETE action to NULL.  Always run
+    # inside the same transaction as the policy-checked delete of that section/well (which rolls it back when
+    # refused), so it carries no permission of its own and may change nothing but these columns.
+    "hierarchy_delete_unlink", None, {"operational_procedures": frozenset({"section_id"})}, frozenset({"update"}),
+)
 IMPORT_SCOPE = OperationScope(
     "import", IMPORT,
     {name: None for name in (*_REPORT_TABLES, "audit_logs", "wells", "wellbores")},

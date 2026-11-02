@@ -15,6 +15,16 @@ That one change is allowed only when the referenced row really no longer
 exists, so deleting a wellbore, a parent revision or a user keeps working while
 a direct "set it to NULL" is still rejected.
 
+M96 closed two paths that bypassed the UPDATE guards (found by the persistence audit):
+
+* ``INSERT OR REPLACE`` (and ``REPLACE INTO``) on an existing id or unique key deleted the stored row and
+  inserted a new one - an immutable result could be overwritten.  ``BEFORE INSERT`` guards reject an insert
+  whose id or unique key already exists (BEFORE triggers run before REPLACE's conflict deletion).
+* A direct ``DELETE`` of a single history row.  ``BEFORE DELETE`` guards allow a delete only when the owning
+  row is already gone - i.e. the ``ON DELETE CASCADE`` of a deleted well / case, which SQLite runs after the
+  parent row is removed (none of these tables has an ORM cascade).  Well-less (global) calculation cases can
+  therefore never be deleted.
+
 Trigger names carry a version suffix; changing a rule means a new name (old
 databases get the new trigger on their next start, and the old one is dropped).
 Installed on every start inside the atomic schema migration
@@ -96,7 +106,7 @@ def trigger_statements() -> dict[str, str]:
         _nullable_reference("parent_id", "well_architecture_revisions"),
         _nullable_reference("created_by", "users"),
     ])
-    return {
+    guards = {
         f"trg_plan_revision_immutable_v{v}": (
             f"CREATE TRIGGER trg_plan_revision_immutable_v{v} BEFORE UPDATE ON directional_plan_revisions "
             f"WHEN {plan_change} BEGIN SELECT RAISE(ABORT, "
@@ -122,6 +132,51 @@ def trigger_statements() -> dict[str, str]:
             f"WHEN {link_change} BEGIN SELECT RAISE(ABORT, "
             "'calculation_source_links: a lineage record is immutable'); END"),
     }
+    guards.update(_insert_and_delete_guards())
+    return guards
+
+
+# prefix -> (table, (constraint name, unique key) pairs besides id, SQL condition under which a DELETE is the
+# owner's cascade)
+_OWNED = {
+    "trg_plan_revision": ("directional_plan_revisions", (("uq_directional_plan_revision", ("plan_key", "revision")),),
+                          "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_calculation_case": ("calculation_cases", (),
+                             "OLD.well_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_calculation_source_link": ("calculation_source_links", (),
+                                    "NOT EXISTS (SELECT 1 FROM calculation_cases WHERE id = OLD.case_id) OR "
+                                    "(OLD.source_well_id IS NOT NULL AND "
+                                    "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.source_well_id))"),
+    "trg_survey_revision": ("survey_revisions", (("uq_survey_revision", ("well_id", "revision")),),
+                            "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_well_architecture": ("well_architecture_revisions",
+                              (("uq_well_architecture_revision", ("well_id", "revision")),),
+                              "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+}
+INSERT_GUARD_VERSION = 1
+DELETE_GUARD_VERSION = 1
+
+
+def _insert_and_delete_guards() -> dict[str, str]:
+    out = {}
+    for prefix, (table, unique_keys, owner_gone) in _OWNED.items():
+        name = f"{prefix}_noreplace_v{INSERT_GUARD_VERSION}"
+        out[name] = (f"CREATE TRIGGER {name} BEFORE INSERT ON {table} "
+                     f"WHEN EXISTS (SELECT 1 FROM {table} WHERE id = NEW.id) "
+                     f"BEGIN SELECT RAISE(ABORT, '{table}: a stored record cannot be replaced'); END")
+        for constraint, key in unique_keys:
+            # Same wording as SQLite's own constraint error, so callers that report a concurrent revision on
+            # a UNIQUE clash keep doing so (the plain INSERT used to fail on the constraint itself).
+            match = " AND ".join(f"{c} = NEW.{c}" for c in key)
+            name = f"{prefix}_nodupkey_v{INSERT_GUARD_VERSION}"
+            out[name] = (f"CREATE TRIGGER {name} BEFORE INSERT ON {table} "
+                         f"WHEN EXISTS (SELECT 1 FROM {table} WHERE {match}) "
+                         f"BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed: {constraint} "
+                         f"(a stored revision cannot be replaced)'); END")
+        name = f"{prefix}_nodelete_v{DELETE_GUARD_VERSION}"
+        out[name] = (f"CREATE TRIGGER {name} BEFORE DELETE ON {table} WHEN NOT ({owner_gone}) "
+                     f"BEGIN SELECT RAISE(ABORT, '{table}: a stored record is deleted only with its owner'); END")
+    return out
 
 
 _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation_case": "calculation_cases",
