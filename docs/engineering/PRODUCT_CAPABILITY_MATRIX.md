@@ -287,3 +287,19 @@ Independent goldens per engine family (closed forms written in the tests, never 
 | pcf→ppg constant | DOCUMENTED DEVIATION | Hydraulics, unit manager and the bit page use 7.48052 gal/ft³ (exact 1728/231); the kill sheet, T&D, HP & FP and several W13 display handlers use 7.48 (relative 7·10⁻⁵, about 20× below the 0.1 pcf input resolution). Not changed: verification compares at 1e-6, so every stored kill-sheet, T&D and HP & FP record would turn DIFFERENT. Changing it needs versioned methods with legacy adapters — OWNER REVIEW REQUIRED |
 | Output rounding | DOCUMENTED | Engines round outputs (e.g. bit ΔP 0.1 psi, hydrostatic 0.01 psi); goldens use matching absolute tolerances, stored-vs-recalculated verification stays at 1e-6 |
 
+### M91 – Operational Analysis
+
+W12 page "🧭 Operational Analysis" (`tabs/operational_analysis_panel.py`) over `core/operational_analysis.py` (`M91 operational analysis v1`); scope = W12 analysis scope (well or wellbore) plus an optional report-date range; read-only, recomputed on Refresh, cleared when the well or wellbore changes. Missing values are "—" on screen and blank in exports, never 0. Label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. `tests/test_m91_operational_analysis.py` (8, offscreen Qt for the page test; 6 hand mutants killed).
+
+| Capability | State | Evidence / limits |
+|---|---|---|
+| Daily footage and day ROP | PASS | Footage = depth 24:00 − depth 00:00; missing depth → unknown; a decrease → "INVALID footage" (not negative footage); drilling hours = time-log hours mapped to DRILLING (exact / learned / description) and not NPT; any unknown duration makes the day unknown |
+| Time-weighted ROP | PASS | Σ footage / Σ drilling hours over days where both are known, with "X of N days" coverage (not a mean of daily ROPs) |
+| Activity breakdown | PASS | Existing `ActivityMapper`; mapping method shown; unresolved codes stay "UNRESOLVED", fuzzy matches are "UNCERTAIN: …" and never count as drilling |
+| NPT and NPT timeline with sources | PASS | Time-log NPT (`summarize_time_logs`) and the NPT register listed side by side with a source column; the two totals are never added; register rows outside the selected wellbore are excluded; unclassified NPT flag → day NPT unknown |
+| Bit runs | PASS | Drilling parameters grouped by bit number / rerun; footage from daily drilled, else depth out − depth in (basis column); hours on bottom; whole-well uses the canonical parameter scope |
+| MSE trend | PARTIAL | Stored MSE calculations in time order without interpolation; per well only (MSE records carry no wellbore or depth) |
+| Cost | PASS | Per-currency rows (`summarize_costs`); a total only for one known currency; unknown currency shown as "UNKNOWN"; a date range excludes undated records (note). No conversion (owner-gated) |
+| Plan vs actual | PARTIAL | Existing `get_actual_vs_plan` (whole well; no wellbore or date filter) |
+| Drill-down | PASS | Row → source daily report via `SelectionManager.select_full_context`, refused for another well; the result is kept for the same well/wellbore and cleared otherwise |
+| Export | PASS | CSV (one file per table) and XLSX with scope, method version, generation time and label |

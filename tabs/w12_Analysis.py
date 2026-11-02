@@ -870,6 +870,8 @@ class AnalysisWidget(DrillTabBase):
         self.daily_tab = self.create_daily_tab()
         self.analytics_tab = self.create_analytics_tab()
         self.evidence_tab = self.create_evidence_tab()
+        from tabs.operational_analysis_panel import OperationalAnalysisPanel
+        self.operational_panel = OperationalAnalysisPanel(self)      # M91
 
         self.analysis_tabs.addTab(self.time_depth_tab, "📈 Time vs Depth")
         self.analysis_tabs.addTab(self.npt_tab, "⏱️ NPT Analysis")
@@ -877,6 +879,7 @@ class AnalysisWidget(DrillTabBase):
         self.analysis_tabs.addTab(self.daily_tab, "📅 Daily Monitor")
         self.analysis_tabs.addTab(self.analytics_tab, "📊 Advanced Analytics")
         self.analysis_tabs.addTab(self.evidence_tab, "🔎 Evidence")
+        self.analysis_tabs.addTab(self.operational_panel, "🧭 Operational Analysis")
 
         self.analysis_tabs.setVisible(False)
         layout.addWidget(self.analysis_tabs)
@@ -2035,9 +2038,13 @@ class AnalysisWidget(DrillTabBase):
         row = self._selected_evidence()
         if row is None or row.drilldown_report_id is None:
             return False
+        return self.open_report_by_id(row.drilldown_report_id)
+
+    def open_report_by_id(self, report_id):
+        """Select a daily report of the current well (drill-down from the evidence and M91 pages)."""
         session = self.db.create_session()
         try:
-            report = session.get(DailyReport, row.drilldown_report_id)
+            report = session.get(DailyReport, report_id)
             if report is None or report.well_id != self.current_well_id:
                 self.show_error("The source report no longer belongs to this well")
                 return False
@@ -3520,10 +3527,14 @@ class AnalysisWidget(DrillTabBase):
         self.current_wellbore_name = None
         self.current_report_id = getattr(self.sel_manager, "current_report_id", None)
         self.set_current_well(well_id, (well_data or {}).get('name', str(well_id)))
+        if hasattr(self, "operational_panel"):
+            self.operational_panel.selection_changed()
 
     def on_selection_cleared(self):
         """SelectionManager.clear(): nothing of the previous well may stay on screen."""
         self._show_no_selection()
+        if hasattr(self, "operational_panel"):
+            self.operational_panel.invalidate("Select a well first.")
 
     def on_wellbore_changed(self, wellbore_id, wellbore_data):
         """Re-scope analytics to the selected wellbore (bore) and refresh.
@@ -3539,6 +3550,8 @@ class AnalysisWidget(DrillTabBase):
         self.current_section_id = getattr(self.sel_manager, "current_section_id", None)
         self.current_wellbore_name = (
             (wellbore_data or {}).get("name") if wellbore_data else None)
+        if hasattr(self, "operational_panel"):
+            self.operational_panel.selection_changed()
         self._generation += 1
         self.clear_cache()
         self.update_scope_indicator()
