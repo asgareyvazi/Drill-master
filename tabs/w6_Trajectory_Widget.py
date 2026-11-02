@@ -862,6 +862,10 @@ class TrajectoryWidget(DrillTabBase):
         viewer = getattr(self, "viewer_tab", None)
         if viewer is not None:
             viewer.set_context(None, None)
+        self.section_combo.blockSignals(True)
+        self.section_combo.clear()
+        self.section_combo.blockSignals(False)
+        self.reset_context_view(pickers=(self.well_combo,))   # M83: no stale well in the picker
 
     def on_section_changed(self, section_id, section_data):
         """Override DrillTabBase"""

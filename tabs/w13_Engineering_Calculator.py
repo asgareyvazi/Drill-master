@@ -5891,6 +5891,11 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.current_well_data = well_data or {}
         self._update_well_context_label()
 
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.current_well_data = {}
+        self._update_well_context_label()
+
     def _current_well_label_text(self) -> str:
         """Human-readable name for the well saved calculations attribute to."""
         data = getattr(self, "current_well_data", None) or {}

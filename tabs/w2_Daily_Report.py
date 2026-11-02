@@ -556,6 +556,16 @@ class DailyReportWidget(DrillTabBase):
         # اتصال فقط به تغییر تاریخ برای محاسبه شماره گزارش
         self.report_date.dateChanged.connect(self.on_date_changed)
     
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.current_well = None
+        self.current_well_id = None
+        self.current_info_label.clear()
+        self.current_info_label.hide()
+        self.create_report_btn.setEnabled(False)
+        self.refresh_report_timeline()
+        self.reset_context_view()
+
     def on_well_changed(self, well_id, well_data):
         """وقتی چاهی از طریق SelectionManager انتخاب می‌شود."""
         self.current_well = well_data

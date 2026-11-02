@@ -489,6 +489,16 @@ class WellboreSchematicTab(DrillTabBase):
         if getattr(self, "architecture_panel", None) is not None:
             self.architecture_panel.refresh()
 
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.current_well_id = self.current_wellbore_id = None
+        self.scene.clear()
+        self.canvas_status.setText(self.NO_SELECTION_TEXT)
+        self.td_spin.setValue(0.0)
+        if getattr(self, "architecture_panel", None) is not None:
+            self.architecture_panel.refresh()
+        self.reset_context_view(edits=(self.well_name_edit,))
+
     def on_well_changed(self, well_id, well_data):
         """وقتی چاه تغییر می‌کند، شماتیک را به‌روزرسانی می‌کنیم."""
         self.current_well_id = well_id

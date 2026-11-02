@@ -1882,6 +1882,18 @@ class LogisticsWidget(DrillTabBase):
             self.well_label.setText(well_list.currentItem().text())
             self.update_tabs_well()
     
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.current_well_id = self.current_section_id = self.current_report_id = None
+        self.update_tabs_well()
+        for tab, method in ((self.personnel_tab, "clear_transport_notes"), (self.fuel_water_tab, "clear_fields"),
+                            (self.transport_tab, "clear_summary")):
+            if tab is not None:
+                getattr(tab, method)()
+        self.well_label.setStyleSheet("")
+        self.reset_context_view(labels=(self.well_label,), table_roots=tuple(
+            tab for tab in (self.personnel_tab, self.fuel_water_tab, self.transport_tab) if tab is not None))
+
     def on_well_changed(self, well_id, well_data):
         """Override DrillTabBase"""
         self.current_well_id = well_id

@@ -712,6 +712,12 @@ class ExportWidget(DrillTabBase):
                 self._preview_ddr()
                 break
 
+    def on_selection_cleared(self):
+        """M83: the selected well no longer exists; no export picker keeps it."""
+        self._current_well_id = None
+        self.reset_context_view(pickers=(self.ddr_well, self.eowr_well, self.npt_well, self.cost_well,
+                                         self.plan_well, self.batch_well))
+
     def set_current_well(self, well_id, well_data=None):
         """Sync همه combo ها و load reports"""
         self._current_well_id = well_id

@@ -423,6 +423,7 @@ class CementReportTab(QWidget):
         d = self._preserve_untouched_cement_values(d)
         return self.db_manager.save_cement_report(d) if self.db_manager else None
         
+    @editor_loaded()
     def load_data(self):
         section_id = getattr(self.parent, "current_section_id", None)
         data = (
@@ -743,6 +744,7 @@ class CasingReportTab(QWidget):
         d = self._preserve_untouched_casing_values(d)
         return self.db_manager.save_casing_report(d) if self.db_manager else None
         
+    @editor_loaded()
     def load_data(self):
         section_id = getattr(self.parent, "current_section_id", None)
         data = (
@@ -2076,7 +2078,10 @@ class SectionDataWidget(DrillTabBase):
         layout.addWidget(self.tab_widget)
 
     def on_well_changed(self, well_id, well_data):
-        well_changed = well_id != self.current_well_id
+        # M83: DrillTabBase sets current_well_id before calling this hook, so
+        # compare with the well the forms were last loaded for.
+        well_changed = well_id != getattr(self, "_forms_well_id", None)
+        self._forms_well_id = well_id
         self.current_well_id = well_id
         if well_changed:
             # SelectionManager clears section on a well switch but does not emit
@@ -2098,6 +2103,14 @@ class SectionDataWidget(DrillTabBase):
         self.service_company_tab.set_current_well(well_id)
         self.failure_tab.current_well = well_id
         self.bit_tab.current_well = well_id
+        if well_changed:   # M83: the reset forms are not user edits
+            self.acknowledge_loaded_state(self.cement_tab, self.casing_tab, self.casing_tally_tab, self.bit_tab)
+
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.on_well_changed(None, {})
+        self.section_info.clear()
+        self.reset_context_view()
         
     def on_section_changed(self, section_id, section_data):
         self.current_section_id = section_id
@@ -2157,6 +2170,8 @@ class SectionDataWidget(DrillTabBase):
 
         # Service Companies
         self.service_company_tab.set_current_well(self.current_well_id)
+        # M83: the reloaded forms carry the section's stored values, not edits
+        self.acknowledge_loaded_state(self.cement_tab, self.casing_tab, self.casing_tally_tab)
 
         # Failure Report
         self.failure_tab.current_well = self.current_well_id

@@ -137,6 +137,7 @@ class SevenDaysLookaheadTab(QWidget):
     def setup_connections(self):
         self.report_combo.currentIndexChanged.connect(self.on_report_changed)
 
+    @editor_loaded()   # M83: the reset is a load, not a user edit
     def set_current_well(self, well_id):
         # Switching wells invalidates the previously selected report and its
         # loaded rows. Clear them so Well A's lookahead never leaks into the
@@ -2762,6 +2763,13 @@ class PlanningWidget(DrillTabBase):
         elif index == 6: # Mud Params
             if self.current_well_id:
                 self.load_mud_data()
+
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.section_combo.blockSignals(True)
+        self.section_combo.clear()
+        self.section_combo.blockSignals(False)
+        self.reset_context_view(pickers=(self.well_combo,), tables=(self.milestones_tab.milestones_table,))
 
     def on_well_changed(self, well_id, well_data):
         """Override - sync combo + load data"""

@@ -1082,6 +1082,11 @@ class EquipmentWidget(DrillTabBase):
         self.populate_wells()
         self.load_all_data()
 
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.equipment_data = {}
+        self.reset_context_view(pickers=(self.well_combo,), table_roots=tuple(self.tabs.values()))
+
     def clear_all_data(self):
         reply = QMessageBox.question(self, "Clear All", "Are you sure?", QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:

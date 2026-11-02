@@ -1651,11 +1651,18 @@ class MainWindow(QMainWindow):
 
     def _delete_company(self, company_id: int):
         """حذف شرکت - permission + atomic delete with its audit record"""
-        self._delete_hierarchy_item("company", company_id)
+        self._delete_hierarchy_item("company", company_id, on_deleted=self._forget_selection_if_gone)
 
     def _delete_project(self, project_id: int):
         """حذف پروژه - permission + atomic delete with its audit record"""
-        self._delete_hierarchy_item("project", project_id)
+        self._delete_hierarchy_item("project", project_id, on_deleted=self._forget_selection_if_gone)
+
+    def _forget_selection_if_gone(self):
+        """M83: deleting a company/project removes its wells; never keep one selected."""
+        well_id = self.sel_manager.current_well_id
+        if well_id and not self.db_manager.get_well_by_id(well_id):
+            self.clear_current_well()
+            self.sel_manager.clear()
 
     def _delete_well(self, well_id: int):
         """حذف چاه - permission + atomic child deletion with its audit record"""

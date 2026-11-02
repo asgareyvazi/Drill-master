@@ -71,6 +71,7 @@ class SelectionManager(QObject):
         self._wellbore_data = None
         self._section_data = None
         self._report_data = None
+        self._generation = 0   # M83: bumped before every selection signal
         self._initialized = True
 
     # ==================== Properties ====================
@@ -186,6 +187,7 @@ class SelectionManager(QObject):
                 self._report_id = None
                 self._report_data = None
 
+            self._generation += 1
             self.well_changed.emit(well_id, self._well_data)
             logger.debug(f"Selection: well → {well_id}")
 
@@ -224,6 +226,7 @@ class SelectionManager(QObject):
                 self._report_id = None
                 self._report_data = None
 
+            self._generation += 1
             self.wellbore_changed.emit(wellbore_id, self._wellbore_data)
             logger.debug(f"Selection: wellbore → {wellbore_id}")
 
@@ -254,6 +257,7 @@ class SelectionManager(QObject):
                 self._report_id = None
                 self._report_data = None
 
+            self._generation += 1
             self.section_changed.emit(section_id, self._section_data)
             logger.debug(f"Selection: section → {section_id}")
 
@@ -279,6 +283,7 @@ class SelectionManager(QObject):
             self._report_data = {}
 
         if changed or data_changed or force:
+            self._generation += 1
             self.report_changed.emit(report_id, self._report_data)
             logger.debug(f"Selection: report → {report_id}")
 
@@ -319,10 +324,23 @@ class SelectionManager(QObject):
         self._wellbore_data = None
         self._section_data = None
         self._report_data = None
+        self._generation += 1
         self.selection_cleared.emit()
         logger.debug("Selection: cleared")
 
     # ==================== Query Methods ====================
+    def context_token(self) -> tuple:
+        """M83 context contract for background work.
+
+        Capture the token when a task starts and call ``is_current(token)``
+        before showing its result: any selection change in between (another
+        well, wellbore, section or report, or a clear) makes the result stale.
+        """
+        return (self._generation, self._well_id, self._wellbore_id)
+
+    def is_current(self, token) -> bool:
+        return tuple(token) == self.context_token()
+
     def wellbore_for(self, well_id, db=None) -> Optional[int]:
         """The selected wellbore when it belongs to ``well_id`` (M70.7), else ``None``.
 

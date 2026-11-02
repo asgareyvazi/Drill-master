@@ -784,6 +784,15 @@ class ServicesWidget(DrillTabBase):
         self.well_label.setStyleSheet("font-weight: bold; color: #27ae60;")
         self.material_handling_tab.set_current_well(well_id)
 
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.current_well_id = self.current_report_id = None
+        material = self.material_handling_tab
+        material.current_well_id = material.current_report_id = None
+        material.clear_request_form()
+        self.well_label.setStyleSheet("")
+        self.reset_context_view(labels=(self.well_label,), table_roots=(material,))
+
     def on_report_changed(self, report_id, report_info):
         self.current_report_id = report_id
         self.material_handling_tab.set_current_report(report_id)

@@ -230,6 +230,49 @@ class DrillTabBase(QWidget):
         """Called when all selections are cleared. Override in subclass."""
         pass
 
+    NO_SELECTION_TEXT = "No well selected"
+
+    def reset_context_view(self, *, labels=(), pickers=(), edits=(), tables=(), table_roots=()):
+        """M83: show the empty state after the selection was cleared.
+
+        The selection is cleared only when the selected record no longer exists
+        (well, report, or the company/project holding the well was deleted), so
+        widgets bound to that context are emptied and the edit baselines are
+        re-taken: there is no context left to save those widgets into.
+        """
+        from PySide6.QtWidgets import QTableWidget
+        for label in labels:
+            label.setText(self.NO_SELECTION_TEXT)
+        for combo in pickers:
+            combo.blockSignals(True)
+            combo.setCurrentIndex(-1)
+            combo.blockSignals(False)
+        for edit in edits:
+            edit.clear()
+        for table in list(tables) + [t for root in table_roots for t in root.findChildren(QTableWidget)]:
+            table.setRowCount(0)
+        self.acknowledge_loaded_state()
+
+    def acknowledge_loaded_state(self, *owners):
+        """Re-take edit baselines after a programmatic load or reset.
+
+        The widgets now show what was loaded, which must not read as unsaved
+        user edits. With ``owners``, only their sections (and this tab's
+        sections of the same name) are re-taken, so edits elsewhere survive;
+        without, every section of this tab and its children.
+        """
+        from PySide6.QtWidgets import QWidget
+        everyone = [self, *self.findChildren(QWidget)]
+        tracked = [s for owner in everyone for s in getattr(owner, "_tracked_edit_sections", ())]
+        tracked += list(getattr(self, "_edit_sections", {}).values())
+        if owners:
+            names = {s.name for owner in owners for s in getattr(owner, "_tracked_edit_sections", ())}
+            own = [s for owner in owners for s in getattr(owner, "_tracked_edit_sections", ())]
+            mine = list(getattr(self, "_edit_sections", {}).values()) + list(getattr(self, "_tracked_edit_sections", ()))
+            tracked = own + [s for s in mine if s.name in names]
+        for section in {id(s): s for s in tracked}.values():
+            section.checkpoint()
+
     def save_data(self) -> bool:
         """Save current tab data. Override in subclass.
 

@@ -24,6 +24,27 @@ def exclude_from_editor_snapshot(widget):
     return widget
 
 
+def _spin_display(widget):
+    """The text a spin box shows, also before Qt first paints it.
+
+    Qt fills a spin box's line edit lazily: one whose value was never set
+    explicitly reads '' until first shown and '0.00' afterwards, which made
+    merely opening a tab look like an edit (M83). Raw text the user typed is
+    kept verbatim (including invalid text).
+    """
+    from PySide6.QtWidgets import QDoubleSpinBox, QLineEdit, QSpinBox
+
+    text = widget.text()
+    if text or not isinstance(widget, (QSpinBox, QDoubleSpinBox)):
+        return text
+    edit = widget.findChild(QLineEdit)
+    if edit is not None and edit.isModified():
+        return text
+    if widget.specialValueText() and widget.value() == widget.minimum():
+        return widget.specialValueText()
+    return widget.prefix() + widget.textFromValue(widget.value()) + widget.suffix()
+
+
 def editor_snapshot(*roots):
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import (
@@ -53,7 +74,7 @@ def editor_snapshot(*roots):
                 for r in range(widget.rowCount())
             )
         if isinstance(widget, QAbstractSpinBox):
-            return (widget.text(), widget.property("explicitly_edited"))
+            return (_spin_display(widget), widget.property("explicitly_edited"))
         if isinstance(widget, QLineEdit):
             return widget.text() if not widget.isReadOnly() else None
         if isinstance(widget, QComboBox):

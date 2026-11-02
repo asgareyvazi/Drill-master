@@ -815,6 +815,12 @@ class WellInfoTab(DrillTabBase):
                 show_error_message(self, f"Error: {str(e)}")
             return False
         
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.current_well = None
+        self.clear_form_fields()
+        self.reset_context_view()
+
     def on_well_changed(self, well_id, well_data):
         """Called externally when well selection changes."""
         if well_id and well_id != (self.current_well.get('id') if self.current_well else None):

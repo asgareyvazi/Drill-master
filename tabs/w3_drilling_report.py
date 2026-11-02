@@ -201,6 +201,17 @@ class DrillingReportWidget(DrillTabBase):
         tab_name = self.tab_widget.tabText(index)
         self.status_bar.showMessage(f"Active tab: {tab_name}")
 
+    def on_selection_cleared(self):
+        """M83: the selected record no longer exists; show the empty state."""
+        self.current_well = None
+        self.current_report_id = None
+        for tab in (self.drilling_tab, self.mud_tab):
+            if hasattr(tab, "current_well"):
+                tab.current_well = None
+            if hasattr(tab, "clear_form"):
+                tab.clear_form()
+        self.reset_context_view(labels=(self.current_well_label,))
+
     def on_well_changed(self, well_id, well_data):
         well_name = (
             well_data.get("name", str(well_id)) if well_data else str(well_id)
