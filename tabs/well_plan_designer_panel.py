@@ -53,6 +53,7 @@ class WellPlanDesignerPanel(QWidget):
         super().__init__(parent)
         self.use_plan = use_plan
         self.handover = bool(handover)
+        self.handover_targets: list = []
         self.result = None
         self.db_manager = db_manager
         self.well_id: Optional[int] = None
@@ -113,6 +114,22 @@ class WellPlanDesignerPanel(QWidget):
         form.addRow("Station step", self.step_spin)
         form.addRow("DLS limit", self.dls_limit_spin)
         form.addRow("Vertical-section azimuth", self.vs_azimuth_spin)
+        # M72: start from a station of an immutable survey revision.
+        self.tie_combo = QComboBox()
+        self.tie_combo.addItem("Surface (MD 0, vertical)", None)
+        self.tie_combo.setToolTip("A saved survey revision's last station; the plan records the revision and its hash.")
+        form.addRow("Tie-in", self.tie_combo)
+        solve_row = QHBoxLayout()
+        self.kop_spin = self._spin(0, 10000, 500, " m")
+        self.build_spin = self._spin(0.1, 30, 3, " deg/30m")
+        self.solve_btn = QPushButton("Solve to first target")
+        self.solve_btn.setToolTip("Closed-form build-and-hold through the first target's centre (vertical tie-in only).")
+        self.solve_btn.clicked.connect(self.solve_to_target)
+        for label, widget in (("KOP", self.kop_spin), ("Build", self.build_spin)):
+            solve_row.addWidget(QLabel(label))
+            solve_row.addWidget(widget)
+        solve_row.addWidget(self.solve_btn)
+        form.addRow("Target solver", solve_row)
         layout.addLayout(form)
 
         layout.addWidget(QLabel("Targets (local north/east from wellhead, TVD below rotary table)"))
@@ -252,8 +269,14 @@ class WellPlanDesignerPanel(QWidget):
             self.summary_label.setText(f"Not designed: {exc}.")
             return None
         limit = self.dls_limit_spin.value() or None
+        try:
+            tie_in = self.tie_in()
+        except Exception as exc:          # a revision that cannot be read is shown, never replaced by the surface
+            self.result = None
+            self.summary_label.setText(f"Not designed: the survey tie-in could not be read ({exc}).")
+            return None
         result = design_plan(segments, step=self.step_spin.value(), dls_limit=limit,
-                             vs_azimuth=self.vs_azimuth_spin.value(), targets=targets)
+                             vs_azimuth=self.vs_azimuth_spin.value(), targets=targets, tie_in=tie_in)
         self.result = result
         if not result.ok:
             self.summary_label.setText(f"Not designed: {result.error}")
@@ -302,12 +325,13 @@ class WellPlanDesignerPanel(QWidget):
             self.plan_status_label.setText("No saved plan open.")
         self.well_id = well_id
         self.refresh_plans()
+        self.refresh_tie_ins()
 
     def _selected_wellbore(self) -> Optional[int]:
         """The tree's selected wellbore, only when it belongs to this panel's well (M70.7)."""
         from core.selection_manager import SelectionManager
 
-        return SelectionManager().wellbore_for(self.well_id)
+        return SelectionManager().wellbore_for(self.well_id, db=self.db_manager)
 
     def _plans_available(self) -> bool:
         """Plan storage needs a full database manager (survey-only stubs lack sessions)."""
@@ -342,7 +366,69 @@ class WellPlanDesignerPanel(QWidget):
         segments, targets = self.gather()
         return dp.plan_inputs(segments, targets=targets, step=self.step_spin.value(),
                               dls_limit=self.dls_limit_spin.value() or None,
-                              vs_azimuth=self.vs_azimuth_spin.value())
+                              vs_azimuth=self.vs_azimuth_spin.value(), tie_in=self.tie_in())
+
+    def refresh_tie_ins(self) -> None:
+        """Survey revisions of this well as tie-in choices (M72)."""
+        from core import survey_revisions as sr
+
+        wanted = self.tie_combo.currentData()
+        self.tie_combo.blockSignals(True)
+        self.tie_combo.clear()
+        self.tie_combo.addItem("Surface (MD 0, vertical)", None)
+        revisions = []
+        if self._plans_available() and self.well_id:
+            try:
+                revisions = sr.list_revisions(self.db_manager, self.well_id)
+            except Exception as exc:  # shown and logged; the surface tie-in stays available
+                logger.error("Loading survey revisions failed: %s", exc, exc_info=True)
+                self.plan_status_label.setText(f"Survey revisions could not be loaded: {exc}")
+        for rev in revisions:
+            last = rev["results"][-1]
+            self.tie_combo.addItem(f"Survey rev {rev['revision']} — last station MD {last['md']:.2f} m, "
+                                   f"inc {last['inc']:.2f}, {rev['azimuth_reference']} north, {rev['depth_datum']}",
+                                   rev["id"])
+        index = self.tie_combo.findData(wanted)
+        self.tie_combo.setCurrentIndex(max(0, index))
+        self.tie_combo.blockSignals(False)
+
+    def tie_in(self) -> Optional[dict]:
+        from core import survey_revisions as sr
+
+        revision_id = self.tie_combo.currentData()
+        if revision_id is None:
+            return None
+        revision = sr.get_revision(self.db_manager, revision_id)
+        if revision is None or revision["well_id"] != self.well_id:
+            raise ValueError(f"survey revision {revision_id} is not available for this well")
+        return sr.tie_in_from_revision(revision)
+
+    def solve_to_target(self) -> Optional[dict]:
+        """Fill the segments from the closed-form solver; the user still designs and saves explicitly."""
+        from core.well_plan_designer import solve_build_hold
+
+        try:
+            _segments, targets = self.gather()
+            tie_in = self.tie_in()
+        except ValueError as exc:
+            self.summary_label.setText(f"Not solved: {exc}.")
+            return None
+        if not targets:
+            self.summary_label.setText("Not solved: add a target first.")
+            return None
+        answer = solve_build_hold(targets[0], kop_md=self.kop_spin.value(), dls=self.build_spin.value(),
+                                  tie_in=tie_in)
+        if not answer["feasible"]:
+            self.summary_label.setText(f"Not solved: {answer['reason']}")
+            return answer
+        self.segment_table.setRowCount(0)
+        for seg in answer["segments"]:
+            self.add_segment(seg["type"], seg.get("length"), seg.get("inc"), seg.get("azi"), seg.get("dls"))
+        self.design()
+        self.summary_label.setText(
+            self.summary_label.text() + f"\nSolved ({answer['method']}): hold {answer['inc']:.3f} deg at azimuth "
+            f"{answer['azi']:.3f} deg, tangent {answer['hold_length']:.2f} m.")
+        return answer
 
     def _show_plan(self, plan: dict, verb: str) -> None:
         self.current_plan = plan
@@ -383,6 +469,15 @@ class WellPlanDesignerPanel(QWidget):
         self.step_spin.setValue(float(inputs.get("step", 30.0)))
         self.dls_limit_spin.setValue(float(inputs.get("dls_limit") or 0.0))
         self.vs_azimuth_spin.setValue(float(inputs.get("vs_azimuth", 0.0)))
+        self.refresh_tie_ins()
+        pinned = (inputs.get("tie_in") or {}).get("survey_revision_id")
+        index = self.tie_combo.findData(pinned) if pinned else 0
+        if index < 0:                   # never redesign a pinned plan from another tie-in
+            self.result = None
+            self.summary_label.setText(f"Not designed: the plan's survey revision {pinned} is not available.")
+            self._show_plan(plan, "Opened")
+            return plan
+        self.tie_combo.setCurrentIndex(index)
         self.design()
         if plan["method_version"] != PLAN_VERSION:
             self.summary_label.setText(
@@ -466,6 +561,25 @@ class WellPlanDesignerPanel(QWidget):
         if not rows or (self.use_plan is None and not self.handover):
             return False
         source = f"Designed plan ({PLAN_VERSION})"
+        try:
+            tie_in = self.tie_in()
+        except ValueError as exc:
+            self.summary_label.setText(f"Not handed over: {exc}.")
+            return False
+        if tie_in:
+            # M72: the planned path continues the pinned survey; positions must start at the tie-in station.
+            from core import survey_revisions as sr
+            revision = sr.get_revision(self.db_manager, tie_in["survey_revision_id"])
+            above = [{"md": st["md"], "inc": st["inc"], "azi": st["azi"]}
+                     for st in revision["stations"] if st["md"] < tie_in["md"] - 1e-6]
+            rows = above + list(rows)
+            source += f" tied to survey rev {revision['revision']} at MD {tie_in['md']:.2f} m"
+        try:
+            self.handover_targets = list(self.gather()[1])
+        except ValueError as exc:
+            self.handover_targets = []
+            self.summary_label.setText(self.summary_label.text() + f"\nTargets not handed over ({exc}); "
+                                       "the comparison runs without target checks.")
         if self.handover:
             self.plan_ready.emit(rows, source)
         if self.use_plan is not None:

@@ -123,6 +123,7 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     # M63: calculation cases are insert-only; they leave only with their well.
     "calculation_cases": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "calculation_source_links": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    "survey_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }

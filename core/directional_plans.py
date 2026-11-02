@@ -103,6 +103,31 @@ def _check_wellbore(session, well_id: int, wellbore_id: Optional[int]) -> None:
             raise PlanIntegrityError(f"Wellbore {wellbore_id} does not belong to well {well_id}.")
 
 
+def _check_survey_tie_in(session, well_id: int, wellbore_id: Optional[int], tie_in: Dict[str, Any]) -> None:
+    """M72: a tie-in pinned to a survey revision must match that revision exactly."""
+    from core.database import SurveyRevision
+
+    revision_id = tie_in.get("survey_revision_id")
+    if revision_id is None:
+        return
+    row = session.get(SurveyRevision, int(revision_id))
+    if row is None or row.well_id != well_id:
+        raise PlanIntegrityError(f"Survey revision {revision_id} does not belong to well {well_id}.")
+    if wellbore_id is not None and row.wellbore_id is not None and row.wellbore_id != wellbore_id:
+        raise PlanIntegrityError(f"Survey revision {revision_id} is on another wellbore.")
+    if tie_in.get("survey_sha256") != row.stations_sha256:
+        raise PlanIntegrityError(f"The tie-in does not match the stations of survey revision {revision_id}.")
+    missing = [k for k in ("md", "inc", "azi", "tvd", "north", "east") if tie_in.get(k) is None]
+    if missing:
+        raise PlanIntegrityError(f"The survey tie-in lacks {', '.join(missing)}.")
+    stations = json.loads(row.results_json)
+    station = next((s for s in stations if abs(s["md"] - float(tie_in.get("md", -1))) <= 1e-6), None)
+    if station is None or any(abs(float(tie_in.get(k, float("nan"))) - station[k]) > 1e-6
+                              for k in ("inc", "tvd", "north", "east")) or \
+            abs(((float(tie_in.get("azi", float("nan"))) - station["azi"] + 180.0) % 360.0) - 180.0) > 1e-6:
+        raise PlanIntegrityError(f"The tie-in is not a station of survey revision {revision_id}.")
+
+
 def save_plan(db, *, well_id: int, name: str, inputs: Dict[str, Any], result: Optional[PlanResult] = None,
               wellbore_id: Optional[int] = None, plan_key: Optional[str] = None, parent_id: Optional[int] = None,
               note: str = "", user_id: Optional[int] = None) -> Dict[str, Any]:
@@ -125,6 +150,7 @@ def save_plan(db, *, well_id: int, name: str, inputs: Dict[str, Any], result: Op
     try:
         with db.session_scope() as session:
             _check_wellbore(session, well_id, wellbore_id)
+            _check_survey_tie_in(session, well_id, wellbore_id, inputs.get("tie_in") or {})
             parent = session.get(DirectionalPlanRevision, parent_id) if parent_id is not None else None
             if parent_id is not None:
                 if parent is None:

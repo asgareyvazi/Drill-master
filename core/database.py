@@ -2023,6 +2023,42 @@ class CalculationSourceLink(Base):
     created_at = Column(DateTime, default=_now_utc, nullable=False)
 
 
+class SurveyRevision(Base):
+    """M72: an immutable, numbered snapshot of a well's survey stations.
+
+    Stations are stored canonically (MD in metres, inclination and azimuth in
+    degrees) together with the declared source unit, azimuth reference and
+    depth datum, the provenance of the rows and the minimum-curvature result
+    and its SHA-256.  Rows are insert-only (storage trigger); a correction is
+    a new revision (``replace``/``append``/``branch``) with ``parent_id``.
+    """
+
+    __tablename__ = "survey_revisions"
+    __table_args__ = (UniqueConstraint("well_id", "revision", name="uq_survey_revision"),)
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"))
+    revision = Column(Integer, nullable=False)
+    parent_id = Column(Integer, ForeignKey("survey_revisions.id", ondelete="SET NULL"))
+    mode = Column(String(20), nullable=False)
+    source_type = Column(String(40), nullable=False)
+    source_ref = Column(Text)
+    source_unit = Column(String(10), nullable=False)
+    azimuth_reference = Column(String(20), nullable=False)
+    depth_datum = Column(String(40), nullable=False)
+    stations_json = Column(Text, nullable=False)
+    station_count = Column(Integer, nullable=False)
+    stations_sha256 = Column(String(64), nullable=False)
+    results_json = Column(Text, nullable=False)
+    warnings_json = Column(Text)
+    method = Column(String(100), nullable=False)
+    method_version = Column(String(100), nullable=False)
+    note = Column(Text)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class PlannedActivity(Base):
     """فعالیت‌های برنامه‌ریزی شده برای هر چاه و سکشن"""
     __tablename__ = "planned_activities"

@@ -140,6 +140,10 @@ class TrajectoryViewerTab(QWidget):
         self.plan_designer = WellPlanDesignerPanel(handover=True, db_manager=self.db_manager)  # M55/M62 planning aid
         self.plan_designer.plan_ready.connect(self.use_designed_plan)
         self.view_tabs.addTab(self.plan_designer, "Plan designer")
+        from tabs.survey_revision_panel import SurveyRevisionPanel
+        self.survey_revisions = SurveyRevisionPanel(self.db_manager)      # M72 immutable survey revisions
+        self.survey_revisions.revision_saved.connect(lambda _id: self.plan_designer.refresh_tie_ins())
+        self.view_tabs.addTab(self.survey_revisions, "Survey revisions")
         splitter.addWidget(self.view_tabs)
 
         side = QWidget()
@@ -201,6 +205,9 @@ class TrajectoryViewerTab(QWidget):
         designer = getattr(self, "plan_designer", None)
         if designer is not None:
             designer.set_well(well_id)
+        revisions = getattr(self, "survey_revisions", None)
+        if revisions is not None:
+            revisions.set_well(well_id)
         if well_changed:
             self.compare_panel.set_well(well_id)
         self.reload()
@@ -383,7 +390,8 @@ class TrajectoryViewerTab(QWidget):
 
     def use_designed_plan(self, rows, source) -> bool:
         """Hand a designed plan to the plan-vs-actual comparison and show it."""
-        accepted = self.compare_panel.set_plan_rows(rows, source)
+        accepted = self.compare_panel.set_plan_rows(rows, source,
+                                                    targets=getattr(self.plan_designer, "handover_targets", None))
         if accepted:
             self.view_tabs.setCurrentWidget(self.compare_panel)
         return accepted

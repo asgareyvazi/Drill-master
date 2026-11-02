@@ -58,7 +58,7 @@ def test_the_arc_reproduces_the_canonical_station_positions():
 def test_a_target_without_radius_is_never_a_hit_and_version_is_m62():
     plan = _build_plan([{"name": "T", "north": 0.0, "east": 0.0, "tvd": 100.0}])
     assert plan.targets[0]["distance"] == pytest.approx(0.0, abs=1e-6) and not plan.targets[0]["hit"]
-    assert plan.version == PLAN_VERSION == "M62 plan designer v2"
+    assert plan.version == PLAN_VERSION == "M72 plan designer v3"
 
 
 # ---- numerical safeguards ----------------------------------------------------------------------

@@ -42,10 +42,36 @@ def _compute(inputs: dict):
     """Worker body: plain dicts in, a Comparison out (no Qt, no ORM)."""
     actual = compose_well_trajectory(inputs["actual_rows"])
     if inputs["mode"] == "plan":
-        return tc.compare_plan(actual, tc.compose_plan(inputs["plan_rows"]), step=inputs["step"])
+        result = tc.compare_plan(actual, tc.compose_plan(inputs["plan_rows"]), step=inputs["step"])
+        result.target_checks = target_checks(actual, inputs.get("targets") or (), step=inputs["step"])
+        return result
     offset = compose_well_trajectory(inputs["offset_rows"])
     return tc.compare_wells(actual, inputs["reference_well"], offset, inputs["offset_well"],
                             same_crs_confirmed=inputs["same_crs"], step=inputs["step"])
+
+
+def target_checks(actual, targets, *, step: float) -> list:
+    """M72: closest approach of the ACTUAL path to each plan target (SCREENING; centre distances only).
+
+    A target needs north, east and TVD; without a radius it is never reported as hit.
+    """
+    if not targets or not getattr(actual, "drawable", False):
+        return []
+    path = tc.path_from_trajectory(actual)
+    out = []
+    for target in targets:
+        try:
+            point = (float(target["north"]), float(target["east"]), float(target["tvd"]))
+        except (KeyError, TypeError, ValueError):
+            out.append({"name": target.get("name", "?"), "status": "NOT ASSESSED",
+                        "reason": "target north/east/TVD missing"})
+            continue
+        md, distance = tc.closest_point(path, point, step=step)
+        radius = target.get("radius")
+        out.append({"name": target.get("name", "Target"), "status": "ASSESSED", "actual_md": md,
+                    "distance_m": distance, "radius_m": radius,
+                    "hit": (distance <= float(radius)) if radius not in (None, "") else None})
+    return out
 
 
 class TrajectoryComparePanel(QWidget):
@@ -55,6 +81,7 @@ class TrajectoryComparePanel(QWidget):
         self.well_id: Optional[int] = None
         self.plan_rows: Optional[list] = None
         self.plan_source = ""
+        self.plan_targets: list = []
         self.result: Optional[tc.Comparison] = None
         self.last_inputs: Optional[dict] = None
         self.saved_ids: list = []
@@ -97,6 +124,14 @@ class TrajectoryComparePanel(QWidget):
         self.plan_widget = QWidget()
         self.plan_widget.setLayout(plan_row)
         layout.addWidget(self.plan_widget)
+
+        actual_row = QHBoxLayout()
+        self.actual_combo = QComboBox()
+        self.actual_combo.addItem("Live survey points (not a revision)", None)
+        self.actual_combo.currentIndexChanged.connect(lambda _i: self._clear_result("Actual survey changed; compare again."))
+        actual_row.addWidget(QLabel("Actual survey:"))
+        actual_row.addWidget(self.actual_combo, 1)
+        layout.addLayout(actual_row)
 
         offset_row = QHBoxLayout()
         self.offset_combo = QComboBox()
@@ -148,8 +183,24 @@ class TrajectoryComparePanel(QWidget):
         self.offset_widget.setVisible(self.mode == "offset")
         self._clear_result("Mode changed; compare again.")
 
+    def refresh_actual_sources(self) -> None:
+        """Live survey points, or an immutable survey revision of this well (M72)."""
+        from core import survey_revisions as sr
+
+        self.actual_combo.clear()
+        self.actual_combo.addItem("Live survey points (not a revision)", None)
+        if callable(getattr(self.db_manager, "session_scope", None)) and self.well_id:
+            try:
+                for rev in sr.list_revisions(self.db_manager, self.well_id):
+                    self.actual_combo.addItem(f"Survey revision {rev['revision']} ({rev['station_count']} stations, "
+                                              f"{rev['azimuth_reference']} north, {rev['depth_datum']})", rev["id"])
+            except Exception as exc:                    # read error is a state, not an empty list
+                logger.warning("Survey revisions could not be read: %s", type(exc).__name__)
+                self.actual_combo.addItem("(survey revisions could not be read)", None)
+
     def set_well(self, well_id: Optional[int]):
         self.well_id = well_id
+        self.refresh_actual_sources()
         self.offset_combo.clear()
         if self.db_manager is not None:
             try:
@@ -180,12 +231,13 @@ class TrajectoryComparePanel(QWidget):
             self.plan_label.setText(f"Plan could not be read ({type(exc).__name__})")
             return False
         self.plan_rows, self.plan_source = rows, os.path.basename(path)
+        self.plan_targets = []
         self.plan_label.setText(f"{self.plan_source}: {len(rows)} stations "
                                 f"(MD {self.plan_unit_combo.currentData()} -> m)")
         self._clear_result("Plan loaded; compare again.")
         return True
 
-    def set_plan_rows(self, rows, source: str) -> bool:
+    def set_plan_rows(self, rows, source: str, targets=None) -> bool:
         """Use plan stations handed over in memory (M55 plan designer; MD in metres)."""
         try:
             stations = [{"md": float(r["md"]), "inc": float(r["inc"]), "azi": float(r["azi"])}
@@ -197,6 +249,7 @@ class TrajectoryComparePanel(QWidget):
             self.plan_label.setText("Plan refused: fewer than two readable stations were supplied")
             return False
         self.plan_rows, self.plan_source = stations, str(source)
+        self.plan_targets = [dict(t) for t in targets or ()]
         self.mode_combo.setCurrentIndex(self.mode_combo.findData("plan"))
         self.plan_label.setText(f"{self.plan_source}: {len(stations)} stations (MD m, in memory)")
         self._clear_result("Plan loaded; compare again.")
@@ -209,14 +262,26 @@ class TrajectoryComparePanel(QWidget):
             return None
         inputs = {"mode": self.mode, "step": float(self.step_spin.value()), "well_id": self.well_id}
         try:
-            inputs["actual_rows"] = [{"md": r["md"], "inc": r["inc"], "azi": r["azi"]}
-                                     for r in self.db_manager.load_survey_points(well_id=self.well_id)]
+            revision_id = self.actual_combo.currentData()
+            if revision_id is not None:
+                from core import survey_revisions as sr
+                revision = sr.get_revision(self.db_manager, revision_id)
+                if revision is None or revision["well_id"] != self.well_id:
+                    self._clear_result("The selected survey revision is not available for this well.")
+                    return None
+                inputs["actual_rows"] = [dict(st) for st in revision["stations"]]
+                inputs["actual_survey_revision_id"] = revision["id"]
+                inputs["actual_survey_sha256"] = revision["stations_sha256"]
+            else:
+                inputs["actual_rows"] = [{"md": r["md"], "inc": r["inc"], "azi": r["azi"]}
+                                         for r in self.db_manager.load_survey_points(well_id=self.well_id)]
             if self.mode == "plan":
                 if not self.plan_rows:
                     self._clear_result("Load a plan file first.")
                     return None
                 inputs["plan_rows"] = list(self.plan_rows)
                 inputs["plan_source"] = self.plan_source
+                inputs["targets"] = list(self.plan_targets)
             else:
                 offset_id = self.offset_combo.currentData()
                 if not offset_id:
@@ -276,6 +341,15 @@ class TrajectoryComparePanel(QWidget):
             return
         closest = result.closest or {}
         if result.kind == "plan_vs_actual":
+            for check in getattr(result, "target_checks", None) or []:
+                if check["status"] != "ASSESSED":
+                    self.reason_list.addItem(f"Target {check['name']}: NOT ASSESSED ({check['reason']}).")
+                    continue
+                verdict = ("no radius, hit not judged" if check["hit"] is None
+                           else "inside radius" if check["hit"] else "outside radius")
+                self.reason_list.addItem(
+                    f"Target {check['name']}: actual path passes {check['distance_m']:.2f} m from the centre at "
+                    f"MD {check['actual_md']:.2f} m ({verdict}). SCREENING.")
             self.status_label.setText(
                 f"Largest miss from plan: {closest.get('distance_m')} m at actual MD {closest.get('actual_md')} m "
                 f"(high {closest.get('high_m')} m, right {closest.get('right_m')} m). {tc.LABEL}")
@@ -316,6 +390,10 @@ class TrajectoryComparePanel(QWidget):
             return None
         inputs = {k: v for k, v in self.last_inputs.items() if not k.endswith("_rows")}
         inputs["actual_stations"] = len(self.last_inputs.get("actual_rows") or [])
+        inputs["actual_source"] = ("survey revision" if self.last_inputs.get("actual_survey_revision_id")
+                                   else "live survey points (not a revision)")
+        if getattr(self.result, "target_checks", None):
+            inputs["target_checks"] = self.result.target_checks
         if "plan_rows" in self.last_inputs:
             inputs["plan_stations"] = self.last_inputs["plan_rows"]
         if "offset_rows" in self.last_inputs:

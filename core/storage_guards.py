@@ -55,6 +55,9 @@ _CASE_FROZEN = ("id", "well_id", "calculator", "name", "method", "method_version
 _LINK_FROZEN = ("id", "case_id", "source_table", "source_id", "source_well_id", "source_method",
                 "source_method_version", "recalc_method", "recalc_method_version",
                 "verification_status", "method_changed", "link_type", "created_at")
+_SURVEY_FROZEN = ("id", "well_id", "revision", "mode", "source_type", "source_ref", "source_unit",
+                  "azimuth_reference", "depth_datum", "stations_json", "station_count", "stations_sha256",
+                  "results_json", "warnings_json", "method", "method_version", "note", "created_at")
 
 
 def trigger_statements() -> dict[str, str]:
@@ -76,6 +79,12 @@ def trigger_statements() -> dict[str, str]:
         _frozen(_LINK_FROZEN),
         _nullable_reference("source_wellbore_id", "wellbores"),
     ])
+    survey_change = " OR ".join([
+        _frozen(_SURVEY_FROZEN),
+        _nullable_reference("wellbore_id", "wellbores"),
+        _nullable_reference("parent_id", "survey_revisions"),
+        _nullable_reference("created_by", "users"),
+    ])
     return {
         f"trg_plan_revision_immutable_v{v}": (
             f"CREATE TRIGGER trg_plan_revision_immutable_v{v} BEFORE UPDATE ON directional_plan_revisions "
@@ -89,6 +98,10 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_calculation_case_immutable_v{v} BEFORE UPDATE ON calculation_cases "
             f"WHEN {case_change} BEGIN SELECT RAISE(ABORT, "
             "'calculation_cases: a saved case is immutable'); END"),
+        f"trg_survey_revision_immutable_v{v}": (
+            f"CREATE TRIGGER trg_survey_revision_immutable_v{v} BEFORE UPDATE ON survey_revisions "
+            f"WHEN {survey_change} BEGIN SELECT RAISE(ABORT, "
+            "'survey_revisions: a saved survey revision is immutable'); END"),
         f"trg_calculation_source_link_immutable_v{v}": (
             f"CREATE TRIGGER trg_calculation_source_link_immutable_v{v} BEFORE UPDATE ON calculation_source_links "
             f"WHEN {link_change} BEGIN SELECT RAISE(ABORT, "
@@ -97,7 +110,7 @@ def trigger_statements() -> dict[str, str]:
 
 
 _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation_case": "calculation_cases",
-             "trg_calculation_source_link": "calculation_source_links"}
+             "trg_calculation_source_link": "calculation_source_links", "trg_survey_revision": "survey_revisions"}
 
 
 def install(raw) -> list[str]:

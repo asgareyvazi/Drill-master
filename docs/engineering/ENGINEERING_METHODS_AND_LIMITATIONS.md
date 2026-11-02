@@ -48,7 +48,7 @@ Scope: the calculation and data-ingestion methods that DrillMaster exposes to us
 
   The designer reproduces these values (`tests/test_m55_directional.py`).
 * A breach of the DLS limit is **warned, never clipped**.
-* Target check (M62, `M62 plan designer v2`): the closest point on the **continuous minimum-curvature path**. Between stations the path is the circular arc p(θ) = p1 + R(sin θ·t1 + (1−cos θ)·n), R = L/β, n the unit normal towards t2 (straight line when β → 0); each interval is sampled and refined by golden section. The closest station is reported alongside. A target without a radius is never reported as hit. Validated against the planar closed form HD = R(1−cos θ), TVD = KOP + R sin θ, and the arc reproduces the canonical MinCurv station positions to 1e-6 m.
+* Target check (M62, `M72 plan designer v3`): the closest point on the **continuous minimum-curvature path**. Between stations the path is the circular arc p(θ) = p1 + R(sin θ·t1 + (1−cos θ)·n), R = L/β, n the unit normal towards t2 (straight line when β → 0); each interval is sampled and refined by golden section. The closest station is reported alongside. A target without a radius is never reported as hit. Validated against the planar closed form HD = R(1−cos θ), TVD = KOP + R sin θ, and the arc reproduces the canonical MinCurv station positions to 1e-6 m.
 * Safeguards (M62): non-finite inputs, an antiparallel curve (dogleg ≈ 180°, undefined arc plane) and an impossible hold-to-TVD are explicit errors.
 * Limitations:
   * no tangent-to-target solver;

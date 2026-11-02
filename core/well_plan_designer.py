@@ -27,7 +27,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-PLAN_VERSION = "M62 plan designer v2"
+PLAN_VERSION = "M72 plan designer v3"
 ANTIPARALLEL_TOL_DEG = 1e-6
 METHOD = "Minimum curvature (canonical TrajectoryCalculator); constant-curvature arcs"
 
@@ -151,7 +151,8 @@ def design_plan(segments: Sequence[Dict[str, Any]], *, step: float = 30.0, dls_l
             inc, azi = target_inc, target_azi
         elif kind == "hold_to_tvd":
             # TVD at the current MD comes from the canonical engine, not an estimate.
-            current = TrajectoryCalculator.calculate([dict(s) for s in raw], vs_azimuth=vs_azimuth)[-1]["tvd"]
+            current = _shift_to_tie_in(TrajectoryCalculator.calculate([dict(s) for s in raw], vs_azimuth=vs_azimuth),
+                                       tie_in, vs_azimuth)[-1]["tvd"]
             target_tvd = float(segment["tvd"])
             if inc >= 90 - 1e-9:
                 result.error = f"Segment {number}: cannot hold to a TVD at {inc:.1f} deg inclination."
@@ -173,10 +174,103 @@ def design_plan(segments: Sequence[Dict[str, Any]], *, step: float = 30.0, dls_l
     if len(raw) < 2:
         result.error = "The plan has no segments."
         return result
-    result.stations = TrajectoryCalculator.calculate(raw, vs_azimuth=vs_azimuth)
+    result.stations = _shift_to_tie_in(TrajectoryCalculator.calculate(raw, vs_azimuth=vs_azimuth), tie_in, vs_azimuth)
     for target in targets:
         result.targets.append(evaluate_target(result.stations, target))
     return result
+
+
+def _shift_to_tie_in(stations, tie_in, vs_azimuth):
+    """M72: a tie-in with a position (survey station) moves the whole path there.
+
+    Without ``tvd``, ``north`` and ``east`` the canonical engine's own origin is
+    kept (unchanged from v2). VS is the projection on the VS azimuth and HD the
+    closure distance, both recomputed from the shifted coordinates.
+    """
+    tie_in = tie_in or {}
+    if not stations or not all(k in tie_in for k in ("tvd", "north", "east")):
+        return stations
+    d_tvd = float(tie_in["tvd"]) - stations[0]["tvd"]
+    d_n, d_e = float(tie_in["north"]) - stations[0]["north"], float(tie_in["east"]) - stations[0]["east"]
+    angle = math.radians(float(vs_azimuth or 0.0))
+    out = []
+    for station in stations:
+        row = dict(station)
+        row["tvd"] += d_tvd
+        row["north"] += d_n
+        row["east"] += d_e
+        row["vs"] = row["north"] * math.cos(angle) + row["east"] * math.sin(angle)
+        row["hd"] = math.hypot(row["north"], row["east"])
+        out.append(row)
+    return out
+
+
+SOLVER_VERSION = "M72 build-hold target solver v1"
+
+
+def solve_build_hold(target: Dict[str, float], *, kop_md: float, dls: float,
+                     tie_in: Optional[Dict[str, float]] = None, max_inc: float = 90.0) -> Dict[str, Any]:
+    """Closed-form J-profile (vertical hold - build - tangent hold) through a target centre.
+
+    Objective: pass exactly through the target centre (TVD, N, E). Constraints:
+    a vertical tie-in (inclination 0) at or above the KOP, a constant build rate
+    ``dls`` (deg/30 m) and a hold inclination <= ``max_inc``. In the vertical
+    plane of the target azimuth with horizontal offset H and depth V below the
+    KOP, the build radius is R = 5400/(pi*dls) and the hold angle is
+    theta = atan2(V, R - H) - acos(R/d), d = sqrt((R - H)^2 + V^2); the
+    tangent length is sqrt(d^2 - R^2). The target is infeasible when it lies
+    inside the build circle (d < R), above the KOP, or needs theta > max_inc.
+    No iteration: the answer is deterministic. Returns ``{"feasible": bool,
+    "reason", "segments", "inc", "azi", "hold_length", ...}``.
+    """
+    tie_in = dict(tie_in or {})
+    out: Dict[str, Any] = {"feasible": False, "method": SOLVER_VERSION, "segments": []}
+    values = [kop_md, dls, max_inc] + [target.get(k) for k in ("tvd", "north", "east")]
+    if any(not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) for v in values):
+        out["reason"] = "Target TVD/N/E, KOP, build rate and max inclination must be finite numbers."
+        return out
+    if abs(float(tie_in.get("inc", 0.0))) > 1e-9:
+        out["reason"] = "Only a vertical tie-in is supported by this solver (3D tie-in solving is not implemented)."
+        return out
+    tie_md = float(tie_in.get("md", 0.0))
+    tie_tvd = float(tie_in.get("tvd", tie_md))
+    tie_n, tie_e = float(tie_in.get("north", 0.0)), float(tie_in.get("east", 0.0))
+    if dls <= 0:
+        out["reason"] = "The build rate must be positive."
+        return out
+    if kop_md < tie_md:
+        out["reason"] = f"The KOP {kop_md:g} m is above the tie-in MD {tie_md:g} m."
+        return out
+    kop_tvd = tie_tvd + (kop_md - tie_md)
+    dn, de = float(target["north"]) - tie_n, float(target["east"]) - tie_e
+    h, v = math.hypot(dn, de), float(target["tvd"]) - kop_tvd
+    if v <= 0:
+        out["reason"] = "The target is not below the KOP."
+        return out
+    radius = 5400.0 / (math.pi * dls)
+    d = math.hypot(radius - h, v)
+    if d < radius:
+        out["reason"] = (f"Infeasible: the target lies inside the build circle (radius {radius:.1f} m); "
+                         "raise the build rate or move the KOP up.")
+        return out
+    theta = math.degrees(math.atan2(v, radius - h) - math.acos(radius / d))
+    if h <= 1e-9:
+        theta = 0.0
+    if theta > max_inc + 1e-9:
+        out["reason"] = f"Infeasible: the hold inclination {theta:.2f} deg exceeds the limit {max_inc:g} deg."
+        return out
+    azi = math.degrees(math.atan2(de, dn)) % 360.0 if h > 1e-9 else 0.0
+    hold = math.sqrt(max(d * d - radius * radius, 0.0))
+    segments = []
+    if kop_md - tie_md > 1e-9:
+        segments.append({"type": "hold", "length": kop_md - tie_md})
+    if theta > 1e-9:
+        segments.append({"type": "curve", "inc": theta, "azi": azi, "dls": float(dls)})
+    if hold > 1e-9:
+        segments.append({"type": "hold", "length": hold})
+    out.update({"feasible": True, "reason": "", "segments": segments, "inc": theta, "azi": azi,
+                "hold_length": hold, "build_radius": radius, "kop_tvd": kop_tvd, "horizontal_offset": h})
+    return out
 
 
 def _non_finite(segments, targets, tie_in, step, dls_limit, vs_azimuth) -> Optional[str]:
