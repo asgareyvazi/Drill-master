@@ -170,6 +170,13 @@ def _workflow_methods() -> List[CatalogueEntry]:
                        "Closed-form tangent construction (M86 tests)", OWN_CODE,
                        "Build/drop/hold/turn with DLS and inclination limits; structured infeasibility", "",
                        "core/well_plan_designer.py"),
+        CatalogueEntry("directional.multi_segment_solver", "Multi-target and S-profile solver", "Directional",
+                       "plan designer", "IMPLEMENTED", "PLANNING AID", wpd.MULTI_SOLVER_VERSION,
+                       "Chained closed-form curve-hold legs; closed-form S-profile; verified by the canonical "
+                       f"engine to {wpd.TARGET_TOLERANCE_M} m (M106 tests, forward-constructed goldens)", OWN_CODE,
+                       "Passes through target centres; nothing is minimised (no optimality claim); S-profile needs "
+                       "a vertical tie-in; DLS and inclination limits are hard (never clipped); no uncertainty",
+                       "", "core/well_plan_designer.py"),
         CatalogueEntry("directional.plan_vs_actual", "Plan vs actual and closest approach", "Directional",
                        "trajectory compare", "IMPLEMENTED", "SCREENING", trajectory_compare.METHOD_VERSION,
                        "Centre-to-centre distance between trajectories", OWN_CODE,

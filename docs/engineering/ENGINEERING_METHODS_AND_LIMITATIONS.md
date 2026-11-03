@@ -232,7 +232,7 @@ directional. Documented deviation for owner review: 7.48 vs 7.48052 (gal/ft³ ro
 
 ## Method catalogue (M92) and report provenance (M93)
 
-- Help → Method catalogue lists 52 methods with ID, status, version, reference, licence, limits, approval and
+- Help → Method catalogue lists 54 methods (M106; 53 before, the earlier "52" was stale) with ID, status, version, reference, licence, limits, approval and
   blocker. Every entry reads "NOT APPROVED — OWNER REVIEW REQUIRED". There is no approve action.
 - EOWR/well/plan/daily/analysis reports (HTML, PDF via QTextDocument, Excel, CSV; LTR/RTL) carry scope, sources,
   revisions (or "none recorded"), methods and the label **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED**.

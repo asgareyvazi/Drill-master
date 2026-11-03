@@ -412,3 +412,205 @@ def evaluate_target(stations: Sequence[Dict[str, float]], target: Dict[str, Any]
         "radius": radius, "hit": radius > 0 and near["distance"] <= radius,
         "method": "continuous minimum-curvature arc (golden-section refined)",
     }
+
+
+# ---- M106: multi-target and S-profile solvers --------------------------------------------------------------
+MULTI_SOLVER_VERSION = "M106 multi-target / S-profile solver v1"
+TARGET_TOLERANCE_M = 0.01
+SOLVER_OBJECTIVE = (
+    "Pass through every target centre, in order, with constant-curvature arcs at the stated rates and tangent "
+    "holds. Nothing is minimised (MD, dogleg, torque, cost): the result is one feasible profile, not an optimum."
+)
+SOLVER_CONVERGENCE = (
+    "Closed form, no iteration. Acceptance: the segments are re-computed by the canonical minimum-curvature "
+    f"engine and every target centre must lie within {TARGET_TOLERANCE_M} m of the continuous path, at the "
+    "expected MD (order kept); otherwise the solve fails with NOT_CONVERGED."
+)
+
+
+def _finite(*values) -> bool:
+    return all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in values)
+
+
+def _full_tie_in(tie_in: Optional[Dict[str, float]]) -> Dict[str, float]:
+    """The tie-in as ``solve_build_hold`` reads it: TVD defaults to MD, N/E to 0 (vertical from surface)."""
+    tie_in = dict(tie_in or {})
+    md = float(tie_in.get("md", 0.0))
+    return {"md": md, "inc": float(tie_in.get("inc", 0.0)), "azi": float(tie_in.get("azi", 0.0)),
+            "tvd": float(tie_in.get("tvd", md)), "north": float(tie_in.get("north", 0.0)),
+            "east": float(tie_in.get("east", 0.0))}
+
+
+def _verify(out: Dict[str, Any], segments, tie_in, targets, expected_mds, step: float) -> Dict[str, Any]:
+    """Re-compute with the canonical engine; every centre within the tolerance at its expected MD."""
+    plan = design_plan(segments, step=step, tie_in=tie_in)
+    rows, converged = [], plan.ok
+    if not plan.ok:
+        out["verification"] = {"converged": False, "tolerance_m": TARGET_TOLERANCE_M, "targets": [],
+                               "error": plan.error}
+        return _fail(out, "NOT_CONVERGED", f"The canonical engine rejected the solved segments: {plan.error}")
+    for target, expected in zip(targets, expected_mds):
+        near = closest_on_path(plan.stations, (float(target["north"]), float(target["east"]), float(target["tvd"])))
+        ok = near["distance"] <= TARGET_TOLERANCE_M and abs(near["md"] - expected) <= max(1.0, step)
+        converged = converged and ok
+        rows.append({"name": target.get("name", "Target"), "distance": near["distance"], "closest_md": near["md"],
+                     "expected_md": expected, "ok": ok})
+    out["verification"] = {"converged": converged, "tolerance_m": TARGET_TOLERANCE_M, "targets": rows,
+                           "td_md": plan.stations[-1]["md"], "max_dls": max(
+                               (s.get("dls", 0.0) or 0.0 for s in plan.stations), default=0.0)}
+    if not converged:
+        worst = max(rows, key=lambda r: r["distance"]) if rows else None
+        return _fail(out, "NOT_CONVERGED",
+                     f"Target {worst['name']} is {worst['distance']:.4f} m from the re-computed path "
+                     f"(tolerance {TARGET_TOLERANCE_M} m)." if worst else "No target could be verified.")
+    return out
+
+
+def solve_multi_target(targets: Sequence[Dict[str, Any]], *, kop_md: float, dls, tie_in=None,
+                       max_inc: float = 90.0, dls_limit: Optional[float] = None, hold_after=0.0,
+                       step: float = 30.0) -> Dict[str, Any]:
+    """Curve-hold legs chained through several targets (build, drop, hold and turn in 3D).
+
+    Leg 1 holds the tie-in direction to the KOP, then one constant-curvature arc and a tangent reach target 1's
+    centre (the M86 closed form). Each later leg starts at the previous target, in the direction the well
+    arrives with, optionally after ``hold_after`` metres, and repeats the construction towards the next
+    target; the arc lies in the plane of that direction and the next target, so it builds, drops and turns as
+    needed. ``dls`` is one rate (deg/30 m) or one per leg. A rate above ``dls_limit`` or an inclination above
+    ``max_inc`` anywhere on an arc makes the solve infeasible (never clipped). Objective and acceptance:
+    ``SOLVER_OBJECTIVE`` and ``SOLVER_CONVERGENCE``. Planning aid.
+    """
+    out: Dict[str, Any] = {"feasible": False, "method": MULTI_SOLVER_VERSION, "objective": SOLVER_OBJECTIVE,
+                           "convergence": SOLVER_CONVERGENCE, "segments": [], "legs": [], "code": "",
+                           "reason": ""}
+    targets = list(targets or [])
+    if not targets:
+        return _fail(out, "NO_TARGETS", "Add at least one target.")
+    rates = list(dls) if isinstance(dls, (list, tuple)) else [dls] * len(targets)
+    holds = list(hold_after) if isinstance(hold_after, (list, tuple)) else [hold_after] * len(targets)
+    if len(rates) != len(targets) or len(holds) < len(targets) - 1:
+        return _fail(out, "INVALID_INPUT", "Give one build rate per leg and one hold-after length per target.")
+    if not _finite(kop_md, max_inc, step, *rates, *holds[:len(targets)]) or (
+            dls_limit is not None and not _finite(dls_limit)):
+        return _fail(out, "INVALID_INPUT", "KOP, rates, holds, limits and the station step must be finite numbers.")
+    if any(h < 0 for h in holds[:len(targets)]):
+        return _fail(out, "INVALID_INPUT", "A hold-after length cannot be negative.")
+    if step <= 0:
+        return _fail(out, "INVALID_INPUT", "The station step must be positive.")
+    if dls_limit is not None:
+        for number, rate in enumerate(rates, 1):
+            if rate > dls_limit + 1e-9:
+                out["failed_leg"] = number
+                return _fail(out, "DLS_LIMIT", f"Leg {number}: the rate {rate:g} deg/30 m exceeds the DLS limit "
+                                               f"{dls_limit:g} deg/30 m.")
+    start = _full_tie_in(tie_in)
+    state, kop, segments, expected = dict(start), float(kop_md), [], []
+    for number, target in enumerate(targets, 1):
+        name = target.get("name") or f"target {number}"
+        answer = solve_build_hold(target, kop_md=kop, dls=rates[number - 1], tie_in=state, max_inc=max_inc)
+        if not answer["feasible"]:
+            out["failed_leg"] = number
+            return _fail(out, answer["code"], f"Leg {number} ({name}): {answer['reason']}")
+        target_md = kop + answer["curve_length"] + answer["hold_length"]
+        segments.extend(answer["segments"])
+        expected.append(target_md)
+        out["legs"].append({"number": number, "target": name, "start_md": state["md"], "kop_md": kop,
+                            "target_md": target_md, "dls": rates[number - 1], "inc": answer["inc"],
+                            "azi": answer["azi"], "dogleg_deg": answer["dogleg_deg"],
+                            "curve_length": answer["curve_length"], "hold_length": answer["hold_length"],
+                            "max_inc_on_arc": answer["max_inc_on_arc"]})
+        state = {"md": target_md, "inc": answer["inc"], "azi": answer["azi"], "tvd": float(target["tvd"]),
+                 "north": float(target["north"]), "east": float(target["east"])}
+        kop = target_md + (float(holds[number - 1]) if number < len(targets) else 0.0)
+    out.update({"segments": segments, "td_md": expected[-1]})
+    _verify(out, segments, start, targets, expected, step)
+    if out.get("code") == "NOT_CONVERGED":
+        return out
+    out.update({"feasible": True, "code": "OK", "reason": ""})
+    return out
+
+
+def solve_s_profile(target: Dict[str, Any], *, kop_md: float, build_dls: float, drop_dls: float,
+                    final_inc: float = 0.0, final_hold: float = 0.0, tie_in=None, max_inc: float = 90.0,
+                    dls_limit: Optional[float] = None, step: float = 30.0) -> Dict[str, Any]:
+    """S-profile: vertical to the KOP, build, tangent, drop to ``final_inc``, final hold into the target centre.
+
+    In the vertical plane of the target azimuth (X horizontal, Z down from the KOP), with R1 and R2 the build
+    and drop radii, theta the tangent inclination, L the tangent and Lf the final hold at theta_f:
+    X = R1(1 - cos theta) + L sin theta + R2(cos theta_f - cos theta) + Lf sin theta_f and
+    Z = R1 sin theta + L cos theta + R2(sin theta - sin theta_f) + Lf cos theta_f.
+    With A = X - Lf sin theta_f - R1 - R2 cos theta_f, B = Z - Lf cos theta_f + R2 sin theta_f, Rs = R1 + R2,
+    rho = hypot(A, B) and alpha = atan2(A, B): theta = alpha + asin(Rs/rho), L = sqrt(rho^2 - Rs^2).
+    The tie-in must be vertical (an inclined tie-in is NOT SUPPORTED here; use ``solve_multi_target``).
+    Infeasible: rho < Rs (target too close for the rates), theta not above theta_f (no drop), theta above
+    ``max_inc``, a rate above ``dls_limit``, no horizontal displacement. Planning aid; no optimality claim.
+    """
+    out: Dict[str, Any] = {"feasible": False, "method": MULTI_SOLVER_VERSION, "objective": SOLVER_OBJECTIVE,
+                           "convergence": SOLVER_CONVERGENCE, "segments": [], "code": "", "reason": ""}
+    values = [kop_md, build_dls, drop_dls, final_inc, final_hold, max_inc, step]
+    values += [target.get(k) for k in ("tvd", "north", "east")]
+    if not _finite(*values) or (dls_limit is not None and not _finite(dls_limit)) or (
+            tie_in and not _finite(*(v for v in tie_in.values() if not isinstance(v, str)))):
+        return _fail(out, "INVALID_INPUT", "Target, KOP, rates, final inclination/hold and limits must be finite.")
+    start = _full_tie_in(tie_in)
+    if start["inc"] > 1e-9:
+        return _fail(out, "NOT_SUPPORTED", "The S-profile solver needs a vertical tie-in; use the multi-target "
+                                           "solver from an inclined tie-in.")
+    if build_dls <= 0 or drop_dls <= 0:
+        return _fail(out, "NON_POSITIVE_RATE", "The build and drop rates must be positive.")
+    if step <= 0 or final_hold < 0 or not 0.0 <= final_inc < 90.0:
+        return _fail(out, "INVALID_INPUT", "Step must be positive, the final hold non-negative and the final "
+                                           "inclination within 0-90 deg.")
+    if kop_md < start["md"]:
+        return _fail(out, "KOP_ABOVE_TIE_IN", f"The KOP {kop_md:g} m is above the tie-in MD {start['md']:g} m.")
+    for label, rate in (("build", build_dls), ("drop", drop_dls)):
+        if dls_limit is not None and rate > dls_limit + 1e-9:
+            return _fail(out, "DLS_LIMIT", f"The {label} rate {rate:g} deg/30 m exceeds the DLS limit "
+                                           f"{dls_limit:g} deg/30 m.")
+    lead = kop_md - start["md"]
+    p0 = (start["north"], start["east"], start["tvd"] + lead)
+    dn, de, dz = float(target["north"]) - p0[0], float(target["east"]) - p0[1], float(target["tvd"]) - p0[2]
+    x = math.hypot(dn, de)
+    if x <= 1e-9:
+        return _fail(out, "NO_DISPLACEMENT", "The target is directly below the KOP; an S-profile needs a "
+                                             "horizontal displacement.")
+    if dz <= 0:
+        return _fail(out, "TARGET_NOT_BELOW_KOP", "The target is not below the KOP.")
+    azi = math.degrees(math.atan2(de, dn)) % 360.0
+    r1, r2 = 5400.0 / (math.pi * build_dls), 5400.0 / (math.pi * drop_dls)
+    tf = math.radians(final_inc)
+    a = x - final_hold * math.sin(tf) - r1 - r2 * math.cos(tf)
+    b = dz - final_hold * math.cos(tf) + r2 * math.sin(tf)
+    rs, rho = r1 + r2, math.hypot(a, b)
+    out.update({"build_radius": r1, "drop_radius": r2, "azi": azi, "horizontal_offset": x, "kop_tvd": p0[2]})
+    if rho < rs:
+        return _fail(out, "INSIDE_TURN_RADIUS", f"Infeasible: the target is too close for build radius {r1:.1f} m "
+                                                f"plus drop radius {r2:.1f} m; lower the rates or move the KOP up.")
+    theta = math.atan2(a, b) + math.asin(rs / rho)
+    tangent = math.sqrt(max(rho * rho - rs * rs, 0.0))
+    peak = math.degrees(theta)
+    if peak <= final_inc + 1e-9:
+        return _fail(out, "NO_DROP", f"Infeasible: the tangent inclination {peak:.2f} deg is not above the final "
+                                     f"inclination {final_inc:g} deg (this target needs a build-hold, not an S).")
+    if peak >= 180.0 - 1e-9 or peak > max_inc + 1e-9:
+        return _fail(out, "INC_LIMIT", f"Infeasible: the tangent inclination {peak:.2f} deg exceeds the limit "
+                                       f"{max_inc:g} deg.")
+    segments = []
+    if lead > 1e-9:
+        segments.append({"type": "hold", "length": lead})
+    segments.append({"type": "curve", "inc": peak, "azi": azi, "dls": float(build_dls)})
+    if tangent > 1e-9:
+        segments.append({"type": "hold", "length": tangent})
+    segments.append({"type": "curve", "inc": float(final_inc), "azi": azi, "dls": float(drop_dls)})
+    if final_hold > 1e-9:
+        segments.append({"type": "hold", "length": float(final_hold)})
+    build_len = r1 * theta
+    drop_len = r2 * (theta - tf)
+    td = kop_md + build_len + tangent + drop_len + final_hold
+    out.update({"segments": segments, "inc": peak, "hold_length": tangent, "build_length": build_len,
+                "drop_length": drop_len, "final_inc": float(final_inc), "final_hold": float(final_hold),
+                "td_md": td})
+    _verify(out, segments, start, [target], [td], step)
+    if out.get("code") == "NOT_CONVERGED":
+        return out
+    out.update({"feasible": True, "code": "OK", "reason": ""})
+    return out

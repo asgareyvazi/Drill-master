@@ -40,6 +40,8 @@ PLOTS = (("inc", "Inclination (deg) vs MD"), ("azi", "Azimuth (deg) vs MD"),
          ("dls", "DLS (deg/30 m) vs MD"), ("tvd", "TVD (m) vs MD"))
 
 
+SOLVE_FIRST, SOLVE_ALL, SOLVE_S = "first", "all", "s_profile"     # M106 solver modes
+
 class WellPlanDesignerPanel(QWidget):
     """Plan designer.  The designed stations are handed over through ``plan_ready``
     (Qt signal: no Python reference back to the receiver, so an embedding viewer is
@@ -135,11 +137,30 @@ class WellPlanDesignerPanel(QWidget):
         self.solve_btn = QPushButton("Solve to first target")
         self.solve_btn.setToolTip("Closed-form build-and-hold through the first target's centre (vertical tie-in only).")
         self.solve_btn.clicked.connect(self.solve_to_target)
+        # M106: solver mode; "first" keeps the M86 behaviour unchanged
+        self.solver_mode_combo = QComboBox()
+        for label, mode in (("Curve-hold to the first target", SOLVE_FIRST),
+                            ("Through all targets (multi-segment)", SOLVE_ALL),
+                            ("S-profile to the first target", SOLVE_S)):
+            self.solver_mode_combo.addItem(label, mode)
+        self.solver_mode_combo.currentIndexChanged.connect(lambda _i: self._solver_mode_changed())
+        self.drop_spin = self._spin(0.1, 30, 2, " deg/30m")
+        self.final_inc_spin = self._spin(0, 89.9, 0, " deg")
+        self.final_hold_spin = self._spin(0, 10000, 0, " m")
+        self.max_inc_spin = self._spin(1, 180, 90, " deg")
         for label, widget in (("KOP", self.kop_spin), ("Build", self.build_spin)):
             solve_row.addWidget(QLabel(label))
             solve_row.addWidget(widget)
         solve_row.addWidget(self.solve_btn)
         form.addRow("Target solver", solve_row)
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(self.solver_mode_combo)
+        for label, widget in (("Max inc", self.max_inc_spin), ("Drop", self.drop_spin),
+                              ("Final inc", self.final_inc_spin), ("Final hold", self.final_hold_spin)):
+            mode_row.addWidget(QLabel(label))
+            mode_row.addWidget(widget)
+        form.addRow("Solver mode", mode_row)
+        self._solver_mode_changed()
         layout.addLayout(form)
 
         layout.addWidget(QLabel("Targets (local north/east from wellhead, TVD below rotary table)"))
@@ -431,9 +452,20 @@ class WellPlanDesignerPanel(QWidget):
             raise ValueError(f"survey revision {revision_id} is not available for this well")
         return sr.tie_in_from_revision(revision)
 
+    def _solver_mode_changed(self) -> None:
+        mode = self.solver_mode_combo.currentData()
+        for widget in (self.drop_spin, self.final_inc_spin, self.final_hold_spin):
+            widget.setEnabled(mode == SOLVE_S)
+        self.max_inc_spin.setEnabled(mode != SOLVE_FIRST)
+        self.solve_btn.setText({SOLVE_FIRST: "Solve to first target", SOLVE_ALL: "Solve through all targets",
+                                SOLVE_S: "Solve S-profile"}[mode])
+
     def solve_to_target(self) -> Optional[dict]:
         """Fill the segments from the closed-form solver; the user still designs and saves explicitly."""
         from core.well_plan_designer import solve_build_hold
+
+        if self.solver_mode_combo.currentData() != SOLVE_FIRST:
+            return self._solve_m106()
 
         try:
             _segments, targets = self.gather()
@@ -456,6 +488,44 @@ class WellPlanDesignerPanel(QWidget):
         self.summary_label.setText(
             self.summary_label.text() + f"\nSolved ({answer['method']}): hold {answer['inc']:.3f} deg at azimuth "
             f"{answer['azi']:.3f} deg, dogleg {answer['dogleg_deg']:.3f} deg, tangent {answer['hold_length']:.2f} m.")
+        return answer
+
+    def _solve_m106(self) -> Optional[dict]:
+        """M106: multi-target or S-profile; verified by the canonical engine before the segments are filled."""
+        from core import well_plan_designer as wpd
+
+        try:
+            _segments, targets = self.gather()
+            tie_in = self.tie_in()
+        except ValueError as exc:
+            self.summary_label.setText(f"Not solved: {exc}.")
+            return None
+        if not targets:
+            self.summary_label.setText("Not solved: add a target first.")
+            return None
+        limit = self.dls_limit_spin.value() or None
+        if self.solver_mode_combo.currentData() == SOLVE_ALL:
+            answer = wpd.solve_multi_target(targets, kop_md=self.kop_spin.value(), dls=self.build_spin.value(),
+                                            tie_in=tie_in, max_inc=self.max_inc_spin.value(), dls_limit=limit,
+                                            step=self.step_spin.value())
+        else:
+            answer = wpd.solve_s_profile(targets[0], kop_md=self.kop_spin.value(), build_dls=self.build_spin.value(),
+                                         drop_dls=self.drop_spin.value(), final_inc=self.final_inc_spin.value(),
+                                         final_hold=self.final_hold_spin.value(), tie_in=tie_in,
+                                         max_inc=self.max_inc_spin.value(), dls_limit=limit,
+                                         step=self.step_spin.value())
+        if not answer["feasible"]:
+            self.summary_label.setText(f"Not solved [{answer.get('code', '')}]: {answer['reason']}")
+            return answer
+        self.segment_table.setRowCount(0)
+        for seg in answer["segments"]:
+            self.add_segment(seg["type"], seg.get("length"), seg.get("inc"), seg.get("azi"), seg.get("dls"))
+        self.design()
+        misses = ", ".join(f"{row['name']} {row['distance']:.4f} m" for row in answer["verification"]["targets"])
+        self.summary_label.setText(
+            self.summary_label.text() + f"\nSolved ({answer['method']}): {len(answer['segments'])} segment(s), "
+            f"TD {answer['td_md']:.2f} m MD; verified misses {misses} (tolerance "
+            f"{answer['verification']['tolerance_m']} m). One feasible profile, not an optimum.")
         return answer
 
     def _show_plan(self, plan: dict, verb: str) -> None:

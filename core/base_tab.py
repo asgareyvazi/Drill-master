@@ -152,7 +152,8 @@ class DrillTabBase(QWidget):
     def _on_well_changed_internal(self, well_id, well_data):
         self.current_well_id = well_id
         self.current_well_data = well_data or {}
-        self.current_wellbore_id = self.sel_manager.current_wellbore_id   # a well switch clears it silently
+        manager = getattr(self, "sel_manager", None)      # editors built without one (tests, stubs): unknown
+        self.current_wellbore_id = manager.current_wellbore_id if manager is not None else None   # a well switch clears it
         self.current_section_id = self.current_report_id = None
         self.current_section_data = {}
         self.current_report_data = {}
