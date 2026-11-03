@@ -1076,6 +1076,8 @@ class TrajectoryCalculation(Base):
         Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=True
     )
     method = Column(String(50), default="Minimum Curvature")
+    # M108: full method version of records saved from M108 on; NULL = unversioned legacy (never back-filled)
+    method_version = Column(String(120), nullable=True)
     calculation_date = Column(Date, nullable=False)
     parameters_json = Column(JSON, nullable=True)
     results_json = Column(JSON, nullable=True)
@@ -2031,6 +2033,8 @@ ADDITIVE_COLUMNS = (
     ("mse_calculations", "report_id", "INTEGER REFERENCES daily_reports(id) ON DELETE SET NULL"),
     ("mse_calculations", "input_source", "VARCHAR(80)"),
     ("mse_calculations", "lineage_version", "INTEGER"),
+    # M108: trajectory records carry their method version (legacy rows stay NULL = unversioned).
+    ("trajectory_calculations", "method_version", "VARCHAR(120)"),
 )
 
 
@@ -7197,76 +7201,55 @@ class DatabaseManager:
 
     # ========== Trajectory Calculation ==========
     def save_trajectory_calculation(self, calculation_data: dict):
+        """Insert a NEW trajectory calculation (M108 / D27: never updates an earlier record in place).
+
+        ``method_version`` is stored only when the caller supplies one; nothing is assumed.
+        """
         session = self.create_session()
         try:
-            if calculation_data.get('report_id'):
-                existing = session.query(TrajectoryCalculation).filter(
-                    TrajectoryCalculation.report_id == calculation_data['report_id']
-                ).first()
-            elif calculation_data.get('well_id') and calculation_data.get('calculation_date'):
-                existing = session.query(TrajectoryCalculation).filter(
-                    TrajectoryCalculation.well_id == calculation_data['well_id'],
-                    TrajectoryCalculation.calculation_date == calculation_data['calculation_date']
-                ).first()
-            else:
-                existing = None
+            calc = TrajectoryCalculation(
+                well_id=calculation_data['well_id'],
+                section_id=calculation_data.get('section_id'),
+                report_id=calculation_data.get('report_id'),
+                method=calculation_data.get('method', 'Minimum Curvature'),
+                method_version=calculation_data.get('method_version'),
+                calculation_date=calculation_data.get('calculation_date', date.today()),
+                parameters_json=calculation_data.get('parameters', {}),
+                results_json=calculation_data.get('results', {}),
+                target_north=calculation_data.get('target_north'),
+                target_east=calculation_data.get('target_east'),
+                target_tvd=calculation_data.get('target_tvd'),
+                total_hd=calculation_data.get('total_hd'),
+                total_tvd=calculation_data.get('total_tvd'),
+                total_md=calculation_data.get('total_md'),
+                description=calculation_data.get('description', ''),
+                calculated_by=calculation_data.get('calculated_by')
+            )
+            session.add(calc)
+            session.flush()
+            record_id = calc.id
 
-            if existing:
-                existing.method = calculation_data.get('method', existing.method)
-                existing.parameters_json = calculation_data.get('parameters', existing.parameters_json)
-                existing.results_json = calculation_data.get('results', existing.results_json)
-                existing.target_north = calculation_data.get('target_north', existing.target_north)
-                existing.target_east = calculation_data.get('target_east', existing.target_east)
-                existing.target_tvd = calculation_data.get('target_tvd', existing.target_tvd)
-                existing.total_hd = calculation_data.get('total_hd', existing.total_hd)
-                existing.total_tvd = calculation_data.get('total_tvd', existing.total_tvd)
-                existing.total_md = calculation_data.get('total_md', existing.total_md)
-                existing.description = calculation_data.get('description', existing.description)
-                existing.updated_at = _now_utc()
-                record_id = existing.id
-            else:
-                calc = TrajectoryCalculation(
-                    well_id=calculation_data['well_id'],
-                    section_id=calculation_data.get('section_id'),
+            # Save associated survey points
+            survey_points = calculation_data.get('survey_points', [])
+            for point in survey_points:
+                new_point = SurveyPoint(
+                    well_id=calc.well_id,
+                    section_id=calc.section_id,
+                    calculation_id=record_id,
                     report_id=calculation_data.get('report_id'),
-                    method=calculation_data.get('method', 'Minimum Curvature'),
-                    calculation_date=calculation_data.get('calculation_date', date.today()),
-                    parameters_json=calculation_data.get('parameters', {}),
-                    results_json=calculation_data.get('results', {}),
-                    target_north=calculation_data.get('target_north'),
-                    target_east=calculation_data.get('target_east'),
-                    target_tvd=calculation_data.get('target_tvd'),
-                    total_hd=calculation_data.get('total_hd'),
-                    total_tvd=calculation_data.get('total_tvd'),
-                    total_md=calculation_data.get('total_md'),
-                    description=calculation_data.get('description', ''),
-                    calculated_by=calculation_data.get('calculated_by')
+                    md=point['md'],
+                    inc=point['inc'],
+                    azi=point['azi'],
+                    tvd=point.get('tvd'),
+                    north=point.get('north'),
+                    east=point.get('east'),
+                    vs=point.get('vs'),
+                    hd=point.get('hd'),
+                    dls=point.get('dls'),
+                    tool=point.get('tool', 'MWD'),
+                    remarks=point.get('remarks')
                 )
-                session.add(calc)
-                session.flush()
-                record_id = calc.id
-
-                # Save associated survey points
-                survey_points = calculation_data.get('survey_points', [])
-                for point in survey_points:
-                    new_point = SurveyPoint(
-                        well_id=calc.well_id,
-                        section_id=calc.section_id,
-                        calculation_id=record_id,
-                        report_id=calculation_data.get('report_id'),
-                        md=point['md'],
-                        inc=point['inc'],
-                        azi=point['azi'],
-                        tvd=point.get('tvd'),
-                        north=point.get('north'),
-                        east=point.get('east'),
-                        vs=point.get('vs'),
-                        hd=point.get('hd'),
-                        dls=point.get('dls'),
-                        tool=point.get('tool', 'MWD'),
-                        remarks=point.get('remarks')
-                    )
-                    session.add(new_point)
+                session.add(new_point)
 
             session.commit()
             return record_id

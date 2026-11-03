@@ -215,7 +215,8 @@ class CalculationHistoryTab(QWidget):
                                                       else f"{d['unit_a'] or 'no unit'} vs {d['unit_b'] or 'no unit'}")
                      for d in numeric[part]]
             self.detail.append(f"Numeric {part} differences: " + ("; ".join(lines) if lines else "none"))
-        return {**ch.compare_entries(*chosen), "numeric": numeric}
+        full = ch.full_field_compare(*chosen)   # M108: every field, with units (also in the report HTML)
+        return {**ch.compare_entries(*chosen), "numeric": numeric, "full": full}
 
     def recalculate(self) -> Optional[dict]:
         chosen = self.selected()

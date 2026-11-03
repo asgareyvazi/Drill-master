@@ -532,8 +532,9 @@ def compose_plan(rows: list):
 
 def calculation_record(comparison: Comparison, *, inputs: dict) -> dict:
     """Fields for a NEW ``TrajectoryCalculation`` row (results are never overwritten)."""
-    return {"method": METHOD_VERSION[:50], "description": LABEL,
-            "parameters_json": {"contract": CONTRACT, "inputs": inputs},
+    return {"method": METHOD_VERSION[:50], "method_version": METHOD_VERSION, "description": LABEL,
+            "parameters_json": {"contract": CONTRACT, "record_schema": RECORD_SCHEMA, "inputs": inputs,
+                                "inputs_sha256": inputs_sha256(inputs)},     # M108: self-contained and re-runnable
             "results_json": comparison.to_json()}
 
 
@@ -567,9 +568,143 @@ def save_comparison(db_manager, well_id: int, comparison: Comparison, *, inputs:
     record = calculation_record(comparison, inputs=inputs)
     with db_manager.session_scope() as session:
         calc = TrajectoryCalculation(
-            well_id=well_id, method=record["method"], calculation_date=date.today(),
+            well_id=well_id, method=record["method"], method_version=record["method_version"],
+            calculation_date=date.today(),
             parameters_json=record["parameters_json"], results_json=record["results_json"],
             description=record["description"], calculated_by=user_id)
         session.add(calc)
         session.flush()
         return int(calc.id)
+
+
+# ---- M108: self-contained records, re-run and verification --------------------------------------------
+RECORD_SCHEMA = 2          # 2 = the inputs (every station row) are stored with the record (M108)
+VERIFY_TOLERANCE_M = 1e-6  # the comparison is deterministic: a re-run on the same inputs repeats it
+
+
+def target_checks(actual, targets, *, step: float) -> list:
+    """M72: closest approach of the ACTUAL path to each plan target (SCREENING; centre distances only).
+
+    A target needs north, east and TVD; without a radius it is never reported as hit.
+    (Moved here from the panel in M108 so a stored record can be re-run without Qt.)
+    """
+    if not targets or not getattr(actual, "drawable", False):
+        return []
+    path = path_from_trajectory(actual)
+    out = []
+    for target in targets:
+        try:
+            point = (float(target["north"]), float(target["east"]), float(target["tvd"]))
+        except (KeyError, TypeError, ValueError):
+            out.append({"name": target.get("name", "?"), "status": "NOT ASSESSED",
+                        "reason": "target north/east/TVD missing"})
+            continue
+        md, distance = closest_point(path, point, step=step)
+        radius = target.get("radius")
+        out.append({"name": target.get("name", "Target"), "status": "ASSESSED", "actual_md": md,
+                    "distance_m": distance, "radius_m": radius,
+                    "hit": (distance <= float(radius)) if radius not in (None, "") else None})
+    return out
+
+
+def run_comparison(inputs: dict) -> Comparison:
+    """The comparison from plain inputs (worker body of the panel and the re-run of a stored record)."""
+    actual = compose_well_trajectory(inputs["actual_rows"])
+    if inputs["mode"] == "plan":
+        result = compare_plan(actual, compose_plan(inputs["plan_rows"]), step=inputs["step"])
+        result.target_checks = target_checks(actual, inputs.get("targets") or (), step=inputs["step"])
+        if inputs.get("reference_check"):
+            result.warnings.append(inputs["reference_check"])     # M105: declared references, or why unverified
+        return result
+    offset = compose_well_trajectory(inputs["offset_rows"])
+    return compare_wells(actual, inputs["reference_well"], offset, inputs["offset_well"],
+                         same_crs_confirmed=inputs["same_crs"], step=inputs["step"])
+
+
+def inputs_sha256(inputs: dict) -> str:
+    import hashlib
+    import json
+
+    text = json.dumps(inputs, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _rows_stored(inputs: dict) -> list:
+    """Names of the station lists a re-run needs that are missing from stored inputs."""
+    need = ["actual_rows"] + (["plan_rows"] if inputs.get("mode") == "plan" else ["offset_rows"])
+    return [name for name in need if not isinstance(inputs.get(name), list) or not inputs.get(name)]
+
+
+def record_reproducibility(parameters: dict, version: str) -> tuple:
+    """(REPRODUCIBLE | NOT REPRODUCIBLE, reason) of a stored trajectory record."""
+    parameters = parameters if isinstance(parameters, dict) else {}
+    if not version or version.startswith("unversioned"):
+        return "NOT REPRODUCIBLE", ("saved before M108: no method version was recorded and the input stations "
+                                    "were not stored")
+    if version != METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"method version {version!r} is not available in this build"
+    inputs = parameters.get("inputs")
+    if parameters.get("record_schema") != RECORD_SCHEMA or not isinstance(inputs, dict):
+        return "NOT REPRODUCIBLE", "the record does not hold its inputs (record schema before 2)"
+    missing = _rows_stored(inputs)
+    if missing:
+        return "NOT REPRODUCIBLE", f"input station rows not stored: {', '.join(missing)}"
+    return "REPRODUCIBLE", "the stored stations are re-run with the same method"
+
+
+def verify_record(parameters: dict, results: dict, version: str) -> dict:
+    """Re-run a stored trajectory record and compare every stored result field.
+
+    NOT_REPRODUCIBLE (legacy, other version, inputs not stored); UNREADABLE when the inputs hash does not
+    match (never recomputed from altered data); MATCH / DIFFERENT within ``VERIFY_TOLERANCE_M`` on every
+    numeric field, exact on text, plus the stored target checks.
+    """
+    blank = {"method_matches": None, "current_method": "", "values": {}, "differences": [], "not_compared": []}
+    status, why = record_reproducibility(parameters, version)
+    if status != "REPRODUCIBLE":
+        return {**blank, "status": "NOT_REPRODUCIBLE", "detail": f"{why}; the stored result is shown as saved."}
+    inputs = parameters["inputs"]
+    if parameters.get("inputs_sha256") != inputs_sha256(inputs):
+        return {**blank, "status": "UNREADABLE",
+                "detail": "the stored inputs do not match their SHA-256; nothing was recomputed"}
+    try:
+        current = run_comparison(inputs)
+    except (KeyError, TypeError, ValueError) as exc:
+        return {**blank, "status": "UNREADABLE", "detail": f"stored inputs could not be re-run: {exc}"}
+    fresh = current.to_json()
+    stored = {k: v for k, v in (results or {}).items() if k != "contract"}
+    fresh = {k: v for k, v in fresh.items() if k != "contract"}
+    if "target_checks" in inputs:
+        stored["target_checks"] = inputs["target_checks"]
+        fresh["target_checks"] = getattr(current, "target_checks", [])
+    differences = _differences(stored, fresh)
+    return {"status": "DIFFERENT" if differences else "MATCH", "method_matches": current.method == version,
+            "current_method": current.method,
+            "detail": (f"{len(differences)} field(s) differ" if differences
+                       else f"every stored field repeated (numbers within {VERIFY_TOLERANCE_M:g} m)"),
+            "values": {"status": fresh.get("status"), "rows": len(fresh.get("rows") or [])},
+            "differences": differences, "not_compared": []}
+
+
+def _differences(stored, fresh, path: str = "") -> list:
+    out = []
+    if isinstance(stored, dict) and isinstance(fresh, dict):
+        for key in sorted(set(stored) | set(fresh), key=str):
+            out += _differences(stored.get(key), fresh.get(key), f"{path}{key}.")
+        return out
+    if isinstance(stored, (list, tuple)) and isinstance(fresh, (list, tuple)):
+        if len(stored) != len(fresh):
+            return [{"field_id": path.rstrip(".") + ".count", "stored": len(stored), "current": len(fresh)}]
+        for index, (a, b) in enumerate(zip(stored, fresh)):
+            out += _differences(a, b, f"{path}{index}.")
+        return out
+    numeric = (int, float)
+    if isinstance(stored, numeric) and isinstance(fresh, numeric) and not isinstance(stored, bool) \
+            and not isinstance(fresh, bool):
+        if abs(float(stored) - float(fresh)) > VERIFY_TOLERANCE_M:
+            out.append({"field_id": path.rstrip("."), "stored": stored, "current": fresh,
+                        "tolerance": VERIFY_TOLERANCE_M})
+        return out
+    if stored != fresh:
+        out.append({"field_id": path.rstrip("."), "stored": stored, "current": fresh})
+    return out

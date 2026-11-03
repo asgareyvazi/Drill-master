@@ -9,7 +9,8 @@
   whose late results are dropped by a token.
 * Every result shows ``LABEL``: screening only, no ISCWSA uncertainty, not
   approved.  NOT ASSESSED lists every missing input; nothing is guessed.
-* "Save" inserts a NEW calculation record (never overwrites); "Export CSV"
+* "Save" inserts a NEW calculation record (never overwrites) holding the method version and every input
+  station (M108), so History can re-run and verify it; "Export CSV"
   writes the shown rows with the label and method in the header.
 """
 from __future__ import annotations
@@ -27,7 +28,6 @@ from PySide6.QtWidgets import (
 
 from core import trajectory_compare as tc
 from core.async_workers import FunctionWorker, release_when_finished
-from core.well_trajectory import compose_well_trajectory
 
 logger = logging.getLogger(__name__)
 
@@ -39,41 +39,12 @@ OFFSET_COLUMNS = (("reference_md", "Reference MD (m)"), ("offset_md", "Offset MD
 
 
 def _compute(inputs: dict):
-    """Worker body: plain dicts in, a Comparison out (no Qt, no ORM)."""
-    actual = compose_well_trajectory(inputs["actual_rows"])
-    if inputs["mode"] == "plan":
-        result = tc.compare_plan(actual, tc.compose_plan(inputs["plan_rows"]), step=inputs["step"])
-        result.target_checks = target_checks(actual, inputs.get("targets") or (), step=inputs["step"])
-        if inputs.get("reference_check"):
-            result.warnings.append(inputs["reference_check"])     # M105: declared references, or why unverified
-        return result
-    offset = compose_well_trajectory(inputs["offset_rows"])
-    return tc.compare_wells(actual, inputs["reference_well"], offset, inputs["offset_well"],
-                            same_crs_confirmed=inputs["same_crs"], step=inputs["step"])
+    """Worker body: plain dicts in, a Comparison out (no Qt, no ORM). M108: the same function re-runs a
+    stored record, so it lives in ``core.trajectory_compare``."""
+    return tc.run_comparison(inputs)
 
 
-def target_checks(actual, targets, *, step: float) -> list:
-    """M72: closest approach of the ACTUAL path to each plan target (SCREENING; centre distances only).
-
-    A target needs north, east and TVD; without a radius it is never reported as hit.
-    """
-    if not targets or not getattr(actual, "drawable", False):
-        return []
-    path = tc.path_from_trajectory(actual)
-    out = []
-    for target in targets:
-        try:
-            point = (float(target["north"]), float(target["east"]), float(target["tvd"]))
-        except (KeyError, TypeError, ValueError):
-            out.append({"name": target.get("name", "?"), "status": "NOT ASSESSED",
-                        "reason": "target north/east/TVD missing"})
-            continue
-        md, distance = tc.closest_point(path, point, step=step)
-        radius = target.get("radius")
-        out.append({"name": target.get("name", "Target"), "status": "ASSESSED", "actual_md": md,
-                    "distance_m": distance, "radius_m": radius,
-                    "hit": (distance <= float(radius)) if radius not in (None, "") else None})
-    return out
+target_checks = tc.target_checks     # M72 helper, moved to the core in M108 (kept for callers)
 
 
 class TrajectoryComparePanel(QWidget):
@@ -410,14 +381,15 @@ class TrajectoryComparePanel(QWidget):
     def save(self) -> Optional[int]:
         if self.result is None or self.result.status != tc.ASSESSED or not self.last_inputs:
             return None
-        inputs = {k: v for k, v in self.last_inputs.items() if not k.endswith("_rows")}
+        # M108: the station rows are stored with the record so it can be re-run and verified later
+        inputs = {k: v for k, v in self.last_inputs.items()}
         inputs["actual_stations"] = len(self.last_inputs.get("actual_rows") or [])
         inputs["actual_source"] = ("survey revision" if self.last_inputs.get("actual_survey_revision_id")
                                    else "live survey points (not a revision)")
         if getattr(self.result, "target_checks", None):
             inputs["target_checks"] = self.result.target_checks
         if "plan_rows" in self.last_inputs:
-            inputs["plan_stations"] = self.last_inputs["plan_rows"]
+            inputs["plan_stations"] = len(self.last_inputs["plan_rows"])
         if "offset_rows" in self.last_inputs:
             inputs["offset_stations"] = len(self.last_inputs["offset_rows"])
         from core.permissions import permissions

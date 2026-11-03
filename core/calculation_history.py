@@ -9,6 +9,10 @@ modified here: the adapters only read. Sources:
   input_snapshot_json / result_json``;
 * ``trajectory_calculations`` (``parameters_json`` / ``results_json``);
 * ``calculation_cases`` (M63) and ``directional_plan_revisions`` (M62);
+* M108: trajectory records saved from M108 on carry ``method_version`` and their
+  input stations, so they re-run; older rows stay "unversioned (legacy)" and NOT
+  REPRODUCIBLE. ``full_field_compare`` lists every input and result field with its
+  unit; ``coverage`` is the per-source register.
 * M88: ``survey_revisions`` (M72/M85) and ``well_architecture_revisions``
   (M74). Their recalculation re-runs minimum curvature / the architecture
   validator from the stored stations / components after the SHA-256 check;
@@ -109,7 +113,8 @@ def _adapters():
 
     def trajectory(row):
         return HistoryEntry("Trajectory", "trajectory_calculations", row.id, row.well_id,
-                            row.description or f"Trajectory #{row.id}", row.method or "", "unversioned (legacy)",
+                            row.description or f"Trajectory #{row.id}", row.method or "",
+                            row.method_version or "unversioned (legacy)",   # M108: legacy rows never get one
                             row.created_at, "CALCULATION", _json(row.parameters_json), _json(row.results_json))
 
     def case(row):
@@ -270,6 +275,10 @@ def entry_status(entry: HistoryEntry) -> Dict[str, str]:
         reproducible, why = "REPRODUCIBLE", "a recalculation adapter exists"
     elif entry.table == "calculation_cases":
         reproducible, why = contracts.reproducibility(entry.method, entry.version)
+    elif entry.table == "trajectory_calculations":
+        from core import trajectory_compare as tc
+
+        reproducible, why = tc.record_reproducibility(entry.inputs, entry.version)
     else:
         reproducible, why = "NOT REPRODUCIBLE", f"no recalculation adapter for {entry.source}"
     return {"readable": "READABLE" if readable else "UNREADABLE",
@@ -413,7 +422,25 @@ def render_comparison_report(a: HistoryEntry, b: HistoryEntry, *, well_label: st
             f"B: {html.escape(b.source)} — {html.escape(b.name)} ({b.key})</p>{warn}"
             f"<h2>Inputs that differ</h2>{_table(report['inputs'], ('Input', 'A', 'B'))}"
             f"<h2>Results that differ</h2>{_table(report['results'], ('Result', 'A', 'B'))}"
+            f"{_full_field_html(full_field_compare(a, b))}"
             f"{_footer(well_label)}</body></html>")
+
+
+def _full_field_html(full: Dict[str, Any]) -> str:
+    """M108: every field of both entries with its unit; unit mismatches are listed, never converted silently."""
+    def cells(row):
+        if row["status"] == "UNIT MISMATCH":
+            hint = f" (B = {row['b_in_unit_a']:.6g} {row['unit_a']})" if "b_in_unit_a" in row else ""
+            return (row["key"], row["status"], row["a"], row["b"], f"{row['unit_a'] or 'no unit'} vs "
+                    f"{row['unit_b'] or 'no unit'}{hint}")
+        return (row["key"], row["status"], "" if row["a"] is None else row["a"],
+                "" if row["b"] is None else row["b"], row.get("unit") or "")
+
+    counts = ", ".join(f"{k} {v}" for k, v in sorted(full["counts"].items())) or "no fields"
+    return (f"<h2>Full-field comparison</h2><p class='note'>{html.escape(counts)}. Units from the stored entry "
+            "or the key suffix; a unit mismatch is never converted silently.</p>"
+            f"<h3>Inputs</h3>{_table([cells(r) for r in full['inputs']], ('Field', 'Status', 'A', 'B', 'Unit'))}"
+            f"<h3>Results</h3>{_table([cells(r) for r in full['results']], ('Field', 'Status', 'A', 'B', 'Unit'))}")
 
 
 # -- recalculation (original never modified) -------------------------------------------------------
@@ -458,6 +485,10 @@ def recalculate_entry(entry: HistoryEntry) -> Dict[str, Any]:
         from core import calculator_contracts as contracts
 
         return contracts.verify_case(entry.method, entry.version, entry.inputs, entry.results)
+    if entry.table == "trajectory_calculations":
+        from core import trajectory_compare as tc
+
+        return tc.verify_record(entry.inputs, entry.results, entry.version)
     if entry.table == "survey_revisions":
         return _verify_survey(entry)
     if entry.table == "well_architecture_revisions":
@@ -627,3 +658,143 @@ def save_recalculation(db, entry: HistoryEntry, outcome: Dict[str, Any]) -> Dict
                      "source_method": entry.method, "source_method_version": entry.version,
                      "recalc_method": current, "recalc_method_version": outcome.get("current_method") or "",
                      "verification_status": outcome["status"], "method_changed": method_changed})
+
+
+# ---- M108: full-field, unit-aware comparison and the coverage register ---------------------------------
+# Key suffix -> unit, for stored engine values that carry the unit in the key (``hook_load_lbs``). Longest first.
+_SUFFIX_UNITS = (
+    ("_psi_ft", "psi/ft"), ("_bbl_ft", "bbl/ft"), ("_bbl_min", "bbl/min"), ("_ft_lbf", "ft-lbf"),
+    ("_lb_per_bbl", "lb/bbl"), ("_ft3_sk", "ft³/sk"), ("_ft_hr", "ft/hr"), ("_deg_30m", "deg/30m"),
+    ("_klbf", "klbf"), ("_lbf", "lbf"), ("_lbs", "lbf"), ("_psi", "psi"), ("_ppg", "ppg"), ("_pcf", "pcf"),
+    ("_bbl", "bbl"), ("_gpm", "gpm"), ("_ft3", "ft3"), ("_ft", "ft"), ("_in2", "in²"), ("_in", "in"),
+    ("_deg", "deg"), ("_min", "min"), ("_hr", "hr"), ("_hp", "hp"), ("_pct", "%"), ("_m", "m"),
+)
+# unit -> UnitManager quantity, for an explicit (never silent) conversion hint on a unit mismatch
+_QUANTITY = {"m": "length", "ft": "length", "in": "length", "psi": "pressure", "bar": "pressure",
+             "kPa": "pressure", "ppg": "density", "pcf": "density", "sg": "density", "bbl": "volume",
+             "m3": "volume", "gal": "volume", "ft3": "volume", "gpm": "flow_rate", "bbl/min": "flow_rate",
+             "lbf": "force", "klbf": "force", "kn": "force", "deg": "angle", "rad": "angle",
+             "ft/hr": "rop", "m/hr": "rop", "deg/30m": "dls", "deg/100ft": "dls"}
+
+
+def _key_unit(key: str) -> str:
+    leaf = key.rsplit(".", 1)[-1].lower()
+    for suffix, unit in _SUFFIX_UNITS:
+        if leaf.endswith(suffix):
+            return unit
+    return ""
+
+
+def _fields(data: Dict[str, Any]) -> Dict[str, Tuple[Any, str, str]]:
+    """Every leaf field -> (value, unit, unit source). ``{"value", "unit"}`` entries count as one field."""
+    out: Dict[str, Tuple[Any, str, str]] = {}
+    for key, entry in (data or {}).items():
+        if isinstance(entry, dict) and "value" in entry and not isinstance(entry.get("value"), (dict, list)):
+            unit = str(entry.get("unit") or "")
+            out[str(key)] = (entry.get("value"), unit, "stored" if unit else "")
+            continue
+        for path, value in flatten({key: entry}).items():
+            out[path] = (value, _key_unit(path), "key suffix" if _key_unit(path) else "")
+    for path in [p for p in out if p.endswith(".unit")]:           # {"value": x, "unit": u} nested deeper
+        base = path[:-len(".unit")]
+        if base + ".value" in out:
+            value, _unit, _src = out.pop(base + ".value")
+            out[base] = (value, str(out.pop(path)[0] or ""), "stored")
+    return out
+
+
+def _convertible(value: float, unit_from: str, unit_to: str) -> Optional[float]:
+    quantity = _QUANTITY.get(unit_from)
+    if not quantity or _QUANTITY.get(unit_to) != quantity:
+        return None
+    try:
+        from core.unit_manager import UnitManager
+
+        return float(UnitManager.convert(value, quantity, unit_from, unit_to))
+    except Exception:  # silent-ok: no conversion offered; the mismatch is still listed
+        return None
+
+
+def full_field_compare(a: HistoryEntry, b: HistoryEntry) -> Dict[str, Any]:
+    """M108: every input and result field of two entries, with its unit.
+
+    Status per field: SAME, DIFFERENT (numbers in one unit, with delta and relative change), CHANGED
+    (text or structure), ONLY A / ONLY B (absent on the other side) and UNIT MISMATCH (never converted
+    silently; when both units are of one quantity the converted value is offered as ``b_in_unit_a``).
+    Units come from the stored entry or, for engine values, from the key suffix (``unit_source``).
+    """
+    def side(left: Dict[str, Any], right: Dict[str, Any]) -> List[Dict[str, Any]]:
+        fa, fb = _fields(left), _fields(right)
+        rows = []
+        for key in sorted(set(fa) | set(fb)):
+            if key not in fb:
+                va, ua, sa = fa[key]
+                rows.append({"key": key, "status": "ONLY A", "a": va, "b": None, "unit": ua, "unit_source": sa})
+                continue
+            if key not in fa:
+                vb, ub, sb = fb[key]
+                rows.append({"key": key, "status": "ONLY B", "a": None, "b": vb, "unit": ub, "unit_source": sb})
+                continue
+            (va, ua, sa), (vb, ub, sb) = fa[key], fb[key]
+            na, nb = _number(va), _number(vb)
+            numeric = na is not None and nb is not None and not isinstance(va, str) and not isinstance(vb, str)
+            if numeric and ua != ub:
+                row = {"key": key, "status": "UNIT MISMATCH", "a": va, "b": vb, "unit_a": ua, "unit_b": ub}
+                converted = _convertible(nb, ub, ua) if ua and ub else None
+                if converted is not None:
+                    row["b_in_unit_a"] = converted
+                rows.append(row)
+            elif numeric:
+                rows.append({"key": key, "status": "SAME" if na == nb else "DIFFERENT", "a": na, "b": nb,
+                             "unit": ua, "unit_source": sa or sb, "delta": nb - na,
+                             "relative": (nb - na) / abs(na) if na else None})
+            else:
+                rows.append({"key": key, "status": "SAME" if va == vb else "CHANGED", "a": va, "b": vb,
+                             "unit": ua or ub, "unit_source": sa or sb})
+        return rows
+
+    inputs, results = side(a.inputs, b.inputs), side(a.full_results or a.results, b.full_results or b.results)
+    counts: Dict[str, int] = {}
+    for row in inputs + results:
+        counts[row["status"]] = counts.get(row["status"], 0) + 1
+    return {"inputs": inputs, "results": results, "counts": counts,
+            "same_source": a.source == b.source, "same_version": a.version == b.version}
+
+
+# Every persisted calculation source, what history knows about it (M108). ``coverage()`` adds live counts.
+COVERAGE = (
+    ("torque_drag_calculations", "Torque & drag", "every record (engine method + snapshot schema)",
+     "engine snapshot re-run"),
+    ("casing_calculations", "Casing design", "every record", "engine snapshot re-run"),
+    ("cement_calculations", "Cement volumes", "every record", "engine snapshot re-run"),
+    ("mse_calculations", "MSE", "every record", "engine snapshot re-run"),
+    ("mud_volume_calculations", "Mud volume", "every record", "engine snapshot re-run"),
+    ("well_control_kill_sheet_calculations", "Kill sheet", "every record", "engine snapshot re-run (TRAINING AID)"),
+    ("trajectory_calculations", "Trajectory", "records saved from M108 on; earlier rows are 'unversioned (legacy)'",
+     "re-run of the stored stations (M108 records); legacy rows NOT REPRODUCIBLE"),
+    ("calculation_cases", "Calculation case", "every case (W13_UNVERSIONED before M73)",
+     "contract re-run (18 W13 calculators); NOT_SUPPORTED calculators NOT REPRODUCIBLE"),
+    ("directional_plan_revisions", "Directional plan", "every revision", "plan re-design + result hash"),
+    ("survey_revisions", "Survey revision", "every revision", "minimum curvature re-run after the SHA-256 check"),
+    ("well_architecture_revisions", "Well architecture", "every revision (schema version)",
+     "validator re-run after the SHA-256 check"),
+)
+# Tables that look like calculation storage but are not calculations, with the reason.
+NOT_CALCULATIONS = {
+    "report_revisions": "daily report revisions (document history, not a calculation)",
+    "calculation_source_links": "lineage links between calculation records, not a calculation",
+}
+
+
+def coverage(db=None) -> List[Dict[str, Any]]:
+    """The coverage register; with ``db``, the number of records and of reproducible ones per source."""
+    rows = []
+    for table, source, versioned, recalculation in COVERAGE:
+        row = {"table": table, "source": source, "in_history": True, "method_version": versioned,
+               "recalculation": recalculation, "compare": "full-field, unit-aware (M108)"}
+        if db is not None:
+            entries = load_history(db, sources=[source])
+            row["records"] = len(entries)
+            row["reproducible"] = sum(entry_status(e)["reproducible"] == "REPRODUCIBLE" for e in entries)
+        rows.append(row)
+    return rows
