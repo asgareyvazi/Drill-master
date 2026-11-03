@@ -47,6 +47,13 @@ def _form_label(widget: QWidget) -> str:
     layout = parent.layout() if parent is not None else None
     if isinstance(layout, QFormLayout):
         label = layout.labelForField(widget)
+        if label is None:          # M107: a field nested in a row layout (e.g. radio buttons) takes the row label
+            for row in range(layout.rowCount()):
+                item = layout.itemAt(row, QFormLayout.FieldRole)
+                inner = item.layout() if item is not None else None
+                if inner is not None and inner.indexOf(widget) >= 0:
+                    label = layout.labelForField(inner)
+                    break
         if isinstance(label, QLabel):
             return label.text().strip().rstrip(":")
     return ""

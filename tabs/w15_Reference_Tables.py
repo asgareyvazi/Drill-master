@@ -726,7 +726,8 @@ class ReferenceTablesWidget(DrillTabBase):
                 ("YP (lb/100ft²)", "θ300 - PV"),
                 ("n (Power Law)", "3.32 × log(θ600/θ300)"),
                 ("K", "511 × θ300 / (511^n)"),
-                ("Barite (sacks)", "Vol(bbl) × 42 × (TargetMW - CurrentMW) / (1470 - TargetMW) / 100"),
+                ("Barite (sacks)", "Vol(bbl) × 5.6146 × ρ_add × (TargetMW - CurrentMW) / (ρ_add - TargetMW) / 100 "
+                                   "(pcf; barite 4.20 SG ≈ 262.2 pcf; 100-lb sacks)"),
                 ("MW Conversion", "ppg × 7.48 = pcf | ppg × 0.12 = sg"),
             ]),
             ("📐 Directional", [

@@ -15,7 +15,7 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 | `CementEngine` (cement.py) | Oilfield capacity (D²/1029.4) + stacked column hydrostatic | - | 8 |
 | `FishingEngine` (fishing.py) | Legacy free-point/stretch chart approximations — SCREENING | SCREENING | 3 |
 | `MSEEngine` (mse.py) | Teale (1965) Mechanical Specific Energy | - | 9 |
-| `MudVolumeEngine` (mud_volume.py) | Mass/volume balance; no hidden defaults | - | 7 |
+| `MudVolumeEngine` (mud_volume.py) | Mass/volume balance; no hidden defaults | - | 8 |
 | `TorqueDragEngine` (torque_drag.py) | Johancsik soft-string (SPE 11380) — SCREENING | SCREENING | 13 |
 | `WellControlEngine` (well_control.py) | IWCF / IADC well-control manuals; Bourgoyne et al. | - | 13 |
 

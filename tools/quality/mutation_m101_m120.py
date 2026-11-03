@@ -36,11 +36,54 @@ T102 = ["tests/test_m102_selection_context.py", "tests/test_m102_context_probes.
 CJ = "core/context_jobs.py"
 OA = "core/operational_analysis.py"
 WPD = "core/well_plan_designer.py"
+CC = "core/calculator_contracts.py"
+T107 = ["tests/test_m107_w13_contracts.py"]
 T106 = ["tests/test_m106_multi_segment_solver.py"]
 T104 = ["tests/test_m104_operational_kpis.py"]
 T103 = ["tests/test_m103_context_jobs.py"]
 
 MUTANTS = [
+    # ---- M107 W13 contracts (D8) and the weight-up sack count (D26) --------------------------------------
+    Mutant("CC-text-input-dropped", CC,
+           "        if spec.kind == \"text\":                       # M107: a list entry, stored as its exact text",
+           "        if False:",
+           T107, "a list-entry input (weight-up additive) is read as a number and the case is unreadable"),
+    Mutant("CC-bool-input-dropped", CC,
+           "        if spec.kind == \"bool\":                       # M107: a check or radio button state",
+           "        if False:",
+           T107, "a radio-button input (nozzle model) is read as a number and the case is unreadable"),
+    Mutant("CC-not-recorded-read-as-value", CC,
+           "    if value is None or value <= WC_NOT_RECORDED:",
+           "    if value is None:",
+           T107, "a kill-sheet-style \"Not recorded\" input (-1) reaches the engine as a value"),
+    Mutant("CC-unknown-additive-defaulted", CC,
+           "    return dict(WEIGHT_UP_ADDITIVES).get(str(text or \"\"))",
+           "    return dict(WEIGHT_UP_ADDITIVES).get(str(text or \"\"), 262.2)",
+           T107, "an unknown additive entry silently gets the barite density"),
+    Mutant("CC-nozzle-model-ignored", CC,
+           "        n_nozzles=int(count), model=\"HP\" if values[\"model_hp\"] else \"IF\")",
+           "        n_nozzles=int(count), model=\"HP\")",
+           T107, "the nozzle optimisation model choice is not an input"),
+    Mutant("CC-nozzle-zero-fallback-accepted", CC,
+           "    _positive(values, \"hhp\", \"max_press\", \"mw\")\n    count = values[\"n_nozzles\"]",
+           "    count = values[\"n_nozzles\"]",
+           T107, "the engine's zero fallbacks (no pump limit) are stored as a nozzle result"),
+    Mutant("CC-overshot-flag-constant", CC,
+           "        out.update(clearance=fit.values[\"clearance_in\"], compatible=1.0 if fit.values[\"compatible\"] else 0.0)",
+           "        out.update(clearance=fit.values[\"clearance_in\"], compatible=1.0)",
+           T107, "an overshot that does not fit is reported compatible"),
+    Mutant("CC-plug-zero-yield-passed", CC,
+           "        slurry_yield_ft3_sk=values[\"yield\"] if values[\"yield\"] and values[\"yield\"] > 0 else None)",
+           "        slurry_yield_ft3_sk=values[\"yield\"])",
+           T107, "a 0 = omit yield reaches the plug engine as a yield"),
+    Mutant("MV-weight-up-v1-formula", "core/engineering/engines/mud_volume.py",
+           "            sacks = vol_inc * cls.BBL_FT3 * rho / 100.0",
+           "            sacks = vol * 42.0 * (tgt - cur) / (rho - tgt) / 100.0",
+           T107, "D26: the weight-up sack mass leaves out the additive density"),
+    Mutant("FL-nested-row-label-lost", "tabs/calculation_cases_panel.py",
+           "        if label is None:          # M107: a field nested in a row layout (e.g. radio buttons) takes the row label",
+           "        if False:",
+           T107, "radio buttons nested in a form row are captured without a label"),
     # ---- M106 multi-target and S-profile solvers (D10) -------------------------------------------------
     Mutant("MS-leg-direction-not-carried", WPD,
            "        state = {\"md\": target_md, \"inc\": answer[\"inc\"], \"azi\": answer[\"azi\"], \"tvd\": float(target[\"tvd\"]),",

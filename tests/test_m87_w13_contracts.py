@@ -58,7 +58,7 @@ def test_every_w13_leaf_calculator_has_a_contract_status(w13):
     assert len(leaves) >= 24
     statuses = {p: contracts.calculator_status(p)[0] for p in leaves}
     assert "UNKNOWN" not in statuses.values(), [p for p, s in statuses.items() if s == "UNKNOWN"]
-    assert sum(s == "CONTRACT" for s in statuses.values()) == 7
+    assert sum(s == "CONTRACT" for s in statuses.values()) == 18      # 7 at M87; 11 more in M107
     assert set(contracts.CONTRACTS) | set(contracts.NOT_SUPPORTED) == set(leaves)    # nothing stale either
 
 
@@ -66,7 +66,8 @@ def test_every_w13_leaf_calculator_has_a_contract_status(w13):
 def test_contract_fields_are_bound_to_live_widgets_with_matching_labels(w13, contract):
     from tabs.calculation_cases_panel import _form_label
 
-    assert contract.structured and contract.method_version.startswith("M87") or contract is contracts.QUICK_CALC
+    assert contract.structured and contract.method_version.startswith(("M87", "M107")) or \
+        contract is contracts.QUICK_CALC
     ids = [spec.field_id for spec in contract.inputs]
     assert len(ids) == len(set(ids))
     for spec in contract.inputs:
@@ -254,7 +255,7 @@ def test_bit_case_save_reopen_rerun_clone_export_and_verify(w13, tmp_path, monke
 
 def test_not_supported_calculators_say_so_and_store_unversioned(w13):
     bar = w13.case_bar
-    assert w13.calculator_finder.open_path("CSG/CMT › Buoyancy")
+    assert w13.calculator_finder.open_path("Directional › Anti-Collision")   # Buoyancy has a contract since M107
     assert "NOT_SUPPORTED" in bar.contract_label.text() and "NOT REPRODUCIBLE" in bar.contract_label.text()
 
 

@@ -23,6 +23,12 @@ e.g. the nozzle program) and store the adapter's own full-precision results
 with a relative tolerance of 1e-9; display text is never parsed for them.
 Each adapter calls the same canonical engines as its W13 handler; parity
 tests compare adapter and on-screen values.
+
+M107: eleven more contracts (18 of the 27 leaf calculators); the other nine are
+NOT_SUPPORTED with the exact reason (which table or state is not captured, or
+the owner gate). Fields may be text (a list entry) or bool (a check / radio
+button) as well as numbers. Kill-sheet-style inputs keep "Not recorded" (-1) as
+None, never zero. The weight-up sack count was corrected (D26) in the engine.
 """
 
 from __future__ import annotations
@@ -32,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-CONTRACT_REGISTRY_VERSION = "M87 calculator contracts v2"
+CONTRACT_REGISTRY_VERSION = "M107 calculator contracts v3"
 OBJECT_PREFIX = "w13:"
 STRUCTURED_REL_TOL = 1e-9
 
@@ -45,6 +51,7 @@ class FieldSpec:
     decimals: Optional[int] = None   # displayed decimals (results): tolerance = 0.5 * 10**-decimals
     attr: str = ""        # M87: W13 widget attribute; bound by object name "w13:<attr>"
     required: bool = True
+    kind: str = "number"  # M107: "number", "text" (combo entry) or "bool" (check / radio button)
 
 
 @dataclass(frozen=True)
@@ -350,37 +357,539 @@ BUILD_TURN = Contract(
     reference="DLS from the dogleg angle cos(b) = cos I1 cos I2 + sin I1 sin I2 cos(dA) (minimum curvature)",
 )
 
-CONTRACTS: Dict[str, Contract] = {c.calculator: c for c in (QUICK_CALC, BIT_HYDRAULICS, TFA, HYDROSTATIC,
-                                                            CEMENT_VOLUME, OWR, BUILD_TURN)}
+# ---- M107 contracts (the remaining single-form W13 calculators) -----------------------------
+# Kill-sheet-style inputs (``_make_wc_spin``) store -1 for "Not recorded"; the W13 handler reads
+# them through ``_wc_value`` and the adapters do the same, so an unrecorded input is None, never 0.
+WC_NOT_RECORDED = -1.0
+STEEL_DENSITY_PCF = 490.0          # W13 buoyancy card default (``calc_buoyancy_factor_result``)
+# Weight-up additives offered by W13 (pcf). M107: barite was listed as "1470 pcf" - the ppg field
+# constant 42 x 35 used as a density (D26); 4.20 SG x 62.428 lb/ft3 = 262.2 pcf.
+WEIGHT_UP_ADDITIVES: Tuple[Tuple[str, float], ...] = (("Barite (4.20 SG, 262.2 pcf)", 262.2),
+                                                      ("Calcium Carbonate (170 pcf)", 170.0),
+                                                      ("Hematite (320 pcf)", 320.0))
+
+
+def additive_density_pcf(text: Any) -> Optional[float]:
+    """Density of a W13 weight-up additive by its exact list text; unknown text is None (never a default)."""
+    return dict(WEIGHT_UP_ADDITIVES).get(str(text or ""))
+
+
+def _recorded(value: Any) -> Optional[float]:
+    """A kill-sheet-style spin value, or None when it holds the "Not recorded" sentinel."""
+    if value is None or value <= WC_NOT_RECORDED:
+        return None
+    return float(value)
+
+
+def _or_none(value: Any) -> Optional[float]:
+    """W13 "0 = omit" fields."""
+    return float(value) if value else None
+
+
+def _all_none(out: Dict[str, Optional[float]], what: str) -> Dict[str, Optional[float]]:
+    if all(v is None for v in out.values()):
+        raise ValueError(f"no part of the page can be computed from these inputs ({what})")
+    return out
+
+
+def _buoyancy(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Buoyancy factor and casing landing load (W13 ``_csg_calc_landing``)."""
+    from core.engineering.engines.torque_drag import TorqueDragEngine
+    from core.engineering.result import EngineeringError
+    from core.unit_manager import UnitManager
+
+    mw = _recorded(values["mw"])
+    if mw is None:
+        raise ValueError("mud weight not recorded")
+    try:
+        bf = round(TorqueDragEngine.buoyancy_factor(UnitManager.convert(mw, "density", "pcf", "ppg"),
+                                                    UnitManager.convert(STEEL_DENSITY_PCF, "density", "pcf", "ppg")), 4)
+    except EngineeringError as exc:
+        raise ValueError(str(exc)) from exc
+    out: Dict[str, Optional[float]] = {"buoyancy_factor": bf, "air_weight": None, "buoyed_weight": None,
+                                       "hook_load": None}
+    load = TorqueDragEngine.casing_landing_load(_recorded(values["casing_weight"]), _recorded(values["casing_length"]),
+                                                bf, _recorded(values["friction"]))
+    if load.success:
+        v = load.values
+        out.update(air_weight=v["total_air_weight_lbs"], buoyed_weight=v["buoyed_weight_lbs"],
+                   hook_load=v["hook_load_lbs"])
+    return out
+
+
+BUOYANCY = Contract(
+    stable_id="w13.casing.buoyancy_landing", calculator="CSG/CMT › Buoyancy", schema_version=1,
+    method_id="w13.casing.buoyancy_landing", method_version="M107 buoyancy factor and casing landing load v1",
+    inputs=(FieldSpec("mw", "Mud Weight", "pcf (-1 = not recorded)", attr="bf_mw"),
+            FieldSpec("casing_weight", "Casing Weight", "ppf (-1 = not recorded)", attr="bf_csg_wt"),
+            FieldSpec("casing_length", "Casing Length", "ft (-1 = not recorded)", attr="bf_csg_len"),
+            FieldSpec("friction", "Friction Factor", "- (-1 = not recorded)", attr="bf_friction")),
+    results=(FieldSpec("buoyancy_factor", "Buoyancy factor", "-"), FieldSpec("air_weight", "Air weight", "lbf"),
+             FieldSpec("buoyed_weight", "Buoyant weight", "lbf"), FieldSpec("hook_load", "Hook load", "lbf")),
+    recalculate=_buoyancy, structured=True,
+    reference="BF = 1 - mud density / steel density (490 pcf, rounded to 4 decimals as on screen); "
+              "TorqueDragEngine.casing_landing_load",
+    limits="SCREENING: density ratio only, no pressure-area term.",
+)
+
+
+def _balanced_plug(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Balanced cement plug volumetrics (W13 ``_plug_calculate``)."""
+    from core.engineering.engines.cement import CementEngine
+
+    r = CementEngine.balanced_plug(
+        hole_size_in=values["hole"], pipe_od_in=values["pipe_od"], pipe_id_in=values["pipe_id"],
+        plug_length_ft=values["length"], plug_bottom_md_ft=values["bottom"], excess_pct=values["excess"],
+        spacer_ahead_bbl=values["spacer"], underdisplacement_bbl=values["under"],
+        slurry_yield_ft3_sk=values["yield"] if values["yield"] and values["yield"] > 0 else None)
+    if not r.success:
+        raise ValueError(r.error or r.validation_status)
+    v = r.values
+    return {"slurry_volume": v["slurry_volume_bbl"], "sacks": v.get("sacks"),
+            "column_height": v["column_height_pipe_in_ft"], "top_pipe_in": v["top_pipe_in_md_ft"],
+            "top_after_pull": v["top_after_pull_gauge_md_ft"], "spacer_behind": v["spacer_behind_bbl"],
+            "displacement": v["displacement_bbl"]}
+
+
+BALANCED_PLUG = Contract(
+    stable_id="w13.cement.balanced_plug", calculator="CSG/CMT › Balanced Plug", schema_version=1,
+    method_id="w13.cement.balanced_plug", method_version="M107 balanced plug volumetrics v1",
+    inputs=(FieldSpec("hole", "Hole size / casing ID", "in", attr="plug_hole"),
+            FieldSpec("pipe_od", "Pipe OD", "in", attr="plug_pipe_od"),
+            FieldSpec("pipe_id", "Pipe ID", "in", attr="plug_pipe_id"),
+            FieldSpec("length", "Plug length", "ft", attr="plug_length"),
+            FieldSpec("bottom", "Plug bottom (pipe end)", "ft MD", attr="plug_bottom"),
+            FieldSpec("excess", "Excess", "%", attr="plug_excess"),
+            FieldSpec("spacer", "Spacer ahead", "bbl", attr="plug_spacer"),
+            FieldSpec("under", "Under-displacement", "bbl", attr="plug_under"),
+            FieldSpec("yield", "Slurry yield (0 = no sacks)", "ft³/sk", attr="plug_yield")),
+    results=(FieldSpec("slurry_volume", "Slurry volume", "bbl"), FieldSpec("sacks", "Sacks", "sk"),
+             FieldSpec("column_height", "Column height, pipe in", "ft"),
+             FieldSpec("top_pipe_in", "Top of cement, pipe in", "ft MD"),
+             FieldSpec("top_after_pull", "Top after pull (gauge)", "ft MD"),
+             FieldSpec("spacer_behind", "Spacer behind", "bbl"), FieldSpec("displacement", "Displacement", "bbl")),
+    recalculate=_balanced_plug, structured=True, reference="CementEngine.balanced_plug (static volumetrics)",
+    limits="WORKSHEET - static volumetrics, not a placement simulation or a cement design approval.",
+)
+
+
+def _kick_page(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Kick tolerance and trip margin (W13 ``_wc_calc_kt`` / ``_wc_calc_trip_margin``)."""
+    from core.engineering.engines.well_control import WellControlEngine
+
+    out: Dict[str, Optional[float]] = dict.fromkeys(("maasp", "kick_intensity", "max_kick_height", "kick_tolerance",
+                                                     "trip_margin", "trip_margin_psi"))
+    kt = WellControlEngine.kick_tolerance(
+        mw_ppg=values["kt_mw"], shoe_tvd_ft=values["kt_shoe"], current_tvd_ft=values["kt_tvd"],
+        frac_mw_ppg=values["kt_frac"], influx_gradient_psi_ft=values["kt_influx"], annular_vol_bbl=None,
+        annular_capacity_bbl_ft=_or_none(values["kt_cap"]), formation_emw_ppg=_or_none(values["kt_form"]))
+    if kt.success:
+        v = kt.values
+        out.update(maasp=v.get("maasp_psi"), kick_intensity=v.get("kick_intensity_ppg"),
+                   max_kick_height=v.get("max_kick_height_ft"), kick_tolerance=v.get("kick_tolerance_bbl"))
+    tm = WellControlEngine.trip_margin(mw_ppg=values["tm_mw"], formation_emw_ppg=values["tm_form"],
+                                       tvd_ft=values["tm_tvd"], swab_pressure_psi=_or_none(values["tm_swab"]))
+    if tm.success:
+        out.update(trip_margin=tm.values["trip_margin_ppg"], trip_margin_psi=tm.values.get("trip_margin_psi"))
+    return _all_none(out, "kick tolerance and trip margin both rejected")
+
+
+KICK_TOLERANCE = Contract(
+    stable_id="w13.well_control.kick_tolerance", calculator="Well Control › Kick Tolerance", schema_version=1,
+    method_id="w13.well_control.kick_tolerance_trip_margin",
+    method_version="M107 kick tolerance and trip margin v1",
+    inputs=(FieldSpec("kt_frac", "Frac MW", "ppg", attr="kt_frac"),
+            FieldSpec("kt_mw", "Current MW", "ppg", attr="kt_mw"),
+            FieldSpec("kt_tvd", "TVD", "ft", attr="kt_tvd"), FieldSpec("kt_shoe", "Shoe TVD", "ft", attr="kt_shoe"),
+            FieldSpec("kt_influx", "Influx gradient", "psi/ft", attr="kt_influx_g"),
+            FieldSpec("kt_cap", "Ann. cap DP/OH", "bbl/ft (0 = omit)", attr="kt_ann_cap"),
+            FieldSpec("kt_form", "Formation EMW (0=omit)", "ppg", attr="kt_form_emw"),
+            FieldSpec("tm_mw", "Current MW", "ppg", attr="tm_mw"), FieldSpec("tm_form", "Pore EMW", "ppg", attr="tm_form"),
+            FieldSpec("tm_tvd", "TVD", "ft", attr="tm_tvd"),
+            FieldSpec("tm_swab", "Swab pressure (opt)", "psi (0 = omit)", attr="tm_swab")),
+    results=(FieldSpec("maasp", "MAASP", "psi"), FieldSpec("kick_intensity", "Kick intensity", "ppg"),
+             FieldSpec("max_kick_height", "Max height", "ft"), FieldSpec("kick_tolerance", "Kick tolerance", "bbl"),
+             FieldSpec("trip_margin", "Trip margin", "ppg"), FieldSpec("trip_margin_psi", "Trip margin", "psi")),
+    recalculate=_kick_page, structured=True,
+    reference="WellControlEngine.kick_tolerance (no invented influx gradient or capacity) and trip_margin",
+    limits="SCREENING well-control aid; not an approved well-control calculation.",
+)
+
+
+def _pore_fg(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Eaton fracture gradient, influx type and corrected d-exponent (W13 ``_wc_calc_eaton`` /
+    ``_wc_calc_influx_type`` / ``_wc_calc_d_exp``). The influx category is text and is not a result field."""
+    from core.engineering.engines.bit_performance import BitPerformanceEngine
+    from core.engineering.engines.well_control import WellControlEngine
+
+    out: Dict[str, Optional[float]] = dict.fromkeys(("fracture_gradient", "fracture_emw", "influx_gradient",
+                                                     "influx_height", "d_exponent", "dc_exponent"))
+    eaton = WellControlEngine.eaton_fracture_gradient(values["obg"], values["pore_gradient"], values["poisson"])
+    if eaton.success:
+        fg = eaton.values["fracture_gradient_psi_ft"]
+        out.update(fracture_gradient=fg, fracture_emw=fg / 0.052)
+    influx = WellControlEngine.influx_type(values["sicp"], values["sidpp"], values["annular_capacity"],
+                                           values["pit_gain"])
+    if influx.success:
+        out.update(influx_gradient=influx.values["influx_gradient_psi_ft"],
+                   influx_height=influx.values["influx_height_ft"])
+    dexp = BitPerformanceEngine.d_exponent_corrected(values["rop"], values["rpm"], values["wob"], values["bit"],
+                                                     mw_ppg=values["mw"], normal_mw_ppg=values["normal_mw"])
+    if dexp.success:
+        out.update(d_exponent=dexp.values["d_exponent"], dc_exponent=dexp.values["d_exponent_corrected"])
+    return _all_none(out, "Eaton, influx and d-exponent all rejected")
+
+
+PORE_FG = Contract(
+    stable_id="w13.well_control.pore_fg", calculator="Well Control › Pore Press  FG", schema_version=1,
+    method_id="w13.well_control.eaton_influx_dexp", method_version="M107 Eaton FG / influx type / dc-exponent v1",
+    inputs=(FieldSpec("obg", "Overburden gradient", "psi/ft", attr="pp_obg"),
+            FieldSpec("pore_gradient", "Pore pressure gradient", "psi/ft", attr="pp_ppg_grad"),
+            FieldSpec("poisson", "Poisson's ratio", "-", attr="pp_nu"),
+            FieldSpec("sicp", "SICP", "psi", attr="pp_sicp"), FieldSpec("sidpp", "SIDPP", "psi", attr="pp_sidpp"),
+            FieldSpec("annular_capacity", "Annular capacity (open hole)", "bbl/ft", attr="pp_ann_cap"),
+            FieldSpec("pit_gain", "Pit gain", "bbl", attr="pp_gain"),
+            FieldSpec("rop", "ROP", "ft/hr", attr="pp_rop"), FieldSpec("rpm", "RPM", "rpm", attr="pp_rpm"),
+            FieldSpec("wob", "WOB", "lbf", attr="pp_wob"), FieldSpec("bit", "Bit size", "in", attr="pp_bit"),
+            FieldSpec("mw", "Actual MW", "ppg", attr="pp_mw"), FieldSpec("normal_mw", "Normal MW", "ppg", attr="pp_mw_n")),
+    results=(FieldSpec("fracture_gradient", "Fracture gradient", "psi/ft"),
+             FieldSpec("fracture_emw", "Fracture gradient EMW", "ppg"),
+             FieldSpec("influx_gradient", "Influx gradient", "psi/ft"), FieldSpec("influx_height", "Influx height", "ft"),
+             FieldSpec("d_exponent", "d", "-"), FieldSpec("dc_exponent", "dc", "-")),
+    recalculate=_pore_fg, structured=True,
+    reference="Eaton (1969) FG; influx gradient = SIDPP-SICP balance over the influx height; "
+              "Jorden-Shirley d-exponent with Rehm-McClendon correction (BitPerformanceEngine)",
+    limits="SCREENING; EMW uses 0.052 psi/ft per ppg; the influx category text is shown, not compared.",
+)
+
+
+def _stuck_pipe(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Free point, string stretch and adjusted weight (W13 ``_update_stuck``)."""
+    from core.engineering.engines.fishing import FishingEngine
+    from core.unit_manager import UnitManager
+
+    out: Dict[str, Optional[float]] = dict.fromkeys(("free_point", "string_stretch", "adjusted_weight"))
+    fp = FishingEngine.free_point(_recorded(values["stretch"]), _recorded(values["pipe_weight"]),
+                                  _recorded(values["pull"]))
+    if fp.success and fp.value is not None:
+        out["free_point"] = fp.value
+    length, mw = _recorded(values["length"]), _recorded(values["mw"])
+    if length is not None and mw is not None and mw > 0:
+        st = FishingEngine.string_stretch(UnitManager.convert(length, "length", "m", "ft"),
+                                          UnitManager.convert(mw, "density", "pcf", "ppg"))
+        if st.success and st.value is not None:
+            out["string_stretch"] = st.value
+    adj = FishingEngine.adjusted_weight(_recorded(values["od"]), _recorded(values["id"]))
+    if adj.success and adj.value is not None:
+        out["adjusted_weight"] = adj.value
+    return _all_none(out, "no measured inputs")
+
+
+STUCK_PIPE = Contract(
+    stable_id="w13.fishing.stuck_pipe", calculator="Stuck Pipe", schema_version=1,
+    method_id="w13.fishing.free_point_stretch_weight", method_version="M107 free point / stretch / adjusted weight v1",
+    inputs=(FieldSpec("stretch", "Measured Stretch", "in (-1 = not recorded)", attr="stk_stretch_in"),
+            FieldSpec("pipe_weight", "Pipe Weight", "lb/ft (-1 = not recorded)", attr="stk_wt"),
+            FieldSpec("pull", "Pull Force", "lbf (-1 = not recorded)", attr="stk_pull"),
+            FieldSpec("length", "String Length", "m (-1 = not recorded)", attr="stk_len_m"),
+            FieldSpec("mw", "Mud Weight", "pcf (-1 = not recorded)", attr="stk_mw_pcf"),
+            FieldSpec("od", "Pipe OD", "in (-1 = not recorded)", attr="stk_pipe_od"),
+            FieldSpec("id", "Pipe ID", "in (-1 = not recorded)", attr="stk_pipe_id")),
+    results=(FieldSpec("free_point", "Free point", "ft"), FieldSpec("string_stretch", "String stretch", "in"),
+             FieldSpec("adjusted_weight", "Adjusted weight", "lb/ft")),
+    recalculate=_stuck_pipe, structured=True, reference="FishingEngine.free_point / string_stretch / adjusted_weight",
+    limits="SCREENING estimates; an unrecorded input is not assessed, never zero.",
+)
+
+
+def _mud_wdm(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Weight-up, dilution and mixing (W13 ``_mud_wu`` / ``_mud_dil`` / ``_mud_mix``)."""
+    from core.engineering.engines.mud_volume import MudVolumeEngine
+
+    out: Dict[str, Optional[float]] = dict.fromkeys(("sacks", "volume_increase", "weight_up_final_volume",
+                                                     "water_required", "dilution_final_volume", "mix_mw",
+                                                     "mix_volume"))
+    wu = MudVolumeEngine.weight_up(values["wu_current"], values["wu_target"], values["wu_volume"],
+                                   additive_density_pcf(values["additive"]))
+    if wu.success:
+        out.update(sacks=wu.values["sacks"], volume_increase=wu.values["volume_increase_bbl"],
+                   weight_up_final_volume=wu.values["final_volume_bbl"])
+    dil = MudVolumeEngine.dilution(values["dil_current"], values["dil_target"], values["dil_volume"],
+                                   _or_none(values["dilutant"]))
+    if dil.success:
+        out.update(water_required=dil.values["water_required_bbl"], dilution_final_volume=dil.values["final_volume_bbl"])
+    mix = MudVolumeEngine.mix(values["mud1_mw"], values["mud1_volume"], values["mud2_mw"], values["mud2_volume"])
+    if mix.success:
+        out.update(mix_mw=mix.values["final_mw"], mix_volume=mix.values["total_volume"])
+    return _all_none(out, "weight-up, dilution and mix all rejected")
+
+
+MUD_WDM = Contract(
+    stable_id="w13.mud.weight_dilution_mix", calculator="Mud › Weight/Dilution/Mix", schema_version=1,
+    method_id="w13.mud.weight_dilution_mix", method_version="M107 weight-up v2 / dilution / mixing v1",
+    inputs=(FieldSpec("wu_current", "Current MW", "pcf", attr="mud_wu_cur"),
+            FieldSpec("wu_target", "Target MW", "pcf", attr="mud_wu_tar"),
+            FieldSpec("wu_volume", "System Volume", "bbl", attr="mud_wu_vol"),
+            FieldSpec("additive", "Additive", "text (list entry)", attr="mud_wu_additive", kind="text"),
+            FieldSpec("dil_current", "Current MW", "pcf", attr="mud_dil_cur"),
+            FieldSpec("dil_target", "Target MW", "pcf", attr="mud_dil_tar"),
+            FieldSpec("dil_volume", "System Volume", "bbl", attr="mud_dil_vol"),
+            FieldSpec("dilutant", "Dilutant MW (required)", "pcf (0 = not entered)", attr="mud_dilant_mw"),
+            FieldSpec("mud1_mw", "Mud 1 MW", "pcf", attr="mud_m1_mw"),
+            FieldSpec("mud1_volume", "Mud 1 Vol", "bbl", attr="mud_m1_vol"),
+            FieldSpec("mud2_mw", "Mud 2 MW", "pcf", attr="mud_m2_mw"),
+            FieldSpec("mud2_volume", "Mud 2 Vol", "bbl", attr="mud_m2_vol")),
+    results=(FieldSpec("sacks", "Additive", "100-lb sacks"), FieldSpec("volume_increase", "Volume Increase", "bbl"),
+             FieldSpec("weight_up_final_volume", "Final Volume (weight-up)", "bbl"),
+             FieldSpec("water_required", "Water Required", "bbl"),
+             FieldSpec("dilution_final_volume", "Final Volume (dilution)", "bbl"),
+             FieldSpec("mix_mw", "Final MW", "pcf"), FieldSpec("mix_volume", "Total Volume", "bbl")),
+    recalculate=_mud_wdm, structured=True,
+    reference="sacks = V(bbl) x 5.6146 ft³/bbl x rho_add x (MW2-MW1)/(rho_add-MW2)/100 (pcf); "
+              "dilution V(MW1-MW2)/(MW2-MWd); mix volume-weighted",
+    limits="Ideal volume additivity; additive densities as listed in the calculator.",
+)
+
+
+def _mud_balance(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    from core.engineering.engines.mud_volume import MudVolumeEngine
+
+    r = MudVolumeEngine.balance(active_volume_bbl=values["active"], additions_bbl=values["additions"],
+                                losses_bbl=values["losses"], transfers_in_bbl=values["transfers_in"],
+                                transfers_out_bbl=values["transfers_out"], returns_bbl=values["returns"],
+                                dilution_bbl=values["dilution"], dumped_bbl=values["dumped"])
+    if not r.success:
+        raise ValueError(r.error)
+    return {"final_volume": r.values["final_volume_bbl"], "net_change": r.values["net_change_bbl"]}
+
+
+MUD_BALANCE = Contract(
+    stable_id="w13.mud.volume_balance", calculator="Mud › Volume Balance", schema_version=1,
+    method_id="w13.mud.volume_balance", method_version="M107 mud volume balance v1",
+    inputs=tuple(FieldSpec(fid, label, "bbl", attr=attr) for fid, label, attr in (
+        ("active", "Active volume", "mud_bal_active"), ("additions", "Additions", "mud_bal_add"),
+        ("losses", "Losses", "mud_bal_loss"), ("transfers_in", "Transfers in", "mud_bal_tin"),
+        ("transfers_out", "Transfers out", "mud_bal_tout"), ("returns", "Returns", "mud_bal_ret"),
+        ("dilution", "Dilution (water)", "mud_bal_dil"), ("dumped", "Dumped", "mud_bal_dump"))),
+    results=(FieldSpec("final_volume", "Final volume", "bbl"), FieldSpec("net_change", "Net change", "bbl")),
+    recalculate=_mud_balance, structured=True,
+    reference="final = active + additions + transfers in + returns + dilution - losses - transfers out - dumped",
+)
+
+
+def _mud_lab(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """MBT, LSRYP, excess lime, slug and corrosion (W13 ``_mud_lab*``); each part from its own inputs."""
+    from core.engineering.extended import MudEngineering
+
+    out: Dict[str, Optional[float]] = dict.fromkeys(("mbt", "lsryp", "excess_lime", "dry_pipe_length",
+                                                     "hydrostatic_gain", "corrosion_mpy", "corrosion_lb_ft2_yr"))
+    parts = (
+        (lambda: MudEngineering.mbt_bentonite_equiv(values["mb_ml"], values["sample_ml"]),
+         {"mbt": "mbt_lb_per_bbl"}),
+        (lambda: MudEngineering.lsryp(values["theta3"], values["theta6"]), {"lsryp": "lsryp_lb_per_100ft2"}),
+        (lambda: MudEngineering.excess_lime_obm(values["pom"]), {"excess_lime": "excess_lime_lb_per_bbl"}),
+        (lambda: MudEngineering.slug_dry_length(values["slug_volume"], values["slug_mw"], values["mud_mw"],
+                                                values["pipe_capacity"]),
+         {"dry_pipe_length": "dry_pipe_length_ft", "hydrostatic_gain": "hydrostatic_gain_psi"}),
+        (lambda: MudEngineering.corrosion_rate(values["coupon_loss"], values["coupon_area"], values["exposure"],
+                                               values["coupon_density"]),
+         {"corrosion_mpy": "corrosion_rate_mpy", "corrosion_lb_ft2_yr": "corrosion_rate_lb_ft2_yr"}),
+    )
+    for compute, keys in parts:
+        try:
+            res = compute()
+        except Exception:  # silent-ok: the engine's own error type; that part stays None (W13 shows the message)
+            continue
+        for field_id, key in keys.items():
+            out[field_id] = float(res[key]) if res.get(key) is not None else None
+    return _all_none(out, "every lab calculator rejected its inputs")
+
+
+MUD_LAB = Contract(
+    stable_id="w13.mud.lab", calculator="Mud › Mud Lab", schema_version=1,
+    method_id="w13.mud.lab", method_version="M107 mud lab (MBT, LSRYP, lime, slug, corrosion) v1",
+    inputs=(FieldSpec("mb_ml", "Methylene blue used", "mL", attr="ml_mb_ml"),
+            FieldSpec("sample_ml", "Mud sample volume", "mL", attr="ml_sample_ml"),
+            FieldSpec("theta3", "θ3 reading", "dial", attr="ml_th3"), FieldSpec("theta6", "θ6 reading", "dial", attr="ml_th6"),
+            FieldSpec("pom", "POM (mL 0.1N H₂SO₄)", "mL", attr="ml_pom"),
+            FieldSpec("slug_volume", "Slug volume", "bbl", attr="ml_slug_vol"),
+            FieldSpec("slug_mw", "Slug MW", "ppg", attr="ml_slug_mw"), FieldSpec("mud_mw", "Mud MW", "ppg", attr="ml_mud_mw"),
+            FieldSpec("pipe_capacity", "Pipe capacity", "bbl/ft", attr="ml_pipe_cap"),
+            FieldSpec("coupon_loss", "Coupon weight loss", "mg", attr="ml_cr_w"),
+            FieldSpec("coupon_area", "Coupon area", "in²", attr="ml_cr_a"),
+            FieldSpec("exposure", "Exposure time", "hr", attr="ml_cr_t"),
+            FieldSpec("coupon_density", "Coupon density", "g/cm³", attr="ml_cr_d")),
+    results=(FieldSpec("mbt", "Bentonite equiv", "lb/bbl"), FieldSpec("lsryp", "LSRYP", "lbf/100 ft²"),
+             FieldSpec("excess_lime", "Excess lime", "lb/bbl"), FieldSpec("dry_pipe_length", "Dry pipe", "ft"),
+             FieldSpec("hydrostatic_gain", "ΔP gain", "psi"), FieldSpec("corrosion_mpy", "Corrosion rate", "mpy"),
+             FieldSpec("corrosion_lb_ft2_yr", "Corrosion rate", "lb/ft²/yr")),
+    recalculate=_mud_lab, structured=True,
+    reference="MBT = 5 V_MB/V_sample; LSRYP = 2θ3 - θ6; excess lime = 1.295 POM; "
+              "L_dry = V_slug(ρs-ρm)/(cap ρm); mpy = 534 W/(A T D)",
+    limits="The corrosion severity text is shown, not compared.",
+)
+
+
+def _fishing(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Overshot fit, jar range and back-off depth (W13 ``_calc_fish_sizing`` / ``_calc_jar_range`` /
+    ``_calc_backoff``). A rejected overshot fit is None here; the legacy screen shows 0.000 for it."""
+    from core.engineering.engines.fishing import FishingEngine
+
+    out: Dict[str, Optional[float]] = dict.fromkeys(("clearance", "compatible", "buoyant_weight", "upward_force",
+                                                     "jar_setting", "backoff_depth"))
+    fit = FishingEngine.overshot_fit(values["fish_od"], values["overshot_id"])
+    if fit.success:
+        out.update(clearance=fit.values["clearance_in"], compatible=1.0 if fit.values["compatible"] else 0.0)
+    jar = FishingEngine.jar_operating_range(values["string_weight"], values["bf"], values["overpull"])
+    if jar.success:
+        out.update(buoyant_weight=jar.values["buoyant_weight_lbs"], upward_force=jar.values["upward_force_lbs"],
+                   jar_setting=jar.values["recommended_jar_setting_lbs"])
+    bo = FishingEngine.backoff_depth(_recorded(values["bo_stretch"]), _recorded(values["bo_weight"]), 30.0e6)
+    if bo.success and bo.value is not None:
+        out["backoff_depth"] = bo.value
+    return _all_none(out, "overshot, jar and back-off all rejected")
+
+
+FISHING = Contract(
+    stable_id="w13.fishing.sizing", calculator="Fishing", schema_version=1,
+    method_id="w13.fishing.overshot_jar_backoff", method_version="M107 overshot fit / jar range / back-off v1",
+    inputs=(FieldSpec("fish_od", "Fish OD", "in", attr="fish_od"),
+            FieldSpec("overshot_id", "Overshot Catch ID", "in", attr="fish_os_id"),
+            FieldSpec("string_weight", "String Weight", "lbf", attr="jar_string_wt"),
+            FieldSpec("bf", "Buoyancy Factor", "-", attr="jar_bf"),
+            FieldSpec("overpull", "Overpull", "lbf", attr="jar_overpull"),
+            FieldSpec("bo_stretch", "Measured Stretch", "in (-1 = not recorded)", attr="bo_stretch"),
+            FieldSpec("bo_weight", "Pipe Weight", "ppf (-1 = not recorded)", attr="bo_pipe_wt")),
+    results=(FieldSpec("clearance", "Clearance", "in"), FieldSpec("compatible", "Compatible", "flag (1 = yes)"),
+             FieldSpec("buoyant_weight", "Buoyant Wt", "lbf"), FieldSpec("upward_force", "Upward Force", "lbf"),
+             FieldSpec("jar_setting", "Recommended Jar", "lbf"), FieldSpec("backoff_depth", "Back-off depth", "ft")),
+    recalculate=_fishing, structured=True,
+    reference="FishingEngine.overshot_fit / jar_operating_range / backoff_depth (E = 30e6 psi)",
+    limits="SCREENING sizing rules.",
+)
+
+
+def _rheology(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Fann rheology (W13 ``_mud_rheo``); θ200/θ100 are displayed but not used by the engine."""
+    from core.hydraulics_engine import MudProperties
+
+    try:
+        r = MudProperties.calculate_fann_rheology(theta600=values["t600"], theta300=values["t300"],
+                                                  theta3=values["t3"], theta6=values["t6"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(str(exc)) from exc
+    pv, yp = r["pv_cp"], r["yp_lbf100ft2"]
+    return {"pv": float(pv), "yp": float(yp), "n": r["power_law_n"], "k": r["power_law_k_cp_s_nminus1"],
+            "tau_y": r["hb_yield_estimate_lbf100ft2"], "indicator": r["screening_effective_viscosity_indicator_cp"],
+            "pv_yp": pv / yp if yp > 0 else None,
+            "gel_ratio": values["gel10m"] / values["gel10s"] if values["gel10s"] > 0 else None,
+            "mw_ppg": MudProperties(mw_pcf=values["mw"]).mw_ppg}
+
+
+RHEOLOGY = Contract(
+    stable_id="w13.mud.rheology", calculator="Mud › Rheology", schema_version=1,
+    method_id="w13.mud.fann_rheology", method_version="M107 Fann rheology (Bingham / power law / HB estimate) v1",
+    inputs=tuple(FieldSpec(fid, label, unit, attr=attr) for fid, label, unit, attr in (
+        ("t600", "θ600", "dial", "rh_t600"), ("t300", "θ300", "dial", "rh_t300"), ("t200", "θ200", "dial", "rh_t200"),
+        ("t100", "θ100", "dial", "rh_t100"), ("t6", "θ6", "dial", "rh_t6"), ("t3", "θ3", "dial", "rh_t3"),
+        ("gel10s", "Gel 10s", "lbf/100 ft²", "rh_gel10s"), ("gel10m", "Gel 10m", "lbf/100 ft²", "rh_gel10m"),
+        ("mw", "MW", "pcf", "rh_mw"))),
+    results=(FieldSpec("pv", "PV", "cP"), FieldSpec("yp", "YP", "lbf/100 ft²"), FieldSpec("n", "n", "-"),
+             FieldSpec("k", "K", "cP·s^(n-1)"), FieldSpec("tau_y", "τ0 estimate", "lbf/100 ft²"),
+             FieldSpec("indicator", "PV + 5YP indicator", "cP"), FieldSpec("pv_yp", "PV/YP Ratio", "-"),
+             FieldSpec("gel_ratio", "Gel 10m/10s", "-"), FieldSpec("mw_ppg", "Mud Weight", "ppg")),
+    recalculate=_rheology, structured=True,
+    reference="MudProperties.calculate_fann_rheology: PV = θ600-θ300, YP = θ300-PV, n = 3.32 log(θ600/θ300), "
+              "K = 510 θ300/511^n, τ0 = 2θ3-θ6",
+    limits="SCREENING; θ200 and θ100 are recorded but not used by the method; not a full HB fit.",
+)
+
+NOZZLE_SLOTS = 8          # the W13 nozzle-count spin allows 1..8
+
+
+def _nozzle_optimization(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    """Two-point pump-test nozzle optimisation (W13 ``_bit_optimize``). The engine's zero fallbacks are
+    rejected here: without available HHP, a pump-pressure limit and a mud weight there is no result (with
+    all three positive the bit pressure drop and the optimum area are positive)."""
+    from core.hydraulics_engine import AdvancedHydraulicsEngine
+
+    _positive(values, "hhp", "max_press", "mw")
+    count = values["n_nozzles"]
+    if count is None or count != int(count) or not 1 <= int(count) <= NOZZLE_SLOTS:
+        raise ValueError(f"nozzle count must be a whole number from 1 to {NOZZLE_SLOTS}")
+    r = AdvancedHydraulicsEngine.optimize_nozzles(
+        hhp=values["hhp"], max_press=values["max_press"], fr1=values["fr1"], spp1=values["spp1"],
+        fr2=values["fr2"], spp2=values["spp2"], prev_tfa=values["prev_tfa"], mw_ppg=values["mw"],
+        n_nozzles=int(count), model="HP" if values["model_hp"] else "IF")
+    out: Dict[str, Optional[float]] = {
+        "max_flow_rate": r["max_flow_rate_gpm"], "optimal_flow_rate": r["optimal_flow_rate_gpm"],
+        "friction_exponent": r["friction_exponent"],
+        "friction_exponent_assumed": 1.0 if r["friction_exponent_source"] == "assumed_fallback" else 0.0,
+        "optimal_tfa": r["optimal_tfa_in2"], "actual_tfa": r["actual_tfa_in2"], "tfa_error": r["tfa_error"]}
+    sizes = list(r["selected_nozzles"])
+    for slot in range(NOZZLE_SLOTS):
+        out[f"nozzle_{slot + 1}"] = float(sizes[slot]) if slot < len(sizes) else None
+    return out
+
+
+NOZZLE_OPTIMIZATION = Contract(
+    stable_id="w13.bit.nozzle_optimization", calculator="Bit Hydraulics › Nozzle Optimization", schema_version=1,
+    method_id="w13.bit.nozzle_optimization", method_version="M107 two-point nozzle optimisation v1",
+    inputs=(FieldSpec("hhp", "Available HHP", "hp", attr="opt_hhp"),
+            FieldSpec("max_press", "Max Pump Press", "psi", attr="opt_max_press"),
+            FieldSpec("fr1", "Flow Rate #1", "gpm", attr="opt_fr1"), FieldSpec("spp1", "SPP #1", "psi", attr="opt_spp1"),
+            FieldSpec("fr2", "Flow Rate #2", "gpm", attr="opt_fr2"), FieldSpec("spp2", "SPP #2", "psi", attr="opt_spp2"),
+            FieldSpec("prev_tfa", "Current TFA", "in²", attr="opt_tfa"), FieldSpec("mw", "Mud Weight", "ppg", attr="opt_mw"),
+            FieldSpec("n_nozzles", "No. of Nozzles", "count", attr="opt_n_nzl"),
+            FieldSpec("model_hp", "Model", "bool (checked = max bit HP, else max impact force)", attr="opt_hp_model",
+                      kind="bool")),
+    results=(FieldSpec("max_flow_rate", "Max Flow Rate", "gpm"), FieldSpec("optimal_flow_rate", "Optimal Flow Rate", "gpm"),
+             FieldSpec("friction_exponent", "Friction exponent", "-"),
+             FieldSpec("friction_exponent_assumed", "Friction exponent assumed", "flag (1 = n = 1 fallback)"),
+             FieldSpec("optimal_tfa", "Target TFA", "in²"), FieldSpec("actual_tfa", "Actual TFA", "in²"),
+             FieldSpec("tfa_error", "TFA Error", "in²"),
+             *(FieldSpec(f"nozzle_{slot}", f"Nozzle {slot}", "1/32 in") for slot in range(1, NOZZLE_SLOTS + 1))),
+    recalculate=_nozzle_optimization, structured=True,
+    reference="Q_max = HHP·1714/P_max; n from log(SPP1/SPP2)/log(Q1/Q2) (fallback n = 1, flagged); "
+              "ΔPf_opt = P/(n+1) (HP) or 2P/(n+2) (IF); best real 1/32-in combination",
+    limits="SCREENING; the parasitic-loss model is a single power law from two pump-test points.",
+)
+
+
+CONTRACTS: Dict[str, Contract] = {c.calculator: c for c in (
+    QUICK_CALC, BIT_HYDRAULICS, TFA, HYDROSTATIC, CEMENT_VOLUME, OWR, BUILD_TURN,                    # M73 / M87
+    BUOYANCY, BALANCED_PLUG, KICK_TOLERANCE, PORE_FG, STUCK_PIPE, MUD_WDM, MUD_BALANCE, MUD_LAB,    # M107
+    FISHING, RHEOLOGY, NOZZLE_OPTIMIZATION)}
 LEGACY_CONTRACTS: Tuple[Contract, ...] = (QUICK_CALC_V1,)
 # method_id -> versions this build can still run. A version removed from here
 # makes its stored cases NOT REPRODUCIBLE (never silently re-run with another method).
 AVAILABLE_METHODS: Dict[str, Tuple[str, ...]] = {c.method_id: (c.method_version,) for c in CONTRACTS.values()}
 AVAILABLE_METHODS[QUICK_CALC_V1.method_id] = (QUICK_CALC_V1.method_version,)
 
-_TABLE = "depends on table/dialog state the generic case capture does not record"
-# Every W13 leaf calculator (finder path) and whether it has a re-runnable contract.
+_CAPTURE = "the case capture records form fields and result labels only"
+# Every W13 leaf calculator (finder path) without a re-runnable contract, with the exact reason (M107).
 NOT_SUPPORTED: Dict[str, str] = {
-    "Volume › Well Volumes": f"string and hole sections {_TABLE}",
-    "Hydraulics": f"drill-string and annulus sections {_TABLE}; saved hydraulics runs are verified in Calc History",
-    "Bit Hydraulics › Nozzle Optimization": "two-point pump curve optimisation is not yet contracted",
-    "Weight": f"drill-string components {_TABLE}",
-    "Stuck Pipe": "free-point and stretch results are not yet contracted",
-    "Mud › Weight/Dilution/Mix": "three calculators share one page; not yet contracted",
-    "Mud › Volume Balance": "not yet contracted",
-    "Mud › Rheology": "rheology runs are verified in Calc History (mud engine snapshots); no page contract",
-    "Mud › Mud Lab": "several independent lab calculators on one page; not yet contracted",
-    "CSG/CMT › Casing Strength": "casing runs are verified in Calc History (casing engine snapshots); no page contract",
-    "CSG/CMT › Balanced Plug": "not yet contracted",
-    "CSG/CMT › Buoyancy": "not yet contracted",
-    "Well Control › Kill Sheet": "TRAINING AID (owner decision pending); not re-runnable as a case",
-    "Well Control › Choke Schedule": "schedule table output; not yet contracted",
-    "Well Control › Kick Tolerance": "not yet contracted",
-    "Well Control › Pore Press  FG": "not yet contracted",
-    "Directional › Multi-Survey": f"survey table {_TABLE}; use Survey revisions",
-    "Directional › Anti-Collision": f"offset trajectories {_TABLE}; SCREENING only",
-    "Fishing": "several independent sizing calculators on one page; not yet contracted",
-    "DP Database": "reference catalogue, not a calculator",
+    "Volume › Well Volumes": f"reads the pump, drill-string and casing tables (vol_pumps, vol_pipes, vol_casings), which "
+                             f"are not captured; {_CAPTURE}",
+    "Hydraulics": f"reads the pump, drill-string, casing and nozzle tables of the page, which are not captured "
+                  f"({_CAPTURE}); hydraulics runs are only exported to CSV and are not stored, so they do not appear in "
+                  "Calc History",
+    "Weight": "the drill-string components table (wt_pipes) is not captured and the torque-and-drag result reads the "
+              "survey table of Directional › Multi-Survey (dd_surveys) on another page; torque-and-drag runs are "
+              "saved with their snapshot and verified in Calc History",
+    "CSG/CMT › Casing Strength": "inputs can be inherited from a casing architecture revision and the per-field "
+                                 "provenance (entered / inherited / unknown) is not captured, so a case could not "
+                                 "say where each value came from; casing runs are saved with provenance and "
+                                 "verified in Calc History",
+    "Well Control › Kill Sheet": "TRAINING AID (owner decision pending) and the drill-string geometry table (wc_pipes) "
+                                 "is not captured; kill-sheet runs are saved in Calc History as TRAINING AID",
+    "Well Control › Choke Schedule": "the output is a schedule table, which the case capture does not record, so no "
+                                     "case can be saved from this page",
+    "Directional › Multi-Survey": f"the survey table (dd_surveys) is not captured ({_CAPTURE}); use Survey revisions "
+                                  f"(immutable, verified, method-versioned)",
+    "Directional › Anti-Collision": f"the reference and offset survey tables are not captured ({_CAPTURE}); "
+                                    f"SCREENING only, no ISCWSA uncertainty",
+    "DP Database": "reference catalogue, not a calculator: nothing is computed, so there is nothing to re-run",
 }
 
 
@@ -471,10 +980,23 @@ def extra_entries(contract: Contract, owner: Any) -> Dict[str, Any]:
 
 
 def input_values(contract: Contract, inputs: Dict[str, Any]) -> Dict[str, Any]:
-    """Numeric inputs by field id (plus extras as stored); raises ValueError when one is unusable."""
+    """Inputs by field id - numbers, M107 text and bool fields, plus extras as stored; raises ValueError
+    when one is unusable."""
     stored = _field_values(inputs)
     values: Dict[str, Any] = {}
     for spec in contract.inputs:
+        if spec.kind == "text":                       # M107: a list entry, stored as its exact text
+            text = stored.get(spec.field_id)
+            if not (isinstance(text, str) and text.strip()) and spec.required:
+                raise ValueError(f"input {spec.field_id} is missing or empty")
+            values[spec.field_id] = text if isinstance(text, str) else None
+            continue
+        if spec.kind == "bool":                       # M107: a check or radio button state
+            flag = stored.get(spec.field_id)
+            if not isinstance(flag, bool):
+                raise ValueError(f"input {spec.field_id} is missing or not a true/false state")
+            values[spec.field_id] = flag
+            continue
         number = _number(stored.get(spec.field_id))
         if number is None and spec.required:
             raise ValueError(f"input {spec.field_id} is missing or not a number")

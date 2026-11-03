@@ -3222,7 +3222,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.mud_wu_tar = self._make_dspin(90, 0, 200, 1, " pcf")
         self.mud_wu_vol = self._make_dspin(500, 0, 10000, 0, " bbl")
         self.mud_wu_additive = QComboBox()
-        self.mud_wu_additive.addItems(["Barite (1470 pcf)", "Calcium Carbonate (170 pcf)", "Hematite (320 pcf)"])
+        from core.calculator_contracts import WEIGHT_UP_ADDITIVES   # M107 (D26): one list for screen and contract
+        self.mud_wu_additive.addItems([name for name, _density in WEIGHT_UP_ADDITIVES])
         f1.addRow("Current MW:", self.mud_wu_cur)
         f1.addRow("Target MW:", self.mud_wu_tar)
         f1.addRow("System Volume:", self.mud_wu_vol)
@@ -3463,13 +3464,8 @@ class EngineeringCalculatorTab(DrillTabBase):
     # ========== Mud Methods ==========
 
     def _mud_wu(self):
-        additive_densities = {"Barite": 1470, "Calcium Carbonate": 170, "Hematite": 320}
-        selected = self.mud_wu_additive.currentText()
-        density = 1470
-        for name, d in additive_densities.items():
-            if name in selected:
-                density = d
-                break
+        from core.calculator_contracts import additive_density_pcf
+        density = additive_density_pcf(self.mud_wu_additive.currentText())   # unknown entry: None, never a default
 
         r = self.engine.calc_mud_weight_increase(
             self.mud_wu_cur.value(), self.mud_wu_tar.value(),
@@ -3479,7 +3475,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.mud_wu_res.setText(f"❌ {r['error']}")
         else:
             self.mud_wu_res.setText(
-                f"Additive: {r['sacks_barite']:.0f} sacks\n"
+                f"Additive: {r['sacks_barite']:.0f} sacks (100 lb)\n"
                 f"Volume Increase: {r['volume_increase_bbl']:.1f} bbl\n"
                 f"Final Volume: {r['final_volume_bbl']:.1f} bbl"
             )

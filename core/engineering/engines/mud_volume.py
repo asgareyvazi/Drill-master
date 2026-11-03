@@ -23,6 +23,8 @@ from ..result import (
 
 class MudVolumeEngine:
     METHOD = "Mass/volume balance; no hidden defaults"
+    WEIGHT_UP_METHOD = "Material balance, 100-lb sacks v2 (M107: additive density in the sack mass)"
+    BBL_FT3 = 42.0 / 7.4805          # ft³ per bbl (231 in³ gallon)
     SCOPE = "COMPLETE"
 
     @classmethod
@@ -96,10 +98,12 @@ class MudVolumeEngine:
 
     @classmethod
     def weight_up(cls, current_mw, target_mw, system_vol, additive_density) -> EngineeringResult:
-        """Sacks of weighting agent. Densities and volume must share a consistent unit set.
+        """Sacks of weighting agent: MW and additive density in pcf, volume in bbl, 100-lb sacks.
 
-        When MW and additive density are in pcf and volume in bbl:
-          sacks = V×42×(target−current)/(ρ_add−target)/100   (100 lb sacks)
+        Volume balance: V_add = V×(MW2−MW1)/(ρ_add−MW2) bbl; mass = V_add×5.6146 ft³/bbl×ρ_add lb.
+          sacks = V×5.6146×ρ_add×(MW2−MW1)/(ρ_add−MW2)/100
+        M107 (D26): v1 used V×42×(MW2−MW1)/(ρ_add−MW2)/100, which leaves the additive density out
+        of the sack mass (and W13 offered barite as "1470 pcf", the ppg constant 42×35).
         """
         try:
             cur = require_number(current_mw, "current_mw")
@@ -112,8 +116,8 @@ class MudVolumeEngine:
                 raise EngineeringError("Additive density must be > target MW")
             if vol <= 0:
                 raise EngineeringError("System volume must be > 0")
-            sacks = vol * 42.0 * (tgt - cur) / (rho - tgt) / 100.0
-            vol_inc = sacks * 100.0 / rho * 7.4805 / 42.0
+            vol_inc = vol * (tgt - cur) / (rho - tgt)
+            sacks = vol_inc * cls.BBL_FT3 * rho / 100.0
             values = {
                 "sacks": round(sacks, 2),
                 "volume_increase_bbl": round(vol_inc, 3),
@@ -123,9 +127,9 @@ class MudVolumeEngine:
                 round(sacks, 2),
                 values=values,
                 unit="sacks",
-                formula="sacks = V×42×(MW2−MW1)/(ρ_add−MW2)/100",
-                method="Material balance, 100-lb sacks",
-                assumptions=["MW and additive density in the same density unit (typically pcf)"],
+                formula="sacks = V×5.6146×ρ_add×(MW2−MW1)/(ρ_add−MW2)/100",
+                method=cls.WEIGHT_UP_METHOD,
+                assumptions=["MW and additive density in pcf, volume in bbl, 100-lb sacks; ideal volume additivity"],
             )
         except MissingInputError as exc:
             return missing(exc.field)
