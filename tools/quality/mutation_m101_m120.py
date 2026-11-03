@@ -50,6 +50,8 @@ T110 = ["tests/test_m110_professional_export.py"]
 IP = "core/isolated_parse.py"
 DLG = "dialogs/excel_import_dialog.py"
 T111 = ["tests/test_m111_isolated_parse.py"]
+DA = "tools/quality/dependency_audit.py"
+T112 = ["tests/test_m112_dependency_audit.py"]
 
 MUTANTS = [
     # ---- M107 W13 contracts (D8) and the weight-up sack count (D26) --------------------------------------
@@ -637,6 +639,35 @@ MUTANTS = [
     Mutant("IP-timedelta-not-plain", IP,
            "date, datetime, dt_time, timedelta, Decimal)", "date, datetime, dt_time, Decimal)",
            T111, "real workbooks with time-log durations are rejected as NOT_PLAIN"),
+    # ---- M112 dependency and licence audit; D30 (PyQt5 in W13) -----------------------------------------
+    Mutant("DA-guard-always-true", DA,
+           "    current = node\n    while current in parents:",
+           "    return True\n    current = node\n    while current in parents:",
+           T112, "an unguarded optional import is reported as guarded"),
+    Mutant("DA-forbidden-binding-ignored", DA,
+           "        if module in FORBIDDEN_IMPORTS:",
+           "        if False:",
+           T112, "a GPL Qt binding in the product is not reported"),
+    Mutant("DA-undeclared-import-ignored", DA,
+           "            out.append({\"level\": \"FAIL\", \"where\": where, \"finding\": f\"undeclared third-party import {module}\"})",
+           "            pass",
+           T112, "an undeclared third-party import is not reported"),
+    Mutant("DA-agpl-called-permissive", DA,
+           "    if \"AGPL\" in t or \"AFFERO\" in t:\n        return \"strong copyleft (AGPL)\"",
+           "    if False:\n        return \"strong copyleft (AGPL)\"",
+           T112, "PyMuPDF (AGPL) is not classed as strong copyleft / owner gate"),
+    Mutant("DA-lgpl-called-permissive", DA,
+           "    if \"LGPL\" in t or \"LESSER\" in t or \"LIBRARY\" in t:",
+           "    if False:",
+           T112, "Qt for Python (LGPL) is not an owner gate"),
+    Mutant("W13-pyqt5-sheet-dialog-restored", "tabs/w13_Engineering_Calculator.py",
+           "                preferred = \"Aa\" if \"Aa\" in names else names[0]",
+           "                from PyQt5.QtWidgets import QInputDialog\n                preferred = \"Aa\" if \"Aa\" in names else names[0]",
+           T112, "D30 restored: the sheet prompt fails and the active sheet is imported without asking"),
+    Mutant("TDA-unguarded-import", "core/engineering/adapters/torque_drag_adapter.py",
+           "        try:\n            import torque_drag\n        except ImportError:  # silent-ok: optional LGPL package, owner-gated and never installed; None = no result\n            return None",
+           "        import torque_drag",
+           T112, "calling the adapter without the LGPL package raises instead of returning nothing"),
 ]
 
 

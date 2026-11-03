@@ -1,0 +1,3021 @@
+{
+ "catalogue": {
+  "approved": 0,
+  "entries": 54,
+  "rows": [
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 9,
+    "licence": "own code (product licence)",
+    "method_id": "engine.bit_performance",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_engineering_completion.py",
+     "test_engineering_ground_truth.py",
+     "test_engineering_integrations.py",
+     "test_engineering_non_finite_contract.py",
+     "test_final_hardening_regressions.py",
+     "test_m31_scenarios.py",
+     "test_m48_analysis_evidence.py",
+     "test_w3_bit_revolution_unknown_inputs.py",
+     "test_weighted_rop.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 24,
+    "licence": "own code (product licence)",
+    "method_id": "engine.mse",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_backup_restore_acceptance.py",
+     "test_data_layer_authorization.py",
+     "test_engineering_completion.py",
+     "test_engineering_ground_truth.py",
+     "test_engineering_non_finite_contract.py",
+     "test_history_well_scope.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_m104_operational_kpis.py",
+     "test_m30_semantic_regressions.py",
+     "test_m53_dashboard.py",
+     "test_m67_calculation_history.py",
+     "test_m71_ddr_background.py",
+     "test_m87_w13_contracts.py",
+     "test_m91_operational_analysis.py",
+     "test_m92_method_catalogue.py",
+     "test_mse_cross_process.py",
+     "test_mse_history_viewmodel.py",
+     "test_mse_persistence.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_cross_process.py",
+     "test_release_e2e.py",
+     "test_verify_artifact_bytes.py",
+     "test_w12_risk_assessment_m26.py",
+     "test_windows_release_gate_contract.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 9,
+    "licence": "own code (product licence)",
+    "method_id": "architecture.casing_inputs",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m102_context_probes.py",
+     "test_m109_cement_worksheet.py",
+     "test_m74_well_architecture.py",
+     "test_m78_workflows.py",
+     "test_m80_recovery_offline.py",
+     "test_m88_history_lineage.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_m94_e2e_journeys.py",
+     "test_m96_persistence_audit.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 57,
+    "licence": "own code (product licence)",
+    "method_id": "engine.casing",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_casing_absent_load_semantics.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_casing_cross_process.py",
+     "test_casing_history_viewmodel.py",
+     "test_casing_persistence.py",
+     "test_casing_vme_independent.py",
+     "test_cement_cross_process.py",
+     "test_cement_history_viewmodel.py",
+     "test_cement_persistence.py",
+     "test_cement_report_null_roundtrip.py",
+     "test_document_library.py",
+     "test_document_links.py",
+     "test_documents_tab.py",
+     "test_engineering_completion.py",
+     "test_engineering_ground_truth.py",
+     "test_engineering_independent_golden.py",
+     "test_engineering_non_finite_contract.py",
+     "test_final_hardening_regressions.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_import_inventory_routing.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m102_context_probes.py",
+     "test_m109_cement_worksheet.py",
+     "test_m31_scenarios.py",
+     "test_m49_knowledge_answer.py",
+     "test_m49_knowledge_retrieval.py",
+     "test_m49_knowledge_ui.py",
+     "test_m50_citation_navigation.py",
+     "test_m50_knowledge_retrieval.py",
+     "test_m50_verifier.py",
+     "test_m52_sentence_support.py",
+     "test_m56_calculator_finder.py",
+     "test_m74_well_architecture.py",
+     "test_m76_engineering_labels.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_m90_engine_qualification.py",
+     "test_m92_method_catalogue.py",
+     "test_m94_e2e_journeys.py",
+     "test_m96_persistence_audit.py",
+     "test_mse_cross_process.py",
+     "test_mud_volume_cross_process.py",
+     "test_nonfinite_import_boundaries.py",
+     "test_real_oeoc_golden.py",
+     "test_release_gate_and_w13.py",
+     "test_review_contract_certification.py",
+     "test_schematic_no_fabrication.py",
+     "test_search_closure_m47.py",
+     "test_search_normalization.py",
+     "test_silent_handler_contracts.py",
+     "test_single_source_guard.py",
+     "test_w3c_well_switch_scope_smoke.py",
+     "test_well_control_icp_fcp_consolidation.py",
+     "test_well_control_kill_sheet.py",
+     "test_well_control_kill_sheet_cross_process.py",
+     "test_well_control_kill_sheet_persistence.py",
+     "test_wellbore_scope_display.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 9,
+    "licence": "own code (product licence)",
+    "method_id": "architecture.cement_annulus",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m102_context_probes.py",
+     "test_m109_cement_worksheet.py",
+     "test_m74_well_architecture.py",
+     "test_m78_workflows.py",
+     "test_m80_recovery_offline.py",
+     "test_m88_history_lineage.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_m94_e2e_journeys.py",
+     "test_m96_persistence_audit.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 60,
+    "licence": "own code (product licence)",
+    "method_id": "engine.cement",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_autosave_manager_regression.py",
+     "test_bha_bit_ownership_integrity.py",
+     "test_canonical_schema_expanded.py",
+     "test_cement_cross_process.py",
+     "test_cement_history_viewmodel.py",
+     "test_cement_persistence.py",
+     "test_cement_report_null_roundtrip.py",
+     "test_cement_save_widget_smoke.py",
+     "test_completion_od_unknown_geometry.py",
+     "test_data_layer_authorization.py",
+     "test_data_quality_orphan_integrity.py",
+     "test_db_restore_service.py",
+     "test_engineering_completion.py",
+     "test_engineering_ground_truth.py",
+     "test_engineering_integrations.py",
+     "test_engineering_non_finite_contract.py",
+     "test_excel_intelligence_regressions.py",
+     "test_extended_engineering.py",
+     "test_golden_ddr.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_import_inventory_routing.py",
+     "test_inventory_zero_semantics.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m31_scenarios.py",
+     "test_m49_knowledge_answer.py",
+     "test_m49_knowledge_retrieval.py",
+     "test_m49_knowledge_ui.py",
+     "test_m50_verifier.py",
+     "test_m52_balanced_plug.py",
+     "test_m52_sentence_support.py",
+     "test_m55_directional.py",
+     "test_m73_contracts_history.py",
+     "test_m74_well_architecture.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_m90_engine_qualification.py",
+     "test_m94_e2e_journeys.py",
+     "test_m96_persistence_audit.py",
+     "test_mse_cross_process.py",
+     "test_mud_volume_cross_process.py",
+     "test_nozzle_optimization.py",
+     "test_p0_permissions.py",
+     "test_r18_r19_save_preservation.py",
+     "test_real_oeoc_golden.py",
+     "test_release_gate_and_w13.py",
+     "test_rest_api_disabled.py",
+     "test_review_contract_certification.py",
+     "test_schematic_no_fabrication.py",
+     "test_search_closure_m47.py",
+     "test_single_source_guard.py",
+     "test_w3c_well_switch_scope_smoke.py",
+     "test_well_control_kill_sheet_cross_process.py",
+     "test_well_trajectory.py",
+     "test_wellbore_ownership_integrity.py",
+     "test_windows_release_evidence.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 7,
+    "licence": "own code (product licence)",
+    "method_id": "directional.minimum_curvature",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m106_multi_segment_solver.py",
+     "test_m55_directional.py",
+     "test_m62_directional_plans.py",
+     "test_m70_integrity.py",
+     "test_m72_surveys_solver.py",
+     "test_m86_directional_solver.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 7,
+    "licence": "own code (product licence)",
+    "method_id": "directional.multi_segment_solver",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m106_multi_segment_solver.py",
+     "test_m55_directional.py",
+     "test_m62_directional_plans.py",
+     "test_m70_integrity.py",
+     "test_m72_surveys_solver.py",
+     "test_m86_directional_solver.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 10,
+    "licence": "own code (product licence)",
+    "method_id": "directional.plan_vs_actual",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m105_survey_references.py",
+     "test_m108_history_coverage.py",
+     "test_m52_trajectory_compare.py",
+     "test_m52_trajectory_compare_ui.py",
+     "test_m55_directional.py",
+     "test_m72_survey_ui.py",
+     "test_m86_directional_solver.py",
+     "test_m92_method_catalogue.py",
+     "test_m94_e2e_journeys.py",
+     "test_windows_release_gate_contract.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 7,
+    "licence": "own code (product licence)",
+    "method_id": "directional.target_solver",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m106_multi_segment_solver.py",
+     "test_m55_directional.py",
+     "test_m62_directional_plans.py",
+     "test_m70_integrity.py",
+     "test_m72_surveys_solver.py",
+     "test_m86_directional_solver.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "engine.anti_collision",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_anti_collision_engine.py",
+     "test_anti_collision_widget_smoke.py",
+     "test_engineering_completion.py",
+     "test_engineering_non_finite_contract.py",
+     "test_m76_engineering_labels.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 8,
+    "licence": "own code (product licence)",
+    "method_id": "engine.fishing",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_engineering_completion.py",
+     "test_engineering_non_finite_contract.py",
+     "test_junit_report.py",
+     "test_m107_w13_contracts.py",
+     "test_m90_engine_qualification.py",
+     "test_single_source_guard.py",
+     "test_w13_fishing_result_ui.py",
+     "test_windows_release_gate_contract.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 10,
+    "licence": "own code (product licence)",
+    "method_id": "engine.hydraulics",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_engineering_independent_golden.py",
+     "test_engineering_integrations.py",
+     "test_final_hardening_regressions.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_m75_engine_inventory.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_single_source_guard.py",
+     "test_well_control_kill_sheet.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 10,
+    "licence": "own code (product licence)",
+    "method_id": "engine.mud_volume",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_engineering_completion.py",
+     "test_engineering_ground_truth.py",
+     "test_engineering_non_finite_contract.py",
+     "test_m107_w13_contracts.py",
+     "test_m90_engine_qualification.py",
+     "test_mud_volume_cross_process.py",
+     "test_mud_volume_history_viewmodel.py",
+     "test_mud_volume_persistence.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_release_gate_and_w13.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 8,
+    "licence": "own code (product licence)",
+    "method_id": "analysis.cost_per_currency",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_cost_truth_boundary.py",
+     "test_m28_finance_safety_plan.py",
+     "test_m29_release_closure.py",
+     "test_m30_semantic_regressions.py",
+     "test_m31_scenarios.py",
+     "test_m93_report_provenance.py",
+     "test_money.py",
+     "test_plan_import_unknown_cells.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 5,
+    "licence": "own code (product licence)",
+    "method_id": "analysis.operational",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m103_context_jobs.py",
+     "test_m104_operational_kpis.py",
+     "test_m91_operational_analysis.py",
+     "test_m94_e2e_journeys.py",
+     "test_m95_ux_responsiveness.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 5,
+    "licence": "own code (product licence)",
+    "method_id": "analysis.time_log_summary",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m30_semantic_regressions.py",
+     "test_m31_scenarios.py",
+     "test_m93_report_provenance.py",
+     "test_operational_time_integrity.py",
+     "test_release_boundary_imports.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 8,
+    "licence": "own code",
+    "method_id": "fishing.free_point",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_engineering_completion.py",
+     "test_engineering_non_finite_contract.py",
+     "test_junit_report.py",
+     "test_m107_w13_contracts.py",
+     "test_m90_engine_qualification.py",
+     "test_single_source_guard.py",
+     "test_w13_fishing_result_ui.py",
+     "test_windows_release_gate_contract.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 1,
+    "licence": "pwptemp is LGPL-3.0: owner decision required",
+    "method_id": "thermal.wellbore_temperature",
+    "status": "OWNER REVIEW REQUIRED",
+    "tests": [
+     "test_m79_specialist_registry.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 0,
+    "licence": "torque_drag (pro-well-plan) is LGPL-3.0; an own implementation would need a benchmark",
+    "method_id": "tnd.stiff_string",
+    "status": "NOT IMPLEMENTED",
+    "tests": []
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 1,
+    "licence": "welleng implementation is Apache-2.0, but the ISCWSA model tables need owner licence review",
+    "method_id": "wellpath.iscwsa_error_model",
+    "status": "OWNER REVIEW REQUIRED",
+    "tests": [
+     "test_m79_specialist_registry.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 13,
+    "licence": "own code (product licence)",
+    "method_id": "survey.azimuth_transform",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m102_context_probes.py",
+     "test_m105_survey_integrity.py",
+     "test_m105_survey_references.py",
+     "test_m72_survey_ui.py",
+     "test_m72_surveys_solver.py",
+     "test_m74_well_architecture.py",
+     "test_m78_workflows.py",
+     "test_m80_recovery_offline.py",
+     "test_m85_survey_references.py",
+     "test_m86_directional_solver.py",
+     "test_m88_history_lineage.py",
+     "test_m93_report_provenance.py",
+     "test_m96_persistence_audit.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 13,
+    "licence": "own code (product licence)",
+    "method_id": "survey.datum_transform",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m102_context_probes.py",
+     "test_m105_survey_integrity.py",
+     "test_m105_survey_references.py",
+     "test_m72_survey_ui.py",
+     "test_m72_surveys_solver.py",
+     "test_m74_well_architecture.py",
+     "test_m78_workflows.py",
+     "test_m80_recovery_offline.py",
+     "test_m85_survey_references.py",
+     "test_m86_directional_solver.py",
+     "test_m88_history_lineage.py",
+     "test_m93_report_provenance.py",
+     "test_m96_persistence_audit.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 13,
+    "licence": "own code (product licence)",
+    "method_id": "survey.revision",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m102_context_probes.py",
+     "test_m105_survey_integrity.py",
+     "test_m105_survey_references.py",
+     "test_m72_survey_ui.py",
+     "test_m72_surveys_solver.py",
+     "test_m74_well_architecture.py",
+     "test_m78_workflows.py",
+     "test_m80_recovery_offline.py",
+     "test_m85_survey_references.py",
+     "test_m86_directional_solver.py",
+     "test_m88_history_lineage.py",
+     "test_m93_report_provenance.py",
+     "test_m96_persistence_audit.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 20,
+    "licence": "own code (product licence)",
+    "method_id": "engine.torque_drag",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_casing_cross_process.py",
+     "test_cement_cross_process.py",
+     "test_drill_pipe_reference_repository.py",
+     "test_drill_pipe_spec.py",
+     "test_drillpipe_reference_selection.py",
+     "test_engineering_completion.py",
+     "test_engineering_ground_truth.py",
+     "test_engineering_non_finite_contract.py",
+     "test_m112_dependency_audit.py",
+     "test_m76_engineering_labels.py",
+     "test_m90_engine_qualification.py",
+     "test_mse_cross_process.py",
+     "test_mud_volume_cross_process.py",
+     "test_release_gate_and_w13.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_history.py",
+     "test_torque_drag_history_widget_smoke.py",
+     "test_torque_drag_persistence.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_well_control_kill_sheet_cross_process.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.bit.hydraulics_mse_cost",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.bit.nozzle_optimization",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.bit.tfa_from_dp",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.casing.buoyancy_landing",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.cement.balanced_plug",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.cement.job_volumes",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.directional.build_turn_dls",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.fishing.free_point_stretch_weight",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.fishing.overshot_jar_backoff",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.mud.fann_rheology",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.mud.lab",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.mud.owr",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.mud.volume_balance",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.mud.weight_dilution_mix",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.csg/cmt.casing_strength",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.directional.anti-collision",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.directional.multi-survey",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.dp_database",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.hydraulics",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.volume.well_volumes",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.weight",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.well_control.choke_schedule",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 29,
+    "licence": "own code (product licence)",
+    "method_id": "w13.unsupported.well_control.kill_sheet",
+    "status": "NOT SUPPORTED",
+    "tests": [
+     "test_anti_collision_widget_smoke.py",
+     "test_casing_absent_load_widget_smoke.py",
+     "test_cement_save_widget_smoke.py",
+     "test_engineering_calculator_well_context.py",
+     "test_hydraulics_m40_regressions.py",
+     "test_hydraulics_m41_model_certification.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m104_operational_kpis.py",
+     "test_m107_w13_contracts.py",
+     "test_m112_dependency_audit.py",
+     "test_m52_balanced_plug.py",
+     "test_m56_calculator_finder.py",
+     "test_m63_calculation_cases.py",
+     "test_m73_contracts_history.py",
+     "test_m76_engineering_labels.py",
+     "test_m78_workflows.py",
+     "test_m83_selection_lifecycle.py",
+     "test_m87_w13_contracts.py",
+     "test_m89_architecture_casing_cement.py",
+     "test_mse_save_widget_smoke.py",
+     "test_mud_volume_save_widget_smoke.py",
+     "test_nozzle_optimization.py",
+     "test_release_gate_and_w13.py",
+     "test_release_smoke.py",
+     "test_single_source_guard.py",
+     "test_torque_drag_save_widget_smoke.py",
+     "test_w13_ecd_chart_fallback.py",
+     "test_w13_fishing_result_ui.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.volume.pipe_capacity (legacy)",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.volume.quick_calc",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.well_control.eaton_influx_dexp",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.well_control.hydrostatic_fp",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 6,
+    "licence": "own code (product licence)",
+    "method_id": "w13.well_control.kick_tolerance_trip_margin",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_m107_w13_contracts.py",
+     "test_m109_cement_worksheet.py",
+     "test_m73_contracts_history.py",
+     "test_m80_recovery_offline.py",
+     "test_m87_w13_contracts.py",
+     "test_m92_method_catalogue.py"
+    ]
+   },
+   {
+    "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
+    "evidence_tests": 20,
+    "licence": "own code (product licence)",
+    "method_id": "engine.well_control",
+    "status": "IMPLEMENTED",
+    "tests": [
+     "test_activity_mapper.py",
+     "test_drilling_calculator_dialog_smoke.py",
+     "test_engineering_completion.py",
+     "test_engineering_ground_truth.py",
+     "test_engineering_independent_golden.py",
+     "test_engineering_integrations.py",
+     "test_engineering_non_finite_contract.py",
+     "test_kill_sheet_casing_id_gate.py",
+     "test_m31_scenarios.py",
+     "test_mse_cross_process.py",
+     "test_mud_volume_cross_process.py",
+     "test_release_gate_and_w13.py",
+     "test_single_source_guard.py",
+     "test_w12_risk_assessment_m26.py",
+     "test_well_control_icp_fcp_consolidation.py",
+     "test_well_control_kill_sheet.py",
+     "test_well_control_kill_sheet_cross_process.py",
+     "test_well_control_kill_sheet_history_viewmodel.py",
+     "test_well_control_kill_sheet_persistence.py",
+     "test_well_control_kill_sheet_save_widget_smoke.py"
+    ]
+   }
+  ],
+  "without_test_evidence": [
+   "tnd.stiff_string"
+  ]
+ },
+ "declared": [
+  "PyMuPDF",
+  "PySide6",
+  "SQLAlchemy",
+  "bcrypt",
+  "matplotlib",
+  "numpy",
+  "openpyxl",
+  "pandas",
+  "pyqtgraph"
+ ],
+ "findings": [],
+ "imports": [
+  {
+   "file": "core/document_import.py",
+   "guarded": true,
+   "lines": [
+    141
+   ],
+   "module": "PIL"
+  },
+  {
+   "file": "app.py",
+   "guarded": false,
+   "lines": [
+    11,
+    14,
+    19,
+    631
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/async_workers.py",
+   "guarded": false,
+   "lines": [
+    2
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/base_tab.py",
+   "guarded": false,
+   "lines": [
+    22,
+    269,
+    290
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/common_widgets.py",
+   "guarded": false,
+   "lines": [
+    5,
+    9,
+    410,
+    234,
+    255
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/context_jobs.py",
+   "guarded": false,
+   "lines": [
+    34,
+    196
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/ddr_pdf_export.py",
+   "guarded": true,
+   "lines": [
+    49,
+    50
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/editor_bindings.py",
+   "guarded": false,
+   "lines": [
+    35,
+    49,
+    50,
+    92
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/error_handler.py",
+   "guarded": false,
+   "lines": [
+    134,
+    71
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/hierarchy_operations.py",
+   "guarded": false,
+   "lines": [
+    8,
+    9
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/managers.py",
+   "guarded": false,
+   "lines": [
+    8,
+    125,
+    126,
+    207,
+    252,
+    236
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/matplotlib_widgets.py",
+   "guarded": false,
+   "lines": [
+    4,
+    5,
+    6
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/professional_export.py",
+   "guarded": true,
+   "lines": [
+    587,
+    588,
+    589
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/qt_gc.py",
+   "guarded": false,
+   "lines": [
+    55
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/report_engine.py",
+   "guarded": true,
+   "lines": [
+    559,
+    560,
+    561,
+    1276,
+    1277,
+    1278,
+    1676,
+    1677,
+    1678,
+    1952,
+    1953,
+    1954,
+    2212,
+    2213,
+    2214
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/selection_manager.py",
+   "guarded": false,
+   "lines": [
+    18
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/time_utils.py",
+   "guarded": false,
+   "lines": [
+    6,
+    7,
+    8
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/toolbar_manager.py",
+   "guarded": false,
+   "lines": [
+    7,
+    8,
+    9
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/wellbore_schematic_engine.py",
+   "guarded": false,
+   "lines": [
+    24,
+    25
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/bootstrap_dialog.py",
+   "guarded": false,
+   "lines": [
+    5,
+    6
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/calculator_dialog.py",
+   "guarded": false,
+   "lines": [
+    5,
+    6
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/casing_history_dialog.py",
+   "guarded": false,
+   "lines": [
+    18,
+    19
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/cement_history_dialog.py",
+   "guarded": false,
+   "lines": [
+    19,
+    20
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/daily_report_dialogs.py",
+   "guarded": false,
+   "lines": [
+    5,
+    6
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/database_maintenance_dialog.py",
+   "guarded": false,
+   "lines": [
+    11,
+    12
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/ddr_duplicate_dialog.py",
+   "guarded": false,
+   "lines": [
+    13,
+    14
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/ddr_profile_dialog.py",
+   "guarded": false,
+   "lines": [
+    12,
+    13
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/drilling_report_dialogs.py",
+   "guarded": false,
+   "lines": [
+    7
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/engineering_dialogs.py",
+   "guarded": false,
+   "lines": [
+    14,
+    15,
+    16
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/excel_import_dialog.py",
+   "guarded": false,
+   "lines": [
+    22,
+    28,
+    29
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/hierarchy_dialogs.py",
+   "guarded": false,
+   "lines": [
+    8,
+    9
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/history_well_filter.py",
+   "guarded": false,
+   "lines": [
+    24
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/login_dialog.py",
+   "guarded": false,
+   "lines": [
+    6,
+    7
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/method_catalogue_dialog.py",
+   "guarded": false,
+   "lines": [
+    12,
+    13
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/mse_history_dialog.py",
+   "guarded": false,
+   "lines": [
+    19,
+    20
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/mud_volume_history_dialog.py",
+   "guarded": false,
+   "lines": [
+    20,
+    21
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/planning_dialog.py",
+   "guarded": false,
+   "lines": [
+    10,
+    11,
+    12
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/report_history_dialog.py",
+   "guarded": false,
+   "lines": [
+    20
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/settings_dialog.py",
+   "guarded": false,
+   "lines": [
+    6,
+    7
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/smart_template_dialog.py",
+   "guarded": false,
+   "lines": [
+    25,
+    26,
+    27
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/startup_dialog.py",
+   "guarded": false,
+   "lines": [
+    6,
+    7
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/survey_import_dialog.py",
+   "guarded": false,
+   "lines": [
+    13
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/torque_drag_history_dialog.py",
+   "guarded": false,
+   "lines": [
+    18,
+    19
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/well_control_kill_sheet_history_dialog.py",
+   "guarded": false,
+   "lines": [
+    21,
+    22
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "main_window.py",
+   "guarded": false,
+   "lines": [
+    10,
+    16,
+    23,
+    24,
+    25,
+    2755
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/analysis_views.py",
+   "guarded": false,
+   "lines": [
+    17,
+    18,
+    19
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/calculation_cases_panel.py",
+   "guarded": false,
+   "lines": [
+    22
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/calculation_history_tab.py",
+   "guarded": false,
+   "lines": [
+    16,
+    17,
+    18
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/calculator_finder.py",
+   "guarded": false,
+   "lines": [
+    15,
+    16,
+    122
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/dashboard_widgets.py",
+   "guarded": false,
+   "lines": [
+    14,
+    15,
+    16
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/document_link_dialog.py",
+   "guarded": false,
+   "lines": [
+    18,
+    19,
+    20
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/documents_tab.py",
+   "guarded": false,
+   "lines": [
+    23,
+    24,
+    25
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/home_tab.py",
+   "guarded": false,
+   "lines": [
+    35,
+    36,
+    37,
+    554
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/knowledge_assistant.py",
+   "guarded": false,
+   "lines": [
+    25,
+    26,
+    27
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/operational_analysis_panel.py",
+   "guarded": false,
+   "lines": [
+    19,
+    20
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/related_documents.py",
+   "guarded": false,
+   "lines": [
+    13,
+    14
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/survey_revision_panel.py",
+   "guarded": false,
+   "lines": [
+    12,
+    13
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/trajectory_3d_view.py",
+   "guarded": false,
+   "lines": [
+    37,
+    38
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/trajectory_compare_panel.py",
+   "guarded": false,
+   "lines": [
+    23,
+    24,
+    430
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/trajectory_viewer.py",
+   "guarded": false,
+   "lines": [
+    30,
+    31,
+    32
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w10_Planning_Widget.py",
+   "guarded": false,
+   "lines": [
+    9,
+    10,
+    11,
+    16,
+    17,
+    54,
+    670,
+    683,
+    684
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w11_Export.py",
+   "guarded": false,
+   "lines": [
+    9,
+    10
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w12_Analysis.py",
+   "guarded": false,
+   "lines": [
+    25,
+    26,
+    27,
+    32,
+    4110,
+    4281,
+    4282
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "guarded": false,
+   "lines": [
+    14,
+    15,
+    16,
+    2027,
+    2028
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w14_Procedure_Widget.py",
+   "guarded": false,
+   "lines": [
+    9,
+    10,
+    11,
+    17,
+    1624,
+    1625
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w15_Reference_Tables.py",
+   "guarded": false,
+   "lines": [
+    8,
+    9
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w16_Cost_Management.py",
+   "guarded": false,
+   "lines": [
+    7,
+    8,
+    9
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w1_well_info.py",
+   "guarded": false,
+   "lines": [
+    7,
+    8
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w2_Daily_Report.py",
+   "guarded": false,
+   "lines": [
+    8,
+    9,
+    15,
+    17,
+    2558
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w3_drilling_report.py",
+   "guarded": false,
+   "lines": [
+    10,
+    11,
+    12
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w3b_wellbore_schematic_tab.py",
+   "guarded": false,
+   "lines": [
+    9,
+    10,
+    11,
+    17,
+    690
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w3c_section_data.py",
+   "guarded": false,
+   "lines": [
+    10,
+    11,
+    12,
+    18,
+    1087,
+    1795,
+    1811
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w4_Downhole_Widget.py",
+   "guarded": false,
+   "lines": [
+    16,
+    17,
+    18
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w5_Equipment_Widget.py",
+   "guarded": false,
+   "lines": [
+    9,
+    10,
+    11
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w6_Trajectory_Widget.py",
+   "guarded": false,
+   "lines": [
+    24,
+    25,
+    26
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w7_logistics_Widget.py",
+   "guarded": false,
+   "lines": [
+    11,
+    12,
+    13,
+    1482,
+    2044,
+    2045
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w8_Safety_Widget.py",
+   "guarded": false,
+   "lines": [
+    8,
+    9,
+    10
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/w9_Services_Widget.py",
+   "guarded": false,
+   "lines": [
+    9,
+    10
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/well_architecture_panel.py",
+   "guarded": false,
+   "lines": [
+    15
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/well_plan_designer_panel.py",
+   "guarded": false,
+   "lines": [
+    18,
+    19
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/database.py",
+   "guarded": true,
+   "lines": [
+    50
+   ],
+   "module": "bcrypt"
+  },
+  {
+   "file": "core/document_import.py",
+   "guarded": true,
+   "lines": [
+    68,
+    226
+   ],
+   "module": "camelot"
+  },
+  {
+   "file": "core/import_adapters/pdf_tables.py",
+   "guarded": true,
+   "lines": [
+    162
+   ],
+   "module": "camelot"
+  },
+  {
+   "file": "core/ddr_pdf_split.py",
+   "guarded": false,
+   "lines": [
+    309,
+    284
+   ],
+   "module": "fitz"
+  },
+  {
+   "file": "core/document_import.py",
+   "guarded": true,
+   "lines": [
+    94,
+    240
+   ],
+   "module": "fitz"
+  },
+  {
+   "file": "core/document_library.py",
+   "guarded": true,
+   "lines": [
+    254
+   ],
+   "module": "fitz"
+  },
+  {
+   "file": "core/import_adapters/pdf_tables.py",
+   "guarded": true,
+   "lines": [
+    192
+   ],
+   "module": "fitz"
+  },
+  {
+   "file": "tabs/w4_Downhole_Widget.py",
+   "guarded": true,
+   "lines": [
+    863,
+    882
+   ],
+   "module": "lasio"
+  },
+  {
+   "file": "core/analysis_payloads.py",
+   "guarded": false,
+   "lines": [
+    73,
+    74,
+    82
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "core/matplotlib_widgets.py",
+   "guarded": false,
+   "lines": [
+    19,
+    56,
+    62
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "dialogs/planning_dialog.py",
+   "guarded": true,
+   "lines": [
+    925,
+    927,
+    928
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "tabs/trajectory_3d_view.py",
+   "guarded": false,
+   "lines": [
+    62,
+    141,
+    151
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "tabs/w10_Planning_Widget.py",
+   "guarded": false,
+   "lines": [
+    34,
+    43,
+    36
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "guarded": true,
+   "lines": [
+    1857
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "tabs/w16_Cost_Management.py",
+   "guarded": true,
+   "lines": [
+    445,
+    447,
+    448
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "tabs/w3_drilling_report.py",
+   "guarded": false,
+   "lines": [
+    97,
+    99,
+    108,
+    112
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "tabs/w6_Trajectory_Widget.py",
+   "guarded": false,
+   "lines": [
+    607,
+    608
+   ],
+   "module": "matplotlib"
+  },
+  {
+   "file": "tabs/trajectory_3d_view.py",
+   "guarded": false,
+   "lines": [
+    63,
+    290
+   ],
+   "module": "mpl_toolkits"
+  },
+  {
+   "file": "core/analysis_payloads.py",
+   "guarded": false,
+   "lines": [
+    151
+   ],
+   "module": "numpy"
+  },
+  {
+   "file": "tabs/w10_Planning_Widget.py",
+   "guarded": false,
+   "lines": [
+    7
+   ],
+   "module": "numpy"
+  },
+  {
+   "file": "core/analysis_evidence.py",
+   "guarded": false,
+   "lines": [
+    699,
+    957
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/ddr_import_service.py",
+   "guarded": false,
+   "lines": [
+    1443
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/document_import.py",
+   "guarded": false,
+   "lines": [
+    23
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/engineering/drill_pipe_import.py",
+   "guarded": true,
+   "lines": [
+    223
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/excel_normalizer.py",
+   "guarded": false,
+   "lines": [
+    4
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/import_ir.py",
+   "guarded": true,
+   "lines": [
+    485
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/import_quality.py",
+   "guarded": true,
+   "lines": [
+    485
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/import_router.py",
+   "guarded": true,
+   "lines": [
+    64
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/professional_export.py",
+   "guarded": true,
+   "lines": [
+    221,
+    222
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/profile_import_engine.py",
+   "guarded": false,
+   "lines": [
+    15
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/report_engine.py",
+   "guarded": true,
+   "lines": [
+    594,
+    595,
+    1305,
+    1306,
+    1703,
+    1704,
+    1979,
+    1980,
+    2239,
+    2240
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/report_provenance.py",
+   "guarded": false,
+   "lines": [
+    175,
+    190
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/survey_file_import.py",
+   "guarded": false,
+   "lines": [
+    95
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/trajectory_compare.py",
+   "guarded": false,
+   "lines": [
+    470
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "dialogs/planning_dialog.py",
+   "guarded": false,
+   "lines": [
+    59
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "dialogs/smart_template_dialog.py",
+   "guarded": false,
+   "lines": [
+    32,
+    33
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "guarded": true,
+   "lines": [
+    2851
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/common_widgets.py",
+   "guarded": true,
+   "lines": [
+    264
+   ],
+   "module": "pandas"
+  },
+  {
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "guarded": false,
+   "lines": [
+    12
+   ],
+   "module": "pandas"
+  },
+  {
+   "file": "tabs/w4_Downhole_Widget.py",
+   "guarded": true,
+   "lines": [
+    10,
+    561
+   ],
+   "module": "pandas"
+  },
+  {
+   "file": "tabs/w7_logistics_Widget.py",
+   "guarded": true,
+   "lines": [
+    466
+   ],
+   "module": "pandas"
+  },
+  {
+   "file": "core/document_import.py",
+   "guarded": true,
+   "lines": [
+    140
+   ],
+   "module": "pdf2image"
+  },
+  {
+   "file": "core/import_adapters/pdf_tables.py",
+   "guarded": true,
+   "lines": [
+    264
+   ],
+   "module": "pdf2image"
+  },
+  {
+   "file": "tabs/trajectory_viewer.py",
+   "guarded": true,
+   "lines": [
+    47
+   ],
+   "module": "pyqtgraph"
+  },
+  {
+   "file": "tabs/w12_Analysis.py",
+   "guarded": true,
+   "lines": [
+    76,
+    78
+   ],
+   "module": "pyqtgraph"
+  },
+  {
+   "file": "tabs/w6_Trajectory_Widget.py",
+   "guarded": true,
+   "lines": [
+    14
+   ],
+   "module": "pyqtgraph"
+  },
+  {
+   "file": "tabs/well_plan_designer_panel.py",
+   "guarded": true,
+   "lines": [
+    28
+   ],
+   "module": "pyqtgraph"
+  },
+  {
+   "file": "core/document_import.py",
+   "guarded": true,
+   "lines": [
+    139
+   ],
+   "module": "pytesseract"
+  },
+  {
+   "file": "core/import_adapters/pdf_tables.py",
+   "guarded": true,
+   "lines": [
+    263
+   ],
+   "module": "pytesseract"
+  },
+  {
+   "file": "main_window.py",
+   "guarded": true,
+   "lines": [
+    854,
+    865
+   ],
+   "module": "qtribbon"
+  },
+  {
+   "file": "core/document_library.py",
+   "guarded": true,
+   "lines": [
+    165
+   ],
+   "module": "rapidocr"
+  },
+  {
+   "file": "tabs/w12_Analysis.py",
+   "guarded": true,
+   "lines": [
+    4165,
+    4166,
+    4167
+   ],
+   "module": "reportlab"
+  },
+  {
+   "file": "tabs/w14_Procedure_Widget.py",
+   "guarded": true,
+   "lines": [
+    1647,
+    1648,
+    1649,
+    1650,
+    1651
+   ],
+   "module": "reportlab"
+  },
+  {
+   "file": "app.py",
+   "guarded": true,
+   "lines": [
+    713
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/authorization.py",
+   "guarded": false,
+   "lines": [
+    251,
+    329
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/calculation_history.py",
+   "guarded": false,
+   "lines": [
+    205
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/data_quality.py",
+   "guarded": true,
+   "lines": [
+    194
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/database.py",
+   "guarded": false,
+   "lines": [
+    22,
+    42,
+    43,
+    627,
+    670,
+    2974,
+    2975,
+    3710,
+    4223,
+    4837,
+    3555,
+    3016,
+    5416,
+    7664,
+    6029,
+    6076,
+    6258
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/db_maintenance.py",
+   "guarded": false,
+   "lines": [
+    579,
+    633,
+    634,
+    635,
+    1064
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/directional_plans.py",
+   "guarded": false,
+   "lines": [
+    206
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/document_library.py",
+   "guarded": false,
+   "lines": [
+    433,
+    580
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/document_links.py",
+   "guarded": false,
+   "lines": [
+    136,
+    225,
+    333
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/export_jobs.py",
+   "guarded": false,
+   "lines": [
+    245,
+    284,
+    313,
+    314
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/knowledge_retrieval.py",
+   "guarded": false,
+   "lines": [
+    255
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/login_throttle.py",
+   "guarded": false,
+   "lines": [
+    31
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/method_catalogue.py",
+   "guarded": false,
+   "lines": [
+    258
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/operations_intelligence.py",
+   "guarded": false,
+   "lines": [
+    28,
+    29
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/report_engine.py",
+   "guarded": false,
+   "lines": [
+    10
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/repositories/drill_pipe_reference_repository.py",
+   "guarded": false,
+   "lines": [
+    26
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/schema_indexes.py",
+   "guarded": false,
+   "lines": [
+    35
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/survey_revisions.py",
+   "guarded": false,
+   "lines": [
+    39,
+    40
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/well_architecture.py",
+   "guarded": false,
+   "lines": [
+    24,
+    25
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/wellbore_schematic_engine.py",
+   "guarded": false,
+   "lines": [
+    1718
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "dialogs/hierarchy_dialogs.py",
+   "guarded": false,
+   "lines": [
+    1389
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "dialogs/method_catalogue_dialog.py",
+   "guarded": false,
+   "lines": [
+    17
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "dialogs/startup_dialog.py",
+   "guarded": true,
+   "lines": [
+    396
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "tabs/w12_Analysis.py",
+   "guarded": false,
+   "lines": [
+    8
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/mineru_engine.py",
+   "guarded": true,
+   "lines": [
+    74
+   ],
+   "module": "torch"
+  },
+  {
+   "file": "core/engineering/adapters/torque_drag_adapter.py",
+   "guarded": true,
+   "lines": [
+    8,
+    16
+   ],
+   "module": "torque_drag"
+  },
+  {
+   "file": "core/engineering/adapters/welleng_adapter.py",
+   "guarded": true,
+   "lines": [
+    30,
+    41
+   ],
+   "module": "welleng"
+  }
+ ],
+ "lock": [
+  {
+   "class": "permissive",
+   "distribution": "bcrypt",
+   "installed": "4.2.1",
+   "licence": "Apache-2.0 [Apache Software License]",
+   "owner_gate": "",
+   "pinned": "4.2.1"
+  },
+  {
+   "class": "permissive",
+   "distribution": "contourpy",
+   "installed": "1.3.3",
+   "licence": "BSD 3-Clause License [BSD License]",
+   "owner_gate": "",
+   "pinned": "1.3.3"
+  },
+  {
+   "class": "permissive",
+   "distribution": "cycler",
+   "installed": "0.12.1",
+   "licence": "Copyright (c) 2015, matplotlib project [BSD License]",
+   "owner_gate": "",
+   "pinned": "0.12.1"
+  },
+  {
+   "class": "permissive",
+   "distribution": "et_xmlfile",
+   "installed": "2.0.0",
+   "licence": "MIT [MIT License]",
+   "owner_gate": "",
+   "pinned": "2.0.0"
+  },
+  {
+   "class": "permissive",
+   "distribution": "fonttools",
+   "installed": "4.64.0",
+   "licence": "MIT",
+   "owner_gate": "",
+   "pinned": "4.64.0"
+  },
+  {
+   "class": "permissive",
+   "distribution": "greenlet",
+   "installed": "3.5.5",
+   "licence": "MIT AND PSF-2.0",
+   "owner_gate": "",
+   "pinned": "3.5.5"
+  },
+  {
+   "class": "permissive",
+   "distribution": "kiwisolver",
+   "installed": "1.5.1",
+   "licence": "BSD License",
+   "owner_gate": "",
+   "pinned": "1.5.1"
+  },
+  {
+   "class": "permissive",
+   "distribution": "matplotlib",
+   "installed": "3.9.3",
+   "licence": "License agreement for matplotlib versions 1.3.0 and later [Python Software Foundation License]",
+   "owner_gate": "",
+   "pinned": "3.9.3"
+  },
+  {
+   "class": "permissive",
+   "distribution": "numpy",
+   "installed": "2.1.3",
+   "licence": "Copyright (c) 2005-2024, NumPy Developers. [BSD License]",
+   "owner_gate": "",
+   "pinned": "2.1.3"
+  },
+  {
+   "class": "permissive",
+   "distribution": "openpyxl",
+   "installed": "3.1.5",
+   "licence": "MIT [MIT License]",
+   "owner_gate": "",
+   "pinned": "3.1.5"
+  },
+  {
+   "class": "permissive",
+   "distribution": "packaging",
+   "installed": "26.3",
+   "licence": "Apache-2.0 OR BSD-2-Clause",
+   "owner_gate": "",
+   "pinned": "26.3"
+  },
+  {
+   "class": "permissive",
+   "distribution": "pandas",
+   "installed": "2.2.3",
+   "licence": "BSD 3-Clause License [BSD License]",
+   "owner_gate": "",
+   "pinned": "2.2.3"
+  },
+  {
+   "class": "permissive",
+   "distribution": "pillow",
+   "installed": "12.3.0",
+   "licence": "MIT-CMU",
+   "owner_gate": "",
+   "pinned": "12.3.0"
+  },
+  {
+   "class": "strong copyleft (AGPL)",
+   "distribution": "PyMuPDF",
+   "installed": "1.24.14",
+   "licence": "GNU AFFERO GPL 3.0",
+   "owner_gate": "PyMuPDF (AGPL-3.0)",
+   "pinned": "1.24.14"
+  },
+  {
+   "class": "permissive",
+   "distribution": "pyparsing",
+   "installed": "3.3.2",
+   "licence": "MIT",
+   "owner_gate": "",
+   "pinned": "3.3.2"
+  },
+  {
+   "class": "permissive",
+   "distribution": "pyqtgraph",
+   "installed": "0.13.7",
+   "licence": "MIT [MIT License]",
+   "owner_gate": "",
+   "pinned": "0.13.7"
+  },
+  {
+   "class": "weak copyleft (LGPL)",
+   "distribution": "PySide6",
+   "installed": "6.8.1.1",
+   "licence": "LGPL [GNU Library or Lesser General Public License (LGPL); Other/Proprietary License]",
+   "owner_gate": "Qt for Python (LGPL-3.0) distribution obligations",
+   "pinned": "6.8.1.1"
+  },
+  {
+   "class": "weak copyleft (LGPL)",
+   "distribution": "PySide6_Addons",
+   "installed": "6.8.1.1",
+   "licence": "LGPL [GNU Library or Lesser General Public License (LGPL); Other/Proprietary License]",
+   "owner_gate": "Qt for Python (LGPL-3.0) distribution obligations",
+   "pinned": "6.8.1.1"
+  },
+  {
+   "class": "weak copyleft (LGPL)",
+   "distribution": "PySide6_Essentials",
+   "installed": "6.8.1.1",
+   "licence": "LGPL [GNU Library or Lesser General Public License (LGPL); Other/Proprietary License]",
+   "owner_gate": "Qt for Python (LGPL-3.0) distribution obligations",
+   "pinned": "6.8.1.1"
+  },
+  {
+   "class": "permissive",
+   "distribution": "python-dateutil",
+   "installed": "2.9.0.post0",
+   "licence": "Dual License [BSD License; Apache Software License]",
+   "owner_gate": "",
+   "pinned": "2.9.0.post0"
+  },
+  {
+   "class": "permissive",
+   "distribution": "pytz",
+   "installed": "2026.3.post1",
+   "licence": "MIT [MIT License]",
+   "owner_gate": "",
+   "pinned": "2026.3.post1"
+  },
+  {
+   "class": "weak copyleft (LGPL)",
+   "distribution": "shiboken6",
+   "installed": "6.8.1.1",
+   "licence": "LGPL [GNU Library or Lesser General Public License (LGPL); Other/Proprietary License]",
+   "owner_gate": "Qt for Python (LGPL-3.0) distribution obligations",
+   "pinned": "6.8.1.1"
+  },
+  {
+   "class": "permissive",
+   "distribution": "six",
+   "installed": "1.17.0",
+   "licence": "MIT [MIT License]",
+   "owner_gate": "",
+   "pinned": "1.17.0"
+  },
+  {
+   "class": "permissive",
+   "distribution": "SQLAlchemy",
+   "installed": "2.0.36",
+   "licence": "MIT [MIT License]",
+   "owner_gate": "",
+   "pinned": "2.0.36"
+  },
+  {
+   "class": "permissive",
+   "distribution": "typing_extensions",
+   "installed": "4.16.0",
+   "licence": "PSF-2.0",
+   "owner_gate": "",
+   "pinned": "4.16.0"
+  },
+  {
+   "class": "permissive",
+   "distribution": "tzdata",
+   "installed": "2026.3",
+   "licence": "Apache-2.0",
+   "owner_gate": "",
+   "pinned": "2026.3"
+  }
+ ],
+ "optional_imports": [
+  {
+   "class": "permissive",
+   "distribution": "camelot-py",
+   "gate": "OCR / PDF tables (requirements-optional)",
+   "licence": "MIT (camelot-py 2.0.0)",
+   "module": "camelot"
+  },
+  {
+   "class": "permissive",
+   "distribution": "lasio",
+   "gate": "none recorded (LAS import/export is optional)",
+   "licence": "MIT (0.32)",
+   "module": "lasio"
+  },
+  {
+   "class": "permissive",
+   "distribution": "pdf2image",
+   "gate": "OCR (requirements-optional chain)",
+   "licence": "MIT (1.17.0)",
+   "module": "pdf2image"
+  },
+  {
+   "class": "permissive",
+   "distribution": "pytesseract",
+   "gate": "OCR (requirements-optional)",
+   "licence": "Apache-2.0 (0.3.13)",
+   "module": "pytesseract"
+  },
+  {
+   "class": "unknown",
+   "distribution": "qtribbon",
+   "gate": "unknown licence (ribbon UI fallback)",
+   "licence": "UNKNOWN — not published on PyPI",
+   "module": "qtribbon"
+  },
+  {
+   "class": "permissive",
+   "distribution": "rapidocr",
+   "gate": "OCR / models (requirements-optional)",
+   "licence": "Apache-2.0 (3.10.0)",
+   "module": "rapidocr"
+  },
+  {
+   "class": "permissive",
+   "distribution": "reportlab",
+   "gate": "none recorded (chart/procedure PDF fallback)",
+   "licence": "BSD (5.1.0)",
+   "module": "reportlab"
+  },
+  {
+   "class": "permissive",
+   "distribution": "torch",
+   "gate": "AI/ML, weights, GPU (MinerU probe only)",
+   "licence": "Apache-2.0 AND BSD-3-Clause AND MIT AND others (2.15.0)",
+   "module": "torch"
+  },
+  {
+   "class": "weak copyleft (LGPL)",
+   "distribution": "torque-drag",
+   "gate": "pwptemp / torque_drag (LGPL)",
+   "licence": "LGPL-3.0 (0.1.1)",
+   "module": "torque_drag"
+  },
+  {
+   "class": "permissive",
+   "distribution": "welleng",
+   "gate": "ISCWSA / welleng",
+   "licence": "Apache-2.0 (0.30.0); ISCWSA model tables need review",
+   "module": "welleng"
+  }
+ ],
+ "version": "M112 dependency audit v1"
+}

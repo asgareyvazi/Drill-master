@@ -15,7 +15,7 @@ from PySide6.QtCore import QAbstractTableModel, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGridLayout,
-    QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton, QRadioButton,
+    QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QMessageBox, QPushButton, QRadioButton,
     QScrollArea, QSpinBox, QSplitter, QTabWidget, QTableView, QTableWidget, QTableWidgetItem,
     QTextEdit, QVBoxLayout, QWidget,
 )
@@ -2853,7 +2853,6 @@ class EngineeringCalculatorTab(DrillTabBase):
             names = wb.sheetnames
             wb.close()
             if len(names) > 1:
-                from PyQt5.QtWidgets import QInputDialog
                 preferred = "Aa" if "Aa" in names else names[0]
                 sheet, ok = QInputDialog.getItem(
                     self, "Select sheet", "Worksheet:", names,

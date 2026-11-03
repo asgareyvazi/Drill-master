@@ -12,9 +12,10 @@ class TorqueDragAdapter:
 
     @staticmethod
     def calculate(*args, **kwargs):
-        if not TorqueDragAdapter.available():
+        try:
+            import torque_drag
+        except ImportError:  # silent-ok: optional LGPL package, owner-gated and never installed; None = no result
             return None
-        import torque_drag
         # Keep third-party API isolated; callers receive None until a supported
         # package version is detected rather than a guessed engineering result.
         calculator = getattr(torque_drag, "calculate", None)
