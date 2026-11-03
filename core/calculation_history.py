@@ -37,6 +37,9 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 HISTORY_VERSION = 1
+# M109: cement worksheets are labelled as such wherever History shows them
+CEMENT_SCOPE = "WORKSHEET — NOT A CEMENT DESIGN APPROVAL"
+CEMENT_METHODS = ("m89.cement_annulus", "w13.cement.job_volumes")
 REPORT_TEMPLATE_VERSION = 1
 
 # table -> (display source, scope statement)
@@ -119,8 +122,10 @@ def _adapters():
 
     def case(row):
         return HistoryEntry("Calculation case", "calculation_cases", row.id, row.well_id, row.name,
-                            row.method, row.method_version, row.created_at, "W13 CALCULATOR",
-                            row.inputs or {}, row.results or {}, f"case #{row.parent_id}" if row.parent_id else "")
+                            row.method, row.method_version, row.created_at,
+                            CEMENT_SCOPE if row.method in CEMENT_METHODS else "W13 CALCULATOR",
+                            row.inputs or {}, row.results or {}, f"case #{row.parent_id}" if row.parent_id else "",
+                            wellbore_id=row.wellbore_id)
 
     def plan(row):
         results = row.results or {}
@@ -273,6 +278,10 @@ def entry_status(entry: HistoryEntry) -> Dict[str, str]:
     if entry.table in PERSISTENCE_MODULES or entry.table == "directional_plan_revisions" \
             or entry.table in REVISION_SOURCES:
         reproducible, why = "REPRODUCIBLE", "a recalculation adapter exists"
+    elif entry.table == "calculation_cases" and entry.method == "m89.cement_annulus":
+        from core import well_architecture as wa
+
+        reproducible, why = wa.cement_reproducibility(entry.inputs, entry.version)
     elif entry.table == "calculation_cases":
         reproducible, why = contracts.reproducibility(entry.method, entry.version)
     elif entry.table == "trajectory_calculations":
@@ -454,12 +463,13 @@ PERSISTENCE_MODULES = {
 }
 
 
-def recalculate_entry(entry: HistoryEntry) -> Dict[str, Any]:
+def recalculate_entry(entry: HistoryEntry, db=None) -> Dict[str, Any]:
     """Re-run an entry with the CURRENT method and classify it against the stored result.
 
     Engine snapshots reuse each engine's ``recalculate_from_snapshot`` and the
     shared ``classify_verification``; directional plans re-run the designer.
-    Nothing is written; see ``save_recalculation``.
+    Nothing is written; see ``save_recalculation``. M109: a cement worksheet case
+    re-reads its frozen architecture revision, so it needs ``db``.
     """
     import importlib
 
@@ -481,6 +491,10 @@ def recalculate_entry(entry: HistoryEntry) -> Dict[str, Any]:
         from core.directional_plans import verify_plan_record
 
         return verify_plan_record(entry.inputs, entry.full_results, entry.version)
+    if entry.table == "calculation_cases" and entry.method == "m89.cement_annulus":
+        from core import well_architecture as wa
+
+        return wa.verify_cement_case(db, entry.inputs, entry.results, entry.version)
     if entry.table == "calculation_cases":
         from core import calculator_contracts as contracts
 
@@ -644,6 +658,11 @@ def save_recalculation(db, entry: HistoryEntry, outcome: Dict[str, Any]) -> Dict
     """
     from core.calculation_cases import save_case
 
+    if entry.table == "calculation_cases" and entry.method == "m89.cement_annulus":
+        from core import well_architecture as wa       # M109: a full worksheet case, linked rerun_of
+
+        return wa.save_cement_rerun(db, entry.record_id, entry.inputs, outcome, well_id=entry.well_id,
+                                    wellbore_id=entry.wellbore_id, name=entry.name)
     if not outcome.get("values"):
         raise ValueError(f"Nothing to store: recalculation status {outcome.get('status')}.")
     method_changed = outcome.get("method_matches") is False

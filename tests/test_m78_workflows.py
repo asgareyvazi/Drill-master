@@ -91,7 +91,9 @@ def test_c_architecture_worksheet_reaches_history_with_its_revision(app, env):
                     if e.key == f"calculation_cases:{case['id']}"]
         assert entry.source == "Calculation case" and f"arch rev {rev['revision']}" in entry.name
         state = ch.entry_status(entry)
-        assert state["readable"] == "READABLE" and state["reproducible"] == "NOT REPRODUCIBLE"   # no contract
+        # M109: the worksheet has a contract and re-runs from the frozen revision
+        assert state["readable"] == "READABLE" and state["reproducible"] == "REPRODUCIBLE"
+        assert ch.recalculate_entry(entry, db=manager)["status"] == "MATCH"
     finally:
         tab.deleteLater()
         app.processEvents()

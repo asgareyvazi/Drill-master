@@ -19,7 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -396,3 +396,135 @@ def casing_inputs(components: Iterable[Dict[str, Any]], string_name: str) -> Dic
     return {"string": string_name, "kind": string["kind"], "top_md": string["top_md"],
             "bottom_md": string["bottom_md"], "values": values, "provenance": provenance,
             "version": CASING_SOURCE_VERSION}
+
+
+# ---- M109: cement worksheet contract, re-run and verification ---------------------------------------
+CEMENT_WORKSHEET_LABEL = "WORKSHEET — NOT A CEMENT DESIGN APPROVAL"
+CEMENT_CALCULATOR = "Architecture › Cement annulus"
+CEMENT_VERIFY_TOLERANCE_BBL = 1e-9
+CEMENT_INPUTS = (("architecture_revision_id", "Architecture revision id", ""),
+                 ("architecture_revision", "Architecture rev", ""),
+                 ("components_sha256", "Components SHA-256", ""), ("string", "String", ""),
+                 ("open_hole_in", "Open hole (in)", "in"), ("caliper_in", "Average caliper (in)", "in"),
+                 ("excess_pct", "Excess on open hole (%)", "%"))
+CEMENT_CONTRACT = {
+    "id": "architecture.cement_annulus", "method": CEMENT_WORKSHEET_METHOD, "version": CEMENT_WORKSHEET_VERSION,
+    "label": CEMENT_WORKSHEET_LABEL,
+    "inputs": tuple({"id": key, "label": label, "unit": unit} for key, label, unit in CEMENT_INPUTS),
+    "results": ({"id": "total_bbl", "unit": "bbl"}, {"id": "base_total_bbl", "unit": "bbl"},
+                {"id": "interval_<n>", "unit": "bbl"}, {"id": "interval_<n>_excess", "unit": "bbl"}),
+    "source": "the frozen well architecture revision named by architecture_revision_id (SHA-256 checked)",
+    "not_inferred": ("cement yield (ft³/sk) or sacks — never inferred from a grade, class or name",
+                     "slurry design, thickening time, compressive strength, gas migration — not modelled",
+                     "casing yield strength — never inferred from the grade text (see casing_inputs)"),
+}
+
+
+def cement_case_payload(work: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """(inputs, results) of a calculation case for a cement worksheet (one builder for save and re-run)."""
+    inputs = {key: {"label": label, "value": work[key], **({"unit": unit} if unit else {})}
+              for key, label, unit in CEMENT_INPUTS}
+    results: Dict[str, Any] = {
+        "total_bbl": {"label": "Total annular volume", "value": work["total_bbl"], "unit": "bbl"},
+        "base_total_bbl": {"label": "Annular volume without excess", "value": work["base_total_bbl"], "unit": "bbl"}}
+    for index, part in enumerate(work["intervals"], start=1):
+        results[f"interval_{index}"] = {"label": f"{part['top_md']:g}-{part['bottom_md']:g} m in {part['outer']}"
+                                                 f" ({part['outer_source']})",
+                                        "value": part["volume_bbl"], "unit": "bbl"}
+        if part["excess_bbl"] is not None:
+            results[f"interval_{index}_excess"] = {"label": f"Excess in interval {index}",
+                                                   "value": part["excess_bbl"], "unit": "bbl"}
+    return inputs, results
+
+
+def _input(inputs: Dict[str, Any], key: str):
+    entry = (inputs or {}).get(key)
+    return entry.get("value") if isinstance(entry, dict) else None
+
+
+def cement_reproducibility(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    if version != CEMENT_WORKSHEET_VERSION:
+        return "NOT REPRODUCIBLE", f"cement worksheet version {version!r} is not available in this build"
+    missing = [key for key in ("architecture_revision_id", "components_sha256", "string")
+               if _input(inputs, key) in (None, "")]
+    if missing:
+        return "NOT REPRODUCIBLE", f"the case does not record {', '.join(missing)}"
+    return "REPRODUCIBLE", "re-derived from the frozen architecture revision after its SHA-256 check"
+
+
+def rerun_cement_worksheet(db_manager, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    """The worksheet again from the stored inputs and the frozen revision (raises on any integrity failure)."""
+    revision_id = _input(inputs, "architecture_revision_id")
+    stored = get_revision(db_manager, int(revision_id))          # LookupError / ArchitectureError (SHA-256)
+    if stored["components_sha256"] != _input(inputs, "components_sha256"):
+        raise ArchitectureError(f"Architecture revision {revision_id} no longer holds the components the case "
+                                "used (SHA-256 differs).")
+    work = cement_annulus(stored["components"], _input(inputs, "string"), open_hole_in=_input(inputs, "open_hole_in"),
+                          caliper_in=_input(inputs, "caliper_in"), excess_pct=_input(inputs, "excess_pct"))
+    return {**work, "architecture_revision_id": stored["id"], "architecture_revision": stored["revision"],
+            "components_sha256": stored["components_sha256"], "open_hole_in": _input(inputs, "open_hole_in"),
+            "wellbore_id": stored.get("wellbore_id")}
+
+
+def verify_cement_case(db_manager, inputs: Dict[str, Any], results: Dict[str, Any], version: str) -> Dict[str, Any]:
+    """Re-run a stored cement worksheet case: NOT_REPRODUCIBLE / UNREADABLE / MATCH / DIFFERENT.
+
+    Every stored result field is compared (value within ``CEMENT_VERIFY_TOLERANCE_BBL``, label text exactly,
+    fields present on one side only). ``results`` of the outcome is the fresh case payload, so a re-run can be
+    stored as a NEW linked case; nothing is written here.
+    """
+    blank = {"method_matches": None, "current_method": "", "values": {}, "differences": [], "not_compared": []}
+    status, why = cement_reproducibility(inputs, version)
+    if status != "REPRODUCIBLE":
+        return {**blank, "status": "NOT_REPRODUCIBLE", "detail": why}
+    if db_manager is None:
+        return {**blank, "status": "NOT_REPRODUCIBLE", "detail": "the architecture revision cannot be read here"}
+    try:
+        work = rerun_cement_worksheet(db_manager, inputs)
+    except LookupError as exc:
+        return {**blank, "status": "UNREADABLE", "detail": f"{exc} The stored result is shown as saved."}
+    except (ArchitectureError, TypeError, ValueError) as exc:
+        return {**blank, "status": "UNREADABLE", "detail": f"not re-derived: {exc}"}
+    _inputs, fresh = cement_case_payload(work)
+    differences = []
+    for key in sorted(set(results or {}) | set(fresh)):
+        old, new = (results or {}).get(key), fresh.get(key)
+        if old is None or new is None:
+            differences.append({"field_id": key, "stored": None if old is None else old.get("value"),
+                                "current": None if new is None else new.get("value")})
+            continue
+        a, b = old.get("value"), new.get("value")
+        numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (a, b))
+        if (numeric and abs(a - b) > CEMENT_VERIFY_TOLERANCE_BBL) or (not numeric and a != b) \
+                or old.get("label") != new.get("label"):
+            differences.append({"field_id": key, "stored": a, "current": b,
+                                **({"label": [old.get("label"), new.get("label")]}
+                                   if old.get("label") != new.get("label") else {})})
+    return {"status": "DIFFERENT" if differences else "MATCH", "method_matches": True,
+            "current_method": f"{CEMENT_WORKSHEET_METHOD} {CEMENT_WORKSHEET_VERSION}",
+            "detail": (f"{len(differences)} field(s) differ" if differences else
+                       f"every stored field repeated from architecture rev {work['architecture_revision']}")
+            + f". {CEMENT_WORKSHEET_LABEL}.",
+            "values": {k: v["value"] for k, v in fresh.items() if v.get("value") is not None},
+            "results": fresh, "work": {"label": work["label"], "wellbore_id": work.get("wellbore_id")},
+            "differences": differences, "not_compared": []}
+
+
+def save_cement_rerun(db_manager, source_case_id: int, inputs: Dict[str, Any], outcome: Dict[str, Any], *,
+                      well_id: Optional[int], wellbore_id: Optional[int], name: str,
+                      user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Store a verified re-run as a NEW cement worksheet case linked ``rerun_of`` the original."""
+    from core import calculation_cases as cc
+
+    if outcome.get("status") not in ("MATCH", "DIFFERENT") or not outcome.get("results"):
+        raise ValueError(f"Nothing to store: re-run status {outcome.get('status')}.")
+    return cc.save_case(
+        db_manager, calculator=CEMENT_CALCULATOR, name=f"{name} (re-run)", inputs=inputs, results=outcome["results"],
+        method=CEMENT_WORKSHEET_METHOD, method_version=CEMENT_WORKSHEET_VERSION, well_id=well_id,
+        wellbore_id=wellbore_id, user_id=user_id,
+        note=f"{CEMENT_WORKSHEET_LABEL} — {outcome['work']['label']}; re-run of case #{source_case_id}: "
+             f"{outcome['status']}",
+        source_link={"link_type": "rerun_of", "source_table": "calculation_cases", "source_id": source_case_id,
+                     "source_method": CEMENT_WORKSHEET_METHOD, "source_method_version": CEMENT_WORKSHEET_VERSION,
+                     "recalc_method": CEMENT_WORKSHEET_METHOD, "recalc_method_version": CEMENT_WORKSHEET_VERSION,
+                     "verification_status": outcome["status"], "method_changed": False})

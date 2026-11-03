@@ -222,7 +222,7 @@ class CalculationHistoryTab(QWidget):
         chosen = self.selected()
         if len(chosen) != 1:
             return None
-        outcome = ch.recalculate_entry(chosen[0])
+        outcome = ch.recalculate_entry(chosen[0], db=self.db)
         self.last_outcome = outcome
         method = ("same method" if outcome["method_matches"] else "METHOD CHANGED"
                   if outcome["method_matches"] is False else "method not compared")

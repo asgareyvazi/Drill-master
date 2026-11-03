@@ -208,7 +208,8 @@ class WellArchitecturePanel(QWidget):
                  + (f" incl. {i['excess_bbl']:.2f} bbl excess" if i["excess_bbl"] else "")
                  for i in result["intervals"]]
         total = f"{result['total_bbl']:.2f} bbl" if result["total_bbl"] is not None else "not computable"
-        self.status.setText(f"{result['label']} - architecture rev {rev['revision']}: " + "; ".join(parts)
+        self.status.setText(f"{wa.CEMENT_WORKSHEET_LABEL}. {result['label']} - architecture rev {rev['revision']}: "
+                            + "; ".join(parts)
                             + f". Total {total}.")
         self.last_cement = {**result, "architecture_revision_id": rev["id"],
                             "architecture_revision": rev["revision"], "components_sha256": rev["components_sha256"],
@@ -223,30 +224,17 @@ class WellArchitecturePanel(QWidget):
         work = self.last_cement
         if work is None or self.db is None or not self.well_id:
             return None
-        inputs = {key: {"label": label, "value": work[key]} for key, label in (
-            ("architecture_revision_id", "Architecture revision id"), ("architecture_revision", "Architecture rev"),
-            ("components_sha256", "Components SHA-256"), ("string", "String"), ("open_hole_in", "Open hole (in)"),
-            ("caliper_in", "Average caliper (in)"), ("excess_pct", "Excess on open hole (%)"))}
-        results = {"total_bbl": {"label": "Total annular volume", "value": work["total_bbl"], "unit": "bbl"},
-                   "base_total_bbl": {"label": "Annular volume without excess", "value": work["base_total_bbl"],
-                                      "unit": "bbl"}}
-        for index, part in enumerate(work["intervals"], start=1):
-            results[f"interval_{index}"] = {"label": f"{part['top_md']:g}-{part['bottom_md']:g} m in {part['outer']}"
-                                                     f" ({part['outer_source']})",
-                                            "value": part["volume_bbl"], "unit": "bbl"}
-            if part["excess_bbl"] is not None:
-                results[f"interval_{index}_excess"] = {"label": f"Excess in interval {index}",
-                                                       "value": part["excess_bbl"], "unit": "bbl"}
+        inputs, results = wa.cement_case_payload(work)      # M109: one builder for save and re-run
         try:
-            case = cc.save_case(self.db, calculator="Architecture › Cement annulus",
+            case = cc.save_case(self.db, calculator=wa.CEMENT_CALCULATOR,
                                 name=f"Cement annulus {work['string']} (arch rev {work['architecture_revision']})",
                                 inputs=inputs, results=results, method=work["method"],
                                 method_version=work["version"], well_id=self.well_id,
                                 wellbore_id=work.get("wellbore_id"),
-                                note=work["label"])
+                                note=f"{wa.CEMENT_WORKSHEET_LABEL} — {work['label']}")
         except (ValueError, AuthorizationError) as exc:
             self.status.setText(f"Not saved: {exc}")
             return None
         self.status.setText(f"Worksheet saved as calculation case #{case['id']} "
-                            f"(architecture revision {work['architecture_revision']}).")
+                            f"(architecture revision {work['architecture_revision']}). {wa.CEMENT_WORKSHEET_LABEL}.")
         return case

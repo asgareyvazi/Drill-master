@@ -203,7 +203,8 @@ def _workflow_methods() -> List[CatalogueEntry]:
         CatalogueEntry("architecture.cement_annulus", "Cement annulus worksheet", "Cement", "well architecture",
                        "IMPLEMENTED", "WORKSHEET", well_architecture.CEMENT_WORKSHEET_VERSION,
                        "Segment annulus volumes with declared caliper and explicit excess", OWN_CODE,
-                       "Excess on open hole only and only when declared", "re-run NOT IMPLEMENTED",
+                       "Excess on open hole only and only when declared; re-run from the frozen revision after its "
+                       "SHA-256 check (M109); WORKSHEET — NOT A CEMENT DESIGN APPROVAL", "",
                        "core/well_architecture.py"),
         CatalogueEntry("analysis.time_log_summary", "Time-log hours and NPT reduction", "Operations",
                        "operational time", "IMPLEMENTED", "", operational_time.TIME_SUMMARY_VERSION,

@@ -308,7 +308,8 @@ CEMENT_VOLUME = Contract(
              FieldSpec("pump_time", "Pump time", "min"), FieldSpec("hydrostatic", "Hydrostatic", "psi")),
     recalculate=_cement, structured=True,
     reference="Annulus (Dh²−Dp²)/1029.4 bbl/ft; CementEngine.job_volumes",
-    limits="WORKSHEET - not laboratory cement design; 0 in an optional field means omitted.",
+    limits="WORKSHEET — NOT A CEMENT DESIGN APPROVAL: not laboratory cement design; yield and sacks are entered, "
+           "never inferred from a class or grade; 0 in an optional field means omitted.",
 )
 
 

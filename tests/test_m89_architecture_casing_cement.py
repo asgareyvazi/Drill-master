@@ -174,7 +174,7 @@ def test_w3b_cement_worksheet_with_caliper_and_excess_is_saved_with_lineage(app,
         assert entry.results["base_total_bbl"]["value"] < entry.results["total_bbl"]["value"]
         assert ("uses", f"well_architecture_revisions:{rev['id']}") in \
             {(i["direction"], i["key"]) for i in ch.lineage(manager, entry)}
-        assert ch.entry_status(entry)["reproducible"] == "NOT REPRODUCIBLE"     # worksheet: captured only
+        assert ch.entry_status(entry)["reproducible"] == "REPRODUCIBLE"         # M109: re-run adapter
     finally:
         tab.deleteLater()
         app.processEvents()

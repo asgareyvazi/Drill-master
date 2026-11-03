@@ -43,6 +43,8 @@ T104 = ["tests/test_m104_operational_kpis.py"]
 T103 = ["tests/test_m103_context_jobs.py"]
 CH = "core/calculation_history.py"
 T108 = ["tests/test_m108_history_coverage.py"]
+WA = "core/well_architecture.py"
+T109 = ["tests/test_m109_cement_worksheet.py"]
 
 MUTANTS = [
     # ---- M107 W13 contracts (D8) and the weight-up sack count (D26) --------------------------------------
@@ -441,6 +443,65 @@ MUTANTS = [
            "    (\"trajectory_calculations\", \"method_version\", \"VARCHAR(120)\"),\n",
            "",
            T108, "an existing database never gains trajectory_calculations.method_version"),
+    # ---- M109 cement worksheet contract and re-run adapter (D9) ------------------------------------------
+    Mutant("WA-cement-version-unchecked", WA,
+           "    if version != CEMENT_WORKSHEET_VERSION:\n        return \"NOT REPRODUCIBLE\"",
+           "    if False:\n        return \"NOT REPRODUCIBLE\"",
+           T109, "a worksheet of another version is re-run with the current method"),
+    Mutant("WA-cement-missing-inputs-accepted", WA,
+           "    if missing:\n        return \"NOT REPRODUCIBLE\", f\"the case does not record",
+           "    if False:\n        return \"NOT REPRODUCIBLE\", f\"the case does not record",
+           T109, "a case without its revision, hash or string is offered as reproducible"),
+    Mutant("WA-cement-input-hash-unchecked", WA,
+           "    if stored[\"components_sha256\"] != _input(inputs, \"components_sha256\"):",
+           "    if False:",
+           T109, "a re-run uses a revision whose components differ from those the case used"),
+    Mutant("WA-cement-value-difference-ignored", WA,
+           "        if (numeric and abs(a - b) > CEMENT_VERIFY_TOLERANCE_BBL) or (not numeric and a != b) \\\n"
+           "                or old.get(\"label\") != new.get(\"label\"):",
+           "        if (not numeric and a != b) \\\n"
+           "                or old.get(\"label\") != new.get(\"label\"):",
+           T109, "a changed stored volume still verifies as MATCH"),
+    Mutant("WA-cement-label-difference-ignored", WA,
+           "        if (numeric and abs(a - b) > CEMENT_VERIFY_TOLERANCE_BBL) or (not numeric and a != b) \\\n"
+           "                or old.get(\"label\") != new.get(\"label\"):",
+           "        if (numeric and abs(a - b) > CEMENT_VERIFY_TOLERANCE_BBL) or (not numeric and a != b):",
+           T109, "a changed interval description (outer boundary source) verifies as MATCH"),
+    Mutant("WA-cement-one-sided-field-ignored", WA,
+           "        if old is None or new is None:\n            differences.append(",
+           "        if old is None or new is None:\n            continue\n            differences.append(",
+           T109, "a result field missing from the stored case is not reported"),
+    Mutant("WA-cement-unreadable-stored", WA,
+           "    if outcome.get(\"status\") not in (\"MATCH\", \"DIFFERENT\") or not outcome.get(\"results\"):",
+           "    if not outcome.get(\"results\") and False:",
+           T109, "an UNREADABLE re-run can be stored as a new case"),
+    Mutant("WA-cement-rerun-unlinked", WA,
+           "        source_link={\"link_type\": \"rerun_of\", \"source_table\": \"calculation_cases\", "
+           "\"source_id\": source_case_id,",
+           "        source_link=None and {\"link_type\": \"rerun_of\", \"source_table\": \"calculation_cases\", "
+           "\"source_id\": source_case_id,",
+           T109, "a stored re-run has no lineage to the original case"),
+    Mutant("CH-cement-status-adapter-missing", CH,
+           "    elif entry.table == \"calculation_cases\" and entry.method == \"m89.cement_annulus\":",
+           "    elif False:",
+           T109, "a cement worksheet case is reported NOT REPRODUCIBLE"),
+    Mutant("CH-cement-recalc-adapter-missing", CH,
+           "        return wa.verify_cement_case(db, entry.inputs, entry.results, entry.version)",
+           "        return {\"status\": \"NOT_REPRODUCIBLE\", \"method_matches\": None, \"detail\": \"\", \"values\": {}}",
+           T109, "History cannot re-run a cement worksheet case"),
+    Mutant("CH-cement-save-generic", CH,
+           "        return wa.save_cement_rerun(db, entry.record_id, entry.inputs, outcome, well_id=entry.well_id,",
+           "        pass\n    if False:\n        return wa.save_cement_rerun(db, entry.record_id, entry.inputs, outcome, "
+           "well_id=entry.well_id,",
+           T109, "a cement re-run is stored as a generic recalculation (plain numbers, not a worksheet case)"),
+    Mutant("CH-cement-scope-unlabelled", CH,
+           "                            CEMENT_SCOPE if row.method in CEMENT_METHODS else \"W13 CALCULATOR\",",
+           "                            \"W13 CALCULATOR\",",
+           T109, "History shows a cement worksheet without the not-an-approval label"),
+    Mutant("HT-recalculate-without-db", "tabs/calculation_history_tab.py",
+           "        outcome = ch.recalculate_entry(chosen[0], db=self.db)",
+           "        outcome = ch.recalculate_entry(chosen[0])",
+           T109, "the desktop cannot re-run a cement worksheet (no database handed over)"),
 ]
 
 
