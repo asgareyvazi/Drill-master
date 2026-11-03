@@ -148,13 +148,11 @@ MUTANTS = [
     Mutant("W12-staged-paint-ignores-scope", W12,
            "        if self.generation != page._generation:\n            self._finish(None)\n            return",
            "        if False:\n            self._finish(None)\n            return",
-           T_AP, "a staged paint keeps painting the old well's values after a scope change",
-           equivalent="Equivalent in the current program: all six _generation bump sites (wellbore, section, "
-                      "report, well, deselect, cleanup) cancel the staged paint synchronously before control "
-                      "returns to the event loop (section: update_daily_data -> snapshot request -> "
-                      "update_all_data -> _cancel_revision, pinned by the scenario "
-                      "section_change_mid_paint_cancels_the_old_paint), so the cancelled check stops the job "
-                      "first. The generation check is kept as defence in depth."),
+           T_AP, "a staged paint keeps painting the old well's values after a scope change"),
+    # M101: formerly declared equivalent ("every bump site cancels synchronously").  That proof
+    # assumed no exception between the generation bump and the cancel reached through
+    # update_scope_indicator -> update_all_data; when that read raises, only this check stops the old paint.  Killed by the scenario
+    # scope_change_whose_refresh_fails_still_stops_the_old_paint.
     Mutant("W12-update-during-paint-lost", W12,
            "            self._snapshot_wanted = True\n            return\n        self._cancel_revision()",
            "            return\n        self._cancel_revision()",

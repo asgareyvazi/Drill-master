@@ -18,7 +18,7 @@ import zipfile
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Tuple
 
 ROOT = Path(__file__).resolve().parent
 
@@ -169,6 +169,63 @@ def annotate_failures(path, environ=None) -> int:
     return emitted
 
 
+_WARNING_LINE = re.compile(r"^\s+(?P<where>.+?):(?P<line>\d+): (?P<category>\w*Warning): (?P<message>.*)$")
+
+
+def summarize_warnings(output: str) -> List[Tuple[int, str, str, str, str]]:
+    """Group pytest's "warnings summary" into (count, origin, category, location, message).
+
+    A block lists one header line per occurrence (test id or location) followed
+    by the indented ``path:line: Category: message`` line.  ``origin`` is
+    ``third-party`` (site-packages, frozen or standard-library modules) or
+    ``repository``.  Diagnostics only: the gate never depends on it.
+    """
+    lines = output.splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines) if "warnings summary" in line and line.startswith("="))
+    except StopIteration:
+        return []
+    groups: Dict[Tuple[str, str, str, str], int] = {}
+    headers = 0
+    for line in lines[start + 1:]:
+        if line.startswith("-- Docs:") or line.startswith("====="):
+            break
+        if not line.strip():
+            headers = 0
+            continue
+        match = _WARNING_LINE.match(line)
+        if match:
+            where = match["where"].replace("\\", "/")
+            third = "site-packages" in where or where.startswith("<") or "/lib/python" in where
+            if "site-packages/" in where:
+                where = where.split("site-packages/", 1)[1]
+            key = ("third-party" if third else "repository", match["category"], f"{where}:{match['line']}",
+                   match["message"].strip()[:160])
+            groups[key] = groups.get(key, 0) + max(headers, 1)
+            headers = 0
+        elif not line.startswith(" "):
+            headers += 1
+    return sorted(((count, *key) for key, count in groups.items()), key=lambda row: (-row[0], row[1:]))
+
+
+def report_warnings(output: str, environ=None, limit: int = 8) -> int:
+    """Print the grouped warning inventory; in CI also emit up to ``limit`` notices."""
+    environ = os.environ if environ is None else environ
+    rows = summarize_warnings(output)
+    total = sum(row[0] for row in rows)
+    print(f"Pytest warning inventory: {total} occurrence(s) in {len(rows)} group(s)")
+    for count, origin, category, location, message in rows:
+        print(f"  {count:5d}  {origin:11s}  {category}  {location}  {message}")
+    if environ.get("GITHUB_ACTIONS") == "true" and rows:
+        by_origin = {}
+        for count, origin, *_rest in rows:
+            by_origin[origin] = by_origin.get(origin, 0) + count
+        print(f"::notice title=pytest warnings::{_annotation_text(f'{total} occurrence(s), {len(rows)} group(s); ' + ', '.join(f'{k}: {v}' for k, v in sorted(by_origin.items())))}")
+        for count, origin, category, location, message in rows[:limit - 1]:
+            print(f"::notice title=pytest warning group::{_annotation_text(f'{count}x {origin} {category} {location}: {message}')}")
+    return total
+
+
 def _ci_error(title, text) -> None:
     """Also surface a gate failure reason as a CI annotation (diagnostics only)."""
     if os.environ.get("GITHUB_ACTIONS") == "true":
@@ -202,6 +259,7 @@ def run_pytest(coverage_data: Path | None = None) -> bool:
         annotate_failures(report)
     output = (result.stdout or "") + (result.stderr or "")
     counts = _pytest_counts(output)
+    report_warnings(output)
     summary = (
         "Pytest release counts: "
         f"collected={collected}, "

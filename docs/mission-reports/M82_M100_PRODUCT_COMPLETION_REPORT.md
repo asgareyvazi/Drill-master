@@ -68,7 +68,7 @@ were not touched.
 | M90 engine qualification | PASS | Independent goldens per engine (hydraulics, mud, bit, MSE, casing, cement, T&D, well control, fishing, directional); fixed defects have regressions; 10 tests | 7.48 vs 7.48052 gal/ft³ documented deviation (OWNER REVIEW REQUIRED) |
 | M91 Operational Analysis | PASS / PARTIAL | W12 → Operational analysis: footage, time-weighted ROP, NPT (time log and register side by side), activity, bit runs, per-currency cost, drill-down to W2, CSV/XLSX export; missing ≠ 0; 8 tests | MSE trend per well only; plan vs actual whole-well only |
 | M92 Method Catalogue | PASS | Help → Method catalogue: 52 entries with ID, status, version, reference, licence, limits, approval and blocker; all NOT APPROVED; no approve action; 6 tests | Approvals are owner decisions |
-| M93 reports and documents | PASS (provenance) / PARTIAL (exports) | Scope, sources, revisions, methods and the unsigned label on HTML/PDF (QTextDocument; no PyMuPDF)/Excel/CSV, LTR and RTL; document index and search with manual well confirmation; no OCR; 11 tests | 16-sheet professional batch export not routed through provenance; RapidOCR OWNER REVIEW REQUIRED |
+| M93 reports and documents | PASS (provenance) / PARTIAL (exports) | Scope, sources, revisions, methods and the unsigned label on HTML/PDF (report PDFs are generated with QTextDocument, not PyMuPDF)/Excel/CSV, LTR and RTL; document index and search with manual well confirmation; no OCR; 11 tests | 16-sheet professional batch export not routed through provenance; RapidOCR OWNER REVIEW REQUIRED |
 | M94 journeys A–R | PASS (offscreen) | Connected MainWindow journeys A–R through the UI path: A context, B DDR authoring, C DDR batch import, D survey, E plan from an inclined tie-in, F plan vs actual (SCREENING), G architecture and cement, H W13 case and re-run, I lineage, J operational analysis, K report provenance, L stale async, M well delete, N backup/restore, O offline, P language/RTL, Q method catalogue, R authorisation; 4 journey tests plus register | No in-app UI-language switcher (journey P covers Persian data and RTL output); offscreen, not a desktop |
 | M95 UX audit | PARTIAL | Measured (offscreen Linux, ms): OA refresh 421 → 65; W10 refresh ≈360 → 144–148; two stalls fixed; 13 tests | Startup 1333 → 1349 unchanged within noise; no Windows measurement (owner procedure M98) |
 | M96 persistence | PASS | Foreign keys on every connection (WAL, busy timeout 30 s); well delete no longer blocked by 6 legacy W13 tables (audited sweep); section delete unlinks procedures; history tables reject UPDATE, a replacing INSERT and a direct DELETE (triggers, additive); rollback leaves no partial delete; 39 tests | — |
@@ -105,12 +105,12 @@ survey reference and material properties are never inferred. There is no online 
 Environment for local evidence: Linux 6.1, 2 CPUs, Python 3.11.2, PySide6 6.8.1.1 with `QT_QPA_PLATFORM=offscreen`,
 EGL/xkbcommon/dbus built locally from source, and a **stub** libGL (no GPU). These are offscreen results.
 
-| Gate | Result on `c776e8cd863b88623df0a8719cf497fbede93d73` |
+| Gate | Result on `c776e8cd863b88623df0a8719cf497fbede93d73` (local run unless marked CI) |
 |---|---|
 | Full suite (`python verify_release.py --coverage`, clean tree) | collected 4454: **4450 passed, 4 skipped**, 0 failed, 0 errors (1440 s) |
 | Count vs M81 baseline (4272 passed + 4 skipped) | +178 = 178 items in the 14 new test files (M83 16, M84 4, M85 16, M86 17, M87 16, M88 8, M89 10, M90 10, M91 8, M92 6, M93 11, M94 4, M95 13, M96 39) + 1 M73 gap test (M97) − 1 M72 parametrized case (the "vertical tie-in" refusal, removed in M86 when inclined tie-ins became supported and replaced by positive goldens). 103 test functions added, 0 removed |
 | Skips | Unchanged: `test_ddr_acceptance.py:33` ×2, `test_mineru_real_integration.py:26`, `test_packaging_smoke.py:218` (opt-in external acceptance, NOT RUN) |
-| Coverage (branch+line, 240 tracked product files) | **66.29%** (62289/93969); floor 45.50 unchanged; target 65 reached |
+| Coverage (branch+line, 240 tracked product files) | **66.29%**. *Corrected in M101:* the authoritative figure is the CI Python 3.12 job 125298732667 annotation, **62291/93969**. The 62289/93969 first written here came from the local Python 3.11 run and was not labelled as local; the 2-line difference comes from interpreter-dependent branches. Floor 45.50 unchanged; target 65 reached |
 | Ruff on new and modified files | 0 new findings |
 | Lint debt | 727 / ceiling 727 |
 | Silent-exception scan | within ceiling |
@@ -124,7 +124,7 @@ EGL/xkbcommon/dbus built locally from source, and a **stub** libGL (no GPU). The
 | `mutation_m83_m96.py` (new) | 20 | 20 | 0 | 0 | 0 |
 | `mutation_m70_m76.py` | 18 | 18 | 0 | 0 | 0 |
 | `mutation_m61_m67.py` | 19 | 19 | 0 | 0 | 0 |
-| `mutation_m52.py` | 70 | 69 | 0 | 1 (`W12-staged-paint-ignores-scope`, declared since M52) | 0 |
+| `mutation_m52.py` | 70 | 69 | 0 | 1 (`W12-staged-paint-ignores-scope`, declared since M52; *M101 re-examination:* the equivalence proof missed an exception path, a killing scenario was added, and the mutant is now KILLED) | 0 |
 
 The first `mutation_m83_m96` run gave 17 killed, 1 invalid (an anchor that matched twice) and 1 **survivor**:
 `entry_status` could report an UNREADABLE history record as readable and no test failed. That was a real M73
@@ -145,6 +145,8 @@ inclination check. Profiling puts it at about 9 µs per solve, and the UI runs o
 | `c776e8cd863b88623df0a8719cf497fbede93d73` (final code) | success, run 41451853825 (jobs source 3.11 / 3.12 with coverage / 3.13: success) | success, run 41451853860 (job windows-release: success) |
 | Report commit | final reply | final reply |
 
+Warnings (*added in M101*): CI Python 3.12 logged 859 warnings, while the local Python 3.11 run logged 36. The M101 inventory (`verify_release.report_warnings`, now printed and annotated by every CI run) is in the M101–M120 report.
+
 Earlier phase runs that a later push cancelled are not counted as evidence. For example, `38d9266`'s Windows
 run 41447500349 was cancelled; its Source run 41447500289 succeeded.
 
@@ -156,7 +158,7 @@ run 41447500349 was cancelled; its Source run 41447500289 succeeded.
 | Method approvals (52 catalogue entries) | Approve or reject per method; the application cannot approve |
 | ISCWSA error model / welleng (Apache-2.0) | Adopt for uncertainty and separation factor, or keep SCREENING |
 | pwptemp, torque_drag (LGPL-3.0) | Licence decision before any use |
-| PyMuPDF (AGPL) | Remains excluded unless the owner decides otherwise |
+| PyMuPDF (AGPL-3.0) | *Corrected in M101:* it is not excluded. It is a pre-existing mandatory dependency used by the PDF importers, document library and DDR PDF split. Keep it, make it optional or replace it: owner decision (evidence pack in M112). Report generation does not use it |
 | OCR, local models, GPU (RapidOCR etc.) | Not adopted |
 | Money model and currency conversion | Owner-gated; costs stay per currency |
 | pcf/ppg constant (7.48 vs 7.48052) | Choose one; currently a documented deviation |
@@ -172,7 +174,7 @@ Checks run against `0cd2a59..HEAD` and the working tree:
 | # | Check | Result |
 |---|---|---|
 | 1 | Forbidden wording added to docs or UI | None (the one hit is "released" meaning freed parser memory) |
-| 2 | PyMuPDF / fitz imported | None |
+| 2 | PyMuPDF / fitz imported | None **added by this programme's diff** (`0cd2a59..HEAD`). *Scope corrected in M101:* PyMuPDF is a pre-existing mandatory dependency (`requirements.txt`, `requirements-lock.txt` 1.24.14, `pyproject.toml`). It is imported by `core/ddr_pdf_split.py`, `core/document_import.py`, `core/import_adapters/pdf_tables.py` and `core/document_library.py`. Its AGPL-3.0 owner decision is open (§E) |
 | 3 | OCR, model, GPU or network client imported in product code | None |
 | 4 | Binary, database, model or temporary report files added to git | None |
 | 5 | Tags or releases created | None |

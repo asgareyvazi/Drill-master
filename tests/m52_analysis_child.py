@@ -245,6 +245,37 @@ def section_change_mid_paint_cancels_the_old_paint(ctx):
 
 
 @scenario
+def scope_change_whose_refresh_fails_still_stops_the_old_paint(ctx):
+    # Defence in depth (M101 re-examination of the "equivalent" M52 mutant): a scope change
+    # normally cancels the staged paint synchronously: update_scope_indicator reads through
+    # _fetch_cached -> update_all_data -> _cancel_revision.  When that read raises (Qt prints and
+    # swallows slot exceptions), the cancel never runs and only the generation check inside the
+    # staged paint keeps it from painting the old scope.
+    ctx.well("C")
+    jobs, errors = [], []
+
+    def failing(*_args, **_kwargs):
+        raise RuntimeError("synthetic refresh failure")
+
+    def change_bore(job):
+        jobs.append(job)
+        ctx.tab.update_scope_indicator = failing
+        try:
+            ctx.tab.on_wellbore_changed(None, None)
+        except RuntimeError as exc:
+            errors.append(str(exc))
+        finally:
+            del ctx.tab.update_scope_indicator
+    ctx.record_steps(after_first=change_bore)
+    ctx.tab.refresh_now()
+    ctx.idle()
+    assert errors == ["synthetic refresh failure"], errors
+    assert jobs and not jobs[0].cancelled, "this path must reach the staged paint without a cancel"
+    painted = [s for s in ctx.steps if s[2] == id(jobs[0])]
+    assert len(painted) == 1, painted             # nothing painted after the scope change
+
+
+@scenario
 def refresh_mid_paint_cancels_the_staged_paint(ctx):
     ctx.well("C")
     jobs = []

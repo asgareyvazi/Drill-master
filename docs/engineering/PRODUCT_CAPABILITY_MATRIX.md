@@ -338,7 +338,7 @@ Audit of the existing DDR path against the M84 list; two defects fixed (file ide
 | Capability | State | Evidence / limits |
 |---|---|---|
 | Scope, sources, revisions, methods and label on every report | PASS | Label banner first and a provenance block last: well, wellbore (DDR's own or "all wellbores of the well"), report or period; tables read (checked against the schema) and daily-report count; latest report / survey (SHA-256) / architecture (SHA-256) / directional-plan revision or "none recorded"; catalogue method IDs with versions read from the code and their approval state; generation time |
-| HTML / PDF / Excel / CSV | PASS | PDF through Qt `QTextDocument` (no PyMuPDF — AST-checked); Excel gets a first "Provenance" sheet; CSV (new) writes one file per sheet of the engine's own workbook with `#` provenance rows first; W11 format lists PDF / HTML / Excel / CSV |
+| HTML / PDF / Excel / CSV | PASS | PDF through Qt `QTextDocument` (report generation does not use PyMuPDF, AST-checked; PyMuPDF remains a pre-existing import dependency, see the M101 register); Excel gets a first "Provenance" sheet; CSV (new) writes one file per sheet of the engine's own workbook with `#` provenance rows first; W11 format lists PDF / HTML / Excel / CSV |
 | RTL / LTR | PASS | W11 "Document direction" applies to every report kind and the batch; `dir` on `<html>` and the body; Qt lays out every block right-to-left (checked on the PDF's document model); Excel sheets right-to-left |
 | Professional 16-sheet Excel / professional PDF (batch) | PARTIAL | Separate exporter (`core/professional_export.py`); not yet routed through the provenance step |
 | Document index and search | PASS (pre-existing) | `DocumentLibrary` text index and `search()`; `test_document_library`, `test_documents_tab`, `test_m49_knowledge_retrieval` |
@@ -442,3 +442,37 @@ Hand mutants 6/6 killed: (1) sweep list minus one table; (2) no insert guard; (3
 Reconciled documents (M99): this matrix, `ENGINEERING_METHODS_AND_LIMITATIONS.md` (M85–M96 sections),
 `DRILLMASTER_USER_WORKFLOWS.md` (workflows 14–17), `ENGINE_INVENTORY.md` (regenerated, `--check` current),
 `packaging/WINDOWS_RELEASE_ACCEPTANCE.md` (M98 section, current branch name).
+
+## M101–M120 – Product closure programme
+
+Statuses: PASS / PARTIAL / BLOCKED / NOT IMPLEMENTED / NOT RUN / OWNER REVIEW REQUIRED.
+Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Start: code `c776e8c`, report `e90843f`.
+
+### M101 – Evidence reconciliation
+
+| Item | Finding | Resolution |
+|---|---|---|
+| Coverage numerator | CI Python 3.12 job 125298732667 annotation: 66.29% **62291/93969**. The M82–M100 report printed the local Python 3.11 figure 62289/93969 without labelling it as local | Report corrected (CI authoritative; local labelled) |
+| PyMuPDF statement | "No PyMuPDF/fitz imported" was true only for the programme diff. PyMuPDF 1.24.14 is a pre-existing mandatory dependency, imported by `core/ddr_pdf_split.py`, `core/document_import.py`, `core/import_adapters/pdf_tables.py`, `core/document_library.py` (and three screenshot tools). §E wrongly said "remains excluded" | Report and this matrix corrected; AGPL-3.0 owner decision stays open (M112) |
+| M52 "equivalent" mutant `W12-staged-paint-ignores-scope` | The proof assumed no exception between the scope bump and the cancel reached through `update_scope_indicator → update_all_data`. When that read raises (Qt swallows slot exceptions), only the generation check stops the old paint | Not equivalent. New scenario `scope_change_whose_refresh_fails_still_stops_the_old_paint` kills it |
+| Warnings (CI 3.12: 859; local 3.11: 36) | The CI log is unreachable from this workspace (blob host). The Python 3.12 inventory cannot be produced locally | `verify_release.report_warnings` now prints the grouped inventory and annotates it in CI (check-run annotations are readable); inventory recorded in M118 |
+| `THIRD_PARTY_NOTICES.md` | Defers runtime licences to the manifests, which carry no licence names; PyMuPDF's AGPL-3.0 is disclosed nowhere | M112 |
+
+### M101 – Defect register (prioritized, source-backed)
+
+| # | Priority | Defect (verified in source) | Phase | State |
+|---|---|---|---|---|
+| D1 | P0 safety | `survey_revisions.verify_results` compares TVD/N/E only and passes when a key is missing; MD, inclination, azimuth, DLS, VS and HD are unchecked | M105 | open |
+| D2 | P0 safety | `tie_in_from_revision` checks only the station hash (and defaults a missing `integrity` to VERIFIED), then uses the stored derived results. A tampered `results_json` can become a plan tie-in. `compare_revisions` and plan vs actual also use unverified results | M105 | open |
+| D3 | P1 | `tabs/operational_analysis_panel.refresh` runs `oa.analyze` synchronously on the GUI thread | M103 | open |
+| D4 | P1 | `core/professional_export.py` writes a hard-coded `"Revision": "Rev 0"` and shows a free-text `Approved By` as an approval; the 16-sheet workbook bypasses M93 provenance | M110 | open |
+| D5 | P1 | `operational_analysis` uses whole-well `get_actual_vs_plan` and flags it only for a wellbore scope, not for a date range | M104 | open |
+| D6 | P1 | MSE records carry no wellbore/MD/source lineage; the trend is per well only | M104 | open |
+| D7 | P1 | `SelectionManager` has well/wellbore/section/report signals only; `context_token()` exists but no tab consumes it; workers use tab-local tokens (W12, analysis views, trajectory compare, knowledge assistant) | M102/M103 | open |
+| D8 | P1 | 20 of 27 W13 leaves NOT_SUPPORTED (`core/calculator_contracts.NOT_SUPPORTED`) | M107 | open |
+| D9 | P2 | Cement worksheet captured only (no re-run adapter) | M109 | open |
+| D10 | P2 | Directional solver: one arc + tangent only (no S-profile, build-turn or multiple targets) | M106 | open |
+| D11 | P2 | Depth datum and CRS: not modelled | M105 | open (scope) |
+| D12 | P2 | A running third-party parse cannot be interrupted (thread) | M111 | open |
+| D13 | P2 | Runtime dependency licences not disclosed | M112 | open |
+| D14 | P3 | Legacy trajectory calculations are captured only (no method identity) | M108 | open (by design for legacy) |

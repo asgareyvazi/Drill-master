@@ -219,9 +219,10 @@ def ui_results():
 
 
 def test_every_staged_paint_contract_has_a_scenario():
-    assert len(SCENARIOS) == 12
+    assert len(SCENARIOS) == 13
     for needed in ("holds_young_collections_only_while_it_runs", "no_payload_on_the_gui_thread", "synchronous_paint_are_identical", "yields_to_the_event_loop",
                    "scope_change_mid_paint", "section_change_mid_paint", "refresh_mid_paint", "update_request_mid_paint",
+                   "scope_change_whose_refresh_fails",
                    "cleanup_mid_paint", "deselect_clears", "npt_export", "rerenders_after_resize"):
         assert any(needed in name for name in SCENARIOS), needed
 
