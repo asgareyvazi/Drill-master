@@ -1177,6 +1177,9 @@ class MainWindow(QMainWindow):
         # or well was deleted), so it never shows a stale well.
         self.sel_manager.well_changed.connect(self._show_selected_well)
         self.sel_manager.selection_cleared.connect(self._show_no_selected_well)
+        self.sel_manager.context_changed.connect(self._show_context_path)
+        self.sel_manager.context_changed.connect(self.calculation_history_tab.on_context_changed)
+        self.sel_manager.context_changed.connect(self.documents_tab.on_context_changed)
         self.sel_manager.well_changed.connect(
             lambda wid, wd: (
                 self.export_widget.set_current_well(wid, wd)
@@ -1752,7 +1755,7 @@ class MainWindow(QMainWindow):
                 self.sel_manager.select_section(section_id, section_data)
 
             if report_id:
-                self.sel_manager.select_report(report_id, data)
+                self.sel_manager.select_report(report_id, self._report_payload(report_id, data))
                 self.tab_widget.setCurrentIndex(2)
 
         elif item_type == "well_tab":
@@ -1865,6 +1868,12 @@ class MainWindow(QMainWindow):
             "border-radius: 3px; border: 1px solid #ddd;"
         )
         status_bar.addPermanentWidget(self.current_well_label)
+        # M102: the full context path (company › project › well (rig) › wellbore › section › report | period),
+        # resolved through the database relations on every selection change.
+        self.context_path_label = QLabel("No well selected")
+        self.context_path_label.setObjectName("context_path_label")
+        self.context_path_label.setToolTip("Selection context (from the database relations; rig = well attribute)")
+        status_bar.addPermanentWidget(self.context_path_label)
 
         self.time_timer = QTimer()
         self.time_timer.timeout.connect(self.update_time)
@@ -2965,6 +2974,28 @@ class MainWindow(QMainWindow):
             return
         name = (well_data or {}).get('name') if isinstance(well_data, dict) else None
         self.current_well_label.setText(f"🛢️ Well: {name or f'id {well_id}'}")
+
+    def _report_payload(self, report_id, data):
+        """M102: navigation payloads carry ids only; the context gets the report's number and date from its record."""
+        payload = dict(data or {})
+        if payload.get("report_number") is None or payload.get("report_date") is None:
+            record = self.db_manager.get_daily_report_by_id(report_id) or {}
+            for key in ("report_number", "report_date", "well_id", "section_id"):
+                if payload.get(key) is None and record.get(key) is not None:
+                    payload[key] = record[key]
+        return payload
+
+    def _show_context_path(self, snapshot):
+        """M102: status-bar context path; a resolution failure is shown, never a stale path."""
+        if not hasattr(self, "context_path_label"):
+            return
+        from core import selection_context
+        try:
+            text = selection_context.path_text(selection_context.resolve(self.db_manager, snapshot))
+        except Exception as exc:  # shown in the label and logged; the previous path is not kept
+            logger.warning("Selection context could not be resolved: %s", type(exc).__name__)
+            text = f"Context could not be resolved ({type(exc).__name__})"
+        self.context_path_label.setText(text)
 
     def _show_no_selected_well(self):
         if hasattr(self, 'current_well_label'):

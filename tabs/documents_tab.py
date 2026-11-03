@@ -51,7 +51,8 @@ OUTCOME_TEXT = {"imported": "Imported", "duplicate": "Duplicate - not imported",
                 "Nothing approved", "not_importable": "Not importable", "denied": "Permission denied",
                 "failed": "Failed (rolled back)", "skipped": "Skipped by reviewer"}
 LIBRARY_FILTERS = (("all", "All documents"), ("unlinked", "Unlinked documents only"),
-                   ("linked", "Linked documents only"))
+                   ("linked", "Linked documents only"),
+                   ("selected_well", "Linked to the selected well"))   # M102: follows the selection
 
 
 class ExtractionWorker(QThread):
@@ -261,6 +262,7 @@ class DocumentsTab(QWidget):
         self.db_manager = db_manager
         self.library = DocumentLibrary(db_manager)
         self.link_service = DocumentLinkService(db_manager)
+        self.context_well_id = None           # M102: the selected well (for the "selected well" filter)
         self.current_document_id = None
         self.current_links = []
         self.pending_link_dialog = None
@@ -440,7 +442,18 @@ class DocumentsTab(QWidget):
             return
         total, unlinked = len(documents), sum(1 for d in documents if not d["links"])
         mode = self.filter_combo.currentData()
-        if mode == "unlinked":
+        if mode == "selected_well":
+            well_id = getattr(self, "context_well_id", None)
+            linked = set()
+            if well_id:
+                try:
+                    linked = {link["document_id"] for link in self.link_service.links_for_well(well_id)}
+                except Exception as exc:
+                    logger.warning("Document links could not be read: %s", type(exc).__name__)
+                    self.library_info.setText(f"Links could not be read ({type(exc).__name__})")
+                    return
+            documents = [d for d in documents if d["id"] in linked]
+        elif mode == "unlinked":
             documents = [d for d in documents if not d["links"]]
         elif mode == "linked":
             documents = [d for d in documents if d["links"]]
@@ -463,7 +476,9 @@ class DocumentsTab(QWidget):
             if doc["id"] == selected:
                 self.table.selectRow(row)
         self.table.blockSignals(False)
-        if total:
+        if mode == "selected_well" and not getattr(self, "context_well_id", None):
+            self.library_info.setText("Select a well to list the documents linked to it.")
+        elif total:
             shown = f"{len(documents)} of {total} document(s) shown" if mode != "all" else f"{total} document(s)"
             self.library_info.setText(f"{shown} · {unlinked} not linked to a well")
         else:
@@ -474,6 +489,15 @@ class DocumentsTab(QWidget):
         self._refresh_links()
         if hasattr(self, "assistant"):
             self.assistant.library_changed()       # an answer never outlives its documents/links
+
+    def on_context_changed(self, snapshot) -> None:
+        """M102: the library is portfolio-wide by default; the "selected well" filter follows the selection."""
+        well_id = getattr(snapshot, "well_id", None)
+        if well_id == getattr(self, "context_well_id", None):
+            return
+        self.context_well_id = well_id
+        if self.filter_combo.currentData() == "selected_well":
+            self.refresh()
 
     def _selected_document_id(self):
         row = self.table.currentRow()

@@ -11,7 +11,9 @@ Usage:
     sel.select_well(well_id, well_data)
 """
 
-from typing import Optional
+from dataclasses import dataclass
+from datetime import date, datetime
+from typing import Any, Optional
 
 from PySide6.QtCore import QObject, Signal
 import logging
@@ -21,6 +23,63 @@ logger = logging.getLogger(__name__)
 # Module-level lock avoids fragile class-attribute edits and protects the
 # singleton during concurrent widget construction.
 _SELECTION_INSTANCE_LOCK = Lock()
+
+
+@dataclass(frozen=True)
+class ContextSnapshot:
+    """M102: one immutable view of the whole selection, emitted with ``context_changed``.
+
+    Ids come from the selection itself; labels come from the payloads the
+    selection was made with (``None`` when the payload did not carry them).
+    Company and project are taken from the well payload when present; a
+    consumer that needs them authoritative resolves them through the database
+    relations (``core.selection_context.resolve``). The rig is an attribute of
+    the well (``rig_name``); the data model has no rig entity, so there is no
+    rig selection. ``period_from``/``period_to`` are an analysis filter that
+    survives well switches.
+    """
+
+    generation: int = 0
+    company_id: Optional[int] = None
+    project_id: Optional[int] = None
+    well_id: Optional[int] = None
+    well_name: Optional[str] = None
+    rig_name: Optional[str] = None
+    wellbore_id: Optional[int] = None
+    wellbore_name: Optional[str] = None
+    section_id: Optional[int] = None
+    section_name: Optional[str] = None
+    report_id: Optional[int] = None
+    report_number: Optional[Any] = None
+    report_date: Optional[str] = None
+    period_from: Optional[str] = None
+    period_to: Optional[str] = None
+
+    def as_dict(self) -> dict:
+        return dict(self.__dict__)
+
+
+def _as_date(value, label: str) -> Optional[date]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):          # a datetime is a date subclass; the period is day-granular
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value).strip()[:10])
+    except ValueError:
+        raise ValueError(f"{label} must be a date (YYYY-MM-DD), not {value!r}") from None
+
+
+def _label(data, *keys):
+    if not isinstance(data, dict):
+        return None
+    for key in keys:
+        value = data.get(key)
+        if value not in (None, ""):
+            return value
+    return None
 
 
 class SelectionManager(QObject):
@@ -46,6 +105,8 @@ class SelectionManager(QObject):
     section_changed = Signal(int, object)
     report_changed = Signal(int, object)
     selection_cleared = Signal()
+    period_changed = Signal(object)        # M102: (date_from, date_to) ISO strings, or None
+    context_changed = Signal(object)       # M102: ContextSnapshot after every selection change
 
     _instance = None
     _instance_lock = Lock()
@@ -72,6 +133,8 @@ class SelectionManager(QObject):
         self._section_data = None
         self._report_data = None
         self._generation = 0   # M83: bumped before every selection signal
+        self._period = None    # M102: (date, date) analysis filter, kept across well switches
+        self._batch = 0        # M102: select_full_context emits one context_changed at the end
         self._initialized = True
 
     # ==================== Properties ====================
@@ -189,6 +252,7 @@ class SelectionManager(QObject):
 
             self._generation += 1
             self.well_changed.emit(well_id, self._well_data)
+            self._emit_context()
             logger.debug(f"Selection: well → {well_id}")
 
     def select_wellbore(
@@ -228,6 +292,7 @@ class SelectionManager(QObject):
 
             self._generation += 1
             self.wellbore_changed.emit(wellbore_id, self._wellbore_data)
+            self._emit_context()
             logger.debug(f"Selection: wellbore → {wellbore_id}")
 
     def select_section(
@@ -259,6 +324,7 @@ class SelectionManager(QObject):
 
             self._generation += 1
             self.section_changed.emit(section_id, self._section_data)
+            self._emit_context()
             logger.debug(f"Selection: section → {section_id}")
 
     def select_report(
@@ -285,6 +351,7 @@ class SelectionManager(QObject):
         if changed or data_changed or force:
             self._generation += 1
             self.report_changed.emit(report_id, self._report_data)
+            self._emit_context()
             logger.debug(f"Selection: report → {report_id}")
 
     def select_full_context(
@@ -306,13 +373,18 @@ class SelectionManager(QObject):
         ``wellbore_id`` is keyword-only-by-position optional so existing
         callers that pass (well, section, report) keep working unchanged.
         """
-        self.select_well(well_id, well_data, force=True)
-        if wellbore_id:
-            self.select_wellbore(wellbore_id, wellbore_data, force=True)
-        if section_id:
-            self.select_section(section_id, section_data, force=True)
-        if report_id:
-            self.select_report(report_id, report_data, force=True)
+        self._batch += 1
+        try:
+            self.select_well(well_id, well_data, force=True)
+            if wellbore_id:
+                self.select_wellbore(wellbore_id, wellbore_data, force=True)
+            if section_id:
+                self.select_section(section_id, section_data, force=True)
+            if report_id:
+                self.select_report(report_id, report_data, force=True)
+        finally:
+            self._batch -= 1
+        self._emit_context()
 
     def clear(self):
         """Clear all selections and notify listeners."""
@@ -326,7 +398,55 @@ class SelectionManager(QObject):
         self._report_data = None
         self._generation += 1
         self.selection_cleared.emit()
+        self._emit_context()
         logger.debug("Selection: cleared")
+
+    # ==================== M102: period and context ====================
+    def select_period(self, date_from=None, date_to=None) -> None:
+        """Set (or with no dates clear) the analysis period; both ends are inclusive.
+
+        A reversed period is refused (``ValueError``); nothing is changed then.
+        """
+        start, end = _as_date(date_from, "The period start"), _as_date(date_to, "The period end")
+        if start and end and start > end:
+            raise ValueError(f"The period starts {start} after it ends {end}.")
+        period = (start, end) if (start or end) else None
+        if period == self._period:
+            return
+        self._period = period
+        self._generation += 1
+        self.period_changed.emit(self.current_period)
+        self._emit_context()
+
+    @property
+    def current_period(self):
+        if not self._period:
+            return None
+        return tuple(d.isoformat() if d else None for d in self._period)
+
+    def snapshot(self) -> ContextSnapshot:
+        period = self.current_period or (None, None)
+        well, report = self._well_data, self._report_data
+        report_date = _label(report, "report_date", "date")
+        return ContextSnapshot(
+            generation=self._generation,
+            company_id=_label(well, "company_id") if self._well_id else None,
+            project_id=_label(well, "project_id") if self._well_id else None,
+            well_id=self._well_id, well_name=_label(well, "name", "well_name") if self._well_id else None,
+            rig_name=_label(well, "rig_name") if self._well_id else None,
+            wellbore_id=self._wellbore_id or None,
+            wellbore_name=_label(self._wellbore_data, "name") if self._wellbore_id else None,
+            section_id=self._section_id or None,
+            section_name=_label(self._section_data, "name", "section_name") if self._section_id else None,
+            report_id=self._report_id or None,
+            report_number=_label(report, "report_number", "report_no") if self._report_id else None,
+            report_date=str(report_date)[:10] if self._report_id and report_date else None,
+            period_from=period[0], period_to=period[1])
+
+    def _emit_context(self) -> None:
+        if self._batch:
+            return
+        self.context_changed.emit(self.snapshot())
 
     # ==================== Query Methods ====================
     def context_token(self) -> tuple:

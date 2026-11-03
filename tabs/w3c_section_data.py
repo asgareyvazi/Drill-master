@@ -2083,6 +2083,7 @@ class SectionDataWidget(DrillTabBase):
         well_changed = well_id != getattr(self, "_forms_well_id", None)
         self._forms_well_id = well_id
         self.current_well_id = well_id
+        self.section_info.clear()              # M102: the previous well's section label never survives
         if well_changed:
             # SelectionManager clears section on a well switch but does not emit
             # a separate section event. Drop the old section and its form state
@@ -2120,7 +2121,8 @@ class SectionDataWidget(DrillTabBase):
                 self.section_combo.setCurrentIndex(i)
                 break
         self.section_combo.blockSignals(False)
-        if section_data and isinstance(section_data, dict):
+        self.section_info.clear()
+        if section_id and section_data and isinstance(section_data, dict):
             self.section_info.setText(
                 f"{section_data.get('name', '')} | "
                 f"{section_data.get('depth_from', 0):.0f}-"

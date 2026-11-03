@@ -564,10 +564,16 @@ class DailyReportWidget(DrillTabBase):
         self.current_info_label.hide()
         self.create_report_btn.setEnabled(False)
         self.refresh_report_timeline()
+        self._empty_report_form()           # M102: no report values outlive their context
         self.reset_context_view()
 
     def on_well_changed(self, well_id, well_data):
         """وقتی چاهی از طریق SelectionManager انتخاب می‌شود."""
+        # M102: the loaded report belongs to another well; it is never shown (or saved) under this one.
+        # (the base class has already reset current_report_id; the loaded record is self.current_report)
+        if isinstance(self.current_report, dict) and self.current_report.get("well_id") != well_id:
+            self._empty_report_form()
+            self.acknowledge_loaded_state()
         self.current_well = well_data
         self.current_well_id = well_id
         self.refresh_report_timeline()
@@ -2515,6 +2521,11 @@ class DailyReportWidget(DrillTabBase):
         """پاک کردن فرم برای گزارش جدید"""
         if self._has_unsaved_edits() and not self.confirm_discard_edits():
             return False
+        self._empty_report_form()
+        self.status_manager.show_success("DailyReport", "📝 New report ready")
+
+    def _empty_report_form(self):
+        """Empty the report form (M102: also used when the loaded report leaves the selected context)."""
         self.current_report = None
         self.current_report_id = None
         self.related_documents.set_report(None)
@@ -2533,7 +2544,6 @@ class DailyReportWidget(DrillTabBase):
         # اضافه کردن یک ردیف خالی
         self.add_time_log_row(self.time_24_table)
         self.add_time_log_row(self.morning_table)
-        self.status_manager.show_success("DailyReport", "📝 New report ready")
 
     @require_permission("can_export")
     def print_report(self):

@@ -2791,7 +2791,11 @@ class PlanningWidget(DrillTabBase):
         self.section_combo.blockSignals(True)
         self.section_combo.clear()
         self.section_combo.blockSignals(False)
-        self.reset_context_view(pickers=(self.well_combo,), tables=(self.milestones_tab.milestones_table,))
+        # M102: every sub-tab shows its own empty state (cards, labels) and no table keeps a row of the old well.
+        for sub in (self.lookahead_tab, self.npt_tab, self.code_tab, self.milestones_tab):
+            sub.set_current_well(None)
+        self.well_plan_tab.clear_chart()
+        self.reset_context_view(pickers=(self.well_combo,), table_roots=(self,))
 
     def on_well_changed(self, well_id, well_data):
         """Override - sync combo + load data"""

@@ -30,6 +30,7 @@ PAGE_SIZE = 200          # M73: rows per page; filters and paging run in the dat
 class CalculationHistoryTab(QWidget):
     def __init__(self, db_manager=None, parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.current_context = None            # M102: full selection context
         self.db = db_manager
         self.well_id: Optional[int] = None
         self.entries: List[ch.HistoryEntry] = []
@@ -124,6 +125,10 @@ class CalculationHistoryTab(QWidget):
             self.last_outcome = None
             self._load_lineage(None)
             self._update_actions()
+
+    def on_context_changed(self, snapshot) -> None:
+        """M102: keep the full context (the list itself is scoped by ``set_well``)."""
+        self.current_context = snapshot
 
     def clear_selection(self) -> None:
         """The selection was cleared (e.g. the well was deleted): drop everything shown."""

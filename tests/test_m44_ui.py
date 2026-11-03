@@ -407,6 +407,7 @@ class _Selection:
 
     def select_report(self, report_id, data):
         self.calls.append(("report", report_id))
+        self.report_payload = data
 
 
 def _stub_window():
@@ -420,9 +421,12 @@ def _stub_window():
     stub = SimpleNamespace(
         tab_widget=tabs, sel_manager=_Selection(), current_well_label=QLabel(),
         db_manager=SimpleNamespace(get_well_by_id=lambda wid: {"id": wid, "name": f"SYN-{wid}"},
-                                   get_sections_by_well=lambda wid: [{"id": 7, "name": "s"}]),
+                                   get_sections_by_well=lambda wid: [{"id": 7, "name": "s"}],
+                                   get_daily_report_by_id=lambda rid: {"id": rid, "report_number": 4,
+                                                                       "report_date": "2031-07-20", "well_id": 3}),
         _select_wellbore_from_payload=lambda data, well_id: None)
     stub.navigate_to = lambda data: MainWindow.navigate_to(stub, data)
+    stub._report_payload = lambda report_id, data: MainWindow._report_payload(stub, report_id, data)
     return MainWindow, stub, shown
 
 
@@ -433,6 +437,9 @@ def test_navigate_to_routes_dashboard_payloads(app):
     assert MainWindow.navigate_to(stub, {"type": "daily_report", "id": 9, "report_id": 9,
                                          "section_id": 7, "well_id": 3}) is True
     assert stub.sel_manager.calls[-3:] == [("well", 3), ("section", 7), ("report", 9)]
+    # M102: ids-only payloads get the report's number and date from its record
+    assert stub.sel_manager.report_payload["report_number"] == 4
+    assert stub.sel_manager.report_payload["report_date"] == "2031-07-20"
     assert stub.tab_widget.currentIndex() == 2
     assert MainWindow.navigate_to(stub, {"type": "well_tab", "well_id": 3, "tab_title": "Trajectory",
                                          "subtab": "viewer"}) is True

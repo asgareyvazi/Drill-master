@@ -214,6 +214,7 @@ class ExportWidget(DrillTabBase):
 
     def _load_ddr_reports(self):
         self.ddr_report_combo.clear()
+        self.ddr_preview.clear()            # M102: a preview never outlives its report list
         well_id = self.ddr_well.currentData()
         if not well_id or not self.db:
             return
@@ -226,6 +227,7 @@ class ExportWidget(DrillTabBase):
 
     def _preview_ddr(self):
         rid = self.ddr_report_combo.currentData()
+        self.ddr_preview.clear()
         if not rid:
             return
         r = self.db.get_daily_report_by_id(rid)
@@ -715,10 +717,8 @@ class ExportWidget(DrillTabBase):
         for combo in [self.ddr_well, self.eowr_well, self.npt_well,
                        self.cost_well, self.plan_well, self.batch_well]:
             combo.blockSignals(True)
-            for i in range(combo.count()):
-                if combo.itemData(i) == well_id:
-                    combo.setCurrentIndex(i)
-                    break
+            index = next((i for i in range(combo.count()) if combo.itemData(i) == well_id), -1)
+            combo.setCurrentIndex(index)       # M102: never stay on the previous well
             combo.blockSignals(False)
         # Load DDR reports
         self._load_ddr_reports()
@@ -738,6 +738,7 @@ class ExportWidget(DrillTabBase):
         self._current_well_id = None
         self.reset_context_view(pickers=(self.ddr_well, self.eowr_well, self.npt_well, self.cost_well,
                                          self.plan_well, self.batch_well))
+        self._load_ddr_reports()                # M102: empties the report list and the preview
 
     def set_current_well(self, well_id, well_data=None):
         """Sync همه combo ها و load reports"""

@@ -597,8 +597,18 @@ class CostManagementWidget(DrillTabBase):
         self.afe_days.setValue(days if days is not None else -1)
 
     # ===== DrillTabBase =====
+    def on_selection_cleared(self):
+        """M102: no cost value of the previous well survives a clear (cards, tables, chart, results)."""
+        self.current_well_id = None
+        self._show_empty_cost_state()
+        self.reset_context_view(table_roots=(self,))
+
     def on_well_changed(self, well_id, well_data):
         self.current_well_id = well_id
+        self._show_empty_cost_state()
+        self.refresh()
+
+    def _show_empty_cost_state(self):
         self.afe_table.setRowCount(0)
         self.afe_number.clear()
         self.cost_result.clear()
@@ -607,7 +617,6 @@ class CostManagementWidget(DrillTabBase):
         for card in (self.card_total, self.card_daily, self.card_meter, self.card_npt):
             card.value_label.setText("Unknown")
         safe_replace_chart(self.cost_chart, QLabel("Not assessed"))
-        self.refresh()
 
     def refresh(self):
         self._load_afe_from_db()

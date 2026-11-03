@@ -60,6 +60,10 @@ class DrillTabBase(QWidget):
         self.current_well_data = self.sel_manager.current_well_data or {}
         self.current_section_data = self.sel_manager.current_section_data or {}
         self.current_report_data = self.sel_manager.current_report_data or {}
+        # M102: every tab also knows the wellbore and the full context snapshot
+        # (company/project/rig/well/wellbore/section/report/date/period).
+        self.current_wellbore_id = self.sel_manager.current_wellbore_id
+        self.current_context = self.sel_manager.snapshot()
 
         # ✅ Pending updates - initialized upfront
         self._pending_well = None       # (well_id, well_data)
@@ -84,6 +88,11 @@ class DrillTabBase(QWidget):
         self.sel_manager.selection_cleared.connect(
             self._on_selection_cleared_internal
         )
+        # M102: wellbore state is stored here (tabs that react to it keep their own
+        # wellbore_changed connection, so nothing is delivered twice); the context
+        # snapshot reaches every tab through one hook.
+        self.sel_manager.wellbore_changed.connect(self._on_wellbore_changed_internal)
+        self.sel_manager.context_changed.connect(self._on_context_changed_internal)
 
         # Register in StatusManager
         try:
@@ -143,6 +152,7 @@ class DrillTabBase(QWidget):
     def _on_well_changed_internal(self, well_id, well_data):
         self.current_well_id = well_id
         self.current_well_data = well_data or {}
+        self.current_wellbore_id = self.sel_manager.current_wellbore_id   # a well switch clears it silently
         self.current_section_id = self.current_report_id = None
         self.current_section_data = {}
         self.current_report_data = {}
@@ -170,8 +180,23 @@ class DrillTabBase(QWidget):
         if self.isVisible():
             self._apply_pending_context()
 
+    def _on_wellbore_changed_internal(self, wellbore_id, _wellbore_data):
+        self.current_wellbore_id = wellbore_id or None      # the signal carries 0 for "no wellbore"
+
+    def _on_context_changed_internal(self, snapshot):
+        self.current_context = snapshot
+        try:
+            self.on_context_changed(snapshot)
+        except Exception as e:
+            logger.error(f"{self.widget_name}.on_context_changed error: {e}")
+
+    def on_context_changed(self, snapshot):
+        """M102: the full selection context changed (``ContextSnapshot``). Override in subclass."""
+        pass
+
     def _on_selection_cleared_internal(self):
         """Handle full clear signal."""
+        self.current_wellbore_id = None
         self.current_well_id = None
         self.current_section_id = None
         self.current_report_id = None
