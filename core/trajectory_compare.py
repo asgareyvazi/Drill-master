@@ -429,8 +429,42 @@ def plan_rows_from_table(rows: Iterable[Sequence], *, length_unit: str = "m") ->
     return out
 
 
-def read_plan_file(path: str, *, length_unit: str = "m") -> list:
-    """CSV or XLSX (first sheet) -> plan rows; no network, no external service."""
+# M105: a plan file declares its references in leading comment rows, e.g.
+#   # azimuth_reference=true; depth_datum=RKB
+# (``key=value`` or ``key: value``, separated by ';'). Undeclared values stay NOT DECLARED.
+REFERENCE_KEYS = ("azimuth_reference", "depth_datum")
+_AZIMUTH_REFERENCES = ("true", "grid", "magnetic")
+
+
+def _reference_from_comments(lines: Sequence[str]) -> dict:
+    found: dict = {}
+    for line in lines:
+        for token in str(line).lstrip("#").split(";"):
+            for sep in ("=", ":"):
+                if sep in token:
+                    key, value = token.split(sep, 1)
+                    key, value = key.strip().lower(), value.strip().strip('"').strip()
+                    if key in REFERENCE_KEYS and value and value.upper() != "NOT DECLARED":
+                        if key in found and found[key].lower() != value.lower():
+                            raise PlanImportError(f"The plan file declares {key} twice ({found[key]} / {value})")
+                        found[key] = value
+                    break
+    if "azimuth_reference" in found:
+        found["azimuth_reference"] = found["azimuth_reference"].lower()
+        if found["azimuth_reference"] not in _AZIMUTH_REFERENCES:
+            raise PlanImportError(f"Unknown azimuth reference {found['azimuth_reference']!r} in the plan file")
+    out = {key: found.get(key) for key in REFERENCE_KEYS}
+    out["declared"] = all(out[key] for key in REFERENCE_KEYS)
+    return out
+
+
+def _is_comment(row) -> bool:
+    cells = [str(c).strip() for c in (row or ()) if c is not None and str(c).strip()]
+    return bool(cells) and cells[0].startswith("#")
+
+
+def read_plan_file_with_reference(path: str, *, length_unit: str = "m") -> tuple:
+    """CSV or XLSX (first sheet) -> (plan rows, declared reference); no network, no external service."""
     lower = str(path).lower()
     if lower.endswith((".xlsx", ".xlsm")):
         from openpyxl import load_workbook
@@ -439,13 +473,56 @@ def read_plan_file(path: str, *, length_unit: str = "m") -> list:
             rows = [list(r) for r in workbook.worksheets[0].iter_rows(values_only=True)]
         finally:
             workbook.close()
-        return plan_rows_from_table(rows, length_unit=length_unit)
+        comments = []
+        while rows and _is_comment(rows[0]):
+            comments.append(" ".join(str(c) for c in rows.pop(0) if c is not None))
+        return plan_rows_from_table(rows, length_unit=length_unit), _reference_from_comments(comments)
     if lower.endswith((".csv", ".txt")):
         with open(path, "r", encoding="utf-8-sig", newline="") as handle:
             text = handle.read()
-        dialect = csv.Sniffer().sniff(text[:2048], delimiters=",;\t") if text.strip() else csv.excel
-        return plan_rows_from_table(list(csv.reader(io.StringIO(text), dialect)), length_unit=length_unit)
+        lines = text.splitlines(keepends=True)
+        comments = []
+        while lines and lines[0].strip().lstrip('"').startswith("#"):   # never part of dialect sniffing
+            line = lines.pop(0).strip()
+            if line.startswith('"') and line.endswith('"'):
+                line = line[1:-1].replace('""', '"')
+            comments.append(line)
+        body = "".join(lines)
+        dialect = csv.Sniffer().sniff(body[:2048], delimiters=",;\t") if body.strip() else csv.excel
+        rows = list(csv.reader(io.StringIO(body), dialect))
+        return plan_rows_from_table(rows, length_unit=length_unit), _reference_from_comments(comments)
     raise PlanImportError("Plan files must be .csv, .txt or .xlsx")
+
+
+def read_plan_file(path: str, *, length_unit: str = "m") -> list:
+    """CSV or XLSX (first sheet) -> plan rows; no network, no external service."""
+    return read_plan_file_with_reference(path, length_unit=length_unit)[0]
+
+
+def reference_check(plan_reference: Optional[dict], actual_reference: Optional[dict]) -> dict:
+    """M105: plan-vs-actual is refused when both sides declare different references.
+
+    An undeclared value on either side is not an error, but the comparison then says it is unverified.
+    """
+    plan_reference, actual_reference = plan_reference or {}, actual_reference or {}
+    conflicts, notes = [], []
+    for key in REFERENCE_KEYS:
+        label = key.replace("_", " ")
+        plan_value = str(plan_reference.get(key) or "").strip()
+        actual_value = str(actual_reference.get(key) or "").strip()
+        if plan_value and actual_value and plan_value.lower() != actual_value.lower():
+            conflicts.append(f"{label}: plan {plan_value} vs actual {actual_value}")
+        elif not plan_value:
+            notes.append(f"plan {label} NOT DECLARED")
+        elif not actual_value:
+            notes.append(f"actual {label} NOT DECLARED")
+    if conflicts:
+        return {"ok": False, "summary": "References differ (" + "; ".join(conflicts) + "); not compared. "
+                "Convert the survey revision or re-export the plan in the same reference first."}
+    if notes:
+        return {"ok": True, "summary": "Reference check: " + "; ".join(notes) + " — compared as given, unverified."}
+    return {"ok": True, "summary": f"Reference check: both declare {actual_reference['azimuth_reference']} north, "
+                                   f"depth datum {actual_reference['depth_datum']}."}
 
 
 def compose_plan(rows: list):

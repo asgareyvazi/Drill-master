@@ -22,11 +22,49 @@ STATUSES = ("draft", "approved", "archived")
 STATION_COLUMNS = ("md", "inc", "azi", "tvd", "north", "east", "vs", "dls")
 
 
-def plan_inputs(segments, *, tie_in=None, targets=(), step=30.0, dls_limit=None, vs_azimuth=0.0) -> Dict[str, Any]:
-    return json.loads(json.dumps({
+REFERENCE_KEYS = ("azimuth_reference", "depth_datum")
+
+
+def declared_references(azimuth_reference=None, depth_datum=None) -> Dict[str, str]:
+    """M105: the plan's declared azimuth reference / depth datum (only the values actually given)."""
+    from core.survey_revisions import AZIMUTH_REFERENCES
+
+    out: Dict[str, str] = {}
+    azimuth = str(azimuth_reference or "").strip().lower()
+    if azimuth:
+        if azimuth not in AZIMUTH_REFERENCES:
+            raise PlanIntegrityError(f"Unknown azimuth reference {azimuth_reference!r}; declare true, grid or magnetic.")
+        out["azimuth_reference"] = azimuth
+    datum = str(depth_datum or "").strip()
+    if datum:
+        out["depth_datum"] = datum
+    return out
+
+
+def plan_inputs(segments, *, tie_in=None, targets=(), step=30.0, dls_limit=None, vs_azimuth=0.0,
+                azimuth_reference=None, depth_datum=None) -> Dict[str, Any]:
+    data = {
         "segments": list(segments), "tie_in": dict(tie_in or {}), "targets": list(targets),
         "step": step, "dls_limit": dls_limit, "vs_azimuth": vs_azimuth,
-    }))
+    }
+    references = declared_references(azimuth_reference, depth_datum)
+    if references:                      # M105: legacy-shaped inputs stay byte-identical when nothing is declared
+        data["references"] = references
+    return json.loads(json.dumps(data))
+
+
+def plan_references(plan_or_inputs: Dict[str, Any]) -> Dict[str, Any]:
+    """Declared references of a plan record or inputs; plans saved before M105 report NOT DECLARED."""
+    inputs = plan_or_inputs.get("inputs", plan_or_inputs) if isinstance(plan_or_inputs, dict) else {}
+    refs = (inputs or {}).get("references") or {}
+    out = {key: (str(refs.get(key)).strip() or None) if refs.get(key) else None for key in REFERENCE_KEYS}
+    out["declared"] = all(out[key] for key in REFERENCE_KEYS)
+    return out
+
+
+def reference_text(plan_or_inputs: Dict[str, Any]) -> str:
+    refs = plan_references(plan_or_inputs)
+    return "; ".join(f"{key}={refs[key] or 'NOT DECLARED'}" for key in REFERENCE_KEYS)
 
 
 def run_inputs(inputs: Dict[str, Any]) -> PlanResult:
@@ -103,8 +141,24 @@ def _check_wellbore(session, well_id: int, wellbore_id: Optional[int]) -> None:
             raise PlanIntegrityError(f"Wellbore {wellbore_id} does not belong to well {well_id}.")
 
 
-def _check_survey_tie_in(session, well_id: int, wellbore_id: Optional[int], tie_in: Dict[str, Any]) -> None:
-    """M72: a tie-in pinned to a survey revision must match that revision exactly."""
+def _check_references(inputs: Dict[str, Any]) -> None:
+    refs = inputs.get("references")
+    if refs is None:
+        return
+    if not isinstance(refs, dict) or set(refs) - set(REFERENCE_KEYS):
+        raise PlanIntegrityError("Plan references may only declare azimuth_reference and depth_datum.")
+    if declared_references(refs.get("azimuth_reference"), refs.get("depth_datum")) != refs:
+        raise PlanIntegrityError("Plan references must be non-empty, normalised values.")
+
+
+def _check_survey_tie_in(session, well_id: int, wellbore_id: Optional[int], tie_in: Dict[str, Any],
+                         references: Optional[Dict[str, Any]] = None) -> None:
+    """M72: a tie-in pinned to a survey revision must match that revision exactly.
+
+    M105: the revision must pass the full integrity check (stations hash, results recomputation and the
+    results hash when recorded) and the plan's declared references must equal the revision's.
+    """
+    from core import survey_revisions as sr
     from core.database import SurveyRevision
 
     revision_id = tie_in.get("survey_revision_id")
@@ -120,7 +174,17 @@ def _check_survey_tie_in(session, well_id: int, wellbore_id: Optional[int], tie_
     missing = [k for k in ("md", "inc", "azi", "tvd", "north", "east") if tie_in.get(k) is None]
     if missing:
         raise PlanIntegrityError(f"The survey tie-in lacks {', '.join(missing)}.")
-    stations = json.loads(row.results_json)
+    try:
+        record = sr._record(row)
+        sr.verify_for_use(record, "a plan tie-in")
+        stations = record["results"]
+    except sr.SurveyRevisionError as exc:
+        raise PlanIntegrityError(str(exc)) from exc
+    for key in REFERENCE_KEYS:
+        declared = (references or {}).get(key)
+        if declared and str(declared).strip().lower() != str(getattr(row, key) or "").strip().lower():
+            raise PlanIntegrityError(f"The plan declares {key} {declared!r} but survey revision {revision_id} "
+                                     f"is referred to {getattr(row, key)!r}; convert the survey first.")
     station = next((s for s in stations if abs(s["md"] - float(tie_in.get("md", -1))) <= 1e-6), None)
     if station is None or any(abs(float(tie_in.get(k, float("nan"))) - station[k]) > 1e-6
                               for k in ("inc", "tvd", "north", "east")) or \
@@ -150,7 +214,8 @@ def save_plan(db, *, well_id: int, name: str, inputs: Dict[str, Any], result: Op
     try:
         with db.session_scope() as session:
             _check_wellbore(session, well_id, wellbore_id)
-            _check_survey_tie_in(session, well_id, wellbore_id, inputs.get("tie_in") or {})
+            _check_references(inputs)
+            _check_survey_tie_in(session, well_id, wellbore_id, inputs.get("tie_in") or {}, inputs.get("references"))
             parent = session.get(DirectionalPlanRevision, parent_id) if parent_id is not None else None
             if parent_id is not None:
                 if parent is None:
@@ -295,7 +360,8 @@ def export_plan_csv(plan: Dict[str, Any], path: str) -> None:
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow([f"# plan {plan['name']} rev {plan['revision']} ({plan['status']}); "
-                         f"{plan['method']}; {plan['method_version']}; planning aid, not validated"])
+                         f"{plan['method']}; {plan['method_version']}; planning aid, not validated; "
+                         + reference_text(plan)])
         writer.writerow(["MD (m)", "Inc (deg)", "Azi (deg)", "TVD (m)", "North (m)", "East (m)", "VS (m)",
                          "DLS (deg/30m)"])
         for station in stations:

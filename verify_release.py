@@ -18,7 +18,7 @@ import zipfile
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent
 
@@ -172,24 +172,35 @@ def annotate_failures(path, environ=None) -> int:
 _WARNING_LINE = re.compile(r"^\s+(?P<where>.+?):(?P<line>\d+): (?P<category>\w*Warning): (?P<message>.*)$")
 
 
+_COLLAPSED_HEADER = re.compile(r"^(?P<path>\S.*?): (?P<count>\d+) warnings?$")
+_PYTEST_OUTCOME = re.compile(r"\b\d+ (passed|failed|errors?|skipped|deselected|xfailed|xpassed)\b")
+_PYTEST_TOTAL = re.compile(r"\b(?P<count>\d+) warnings?\b")
+
+
 def summarize_warnings(output: str) -> List[Tuple[int, str, str, str, str]]:
     """Group pytest's "warnings summary" into (count, origin, category, location, message).
 
-    A block lists one header line per occurrence (test id or location) followed
-    by the indented ``path:line: Category: message`` line.  ``origin`` is
+    A block lists the locations of its occurrences followed by the indented
+    ``path:line: Category: message`` line.  Fewer than ten locations are listed
+    one per occurrence; from ten on pytest collapses them into
+    ``file: N warnings`` lines (M105 fix: those count N, not 1).  Every summary
+    section is read, including "warnings summary (final)".  ``origin`` is
     ``third-party`` (site-packages, frozen or standard-library modules) or
     ``repository``.  Diagnostics only: the gate never depends on it.
     """
-    lines = output.splitlines()
-    try:
-        start = next(i for i, line in enumerate(lines) if "warnings summary" in line and line.startswith("="))
-    except StopIteration:
-        return []
     groups: Dict[Tuple[str, str, str, str], int] = {}
     headers = 0
-    for line in lines[start + 1:]:
-        if line.startswith("-- Docs:") or line.startswith("====="):
-            break
+    inside = False
+    for line in output.splitlines():
+        if line.startswith("="):
+            inside = "warnings summary" in line
+            headers = 0
+            continue
+        if not inside:
+            continue
+        if line.startswith("-- Docs:"):
+            inside = False
+            continue
         if not line.strip():
             headers = 0
             continue
@@ -204,8 +215,18 @@ def summarize_warnings(output: str) -> List[Tuple[int, str, str, str, str]]:
             groups[key] = groups.get(key, 0) + max(headers, 1)
             headers = 0
         elif not line.startswith(" "):
-            headers += 1
+            collapsed = _COLLAPSED_HEADER.match(line.strip())
+            headers += int(collapsed["count"]) if collapsed else 1
     return sorted(((count, *key) for key, count in groups.items()), key=lambda row: (-row[0], row[1:]))
+
+
+def pytest_reported_warnings(output: str) -> Optional[int]:
+    """The warning count on pytest's final summary line (None when it reports none)."""
+    for line in reversed(output.splitlines()):
+        if _PYTEST_OUTCOME.search(line):
+            match = _PYTEST_TOTAL.search(line)
+            return int(match["count"]) if match else None
+    return None
 
 
 def report_warnings(output: str, environ=None, limit: int = 8) -> int:
@@ -213,14 +234,17 @@ def report_warnings(output: str, environ=None, limit: int = 8) -> int:
     environ = os.environ if environ is None else environ
     rows = summarize_warnings(output)
     total = sum(row[0] for row in rows)
-    print(f"Pytest warning inventory: {total} occurrence(s) in {len(rows)} group(s)")
+    reported = pytest_reported_warnings(output)
+    reconciled = "matches" if reported == total or (reported is None and total == 0) else "DIFFERS from"
+    print(f"Pytest warning inventory: {total} occurrence(s) in {len(rows)} group(s); "
+          f"{reconciled} pytest's own total ({reported if reported is not None else 0})")
     for count, origin, category, location, message in rows:
         print(f"  {count:5d}  {origin:11s}  {category}  {location}  {message}")
     if environ.get("GITHUB_ACTIONS") == "true" and rows:
         by_origin = {}
         for count, origin, *_rest in rows:
             by_origin[origin] = by_origin.get(origin, 0) + count
-        print(f"::notice title=pytest warnings::{_annotation_text(f'{total} occurrence(s), {len(rows)} group(s); ' + ', '.join(f'{k}: {v}' for k, v in sorted(by_origin.items())))}")
+        print(f"::notice title=pytest warnings::{_annotation_text(f'{total} occurrence(s), {len(rows)} group(s) ({reconciled} pytest total {reported}); ' + ', '.join(f'{k}: {v}' for k, v in sorted(by_origin.items())))}")
         for count, origin, category, location, message in rows[:limit - 1]:
             print(f"::notice title=pytest warning group::{_annotation_text(f'{count}x {origin} {category} {location}: {message}')}")
     return total

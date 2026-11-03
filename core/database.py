@@ -2023,6 +2023,12 @@ class CalculationSourceLink(Base):
     created_at = Column(DateTime, default=_now_utc, nullable=False)
 
 
+# Nullable columns added after a table first shipped: (table, column, SQLite type).
+ADDITIVE_COLUMNS = (
+    ("survey_revisions", "results_sha256", "VARCHAR(64)"),
+)
+
+
 class SurveyRevision(Base):
     """M72: an immutable, numbered snapshot of a well's survey stations.
 
@@ -2051,6 +2057,9 @@ class SurveyRevision(Base):
     station_count = Column(Integer, nullable=False)
     stations_sha256 = Column(String(64), nullable=False)
     results_json = Column(Text, nullable=False)
+    # M105: SHA-256 of the stored results (``RESULTS_HASH_VERSION``); NULL for revisions
+    # saved before M105 - never backfilled (the row is immutable and the hash was not recorded).
+    results_sha256 = Column(String(64))
     warnings_json = Column(Text)
     method = Column(String(100), nullable=False)
     method_version = Column(String(100), nullable=False)
@@ -3620,6 +3629,16 @@ class DatabaseManager:
                             f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
                             f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} FLOAT"
                         )
+            # M105+: additive nullable columns on tables that may already exist, checked on every
+            # startup (idempotent, no backfill, no version gate).
+            for table_name, column_name, ddl_type in ADDITIVE_COLUMNS:
+                if not self._raw_table_exists(raw, table_name):
+                    continue
+                columns = {row[1] for row in raw.execute(
+                    f"PRAGMA table_info({self._quote_sqlite_identifier(table_name)})").fetchall()}
+                if column_name not in columns:
+                    raw.execute(f"ALTER TABLE {self._quote_sqlite_identifier(table_name)} "
+                                f"ADD COLUMN {self._quote_sqlite_identifier(column_name)} {ddl_type}")
             # Verify and repair nullable contracts on every startup, including
             # v2 databases whose live schema was changed by an old installer.
             self._migrate_nullable_contracts(connection=raw)

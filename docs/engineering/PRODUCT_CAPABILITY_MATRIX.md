@@ -462,8 +462,8 @@ Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Start: 
 
 | # | Priority | Defect (verified in source) | Phase | State |
 |---|---|---|---|---|
-| D1 | P0 safety | `survey_revisions.verify_results` compares TVD/N/E only and passes when a key is missing; MD, inclination, azimuth, DLS, VS and HD are unchecked | M105 | open |
-| D2 | P0 safety | `tie_in_from_revision` checks only the station hash (and defaults a missing `integrity` to VERIFIED), then uses the stored derived results. A tampered `results_json` can become a plan tie-in. `compare_revisions` and plan vs actual also use unverified results | M105 | open |
+| D1 | P0 safety | `survey_revisions.verify_results` compares TVD/N/E only and passes when a key is missing; MD, inclination, azimuth, DLS, VS and HD are unchecked | M105 | **resolved (M105)** |
+| D2 | P0 safety | `tie_in_from_revision` checks only the station hash (and defaults a missing `integrity` to VERIFIED), then uses the stored derived results. A tampered `results_json` can become a plan tie-in. `compare_revisions` and plan vs actual also use unverified results | M105 | **resolved (M105)**; also found and closed: `directional_plans._check_survey_tie_in` matched the tie-in against unverified `results_json` |
 | D3 | P1 | `tabs/operational_analysis_panel.refresh` runs `oa.analyze` synchronously on the GUI thread | M103 | open |
 | D4 | P1 | `core/professional_export.py` writes a hard-coded `"Revision": "Rev 0"` and shows a free-text `Approved By` as an approval; the 16-sheet workbook bypasses M93 provenance | M110 | open |
 | D5 | P1 | `operational_analysis` uses whole-well `get_actual_vs_plan` and flags it only for a wellbore scope, not for a date range | M104 | open |
@@ -472,7 +472,28 @@ Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Start: 
 | D8 | P1 | 20 of 27 W13 leaves NOT_SUPPORTED (`core/calculator_contracts.NOT_SUPPORTED`) | M107 | open |
 | D9 | P2 | Cement worksheet captured only (no re-run adapter) | M109 | open |
 | D10 | P2 | Directional solver: one arc + tangent only (no S-profile, build-turn or multiple targets) | M106 | open |
-| D11 | P2 | Depth datum and CRS: not modelled | M105 | open (scope) |
+| D11 | P2 | Depth datum and CRS: not modelled | M105 | PARTIAL (M105): explicit vertical depth-datum shift implemented; CRS/geodetic NOT IMPLEMENTED by scope (`SURVEY_REFERENCE_SCOPE.md`), owner decision open |
 | D12 | P2 | A running third-party parse cannot be interrupted (thread) | M111 | open |
 | D13 | P2 | Runtime dependency licences not disclosed | M112 | open |
 | D14 | P3 | Legacy trajectory calculations are captured only (no method identity) | M108 | open (by design for legacy) |
+| D15 | P2 | (found in M105) The M101 warning inventory counted pytest's collapsed `file: N warnings` lines (ten or more locations) as one occurrence each and read only the first summary section. CI 3.12 on `fc2daf2` therefore annotated 134 occurrences where pytest counts 859 | M105 | **resolved (M105)**: collapsed lines count N, every section is read, and the inventory is reconciled against pytest's own total (a mismatch is printed and annotated, never hidden) |
+| D16 | P3 | (found in M105 from CI 3.12 annotations) Repository `DeprecationWarning`: sqlite3's default datetime adapter (deprecated in Python 3.12), raised through `core/database.py` raw `execute` calls. Its largest groups are 86 and 12 occurrences, as counted by the faulty inventory and so under-counted | M116 | open; legacy, not suppressed |
+| D17 | P3 | (found in M105) The CI 3.12 coverage numerator differs between runs: 62291/93969 on `c776e8c` (job 125298732667), 62289/93969 on `fc2daf2` (job 125749573280). The denominator is the same and M101 changed no tracked product file, so the ±2 lines are run-to-run variation (timing-dependent branches). This is not a regression | M118 | recorded; each report quotes the exact job |
+
+### M105 – Survey integrity, depth datum and plan references
+
+Acceptance criteria and evidence (synthetic data; offscreen Qt):
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| `verify_results` covers all 9 fields (md, inc, azi, tvd, north, east, vs, hd, dls), each with its own unit and tolerance (`RESULT_FIELDS`), wraps azimuth at 360°, and checks count, order (as MD differences), the exact key set (missing/extra), finiteness and None | PASS | `tests/test_m105_survey_integrity.py`: one parametrised alteration per field; a tolerance boundary per field (0.1× passes, 10× fails); wrap; missing/extra/reversed/truncated/NaN/None/non-list cases |
+| Optional versioned results hash (`M105 survey results hash v1`) stored by save, azimuth transform and datum shift; pre-M105 rows show **NOT RECORDED** (NULL, never backfilled) | PASS | Additive column `survey_revisions.results_sha256` via `ADDITIVE_COLUMNS`, applied on every startup and idempotent; an old database without the column gains it on `initialize()`. The revisions panel has a "Results hash" column |
+| Fail closed before use: `verify_for_use` (station hash VERIFIED, no results-hash mismatch, full recomputation MATCH) gates tie-in, azimuth transform, datum shift, revision compare, the plan-save tie-in check and plan-vs-actual on a revision | PASS | Tampered results with a hash are refused everywhere. Forged legacy results (hash NULL) are refused by recomputation ("north differs"). A missing integrity state is not VERIFIED |
+| Datum offset only with explicit parameters, as a new revision | PASS | `transform_depth_datum` (`M105 vertical depth-datum shift v1`). Requires both elevations against one stated reference plus a value source. Refuses a missing elevation (never zero), a zero shift, the same datum, an inclined first station, and stations above the new datum (never dropped). Golden: RKB +30 m / GL +5 m vs MSL, so every MD and TVD is −25 m exactly; N/E/inc/azi/vs/hd/dls unchanged; shifting back restores the stations. Desktop: "Shift depth datum" row in the survey revisions panel |
+| CRS scope document; no GIS, no network | PASS | `docs/engineering/SURVEY_REFERENCE_SCOPE.md`. Catalogue entry `survey.datum_transform` added; the `survey.revision` and `survey.azimuth_transform` limits were updated |
+| Plan files declare their reference | PASS | Plans record `references` (azimuth reference, depth datum). A survey tie-in supplies them and a contradiction is refused (designer and service). The CSV export writes `azimuth_reference=…; depth_datum=…` in its comment row and now reads back into plan-vs-actual. `read_plan_file_with_reference` parses leading `#` rows (CSV/XLSX) and refuses duplicate or unknown values. Plan-vs-actual refuses differing declared references and labels undeclared ones "NOT DECLARED … unverified". Legacy plans: NOT DECLARED, inputs unchanged |
+| Mutation | PASS | `tools/quality/mutation_m101_m120.py`: **20/20 killed** (baseline 44 passed). Existing `SR-hash-not-verified` (m83_m96) and `DP-survey-sha-unchecked` (m70_m76) re-run: KILLED. All 549 anchors in the 11 earlier suites still match once, in the same enclosing function |
+| Regression | PASS | 327 tests across 20 survey/plan/compare/history/catalogue/journey/persistence files, rc=0 |
+
+Limits: CRS, geodetic datums, magnetic models and grid-convergence computation stay NOT IMPLEMENTED (owner scope).
+The datum shift is vertical only.

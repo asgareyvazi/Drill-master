@@ -34,7 +34,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -45,6 +45,13 @@ UNITS = {"m": 1.0, "ft": 0.3048}
 AZIMUTH_REFERENCES = ("true", "grid", "magnetic")
 MODES = ("initial", "replace", "append", "branch")
 TRANSFORM_MODE = "azimuth_transform"
+DATUM_TRANSFORM_MODE = "datum_transform"
+DATUM_TRANSFORM_VERSION = "M105 vertical depth-datum shift v1"
+DATUM_TRANSFORM_CONVENTION = (
+    "Elevations are in metres, positive upwards, relative to the stated elevation reference. "
+    "offset = source datum elevation - target datum elevation; every station MD and TVD becomes depth - offset; "
+    "inclination, azimuth, north and east are unchanged. Both datums are assumed to lie on the vertical "
+    "through the well's surface location, so the first station must be vertical (inclination 0).")
 TRANSFORM_VERSION = "M85 azimuth reference transform v1"
 # true = magnetic + declination (east positive); true = grid + convergence
 # (positive when grid north lies east of true north).
@@ -134,6 +141,30 @@ def stations_sha256(stations) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+# M105: every stored result field with its unit and verification tolerance. Results of every
+# revision since M72 carry exactly these keys.  Azimuth differences wrap at 360 degrees.
+RESULT_FIELDS: Dict[str, Tuple[str, float]] = {
+    "md": ("m", 1e-6), "inc": ("deg", 1e-7), "azi": ("deg", 1e-7), "tvd": ("m", 1e-6),
+    "north": ("m", 1e-6), "east": ("m", 1e-6), "vs": ("m", 1e-6), "hd": ("m", 1e-6),
+    "dls": ("deg/30m", 1e-6),
+}
+RESULTS_HASH_VERSION = "M105 survey results hash v1"
+
+
+def _canonical_result_value(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value if value is None else str(value)
+    return round(float(value), 9) if math.isfinite(value) else str(value)
+
+
+def results_sha256(results) -> str:
+    """Deterministic SHA-256 of the stored results (every field, station order kept)."""
+    payload = json.dumps([[_canonical_result_value((row or {}).get(key)) for key in RESULT_FIELDS]
+                          + [[key, _canonical_result_value(row[key])] for key in sorted(set(row or {}) - set(RESULT_FIELDS))]
+                          for row in results])
+    return hashlib.sha256((RESULTS_HASH_VERSION + "\n" + payload).encode("utf-8")).hexdigest()
+
+
 def compute(stations) -> List[Dict[str, float]]:
     """Positions from the canonical minimum-curvature engine."""
     from core.well_trajectory import compose_well_trajectory
@@ -158,7 +189,20 @@ def _record(row) -> Dict[str, Any]:
         "created_at": row.created_at, "created_by": row.created_by,
         "integrity": "VERIFIED" if stations_sha256(json.loads(row.stations_json)) == row.stations_sha256
         else "HASH MISMATCH",
+        "results_sha256": getattr(row, "results_sha256", None),
+        "results_integrity": _results_integrity(row),
     }
+
+
+def _results_integrity(row) -> str:
+    """VERIFIED / HASH MISMATCH, or NOT RECORDED for revisions saved before M105 (never backfilled)."""
+    recorded = getattr(row, "results_sha256", None)
+    if not recorded:
+        return "NOT RECORDED"
+    try:
+        return "VERIFIED" if results_sha256(json.loads(row.results_json)) == recorded else "HASH MISMATCH"
+    except (TypeError, ValueError):  # silent-ok: unreadable results are reported as HASH MISMATCH, never trusted
+        return "HASH MISMATCH"
 
 
 def get_revision(db, revision_id) -> Optional[Dict[str, Any]]:
@@ -240,6 +284,7 @@ def save_revision(db, well_id: int, rows, *, mode: str = "initial", parent_id: O
             source_unit=checked.source_unit, azimuth_reference=checked.azimuth_reference,
             depth_datum=checked.depth_datum, stations_json=json.dumps(stations), station_count=len(stations),
             stations_sha256=stations_sha256(stations), results_json=json.dumps(results),
+            results_sha256=results_sha256(results),
             warnings_json=json.dumps(checked.warnings), method=SURVEY_METHOD,
             method_version=SURVEY_REVISION_VERSION, note=str(note or ""), created_by=user_id,
         )
@@ -320,8 +365,7 @@ def transform_revision(db, revision_id: int, to_reference: str, *, declination_d
     source = get_revision(db, revision_id)
     if source is None:
         raise SurveyRevisionError(f"Survey revision {revision_id} does not exist.")
-    if source["integrity"] != "VERIFIED":
-        raise SurveyRevisionError("The source revision failed its station hash check; it is not converted.")
+    verify_for_use(source, "an azimuth conversion")
     shift = azimuth_correction(source["azimuth_reference"], to_reference, declination_deg=declination_deg,
                                convergence_deg=convergence_deg)
     if not str(parameter_source or "").strip():
@@ -349,6 +393,7 @@ def transform_revision(db, revision_id: int, to_reference: str, *, declination_d
             source_unit=source["source_unit"], azimuth_reference=to_reference, depth_datum=source["depth_datum"],
             stations_json=json.dumps(stations), station_count=len(stations),
             stations_sha256=stations_sha256(stations), results_json=json.dumps(results),
+            results_sha256=results_sha256(results),
             warnings_json=json.dumps([f"Azimuths converted {source['azimuth_reference']} -> {to_reference} by "
                                       f"{shift:+.6f} deg ({str(parameter_source).strip()})."]),
             method=SURVEY_METHOD, method_version=SURVEY_REVISION_VERSION, note=str(note or ""), created_by=user_id,
@@ -361,27 +406,172 @@ def transform_revision(db, revision_id: int, to_reference: str, *, declination_d
         return _record(row)
 
 
-def verify_results(revision: Dict[str, Any], *, tolerance_m: float = 1e-6) -> Dict[str, Any]:
-    """Recompute positions from the stored stations and compare with the stored results."""
-    fresh = compute(revision["stations"])
-    stored = revision["results"]
+def verify_results(revision: Dict[str, Any], *, tolerance_m: Optional[float] = None) -> Dict[str, Any]:
+    """Recompute from the stored stations and compare EVERY stored result field.
+
+    Checks the station count, the exact field set of every station (missing or
+    extra fields), finiteness, and each field against its own tolerance and
+    unit (``RESULT_FIELDS``; azimuth wraps at 360 degrees).  Reordered or
+    missing stations show up as MD differences.  Separate from the station
+    hash: the hash proves the stations are unchanged, this proves the derived
+    results belong to them.  Nothing is repaired.
+    """
+    tolerances = {key: (unit, tolerance_m if tolerance_m is not None and unit == "m" else tol)
+                  for key, (unit, tol) in RESULT_FIELDS.items()}
+    stored = revision.get("results")
+    if not isinstance(stored, list) or not all(isinstance(row, dict) for row in stored):
+        return {"status": "DIFFERENT", "detail": "stored results are not a list of stations", "issue_count": 1}
+    try:
+        fresh = compute(revision["stations"])
+    except SurveyRevisionError as exc:
+        return {"status": "DIFFERENT", "detail": f"stations could not be recomputed: {exc}", "issue_count": 1}
     if len(fresh) != len(stored):
-        return {"status": "DIFFERENT", "detail": f"{len(stored)} stored vs {len(fresh)} recomputed stations"}
-    worst = 0.0
-    for a, b in zip(stored, fresh):
-        for key in ("tvd", "north", "east"):
-            if key in a and key in b:
-                worst = max(worst, abs(float(a[key]) - float(b[key])))
-    return {"status": "MATCH" if worst <= tolerance_m else "DIFFERENT", "max_position_difference_m": worst}
+        return {"status": "DIFFERENT", "detail": f"{len(stored)} stored vs {len(fresh)} recomputed stations",
+                "issue_count": 1}
+    issues: List[str] = []
+    worst = {key: 0.0 for key in RESULT_FIELDS}
+    for index, (a, b) in enumerate(zip(stored, fresh)):
+        missing, extra = sorted(set(RESULT_FIELDS) - set(a)), sorted(set(a) - set(RESULT_FIELDS))
+        if missing or extra:
+            issues.append(f"station {index}: missing {missing} extra {extra}")
+        for key, (unit, tol) in tolerances.items():
+            if key not in a:
+                continue
+            x, y = a[key], b.get(key)
+            if x is None or y is None:
+                if (x is None) != (y is None):
+                    issues.append(f"station {index}: {key} stored {x!r}, recomputed {y!r}")
+                continue
+            if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):
+                issues.append(f"station {index}: {key} is not a finite number ({x!r})")
+                continue
+            delta = float(x) - float(y)
+            if key == "azi":
+                delta = (delta + 180.0) % 360.0 - 180.0
+            worst[key] = max(worst[key], abs(delta))
+            if abs(delta) > tol:
+                issues.append(f"station {index}: {key} differs by {delta:.3g} {unit}")
+    return {"status": "DIFFERENT" if issues else "MATCH", "issue_count": len(issues), "issues": issues[:20],
+            "fields_checked": list(RESULT_FIELDS), "tolerances": {k: {"unit": u, "tolerance": t}
+                                                                   for k, (u, t) in tolerances.items()},
+            "max_difference": worst,
+            "max_position_difference_m": max(worst[k] for k in ("tvd", "north", "east"))}
+
+
+def verify_for_use(revision: Optional[Dict[str, Any]], purpose: str) -> Dict[str, Any]:
+    """Fail closed before stored results feed an engineering calculation.
+
+    Requires: station hash VERIFIED (a missing state is not VERIFIED), no
+    results-hash mismatch (NOT RECORDED is allowed for pre-M105 revisions) and
+    a full ``verify_results`` MATCH.  Raises ``SurveyRevisionError`` otherwise.
+    """
+    if not revision:
+        raise SurveyRevisionError(f"No survey revision for {purpose}.")
+    label = f"Survey revision {revision.get('revision', '?')}"
+    if revision.get("integrity") != "VERIFIED":
+        raise SurveyRevisionError(f"{label} failed its station hash check; it cannot be used for {purpose}.")
+    if revision.get("results_integrity") == "HASH MISMATCH":
+        raise SurveyRevisionError(f"{label}: the stored results fail their SHA-256 check; "
+                                  f"it cannot be used for {purpose}.")
+    check = verify_results(revision)
+    if check["status"] != "MATCH":
+        first = (check.get("issues") or [check.get("detail", "")])[0]
+        raise SurveyRevisionError(f"{label}: the stored results do not match its stations "
+                                  f"({check['issue_count']} issue(s); first: {first}); "
+                                  f"it cannot be used for {purpose}.")
+    return check
+
+
+def transform_depth_datum(db, revision_id: int, to_datum: str, *, source_datum_elevation_m, target_datum_elevation_m,
+                          elevation_reference: str, parameter_source: str, effective_date: str = "",
+                          note: str = "", user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Save a NEW revision whose depths are referred to ``to_datum`` (M105).
+
+    Only an explicit vertical shift is supported: both datum elevations must be given against one stated
+    reference with the source of the values.  The source revision must pass the full integrity check; it is
+    never modified.  No geodetic, CRS or map-projection transform is attempted.
+    """
+    from core.database import SurveyRevision
+
+    source = get_revision(db, revision_id)
+    if source is None:
+        raise SurveyRevisionError("That survey revision does not exist.")
+    verify_for_use(source, "a depth-datum transform")
+    from_datum = str(source.get("depth_datum") or "").strip()
+    target = str(to_datum or "").strip()
+    if not from_datum:
+        raise SurveyRevisionError("The revision has no declared depth datum; an unknown datum cannot be shifted.")
+    if not target:
+        raise SurveyRevisionError("Declare the target depth datum (for example GL or MSL).")
+    if target.lower() == from_datum.lower():
+        raise SurveyRevisionError(f"The revision is already referred to {from_datum!r}.")
+    reference = str(elevation_reference or "").strip()
+    if not reference:
+        raise SurveyRevisionError("State what both datum elevations are measured from (for example MSL).")
+    if not str(parameter_source or "").strip():
+        raise SurveyRevisionError("State where the datum elevations come from (rig survey, well file ...).")
+    source_elev, target_elev = _finite(source_datum_elevation_m), _finite(target_datum_elevation_m)
+    if source_elev is None or target_elev is None:
+        raise SurveyRevisionError("Both datum elevations are required as finite numbers in metres; "
+                                  "a missing elevation is never assumed to be zero.")
+    stations_in = source["stations"]
+    if not stations_in:
+        raise SurveyRevisionError("The revision has no stations.")
+    if abs(float(stations_in[0]["inc"])) > 1e-9:
+        raise SurveyRevisionError(
+            f"The first station (MD {stations_in[0]['md']:.2f} m) is inclined {stations_in[0]['inc']:.4f} deg; "
+            "a vertical datum shift is only exact when the hole above the first station is vertical.")
+    offset = round(source_elev - target_elev, 10)
+    if offset == 0:
+        raise SurveyRevisionError("The two elevations are equal; the shift would be zero.")
+    stations = [{"md": round(float(st["md"]) - offset, 10), "inc": st["inc"], "azi": st["azi"]} for st in stations_in]
+    above = [st["md"] for st in stations if st["md"] < 0]
+    if above:
+        raise SurveyRevisionError(
+            f"{len(above)} station(s) would lie above the {target} datum (MD {above[0]:.2f} m); "
+            "stations are never dropped or clamped automatically.")
+    provenance = json.dumps({
+        "method_version": DATUM_TRANSFORM_VERSION, "from_datum": from_datum, "to_datum": target,
+        "source_datum_elevation_m": source_elev, "target_datum_elevation_m": target_elev,
+        "elevation_reference": reference, "offset_m": offset, "convention": DATUM_TRANSFORM_CONVENTION,
+        "parameter_source": str(parameter_source).strip(), "effective_date": str(effective_date or "").strip(),
+        "source_revision_id": source["id"], "source_stations_sha256": source["stations_sha256"],
+    }, sort_keys=True)
+    results = compute(stations)
+    with db.session_scope() as session:
+        number = (session.query(func.max(SurveyRevision.revision))
+                  .filter(SurveyRevision.well_id == int(source["well_id"])).scalar() or 0) + 1
+        row = SurveyRevision(
+            well_id=source["well_id"], wellbore_id=source["wellbore_id"], revision=number, parent_id=source["id"],
+            mode=DATUM_TRANSFORM_MODE, source_type=DATUM_TRANSFORM_MODE, source_ref=provenance,
+            source_unit=source["source_unit"], azimuth_reference=source["azimuth_reference"], depth_datum=target,
+            stations_json=json.dumps(stations), station_count=len(stations),
+            stations_sha256=stations_sha256(stations), results_json=json.dumps(results),
+            results_sha256=results_sha256(results),
+            warnings_json=json.dumps([f"Depths shifted {from_datum} -> {target} by {-offset:+.4f} m "
+                                      f"(elevations vs {reference}; {str(parameter_source).strip()})."]),
+            method=SURVEY_METHOD, method_version=SURVEY_REVISION_VERSION, note=str(note or ""), created_by=user_id,
+        )
+        session.add(row)
+        try:
+            session.flush()
+        except IntegrityError as exc:
+            raise SurveyRevisionError("Another revision was saved at the same time; reload and try again.") from exc
+        return _record(row)
 
 
 def compare_revisions(older: Dict[str, Any], newer: Dict[str, Any], *, tolerance_m: float = 1e-6,
                       tolerance_deg: float = 1e-7) -> Dict[str, Any]:
     """Station-by-station difference at common MDs plus added/removed stations."""
+    for revision in (older, newer):
+        try:
+            verify_for_use(revision, "comparison")
+        except SurveyRevisionError as exc:
+            return {"comparable": False, "reason": str(exc)}
     if older["azimuth_reference"] != newer["azimuth_reference"] or older["depth_datum"] != newer["depth_datum"]:
         return {"comparable": False,
                 "reason": ("Different azimuth reference or depth datum; not compared. Convert the azimuth "
-                           "reference first (new revision); datum shifts are not supported.")}
+                           "reference or shift the depth datum with explicit elevations first (each a new revision).")}
     a = {round(s["md"], 6): s for s in older["results"]}
     b = {round(s["md"], 6): s for s in newer["results"]}
     changed = []
@@ -406,9 +596,7 @@ def compare_revisions(older: Dict[str, Any], newer: Dict[str, Any], *, tolerance
 
 def tie_in_from_revision(revision: Dict[str, Any], md: Optional[float] = None) -> Dict[str, Any]:
     """A plan tie-in at a station of the revision (default: its last station), pinned by id and hash."""
-    if revision.get("integrity", "VERIFIED") != "VERIFIED":
-        raise SurveyRevisionError(f"Survey revision {revision['revision']} failed its station hash check; "
-                                  "it cannot be used as a tie-in.")
+    verify_for_use(revision, "a plan tie-in")
     stations = revision["results"]
     station = stations[-1] if md is None else next(
         (s for s in stations if abs(s["md"] - float(md)) <= MD_TOLERANCE), None)

@@ -18,7 +18,7 @@ from typing import Callable, Optional
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGridLayout, QHBoxLayout,
-    QInputDialog, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
+    QInputDialog, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from core import directional_plans as dp
@@ -54,6 +54,7 @@ class WellPlanDesignerPanel(QWidget):
         self.use_plan = use_plan
         self.handover = bool(handover)
         self.handover_targets: list = []
+        self.handover_reference: dict = {}
         self.result = None
         self.db_manager = db_manager
         self.well_id: Optional[int] = None
@@ -119,6 +120,15 @@ class WellPlanDesignerPanel(QWidget):
         self.tie_combo.addItem("Surface (MD 0, vertical)", None)
         self.tie_combo.setToolTip("A saved survey revision's last station; the plan records the revision and its hash.")
         form.addRow("Tie-in", self.tie_combo)
+        # M105: the plan declares its references; a survey tie-in supplies them and may not be contradicted.
+        self.plan_azref_combo = QComboBox()
+        self.plan_azref_combo.addItem("— not declared —", "")
+        for ref in ("true", "grid", "magnetic"):
+            self.plan_azref_combo.addItem(ref, ref)
+        self.plan_datum_edit = QLineEdit()
+        self.plan_datum_edit.setPlaceholderText("depth datum (e.g. RKB); taken from the survey tie-in")
+        form.addRow("Plan azimuth reference", self.plan_azref_combo)
+        form.addRow("Plan depth datum", self.plan_datum_edit)
         solve_row = QHBoxLayout()
         self.kop_spin = self._spin(0, 10000, 500, " m")
         self.build_spin = self._spin(0.1, 30, 3, " deg/30m")
@@ -362,11 +372,29 @@ class WellPlanDesignerPanel(QWidget):
         self.archive_btn.setEnabled(can_store and self.current_plan is not None)
         self.compare_plan_btn.setEnabled(can_store and has_selection and self.current_plan is not None)
 
+    def current_references(self) -> dict:
+        """Declared plan references (M105); a survey tie-in supplies them and a contradiction is refused."""
+        declared = {"azimuth_reference": self.plan_azref_combo.currentData() or None,
+                    "depth_datum": self.plan_datum_edit.text().strip() or None}
+        revision_id = self.tie_combo.currentData()
+        if revision_id is None:
+            return declared
+        from core import survey_revisions as sr
+        revision = sr.get_revision(self.db_manager, revision_id)
+        if revision is None:
+            raise ValueError(f"survey revision {revision_id} is not available")
+        for key, value in declared.items():
+            if value and value.lower() != str(revision[key] or "").lower():
+                raise ValueError(f"the plan {key.replace('_', ' ')} {value!r} contradicts survey rev "
+                                 f"{revision['revision']} ({revision[key]!r})")
+        return {key: revision[key] or None for key in declared}
+
     def current_inputs(self) -> dict:
         segments, targets = self.gather()
         return dp.plan_inputs(segments, targets=targets, step=self.step_spin.value(),
                               dls_limit=self.dls_limit_spin.value() or None,
-                              vs_azimuth=self.vs_azimuth_spin.value(), tie_in=self.tie_in())
+                              vs_azimuth=self.vs_azimuth_spin.value(), tie_in=self.tie_in(),
+                              **self.current_references())
 
     def refresh_tie_ins(self) -> None:
         """Survey revisions of this well as tie-in choices (M72)."""
@@ -434,7 +462,8 @@ class WellPlanDesignerPanel(QWidget):
         self.current_plan = plan
         self.plan_status_label.setText(
             f"{verb} {plan['name']} rev {plan['revision']} ({plan['status']}) — {plan['method_version']}"
-            + (f"; parent revision id {plan['parent_id']}" if plan.get("parent_id") else ""))
+            + (f"; parent revision id {plan['parent_id']}" if plan.get("parent_id") else "")
+            + f"; {dp.reference_text(plan)}")
         self.refresh_plans()
         index = self.plan_combo.findData(plan["id"])
         if index >= 0:
@@ -469,6 +498,9 @@ class WellPlanDesignerPanel(QWidget):
         self.step_spin.setValue(float(inputs.get("step", 30.0)))
         self.dls_limit_spin.setValue(float(inputs.get("dls_limit") or 0.0))
         self.vs_azimuth_spin.setValue(float(inputs.get("vs_azimuth", 0.0)))
+        refs = dp.plan_references(plan)
+        self.plan_azref_combo.setCurrentIndex(max(0, self.plan_azref_combo.findData(refs["azimuth_reference"] or "")))
+        self.plan_datum_edit.setText(refs["depth_datum"] or "")
         self.refresh_tie_ins()
         pinned = (inputs.get("tie_in") or {}).get("survey_revision_id")
         index = self.tie_combo.findData(pinned) if pinned else 0
@@ -563,6 +595,7 @@ class WellPlanDesignerPanel(QWidget):
         source = f"Designed plan ({PLAN_VERSION})"
         try:
             tie_in = self.tie_in()
+            self.handover_reference = self.current_references()
         except ValueError as exc:
             self.summary_label.setText(f"Not handed over: {exc}.")
             return False

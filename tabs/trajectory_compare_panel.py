@@ -44,6 +44,8 @@ def _compute(inputs: dict):
     if inputs["mode"] == "plan":
         result = tc.compare_plan(actual, tc.compose_plan(inputs["plan_rows"]), step=inputs["step"])
         result.target_checks = target_checks(actual, inputs.get("targets") or (), step=inputs["step"])
+        if inputs.get("reference_check"):
+            result.warnings.append(inputs["reference_check"])     # M105: declared references, or why unverified
         return result
     offset = compose_well_trajectory(inputs["offset_rows"])
     return tc.compare_wells(actual, inputs["reference_well"], offset, inputs["offset_well"],
@@ -80,6 +82,7 @@ class TrajectoryComparePanel(QWidget):
         self.db_manager = db_manager
         self.well_id: Optional[int] = None
         self.plan_rows: Optional[list] = None
+        self.plan_reference: dict = {}          # M105: what the plan declares (empty = NOT DECLARED)
         self.plan_source = ""
         self.plan_targets: list = []
         self.result: Optional[tc.Comparison] = None
@@ -221,7 +224,7 @@ class TrajectoryComparePanel(QWidget):
 
     def load_plan(self, path: str) -> bool:
         try:
-            rows = tc.read_plan_file(path, length_unit=self.plan_unit_combo.currentData())
+            rows, reference = tc.read_plan_file_with_reference(path, length_unit=self.plan_unit_combo.currentData())
         except tc.PlanImportError as exc:
             self.plan_rows, self.plan_source = None, ""
             self.plan_label.setText(f"Plan refused: {exc}")
@@ -232,12 +235,17 @@ class TrajectoryComparePanel(QWidget):
             return False
         self.plan_rows, self.plan_source = rows, os.path.basename(path)
         self.plan_targets = []
+        self.plan_reference = reference
         self.plan_label.setText(f"{self.plan_source}: {len(rows)} stations "
-                                f"(MD {self.plan_unit_combo.currentData()} -> m)")
+                                f"(MD {self.plan_unit_combo.currentData()} -> m; {self._reference_label()})")
         self._clear_result("Plan loaded; compare again.")
         return True
 
-    def set_plan_rows(self, rows, source: str, targets=None) -> bool:
+    def _reference_label(self) -> str:
+        ref = self.plan_reference or {}
+        return ", ".join(f"{key.replace('_', ' ')} {ref.get(key) or 'NOT DECLARED'}" for key in tc.REFERENCE_KEYS)
+
+    def set_plan_rows(self, rows, source: str, targets=None, reference=None) -> bool:
         """Use plan stations handed over in memory (M55 plan designer; MD in metres)."""
         try:
             stations = [{"md": float(r["md"]), "inc": float(r["inc"]), "azi": float(r["azi"])}
@@ -250,8 +258,10 @@ class TrajectoryComparePanel(QWidget):
             return False
         self.plan_rows, self.plan_source = stations, str(source)
         self.plan_targets = [dict(t) for t in targets or ()]
+        self.plan_reference = {k: (reference or {}).get(k) for k in tc.REFERENCE_KEYS}
         self.mode_combo.setCurrentIndex(self.mode_combo.findData("plan"))
-        self.plan_label.setText(f"{self.plan_source}: {len(stations)} stations (MD m, in memory)")
+        self.plan_label.setText(f"{self.plan_source}: {len(stations)} stations (MD m, in memory; "
+                                f"{self._reference_label()})")
         self._clear_result("Plan loaded; compare again.")
         return True
 
@@ -269,19 +279,28 @@ class TrajectoryComparePanel(QWidget):
                 if revision is None or revision["well_id"] != self.well_id:
                     self._clear_result("The selected survey revision is not available for this well.")
                     return None
-                if revision.get("integrity") != "VERIFIED":
-                    self._clear_result("The selected survey revision failed its station hash check; not compared.")
+                try:
+                    sr.verify_for_use(revision, "a trajectory comparison")
+                except sr.SurveyRevisionError as exc:
+                    self._clear_result(f"Not compared: {exc}")
                     return None
+                actual_reference = {k: revision.get(k) for k in tc.REFERENCE_KEYS}
                 inputs["actual_rows"] = [dict(st) for st in revision["stations"]]
                 inputs["actual_survey_revision_id"] = revision["id"]
                 inputs["actual_survey_sha256"] = revision["stations_sha256"]
             else:
+                actual_reference = {}               # legacy survey points declare no reference
                 inputs["actual_rows"] = [{"md": r["md"], "inc": r["inc"], "azi": r["azi"]}
                                          for r in self.db_manager.load_survey_points(well_id=self.well_id)]
             if self.mode == "plan":
                 if not self.plan_rows:
                     self._clear_result("Load a plan file first.")
                     return None
+                check = tc.reference_check(self.plan_reference, actual_reference)
+                if not check["ok"]:
+                    self._clear_result(check["summary"])
+                    return None
+                inputs["reference_check"] = check["summary"]
                 inputs["plan_rows"] = list(self.plan_rows)
                 inputs["plan_source"] = self.plan_source
                 inputs["targets"] = list(self.plan_targets)

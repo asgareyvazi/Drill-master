@@ -391,7 +391,8 @@ class TrajectoryViewerTab(QWidget):
     def use_designed_plan(self, rows, source) -> bool:
         """Hand a designed plan to the plan-vs-actual comparison and show it."""
         accepted = self.compare_panel.set_plan_rows(rows, source,
-                                                    targets=getattr(self.plan_designer, "handover_targets", None))
+                                                    targets=getattr(self.plan_designer, "handover_targets", None),
+                                                    reference=getattr(self.plan_designer, "handover_reference", None))
         if accepted:
             self.view_tabs.setCurrentWidget(self.compare_panel)
         return accepted

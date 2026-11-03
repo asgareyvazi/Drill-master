@@ -19,7 +19,7 @@ from core import survey_revisions as sr
 
 logger = logging.getLogger(__name__)
 COLUMNS = ["Rev", "Mode", "Stations", "Last MD (m)", "Azimuth ref.", "Datum", "Source", "Parent", "Saved",
-           "Station hash"]
+           "Station hash", "Results hash"]
 
 
 class SurveyRevisionPanel(QWidget):
@@ -86,6 +86,26 @@ class SurveyRevisionPanel(QWidget):
                        self.param_date_edit, self.convert_btn):
             convert.addWidget(widget)
         layout.addLayout(convert)
+        # M105: vertical depth-datum shift with explicit elevations only (new revision).
+        datum = QHBoxLayout()
+        self.target_datum_edit = QLineEdit()
+        self.target_datum_edit.setPlaceholderText("target datum (e.g. GL)")
+        self.source_elev_edit = QLineEdit()
+        self.source_elev_edit.setPlaceholderText("source datum elevation m, up +")
+        self.target_elev_edit = QLineEdit()
+        self.target_elev_edit.setPlaceholderText("target datum elevation m, up +")
+        self.elev_ref_edit = QLineEdit()
+        self.elev_ref_edit.setPlaceholderText("elevations relative to (e.g. MSL)")
+        self.datum_source_edit = QLineEdit()
+        self.datum_source_edit.setPlaceholderText("elevation source (e.g. rig survey)")
+        self.datum_btn = QPushButton("Save datum-shifted revision")
+        self.datum_btn.setToolTip(sr.DATUM_TRANSFORM_CONVENTION + " No CRS or geodetic transform is performed.")
+        self.datum_btn.clicked.connect(self.shift_datum_selected)
+        datum.addWidget(QLabel("Shift depth datum"))
+        for widget in (self.target_datum_edit, self.source_elev_edit, self.target_elev_edit, self.elev_ref_edit,
+                       self.datum_source_edit, self.datum_btn):
+            datum.addWidget(widget)
+        layout.addLayout(datum)
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -125,7 +145,8 @@ class SurveyRevisionPanel(QWidget):
             values = [rev["revision"], rev["mode"], rev["station_count"], f"{rev['stations'][-1]['md']:.2f}",
                       rev["azimuth_reference"], rev["depth_datum"], rev["source_type"],
                       next((p["revision"] for p in self.revisions if p["id"] == rev["parent_id"]), ""),
-                      str(rev["created_at"])[:19], rev.get("integrity", "")]
+                      str(rev["created_at"])[:19], rev.get("integrity", ""),
+                      rev.get("results_integrity", "")]
             for col, value in enumerate(values):
                 self.table.setItem(row, col, QTableWidgetItem(str(value)))
         if self.well_id and self._available():
@@ -142,6 +163,7 @@ class SurveyRevisionPanel(QWidget):
         selected = self.selected()
         self.compare_btn.setEnabled(bool(selected and selected.get("parent_id")))
         self.convert_btn.setEnabled(bool(ready and selected))
+        self.datum_btn.setEnabled(bool(ready and selected))
 
     def selected(self) -> Optional[dict]:
         rows = sorted({i.row() for i in self.table.selectedItems()})
@@ -255,6 +277,24 @@ class SurveyRevisionPanel(QWidget):
             self.status.setText(f"Not converted: {exc}")
             return None
         return self._done(new, "Converted into")
+
+    def shift_datum_selected(self) -> Optional[dict]:
+        """Save the selected revision referred to another depth datum (new revision, M105)."""
+        rev = self.selected()
+        if rev is None:
+            self.status.setText("Select the revision to shift.")
+            return None
+        try:
+            new = sr.transform_depth_datum(
+                self.db_manager, rev["id"], self.target_datum_edit.text(),
+                source_datum_elevation_m=self._number(self.source_elev_edit),
+                target_datum_elevation_m=self._number(self.target_elev_edit),
+                elevation_reference=self.elev_ref_edit.text(), parameter_source=self.datum_source_edit.text(),
+                user_id=self._user_id())
+        except sr.SurveyRevisionError as exc:
+            self.status.setText(f"Not shifted: {exc}")
+            return None
+        return self._done(new, "Datum-shifted into")
 
     def compare_selected(self) -> Optional[dict]:
         rev = self.selected()
