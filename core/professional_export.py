@@ -5,6 +5,14 @@ Implements spec:
 - Export metadata: Company, Project, Field, Well, Section, Report Number, Report Date, Revision, Status, Prepared By, Checked By, Approved By, Generated At UTC, Timezone, Units, Data Quality, Audit ID
 - Excel sheets: Executive Summary, Daily Report, Time Logs, Mud, Drilling Parameters, Bit, BHA, Survey, Safety, Logistics, Services, Cost, Data Quality, Validation, Audit, Raw Data
 - PDF: Header, Logo, Footer, Page Number, Watermark, Revision, Approval, Tables, Charts, Signature, Data Quality
+
+M110: "Revision" is the latest stored report revision ("No report revision recorded" when there is none;
+the template version for a whole-well export) - never a hard-coded "Rev 0". The daily report has no
+prepared / checked / approved-by fields, so those names show "not recorded"; the approval workflow record
+(``approval_actions``) is shown separately and is a workflow status, not a signature or release approval.
+Both formats carry the M93 provenance (scope, sources, revisions, label) in the requested text direction:
+the workbook gains a "Provenance" sheet, the PDF a banner and provenance block. The workbook has the 16
+core sheets plus "Mud Chemicals" and the report sections (POB ... Downhole Equipment). No PyMuPDF.
 """
 
 from datetime import datetime, timezone, date
@@ -13,6 +21,51 @@ from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
+
+PROFESSIONAL_TEMPLATE_VERSION = "M110 professional export template v1"
+NOT_RECORDED_NAME = "not recorded (the daily report has no such field)"
+NO_REVISION = "No report revision recorded"
+NO_APPROVAL = "No approval recorded in DrillMaster"
+APPROVAL_NOTE = "workflow status only — not a signature, not a release approval"
+SIGNATURE_STATUS = "UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED"
+
+
+def report_revision_label(db_manager, report_id) -> str:
+    """The latest stored revision of a daily report, or the template version for a whole-well export."""
+    if report_id is None:
+        return f"Whole-well export — {PROFESSIONAL_TEMPLATE_VERSION} (no single report revision)"
+    from core.database import ReportRevision
+    with db_manager.session_scope() as session:
+        row = (session.query(ReportRevision).filter(ReportRevision.report_id == report_id)
+               .order_by(ReportRevision.revision_no.desc(), ReportRevision.id.desc()).first())
+        if row is None:
+            return NO_REVISION
+        when = row.created_at.isoformat(sep=" ", timespec="minutes") if row.created_at else "time not recorded"
+        return f"Report revision {row.revision_no} ({row.status}, {when})"
+
+
+def approval_record_label(db_manager, report_id) -> str:
+    """The latest approve action of the report workflow, stated as a workflow status (never a signature)."""
+    if report_id is None:
+        return f"{NO_APPROVAL} (whole-well export)"
+    from core.database import ApprovalAction, User
+    with db_manager.session_scope() as session:
+        row = (session.query(ApprovalAction).filter(ApprovalAction.report_id == report_id,
+                                                     ApprovalAction.action == "approve")
+               .order_by(ApprovalAction.created_at.desc(), ApprovalAction.id.desc()).first())
+        if row is None:
+            return NO_APPROVAL
+        user = session.get(User, row.user_id) if row.user_id else None
+        who = getattr(user, "username", None) or (f"user #{row.user_id}" if row.user_id else "unknown user")
+        when = row.created_at.isoformat(sep=" ", timespec="minutes") if row.created_at else "time not recorded"
+        return f"Workflow status {row.status} set by {who} on {when} ({APPROVAL_NOTE})"
+
+
+def _provenance(db_manager, well_id: int, report_id, direction: str):
+    from core import report_provenance
+    if report_id is not None:
+        return report_provenance.build(db_manager, "workbook_report", report_id, direction=direction)
+    return report_provenance.build(db_manager, "workbook", well_id, direction=direction)
 
 
 def _excel_value(value):
@@ -110,11 +163,14 @@ class ProfessionalExportMetadata:
             "Section": section.get("name", "") or well.get("section_name", ""),
             "Report Number": report.get("report_number", ""),
             "Report Date": str(report.get("report_date", "")),
-            "Revision": "Rev 0",
+            "Revision": report_revision_label(db_manager, report_id),
             "Status": report.get("status", "Draft"),
-            "Prepared By": report.get("prepared_by", ""),
-            "Checked By": report.get("checked_by", ""),
-            "Approved By": report.get("approved_by", ""),
+            "Prepared By": report.get("prepared_by") or NOT_RECORDED_NAME,
+            "Checked By": report.get("checked_by") or NOT_RECORDED_NAME,
+            "Approved By": report.get("approved_by") or NOT_RECORDED_NAME,
+            "Approval Record": approval_record_label(db_manager, report_id),
+            "Signature Status": SIGNATURE_STATUS,
+            "Template": PROFESSIONAL_TEMPLATE_VERSION,
             "Generated At UTC": now_utc.isoformat(),
             "Timezone": "UTC",
             "Units": "Mixed field units: Mud.mw is pcf; lengths m/in, pressures psi, flow gpm; see column labels",
@@ -157,6 +213,8 @@ class ProfessionalExcelExport:
 
     def __init__(self, db_manager):
         self.db = db_manager
+        self.direction = "ltr"            # M110: text direction of the workbook (ltr / rtl)
+        self.last_provenance = None
 
     def export(self, well_id: int, output_path: str, report_id: int = None, section_id: int = None) -> bool:
         try:
@@ -177,7 +235,7 @@ class ProfessionalExcelExport:
             ws["A1"] = "DrillMaster - Professional Export - Intelligence Platform"
             ws["A1"].font = Font(bold=True, size=14)
             row = 3
-            for key in ["Company", "Project", "Field", "Well", "Section", "Report Number", "Report Date", "Revision", "Status", "Prepared By", "Checked By", "Approved By", "Generated At UTC", "Timezone", "Units", "Data Quality", "Record Scope", "Audit ID"]:
+            for key in ["Company", "Project", "Field", "Well", "Section", "Report Number", "Report Date", "Revision", "Status", "Prepared By", "Checked By", "Approved By", "Approval Record", "Signature Status", "Template", "Generated At UTC", "Timezone", "Units", "Data Quality", "Record Scope", "Audit ID"]:
                 ws.cell(row=row, column=1, value=key).font = Font(bold=True)
                 ws.cell(row=row, column=2, value=_excel_value(metadata.get(key)))
                 row += 1
@@ -228,8 +286,17 @@ class ProfessionalExcelExport:
                     if "mw" in mud_export:
                         mud_export["mw (PCF)"] = mud_export.pop("mw")
                     _write_records(ws4, [mud_export])
-                    from core.domain_records import collection_value
-                    _write_records(wb.create_sheet("Mud Chemicals"), collection_value(mud.get("chemicals_json"), "chemicals"))
+                from core.domain_records import collection_value
+                ws_chem = wb.create_sheet("Mud Chemicals")       # M110: always present, with its source
+                if not mud:
+                    ws_chem.append(["No mud report in scope"])
+                else:
+                    source = {"mud_report_id": mud.get("id"), "report_id": mud.get("report_id"),
+                              "mud_report_date": mud.get("report_date")}
+                    chemicals = collection_value(mud.get("chemicals_json"), "chemicals")
+                    if report_id is None:
+                        ws_chem.append(["Latest mud report of the well only (whole-well export)"])
+                    _write_records(ws_chem, [{**source, **row} for row in chemicals] if chemicals else [])
             except Exception:
                 raise
 
@@ -400,7 +467,7 @@ class ProfessionalExcelExport:
 
             # 14. Validation
             ws14 = wb.create_sheet("Validation")
-            ws14.cell(row=1, column=1, value="Validation Rules").font = header_font
+            ws14.cell(row=1, column=1, value="Validation Rules (rule list only; this export does not run them)").font = header_font
             ws14.cell(row=1, column=1).fill = header_fill
             validations = [
                 "Well name required - MISSING_INPUT",
@@ -496,7 +563,10 @@ class ProfessionalExcelExport:
                         if isinstance(cell.value, str) and cell.value.startswith("="):
                             cell.data_type = "s"  # preserve literal user text, not an executable Excel formula
             wb.save(output_path)
-            logger.info(f"Professional Excel export saved: {output_path} with {len(wb.sheetnames)} sheets")
+            from core import report_provenance
+            self.last_provenance = _provenance(self.db, well_id, report_id, self.direction)
+            report_provenance.add_sheet(output_path, self.last_provenance)     # M110: M93 provenance sheet
+            logger.info(f"Professional Excel export saved: {output_path} with {len(wb.sheetnames) + 1} sheets")
             return True
 
         except Exception as e:
@@ -509,6 +579,8 @@ class ProfessionalPDFExport:
 
     def __init__(self, db_manager):
         self.db = db_manager
+        self.direction = "ltr"            # M110
+        self.last_provenance = None
 
     def export(self, well_id: int, output_path: str, report_id: int = None, section_id: int = None) -> bool:
         try:
@@ -517,7 +589,14 @@ class ProfessionalPDFExport:
             from PySide6.QtPrintSupport import QPrinter
             from core.text_utils import wrap_html
 
-            metadata = ProfessionalExportMetadata.build(self.db, well_id, section_id, report_id)
+            import html as _html
+            raw = ProfessionalExportMetadata.build(self.db, well_id, section_id, report_id)
+            # M110: every value is escaped (report text such as "<b>" or "&" is shown, never interpreted)
+            metadata = {k: (_html.escape(str(v)) if isinstance(v, (str, int, float)) and not isinstance(v, bool)
+                            else v) for k, v in raw.items()}
+            # M110 (D29): was metadata.get('Report Info', {{}}) inside the f-string - a set holding a dict,
+            # so every professional PDF export raised TypeError before writing anything.
+            report_info = raw.get("Report Info") if isinstance(raw.get("Report Info"), dict) else {}
 
             html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -544,25 +623,22 @@ Company: {metadata.get('Company','')} | Project: {metadata.get('Project','')} | 
 </div>
 </div>
 
-<div class="section-title">Approval</div>
+<div class="section-title">Names as recorded — not an approval</div>
 <table class="table">
-<tr><th>Role</th><th>Name</th><th>Signature</th><th>Date</th></tr>
-<tr><td>Prepared By</td><td>{metadata.get('Prepared By','')}</td><td></td><td></td></tr>
-<tr><td>Checked By</td><td>{metadata.get('Checked By','')}</td><td></td><td></td></tr>
-<tr><td>Approved By</td><td>{metadata.get('Approved By','')}</td><td></td><td></td></tr>
+<tr><th>Role</th><th>Name</th></tr>
+<tr><td>Prepared By</td><td>{metadata.get('Prepared By','')}</td></tr>
+<tr><td>Checked By</td><td>{metadata.get('Checked By','')}</td></tr>
+<tr><td>Approved By</td><td>{metadata.get('Approved By','')}</td></tr>
+<tr><td>Approval record</td><td>{metadata.get('Approval Record','')}</td></tr>
+<tr><td>Signature status</td><td>{metadata.get('Signature Status','')}</td></tr>
 </table>
 
 <div class="section-title">Data Quality</div>
 <p>{metadata.get('Data Quality','')}</p>
 
 <div class="section-title">Report Data</div>
-<p>Well: {metadata.get('Well','')} - Depth: {metadata.get('Report Info',{{}}).get('depth_2400','')}m - Summary: {wrap_html(str(metadata.get('Report Info',{{}}).get('summary',''))[:500])}</p>
+<p>Well: {metadata.get('Well','')} - Depth: {_html.escape(str(report_info.get('depth_2400','')))}m - Summary: {_html.escape(wrap_html(str(report_info.get('summary',''))[:500]))}</p>
 
-<div class="signature">
-<div>Prepared By<br>{metadata.get('Prepared By','')}</div>
-<div>Checked By<br>{metadata.get('Checked By','')}</div>
-<div>Approved By<br>{metadata.get('Approved By','')}</div>
-</div>
 
 <div class="footer">
 Generated by DrillMaster Intelligence Platform | {metadata.get('Generated At UTC','')} | Audit ID: {metadata.get('Audit ID','')} | Page 1 | Data Quality: {metadata.get('Data Quality','')}
@@ -576,6 +652,10 @@ Generated by DrillMaster Intelligence Platform | {metadata.get('Generated At UTC
             printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
             printer.setPageMargins(QMarginsF(15, 15, 15, 15), QPageLayout.Unit.Millimeter)
 
+            from core import report_provenance
+            self.last_provenance = _provenance(self.db, well_id, report_id, self.direction)
+            html = report_provenance.attach(html, self.last_provenance)        # M110: banner + provenance
+            self.last_html = html
             doc = QTextDocument()
             doc.setHtml(html)
             doc.print_(printer)

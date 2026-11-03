@@ -511,9 +511,10 @@ class ExportWidget(DrillTabBase):
         # Professional export info
         info = QLabel(
             "Professional Export includes:\n"
-            "• Company, Project, Field, Well, Section, Report Number, Report Date, Revision, Status, Prepared By, Checked By, Approved By, Generated At UTC, Timezone, Units, Data Quality, Audit ID\n"
-            "• Excel Sheets: Executive Summary, Daily Report, Time Logs, Mud, Drilling Parameters, Bit, BHA, Survey, Safety, Logistics, Services, Cost, Data Quality, Validation, Audit, Raw Data\n"
-            "• PDF: Header, Logo, Footer, Page Number, Watermark, Revision, Approval, Tables, Charts, Signature, Data Quality\n"
+            "• Company, Project, Field, Well, Section, Report Number, Report Date, Revision (stored report revision, or none recorded), Status, names as recorded, approval workflow record (not a signature), Generated At UTC, Timezone, Units, Data Quality, Audit ID\n"
+            "• Excel: Provenance, 16 core sheets (Executive Summary … Raw Data), Mud Chemicals and the report sections\n"
+            "• PDF: label banner, metadata, names as recorded (not an approval), data quality, provenance\n"
+            "• Text direction follows the LTR/RTL choice; UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED\n"
             "• Atomic transaction for export data collection, no fake defaults"
         )
         info.setWordWrap(True)
@@ -532,11 +533,15 @@ class ExportWidget(DrillTabBase):
         self.batch_cost.setChecked(True)
         self.batch_plan = QCheckBox("📋 Plan")
         self.batch_plan.setChecked(True)
-        self.batch_professional = QCheckBox("🌟 Professional (16 sheets)")
+        self.batch_professional = QCheckBox("🌟 Professional (16 core sheets + sections)")
         self.batch_professional.setChecked(True)
+        self.batch_professional_per_report = QCheckBox("Professional workbook per report")   # M110
+        self.batch_professional_per_report.setToolTip(
+            "Also write one report-scoped workbook (own revision and provenance) for every daily report.")
         self.batch_professional.setStyleSheet("font-weight: bold; color: #27ae60;")
         for cb in [self.batch_ddr, self.batch_eowr, self.batch_npt,
-                    self.batch_cost, self.batch_plan, self.batch_professional]:
+                    self.batch_cost, self.batch_plan, self.batch_professional,
+                    self.batch_professional_per_report]:
             cb_layout.addWidget(cb)
         cb_layout.addStretch()
         layout.addLayout(cb_layout)
@@ -591,13 +596,14 @@ class ExportWidget(DrillTabBase):
             ("plan", self.batch_plan), ("ddr", self.batch_ddr),
         ) if box.isChecked()]
         report_id = getattr(self, '_current_report_id', None)
+        per_report = "professional" in selected and self.batch_professional_per_report.isChecked()
 
         def build_jobs(db):
             # Runs in the worker with its own read-only connection.
-            reports = db.get_daily_reports_by_well(wid) if "ddr" in selected else []
+            reports = db.get_daily_reports_by_well(wid) if ("ddr" in selected or per_report) else []
             return plan_batch(well_id=wid, folder=folder, fmt=fmt, timestamp=ts,
                               selected=selected, report_id=report_id, ddr_reports=reports,
-                              direction=direction)
+                              direction=direction, professional_per_report=per_report)
 
         def progress(done, total, outcome):
             self.batch_log.append(f"[{done}/{total}] {self._outcome_text(outcome)}")
@@ -617,7 +623,7 @@ class ExportWidget(DrillTabBase):
         if self._start_export(build_jobs, completed, on_progress=progress, on_failed=failed):
             self.batch_log.clear()
             self.batch_log.append(f"📦 Professional Batch Export Started: {ts}")
-            self.batch_log.append("Metadata: Company/Project/Field/Well/Section/Report Number/Date/Revision/Status/Prepared/Checked/Approved/Generated At UTC/Timezone/Units/Data Quality/Audit ID")
+            self.batch_log.append("Metadata: Company/Project/Field/Well/Section/Report Number/Date/Revision/Status/names as recorded/approval workflow record/Generated At UTC/Timezone/Units/Data Quality/Audit ID; provenance in every file")
 
     # ==================== Export execution (worker thread) ====================
     def export_running(self) -> bool:

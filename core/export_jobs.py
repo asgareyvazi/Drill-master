@@ -113,6 +113,7 @@ def _professional(class_name: str) -> Callable[[Any, ExportJob], Any]:
         from core import professional_export
 
         exporter = getattr(professional_export, class_name)(db)
+        exporter.direction = job.direction                    # M110
         return exporter.export(job.target_id, job.path, report_id=job.report_id)
 
     return generate
@@ -139,8 +140,13 @@ def plan_batch(
     report_id: Optional[int] = None,
     ddr_reports: Sequence[Mapping[str, Any]] = (),
     direction: str = "ltr",
+    professional_per_report: bool = False,
 ) -> List[ExportJob]:
-    """Batch jobs in the historical order with the historical file names."""
+    """Batch jobs in the historical order with the historical file names.
+
+    M110: professional jobs carry the text direction; with ``professional_per_report`` every daily report of
+    ``ddr_reports`` also gets its own report-scoped workbook (its own provenance and revision).
+    """
     import os
 
     chosen = set(selected)
@@ -150,12 +156,20 @@ def plan_batch(
     ext = extension_for(fmt)
     jobs: List[ExportJob] = []
     if "professional" in chosen:
-        jobs.append(ExportJob("professional_excel", "Professional Excel (16 sheets)",
+        # the file name keeps its historical "16Sheets" stem; the workbook holds 16 core sheets + sections
+        jobs.append(ExportJob("professional_excel", "Professional Excel (16 core sheets + report sections)",
                               os.path.join(folder, f"Professional_16Sheets_{timestamp}.xlsx"),
-                              well_id, "excel", report_id=report_id))
+                              well_id, "excel", report_id=report_id, direction=direction))
         jobs.append(ExportJob("professional_pdf", "Professional PDF",
                               os.path.join(folder, f"Professional_{timestamp}.pdf"),
-                              well_id, "pdf", report_id=report_id))
+                              well_id, "pdf", report_id=report_id, direction=direction))
+        if professional_per_report:
+            for report in ddr_reports:
+                name = (f"Professional_16Sheets_{report.get('report_number', '')}_{report.get('report_date', '')}"
+                        f"_{timestamp}.xlsx")
+                jobs.append(ExportJob("professional_excel", f"Professional Excel, report #{report.get('report_number', '')}",
+                                      os.path.join(folder, name), well_id, "excel", report_id=int(report["id"]),
+                                      direction=direction))
     for kind, label, stem in (("eowr", "EOWR", "EOWR"), ("npt", "NPT", "NPT"),
                               ("cost", "Cost", "Cost"), ("plan", "Plan", "Plan")):
         if kind in chosen:

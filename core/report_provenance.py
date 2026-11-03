@@ -26,9 +26,18 @@ from typing import Any, Dict, List, Optional
 PROVENANCE_VERSION = "M93 report provenance v1"
 LABEL = "UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED"
 DIRECTIONS = ("ltr", "rtl")
-KINDS = ("ddr", "eowr", "npt", "cost", "plan")
+KINDS = ("ddr", "eowr", "npt", "cost", "plan", "workbook", "workbook_report")
+REPORT_KINDS = ("ddr", "workbook_report")          # the target id is a daily report (else a well)
 TITLES = {"ddr": "Daily drilling report", "eowr": "End-of-well report", "npt": "NPT report", "cost": "Cost report",
-          "plan": "Well plan report"}
+          "plan": "Well plan report", "workbook": "Professional workbook (whole well)",
+          "workbook_report": "Professional workbook (one daily report)"}
+_WORKBOOK_SOURCES = ("wells", "daily_reports", "report_revisions", "approval_actions", "time_logs_24h", "mud_reports (incl. chemicals_json)",
+                     "drilling_parameters", "bit_reports", "bha_reports", "survey_points", "safety_reports",
+                     "logistics_personnel", "service_companies", "cost_records", "audit_logs",
+                     "report sections (POB, fuel/water, equipment, look-ahead, BOP, waste, casing, cement, morning "
+                     "operations, formations, downhole equipment)")
+TEMPLATES = {"workbook": "core/professional_export.py (M110 professional export template v1)",
+             "workbook_report": "core/professional_export.py (M110 professional export template v1)"}
 # Tables each report engine reads (core/report_engine.py), named by their database tables.
 SOURCES = {
     "ddr": ("daily_reports", "time_logs_24h", "time_logs_morning", "DDR child collections (report snapshot)"),
@@ -39,6 +48,8 @@ SOURCES = {
     "npt": ("daily_reports", "time_logs_24h", "cost_records"),
     "cost": ("daily_reports", "time_logs_24h", "cost_records"),
     "plan": ("well_plans", "planned_activities"),
+    "workbook": _WORKBOOK_SOURCES,
+    "workbook_report": _WORKBOOK_SOURCES,
 }
 # Catalogue method IDs each report applies (versions come from the catalogue, i.e. from the code).
 METHODS = {
@@ -48,6 +59,8 @@ METHODS = {
     "npt": ("analysis.time_log_summary", "analysis.cost_per_currency"),
     "cost": ("analysis.time_log_summary", "analysis.cost_per_currency"),
     "plan": (),
+    "workbook": (),          # the workbook lists stored records; it applies no catalogue method
+    "workbook_report": (),
 }
 
 
@@ -73,7 +86,7 @@ def build(db, kind: str, target_id: int, *, direction: str = "ltr") -> Dict[str,
     if direction not in DIRECTIONS:
         raise ValueError(f"unknown text direction {direction!r}")
     with db.session_scope() as session:
-        report = session.get(DailyReport, target_id) if kind == "ddr" else None
+        report = session.get(DailyReport, target_id) if kind in REPORT_KINDS else None
         well_id = report.well_id if report is not None else target_id
         well = session.get(Well, well_id)
         bore_id = report.wellbore_id if report is not None else None
@@ -112,7 +125,7 @@ def build(db, kind: str, target_id: int, *, direction: str = "ltr") -> Dict[str,
     catalogue = {e.method_id: e for e in mc.catalogue()}
     methods = [f"{mid} — {catalogue[mid].version} ({catalogue[mid].label or 'no product label'}; "
                f"{catalogue[mid].approval})" for mid in METHODS[kind]]
-    methods.append(f"report template core/report_engine.py ({kind}); {PROVENANCE_VERSION}")
+    methods.append(f"report template {TEMPLATES.get(kind, f'core/report_engine.py ({kind})')}; {PROVENANCE_VERSION}")
     return {"scope": scope, "sources": list(SOURCES[kind]) + [f"{count} daily report(s) in scope"],
             "revisions": revisions, "methods": methods, "label": LABEL, "direction": direction,
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "version": PROVENANCE_VERSION}

@@ -329,29 +329,13 @@ class ExportCoordinator:
 
     def get_export_metadata(self, well_id: int, report_id: int = None) -> dict:
         """Professional export metadata as per spec."""
-        from datetime import datetime, timezone
-        well = self.db.get_well_by_id(well_id) or {}
-        report = self.db.get_daily_report_by_id(report_id) if report_id else {}
+        # M110: one source of truth (it used to hard-code "Rev 0", "Validated" and present the well's
+        # operation manager as "approved_by")
+        from core.professional_export import ProfessionalExportMetadata
 
-        return {
-            "company": well.get("client", "") or well.get("operator", ""),
-            "project": well.get("project_name", ""),
-            "field": well.get("field_name", ""),
-            "well": well.get("name", ""),
-            "section": well.get("section_name", ""),
-            "report_number": report.get("report_number", ""),
-            "report_date": str(report.get("report_date", "")),
-            "revision": "Rev 0",
-            "status": report.get("status", "Draft"),
-            "prepared_by": well.get("supervisor_day", ""),
-            "checked_by": well.get("supervisor_night", ""),
-            "approved_by": well.get("operation_manager", ""),
-            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-            "timezone": "UTC",
-            "units": "Metric (m, ppg, psi, gpm)",
-            "data_quality": "Validated",
-            "audit_id": f"AUDIT-{well_id}-{report_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-        }
+        meta = ProfessionalExportMetadata.build(self.db, well_id, None, report_id)
+        return {key.lower().replace(" ", "_"): value for key, value in meta.items()
+                if not isinstance(value, (dict, list))}
 
 
 class ImportCoordinator:
