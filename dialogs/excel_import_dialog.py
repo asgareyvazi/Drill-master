@@ -38,7 +38,11 @@ from core.import_diagnostics import (
 from core.ai_import_mapper import AIImportMapper, model_catalog, get_selected_model, set_selected_model
 from core import async_workers as _async_workers
 from core.async_workers import FunctionWorker, release_when_finished
-from core.ddr_import_pipeline import STAGES, PreparedImport, mineru_extracted, pdf_split_info, prepare_import
+from core.ddr_import_pipeline import (STAGES, PreparedImport, has_meaningful_canonical_data,  # noqa: F401
+                                     mineru_extracted, pdf_split_info, prepare_import)
+from core import ddr_import_pipeline as _pipeline
+from core import import_router as _import_router
+from core import isolated_parse
 from core.import_router import route_file
 from core.ddr_import_queue import CANCELLED, DUPLICATE, FAILED, FINAL, ImportQueue
 from core.mineru_engine import (
@@ -56,42 +60,7 @@ logger = logging.getLogger(__name__)
 ALL_EXPECTED_FIELDS = list(FIELD_LABELS.keys())
 
 
-def has_meaningful_canonical_data(extracted: dict) -> bool:
-    """Return true only for semantic canonical values, not provenance metadata."""
-    ignored = {"metadata", "provenance", "review_matrix", "raw_document"}
-
-    def business_key(key: object) -> bool:
-        key = str(key or "")
-        return not (
-            key.startswith("_")
-            or key.endswith("_source")
-            or key in {"source_row", "source_cells", "report_date_source"}
-        )
-
-    def meaningful(value, *, key: object = ""):
-        if not business_key(key):
-            return False
-        if value is None or value is False:
-            return False
-        if isinstance(value, str):
-            return bool(value.strip())
-        if isinstance(value, (int, float)):
-            return True
-        if isinstance(value, dict):
-            return any(
-                meaningful(item, key=item_key)
-                for item_key, item in value.items()
-                if item_key not in ignored
-            )
-        if isinstance(value, (list, tuple, set)):
-            return any(meaningful(item) for item in value)
-        return True
-
-    return isinstance(extracted, dict) and any(
-        meaningful(value, key=key)
-        for key, value in extracted.items()
-        if key not in ignored
-    )
+# M111: moved to core.ddr_import_pipeline (Qt-free, importable by the isolated parser process).
 
 
 
@@ -1084,8 +1053,17 @@ class ExcelImportDialog(QDialog, DDRImportService):
             should_cancel=lambda: entry.status == CANCELLED,
         )
 
+        isolated = self._parsers_can_be_isolated(kwargs, parse_result)
+        self._last_parse_mode = isolated_parse.MODE if isolated else "worker thread"
+
         def job():
-            holder["prepared"] = prepare_import(source, **kwargs)
+            if isolated:                   # M111: spawn child, plain data only, bounded shutdown
+                holder["prepared"] = isolated_parse.prepare_isolated(
+                    source, parse_result=parse_result, profile=profile, profiles=kwargs["profiles"],
+                    expected_well=kwargs["expected_well"], should_cancel=kwargs["should_cancel"],
+                    timeout=self.parse_timeout)
+            else:
+                holder["prepared"] = prepare_import(source, **kwargs)
 
         worker = _async_workers.FunctionWorker(job)
         self._prepare_worker = worker
@@ -1101,6 +1079,23 @@ class ExcelImportDialog(QDialog, DDRImportService):
         if prepared is None:                       # the worker itself failed before returning
             prepared = PreparedImport(source=str(source), error=RuntimeError("Background preparation failed"))
         return prepared
+
+    #: M111: seconds before an isolated parse is stopped (TIMEOUT; nothing is saved).
+    parse_timeout = isolated_parse.DEFAULT_TIMEOUT
+    #: M111: production parsers run in a spawn child; set False only to debug in-process.
+    isolate_parsing = True
+
+    def _parsers_can_be_isolated(self, kwargs, parse_result) -> bool:
+        """True when every parser is the production one (an injected callable cannot cross processes)."""
+        cls = type(self)
+        return bool(
+            self.isolate_parsing
+            and (parse_result is None or not getattr(parse_result, "success", False))
+            and kwargs["route"] is _import_router.route_file
+            and kwargs["meaningful"] is _pipeline.has_meaningful_canonical_data
+            and "extract_file" not in vars(self) and cls.extract_file is DDRImportService.extract_file
+            and "_auto_match_template" not in vars(self)
+            and cls._auto_match_template is DDRImportService._auto_match_template)
 
     def _workers_running(self) -> bool:
         return any(w is not None and w.isRunning() for w in (self._prepare_worker, self._mineru_worker))

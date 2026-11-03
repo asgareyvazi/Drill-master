@@ -65,6 +65,44 @@ class PreparedImport:
         return self.error is None and not self.cancelled and self.extracted is not None
 
 
+def has_meaningful_canonical_data(extracted: dict) -> bool:
+    """Return true only for semantic canonical values, not provenance metadata."""
+    ignored = {"metadata", "provenance", "review_matrix", "raw_document"}
+
+    def business_key(key: object) -> bool:
+        key = str(key or "")
+        return not (
+            key.startswith("_")
+            or key.endswith("_source")
+            or key in {"source_row", "source_cells", "report_date_source"}
+        )
+
+    def meaningful(value, *, key: object = ""):
+        if not business_key(key):
+            return False
+        if value is None or value is False:
+            return False
+        if isinstance(value, str):
+            return bool(value.strip())
+        if isinstance(value, (int, float)):
+            return True
+        if isinstance(value, dict):
+            return any(
+                meaningful(item, key=item_key)
+                for item_key, item in value.items()
+                if item_key not in ignored
+            )
+        if isinstance(value, (list, tuple, set)):
+            return any(meaningful(item) for item in value)
+        return True
+
+    return isinstance(extracted, dict) and any(
+        meaningful(value, key=key)
+        for key, value in extracted.items()
+        if key not in ignored
+    )
+
+
 # ---------------------------------------------------------------------------
 # Columns and profile suggestion (explainable, never applied automatically)
 # ---------------------------------------------------------------------------

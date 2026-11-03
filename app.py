@@ -747,6 +747,8 @@ def run_package_smoke() -> int:
 
 def main():
     """Main entry point."""
+    import multiprocessing
+    multiprocessing.freeze_support()          # M111: the isolated DDR parser uses spawn children
     if "--package-smoke" in sys.argv:
         return run_package_smoke()
     try:

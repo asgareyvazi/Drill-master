@@ -93,6 +93,7 @@ REQUIRED_MODULES = (
     "tests/test_m52_ddr_manual_edit.py",
     "tests/test_m52_ddr_pdf_split.py",
     "tests/test_m52_lifecycle_stress.py",
+    "tests/test_m111_isolated_parse.py",          # M111: spawn parser on Windows
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 

@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> int:
+    import multiprocessing
+    multiprocessing.freeze_support()          # M111: the isolated DDR parser uses spawn children
     try:
         application = DrillMasterApp(sys.argv)
         return application.exec()
