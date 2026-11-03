@@ -2411,6 +2411,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                 method=run["method"],
                 label="MSE (Teale)",
                 well_id=getattr(self, "current_well_id", None),
+                **self._mse_lineage(),
             )
         except Exception as exc:
             logger.exception("Failed to save MSE calculation")
@@ -2425,6 +2426,15 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"(axial {v.get('axial_term_psi')} + rotary {v.get('rotary_term_psi')}).\n"
             f"{self._save_attribution_line()}"
             "Inputs and full result were stored for reproducibility.")
+
+    def _mse_lineage(self) -> dict:
+        """M104: the wellbore and report selected now (the selection already withholds foreign ones)."""
+        if getattr(self, "current_well_id", None) is None:
+            return {}
+        context = getattr(self, "current_context", None)
+        same_well = context is not None and getattr(context, "well_id", None) == self.current_well_id
+        return {"wellbore_id": getattr(self, "current_wellbore_id", None),
+                "report_id": getattr(context, "report_id", None) if same_well else None}
 
     def _mse_open_history(self):
         """Open the read-only MSE calculation-history browser."""

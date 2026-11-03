@@ -35,23 +35,29 @@ from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from core import analysis_evidence as ev
 
-OA_VERSION = "M91 operational analysis v1"
+OA_VERSION = "M104 operational analysis v2"
 DEPTH_UNIT = "m"
 LABEL = "UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED"
+COMPLETE, PARTIAL, NOT_ASSESSED = "COMPLETE", "PARTIAL", "NOT ASSESSED"
+LEGACY_LINEAGE = "unknown (saved before lineage was recorded)"
+PLAN_UNITS = {"depth": "m", "hours": "h", "rop": "m/h", "cost": "currency of the cost records"}
 DRILLING_ACTIVITY = "DRILLING"
 TRUSTED_MAPPING = ("exact", "learned", "description")   # fuzzy matches are shown as UNCERTAIN, never drilling time
 
 COLUMNS = {
+    "kpis": ("KPI", "Value", "Unit", "Scope", "Source", "Quality", "Reason"),
     "daily": ("Date", "Report #", "Depth 00:00 (m)", "Depth 24:00 (m)", "Footage (m)", "Drilling h", "NPT h",
               "Logged h", "ROP (m/h)", "Notes", "Source"),
     "activities": ("Activity", "Codes", "Mapping", "Hours", "NPT h", "Logs", "Unknown durations"),
     "npt": ("Date", "From", "To", "Hours", "Category", "Code", "Description", "Source"),
     "bit_runs": ("Bit #", "Rerun", "Size (in)", "Type", "Depth in (m)", "Depth out (m)", "Footage (m)",
-                 "Hours on bottom", "ROP (m/h)", "Footage basis", "Reports", "Source"),
+                 "Hours on bottom", "ROP (m/h)", "Footage basis", "Reports", "ROP basis", "Source"),
+    "bit_rows": ("Bit #", "Rerun", "Date", "Report #", "Depth in (m)", "Depth out (m)", "Drilled (m)",
+                 "Hours on bottom", "ROP (m/h)", "Notes", "Source"),
     "mse": ("Saved at (UTC)", "Label", "MSE (psi)", "WOB (lbf)", "RPM", "Torque (ft·lbf)", "ROP (ft/h)",
-            "Bit (in)", "Source"),
+            "Bit (in)", "Wellbore", "Report #", "Input source", "Source"),
     "cost": ("Currency", "Category", "Planned", "Actual", "Variance"),
-    "plan_vs_actual": ("Metric", "Planned", "Actual", "Delta", "Delta %", "Status"),
+    "plan_vs_actual": ("Metric", "Unit", "Planned", "Actual", "Delta", "Delta %", "Status", "Reason"),
 }
 
 
@@ -142,6 +148,106 @@ def _check_cancel(cancel_event) -> None:
         raise JobCancelled()
 
 
+def _rop_basis(footage: Optional[float], hours: Optional[float]) -> str:
+    if footage is None:
+        return "not assessed: footage unknown"
+    if hours is None:
+        return "not assessed: hours on bottom unknown"
+    if hours == 0:
+        return "not assessed: no hours on bottom"
+    return "footage / hours on bottom"
+
+
+def _plan_scope_problem(scope, start, end) -> str:
+    """The well plan covers the whole well; any narrower scope makes the comparison incompatible."""
+    if scope.wellbore_id:
+        return "the plan is recorded per well, not per wellbore"
+    if start or end:
+        return "the plan covers the whole well; a date range selects only part of the actuals"
+    return ""
+
+
+def _range_text(scope_label: str, start, end) -> str:
+    if start is None and end is None:
+        return f"{scope_label}; every report date"
+    return f"{scope_label}; {start or 'first report'} – {end or 'last report'}"
+
+
+def _quality(values: List[Optional[float]]) -> Tuple[str, str]:
+    """COMPLETE when every value is known, PARTIAL when some are, NOT ASSESSED when none is (or no value)."""
+    known = sum(1 for v in values if v is not None)
+    if not values:
+        return NOT_ASSESSED, "no report in scope"
+    if known == len(values):
+        return COMPLETE, f"known on {known} of {len(values)} reports"
+    if known:
+        return PARTIAL, f"unknown on {len(values) - known} of {len(values)} reports; an incomplete sum is not a total"
+    return NOT_ASSESSED, f"unknown on every one of {len(values)} reports"
+
+
+def _kpis(summary, costs, time_summary, footages, drilling_totals, scope_text, scope, cost_reason) -> List[list]:
+    """KPI register: every figure with value, unit, scope, source, quality and reason (unknown is never 0)."""
+    rows: List[list] = []
+
+    def add(name, value, unit, source, quality, reason, scope_override=None):
+        rows.append([name, value, unit, scope_override or scope_text, source, quality, reason])
+
+    n = summary["reports"]
+    add("Reports", n, "reports", "daily_reports", COMPLETE if n else NOT_ASSESSED, "" if n else "no report in scope")
+    quality, reason = _quality(footages)
+    if quality == PARTIAL:
+        reason += f"; known sum {summary['footage_known_m']:g} m"
+    add("Footage", summary["footage_m"], "m", "daily_reports depth 00:00 → 24:00", quality, reason)
+    quality, reason = _quality(drilling_totals)
+    add("Drilling time", summary["drilling_hours"], "h", "time_logs_24h mapped to DRILLING", quality, reason)
+    pairs = int(summary["weighted_rop_days"].split(" ")[0]) if n else 0
+    add("Time-weighted ROP", summary["weighted_rop_m_h"], "m/h", "Σ footage ÷ Σ drilling time (daily)",
+        COMPLETE if n and pairs == n else PARTIAL if pairs else NOT_ASSESSED,
+        f"{summary['weighted_rop_days']} days have footage and drilling time" if n else "no report in scope")
+    unknown = time_summary["unknown_duration_count"]
+    log_quality = NOT_ASSESSED if not n or summary["logged_hours"] is None else COMPLETE
+    log_reason = f"{unknown} time log(s) without a duration" if unknown else ("" if n else "no report in scope")
+    add("Logged time", summary["logged_hours"], "h", "time_logs_24h", log_quality, log_reason)
+    add("NPT (time logs)", summary["npt_hours"], "h", "time_logs_24h flagged NPT",
+        NOT_ASSESSED if summary["npt_hours"] is None else COMPLETE, log_reason)
+    add("NPT share (time logs)", summary["npt_percent"], "%", "NPT time ÷ logged time",
+        NOT_ASSESSED if summary["npt_percent"] is None else COMPLETE,
+        log_reason or ("" if summary["npt_percent"] is not None else "logged time is zero or unknown"))
+    register = summary["npt_register_hours"]
+    add("NPT (NPT register)", register, "h", "npt_reports (separate source, never added to time-log NPT)",
+        COMPLETE if register is not None else NOT_ASSESSED,
+        ("" if register is not None else "no register row in scope, or a row without a duration")
+        + ("; only rows linked to this wellbore's reports" if scope.wellbore_id else ""))
+    add("Bit runs", summary["bit_runs"], "runs", "drilling_parameters (canonical rows)", COMPLETE, "")
+    mse_reason = []
+    if summary.get("mse_legacy_lineage"):
+        mse_reason.append(f"{summary['mse_legacy_lineage']} saved before lineage was recorded")
+    if summary.get("mse_without_wellbore"):
+        mse_reason.append(f"{summary['mse_without_wellbore']} without a wellbore not attributed")
+    mse_reason.append("dated by save time")
+    add("MSE calculations", summary["mse_points"], "calculations", "mse_calculations (stored runs only)",
+        PARTIAL if summary.get("mse_legacy_lineage") or summary.get("mse_without_wellbore") else COMPLETE,
+        "; ".join(mse_reason))
+    if cost_reason:
+        add("Actual cost", None, "currency", "cost_records", NOT_ASSESSED, cost_reason)
+        return rows
+    by_currency: Dict[Optional[str], List[Any]] = {}
+    for group in costs["groups"]:
+        by_currency.setdefault(group["currency"], []).append(group["actual"])
+    for currency, actuals in sorted(by_currency.items(), key=lambda item: item[0] or "~"):
+        if currency is None:
+            add("Actual cost (currency unknown)", None, "unknown", "cost_records", NOT_ASSESSED,
+                "records without a currency are never summed")
+            continue
+        missing = sum(1 for a in actuals if a is None)
+        add(f"Actual cost ({currency})", None if missing else sum(actuals), currency, "cost_records",
+            NOT_ASSESSED if missing else COMPLETE,
+            f"{missing} categor(y/ies) without an actual amount" if missing else "per currency, never converted")
+    if not by_currency:
+        add("Actual cost", None, "currency", "cost_records", NOT_ASSESSED, "no cost record in scope")
+    return rows
+
+
 def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
             end: Optional[date] = None, cancel_event=None) -> OperationalAnalysis:
     """Compute every table for ``scope``; sessions stay inside, DTOs come out.
@@ -150,7 +256,8 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
     """
     from core.activity_mapper import ActivityMapper
     from core.cost_semantics import summarize_costs
-    from core.database import CostRecord, DailyReport, DrillingParameters, MSECalculationRecord, NPTReport, TimeLog24H
+    from core.database import (CostRecord, DailyReport, DrillingParameters, MSECalculationRecord, NPTReport,
+                               TimeLog24H, Wellbore)
     from core.operational_time import summarize_time_logs
     from core.operations_intelligence import canonical_params_clause
 
@@ -237,6 +344,8 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
                 weighted_pairs.append((footage, drill_h))
             elif footage and drill_h == 0:
                 reasons.append("footage without logged drilling time")
+            elif logs and drill_h is None:
+                reasons.append("drilling time unknown (a time log has no duration)")
             footages.append(footage)
             drilling_totals.append(drill_h)
             daily.append([report.report_date, report.report_number, d0, d1, footage, drill_h,
@@ -287,48 +396,88 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
                 continue
             run = runs.setdefault(((p.bit_no or "").strip(), p.bit_rerun), {
                 "size": p.bit_size, "type": p.bit_type or "", "in": [], "out": [], "drilled": [], "hours": [],
-                "reports": [], "rows": []})
+                "reports": [], "rows": [], "details": []})
             run["in"].append(_num(p.depth_in))
             run["out"].append(_num(p.depth_out))
             run["drilled"].append(_num(p.bit_drilled))
             run["hours"].append(_num(p.hours_on_bottom))
             run["reports"].append(p.report_id)
             run["rows"].append(p.id)
-        bit_rows, bit_ids = [], []
+            run["details"].append({"date": p.report_date, "report": p.report_id, "row": p.id, "in": _num(p.depth_in),
+                                   "out": _num(p.depth_out), "drilled": _num(p.bit_drilled),
+                                   "hours": _num(p.hours_on_bottom)})
+        bit_rows, bit_ids, detail_rows, detail_ids = [], [], [], []
+        number_of = {r.id: r.report_number for r in reports}
         for (bit_no, rerun), run in runs.items():
             depth_in = min((v for v in run["in"] if v is not None), default=None)
             depth_out = max((v for v in run["out"] if v is not None), default=None)
             footage, basis = _sum(run["drilled"]), "sum of daily drilled"
             if footage is None and depth_in is not None and depth_out is not None and depth_out >= depth_in:
                 footage, basis = depth_out - depth_in, "depth out - depth in"
+            elif footage is None and depth_in is not None and depth_out is not None:
+                basis = f"INVALID: depth out {depth_out:g} m is shallower than depth in {depth_in:g} m"
             elif footage is None:
                 basis = "not assessed (drilled and depths incomplete)"
             hours = _sum(run["hours"])
             rop = footage / hours if footage is not None and hours else None
+            rop_basis = _rop_basis(footage, hours)
             linked = [r for r in run["reports"] if r is not None]
             bit_rows.append([bit_no, rerun, run["size"], run["type"], depth_in, depth_out, footage, hours, rop,
-                             basis, len(run["reports"]),
+                             basis, len(run["reports"]), rop_basis,
                              "drilling_parameters #" + ", #".join(str(i) for i in run["rows"])])
             bit_ids.append(linked[0] if linked else None)
+            for detail in run["details"]:
+                d_in, d_out, drilled, d_hours = detail["in"], detail["out"], detail["drilled"], detail["hours"]
+                d_notes = []
+                if drilled is None:
+                    d_notes.append("drilled not recorded")
+                if d_in is not None and d_out is not None and d_out < d_in:
+                    d_notes.append("INVALID: depth out shallower than depth in")
+                d_rop = drilled / d_hours if drilled is not None and d_hours else None
+                if drilled is not None and d_rop is None:
+                    d_notes.append(_rop_basis(drilled, d_hours))
+                detail_rows.append([bit_no, rerun, detail["date"], number_of.get(detail["report"], ""), d_in, d_out,
+                                    drilled, d_hours, d_rop, "; ".join(d_notes),
+                                    f"drilling_parameters #{detail['row']}"])
+                detail_ids.append(detail["report"] if detail["report"] in allowed else None)
         tables["bit_runs"], drill["bit_runs"] = (COLUMNS["bit_runs"], bit_rows), bit_ids
+        tables["bit_rows"], drill["bit_rows"] = (COLUMNS["bit_rows"], detail_rows), detail_ids
 
         _check_cancel(cancel_event)
         # ---- MSE: stored calculations only, time order, no interpolation --------------------------
-        mse_rows = []
+        mse_rows, mse_ids = [], []
+        mse_without_bore = mse_legacy = 0
+        bore_names = {b.id: b.name for b in session.query(Wellbore).filter(Wellbore.well_id == scope.well_id)}
+        well_reports = {r.id: r for r in session.query(DailyReport.id, DailyReport.report_number)
+                        .filter(DailyReport.well_id == scope.well_id)}
         for row in (session.query(MSECalculationRecord).filter(MSECalculationRecord.well_id == scope.well_id)
                     .order_by(MSECalculationRecord.created_at, MSECalculationRecord.id)):
             day = row.created_at.date() if row.created_at else None
             if not _in_range(day, start, end):
                 continue
+            if scope.wellbore_id and row.wellbore_id != scope.wellbore_id:
+                if row.wellbore_id is None:
+                    mse_without_bore += 1      # legacy or saved without a wellbore: not attributable
+                continue
+            if row.lineage_version is None:
+                mse_legacy += 1
             params = (row.input_snapshot_json or {}).get("parameters", {}) if isinstance(
                 row.input_snapshot_json, dict) else {}
+            report = well_reports.get(row.report_id)
             mse_rows.append([row.created_at, row.label or "", _num(row.mse_psi), _num(params.get("wob_lbf")),
                              _num(params.get("rpm")), _num(params.get("torque_ft_lbf")),
                              _num(params.get("rop_ft_hr")), _num(params.get("bit_diameter_in")),
+                             (bore_names.get(row.wellbore_id, f"#{row.wellbore_id}") if row.wellbore_id
+                              else (LEGACY_LINEAGE if row.lineage_version is None else "not recorded")),
+                             (report.report_number if report is not None
+                              else (LEGACY_LINEAGE if row.lineage_version is None else "")),
+                             row.input_source if row.lineage_version is not None else LEGACY_LINEAGE,
                              f"mse_calculations #{row.id}"])
-        tables["mse"], drill["mse"] = (COLUMNS["mse"], mse_rows), [None] * len(mse_rows)
-        if scope.wellbore_id and mse_rows:
-            notes.append("MSE calculations are stored per well (no wellbore); shown for the whole well")
+            mse_ids.append(report.id if report is not None else None)
+        tables["mse"], drill["mse"] = (COLUMNS["mse"], mse_rows), mse_ids
+        if mse_without_bore:
+            notes.append(f"{mse_without_bore} MSE calculation(s) without a recorded wellbore are not attributed to "
+                         "this wellbore")
 
         _check_cancel(cancel_event)
         # ---- cost: per currency, never mixed --------------------------------------------------------
@@ -337,21 +486,35 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
                      for c in session.query(CostRecord).filter(CostRecord.well_id == scope.well_id).all()
                      if start is None and end is None or (c.cost_date is not None and _in_range(c.cost_date,
                                                                                                 start, end))]
+    cost_reason = ""
+    if scope.wellbore_id:
+        cost_rows, cost_reason = [], "cost records carry no wellbore or report link"
+        notes.append("costs not assessed for a wellbore: " + cost_reason)
     costs = summarize_costs(cost_rows)
+    if cost_reason:
+        costs["status"] = "not assessed: " + cost_reason
     tables["cost"] = (COLUMNS["cost"], [[g["currency"] or "UNKNOWN", g["category"], g["planned"], g["actual"],
                                          g["variance"]] for g in costs["groups"]])
     drill["cost"] = [None] * len(tables["cost"][1])
-    if start or end:
+    if (start or end) and not scope.wellbore_id:
         notes.append("costs without a cost date are outside any date range")
-    if scope.wellbore_id:
-        notes.append("costs and plan-vs-actual are whole-well figures")
 
-    plan = db.get_actual_vs_plan(scope.well_id)
+    plan_reason = _plan_scope_problem(scope, start, end)
     plan_rows = []
-    for metric in ("depth", "hours", "rop", "cost"):
-        item = plan.get(metric) or {}
-        plan_rows.append([metric, item.get("planned"), item.get("actual"), item.get("delta"), item.get("pct"),
-                          item.get("status", "")])
+    if plan_reason:
+        notes.append("plan vs actual not assessed: " + plan_reason)
+        for metric in ("depth", "hours", "rop", "cost"):
+            plan_rows.append([metric, PLAN_UNITS[metric], None, None, None, None, NOT_ASSESSED, plan_reason])
+    else:
+        plan = db.get_actual_vs_plan(scope.well_id)
+        whole = (f"whole well, every report; plan #{plan['plan_id']}" if plan.get("plan_id")
+                 else "no active well plan")
+        for metric in ("depth", "hours", "rop", "cost"):
+            item = plan.get(metric) or {}
+            unit = (item.get("currency") or "currency unknown") if metric == "cost" else PLAN_UNITS[metric]
+            reason = whole if metric != "cost" or item.get("currency") else f"{whole}; {item.get('currency_status')}"
+            plan_rows.append([metric, unit, item.get("planned"), item.get("actual"), item.get("delta"),
+                              item.get("pct"), item.get("status", ""), reason])
     tables["plan_vs_actual"], drill["plan_vs_actual"] = (COLUMNS["plan_vs_actual"], plan_rows), [None] * 4
 
     time_summary = summarize_time_logs(all_logs)
@@ -378,6 +541,12 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
     }
     if time_summary["unknown_duration_count"]:
         notes.append(f"{time_summary['unknown_duration_count']} time log(s) without a duration: totals not assessed")
+    summary["mse_legacy_lineage"] = mse_legacy
+    summary["mse_without_wellbore"] = mse_without_bore
+    tables["kpis"] = (COLUMNS["kpis"], _kpis(summary, costs, time_summary, footages, drilling_totals,
+                                             _range_text(scope_label, start, end), scope, cost_reason))
+    drill["kpis"] = [None] * len(tables["kpis"][1])
+    tables = {key: tables[key] for key in COLUMNS}          # stable order: register first
     return OperationalAnalysis(scope_label, start, end, summary, tables, drill, notes,
                                datetime.now(timezone.utc).isoformat(timespec="seconds"))
 

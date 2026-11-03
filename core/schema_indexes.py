@@ -17,6 +17,8 @@ audit is recorded in docs/DATABASE_PERFORMANCE.md):
 * SECTION_SCOPE - ``section_id`` lookups (``daily_reports`` also orders by date).
 * HIERARCHY     - project/company/wellbore/plan/procedure parent lookups.
 * AUDIT         - audit trail by entity and the most-recent-first listing.
+* REPORT_LINK   - ``report_id`` of a ``daily_reports`` child with ON DELETE SET NULL
+  (M104 MSE lineage): deleting a report scans it to clear the link.
 * LINEAGE       - ``(source_table, source_id)``: the recalculations of a
   history record (Calc History "open original"/"open recalculations").
 
@@ -34,6 +36,7 @@ from sqlalchemy import Index
 
 REPORT_CHILD = "report child: per-report loads, snapshot, cascade delete"
 LINEAGE = "lineage: recalculations of one history source record (M70)"
+REPORT_LINK = "report link (ON DELETE SET NULL, M104): the report-delete scan and the MSE drill-down"
 WELL_DATED = "well-scoped load filtered/ordered by report_date"
 WELL_SCOPE = "well-scoped lookup"
 SURVEY_ORDER = "survey stations per well ordered by MD"
@@ -86,6 +89,8 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("material_requests", ('report_id',), REPORT_CHILD),
     ("material_requests", ('section_id',), SECTION_SCOPE),
     ("material_requests", ('well_id',), WELL_SCOPE),
+    ("mse_calculations", ('report_id',), REPORT_LINK),
+    ("mse_calculations", ('wellbore_id',), HIERARCHY),
     ("mud_reports", ('report_id',), REPORT_CHILD),
     ("mud_reports", ('well_id', 'report_date'), WELL_DATED),
     ("npt_reports", ('report_id',), REPORT_CHILD),

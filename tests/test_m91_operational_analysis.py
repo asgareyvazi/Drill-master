@@ -194,7 +194,7 @@ def test_w12_page_refresh_drilldown_invalidation_and_export(env, tmp_path):
         result = panel.wait()
         assert result is not None and f"{250 / 28:,.2f}" in panel.summary.text()
         assert panel.tables["daily"].item(2, 4).text() == "—"           # missing, not 0
-        panel.tabs.setCurrentIndex(0)
+        panel.tabs.setCurrentIndex(panel.tabs.indexOf(panel.tables["daily"]))
         panel.tables["daily"].selectRow(1)
         assert panel.selected_report_id() == out["reports"][1] and panel.open_btn.isEnabled()
         assert panel.open_selected() is True

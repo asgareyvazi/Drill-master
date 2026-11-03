@@ -25,8 +25,10 @@ from core.context_jobs import CANCELLED, ERROR, LOADING, STALE, ContextJobRunner
 
 logger = logging.getLogger(__name__)
 
-TITLES = {"daily": "Daily footage / ROP", "activities": "Activities", "npt": "NPT timeline", "bit_runs": "Bit runs",
-          "mse": "MSE points", "cost": "Cost (per currency)", "plan_vs_actual": "Plan vs actual"}
+TITLES = {"kpis": "KPI register", "daily": "Daily footage / ROP", "activities": "Activities",
+          "npt": "NPT timeline", "bit_runs": "Bit runs", "bit_rows": "Bit run rows", "mse": "MSE points",
+          "cost": "Cost (per currency)", "plan_vs_actual": "Plan vs actual"}
+assert list(TITLES) == list(oa.COLUMNS), "every analysis table has a tab"
 
 
 def _cell(value) -> str:

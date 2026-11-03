@@ -8,7 +8,8 @@ longest gap between 5 ms GUI timer ticks (``max_gap_ms`` = the longest time the 
 * ``startup``      MainWindow construction + first show
 * ``well_switch``  ``navigate_to`` another well until the event queue is idle (median of ``--n``)
 * ``tab_visit``    first visit of every selection-scoped tab after a well selection (per tab)
-* ``oa_refresh``   W12 Operational Analysis refresh over the synthetic year (median of ``--n``)
+* ``oa_refresh``   W12 Operational Analysis refresh until the result is shown (median of ``--n``); since M103
+  the read runs in a background job, so ``max_gap_ms`` is the longest GUI stall meanwhile
 * ``catalogue``    Help › Method Catalogue open
 * ``export``       W11 EOWR HTML export on the export worker (GUI gap measured while it runs)
 
@@ -155,10 +156,16 @@ def main(argv=None) -> int:
                if type(win.tab_widget.widget(i)).__name__ == "AnalysisWidget")
     win.tab_widget.setCurrentWidget(w12)
     w12.analysis_tabs.setCurrentWidget(w12.operational_panel)
-    runs = [_measure(app, w12.operational_panel.refresh, settle=0.02) for _ in range(args.n)]
-    result = w12.operational_panel.result
+    panel = w12.operational_panel
+
+    def refresh_until_shown():            # M103: refresh starts a job; wait() pumps events until it is shown
+        panel.refresh()
+        panel.wait(120000)
+    runs = [_measure(app, refresh_until_shown, settle=0.02) for _ in range(args.n)]
+    result = panel.result
     out["oa_refresh"] = {"median_ms": statistics.median(r["ms"] for r in runs),
                          "max_gap_ms": max(r["max_gap_ms"] for r in runs),
+                         "background": not panel.jobs.synchronous,
                          "daily_rows": len(result.tables["daily"][1]) if result else None}
     out["catalogue"] = _measure(app, lambda: win.show_method_catalogue(), settle=0.1)
     win._method_catalogue.close()

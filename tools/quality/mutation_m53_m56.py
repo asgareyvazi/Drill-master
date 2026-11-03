@@ -103,8 +103,9 @@ MUTANTS = [
            "        if False:\n            self._highlight_timeline()",
            T54W, "double-clicking the timeline discards unsaved edits without asking"),
     Mutant("W2-new-report-ignores-guard", W2,
-           "        if self._has_unsaved_edits() and not self.confirm_discard_edits():\n            return False\n        self.current_report = None\n        self.current_report_id = None\n        self.related_documents",
-           "        self.current_report = None\n        self.current_report_id = None\n        self.related_documents",
+           # M102 moved the form reset into _empty_report_form(); the guard removed is the same one.
+           "        if self._has_unsaved_edits() and not self.confirm_discard_edits():\n            return False\n        self._empty_report_form()\n",
+           "        self._empty_report_form()\n",
            T54W, "New Report discards unsaved edits without asking (pre-M54)"),
     # ------------------------------------------------------------------ M54 generic PDF tables
     Mutant("PG-header-row-as-data", PG,

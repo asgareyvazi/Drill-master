@@ -27,6 +27,9 @@ from core.engineering.mse_persistence import (
 )
 from core.repositories.base import BaseRepository
 
+LINEAGE_VERSION = 1          # M104: wellbore / report / input source recorded at save
+MANUAL_ENTRY = "manual entry (W13 Bit Hydraulics)"
+
 
 @dataclass
 class SavedMSECalculation:
@@ -46,6 +49,11 @@ class SavedMSECalculation:
     well_id: Optional[int]
     created_at: Any
     summary: Dict[str, Optional[float]] = field(default_factory=dict)
+    # M104 lineage; all None for runs saved before lineage was recorded (``lineage_version`` None).
+    wellbore_id: Optional[int] = None
+    report_id: Optional[int] = None
+    input_source: Optional[str] = None
+    lineage_version: Optional[int] = None
 
     def recalculate(self):
         """Re-run the real engine from this run's frozen snapshot."""
@@ -82,6 +90,24 @@ class SavedMSECalculation:
         return dict(self.input_snapshot.get("parameters", {}) or {})
 
 
+def _check_lineage(session, well_id, wellbore_id, report_id) -> None:
+    """A recorded wellbore or report must exist and belong to the run's well (no invented relation)."""
+    from core.database import DailyReport, Wellbore
+
+    if (wellbore_id is not None or report_id is not None) and well_id is None:
+        raise ValueError("A wellbore or report can only be recorded for an MSE run saved to a well.")
+    if wellbore_id is not None:
+        bore = session.get(Wellbore, wellbore_id)
+        if bore is None or bore.well_id != well_id:
+            raise ValueError(f"Wellbore {wellbore_id} is not a wellbore of well {well_id}.")
+    if report_id is not None:
+        report = session.get(DailyReport, report_id)
+        if report is None or report.well_id != well_id:
+            raise ValueError(f"Daily report {report_id} is not a report of well {well_id}.")
+        if wellbore_id is not None and report.wellbore_id not in (None, wellbore_id):
+            raise ValueError(f"Daily report {report_id} belongs to another wellbore.")
+
+
 class MSECalculationRepository(BaseRepository):
     """Save / load / reconstruct MSE (Teale) calculation history."""
 
@@ -94,6 +120,9 @@ class MSECalculationRepository(BaseRepository):
         label: str = "",
         well_id: Optional[int] = None,
         created_by: Optional[int] = None,
+        wellbore_id: Optional[int] = None,
+        report_id: Optional[int] = None,
+        input_source: str = MANUAL_ENTRY,
     ) -> int:
         """Persist ONE MSE run as an immutable historical record; returns id.
 
@@ -107,6 +136,7 @@ class MSECalculationRepository(BaseRepository):
         summary = result_summary(result_values or {})
 
         with self.db.session_scope() as session:
+            _check_lineage(session, well_id, wellbore_id, report_id)
             record = MSECalculationRecord(
                 well_id=well_id,
                 label=label or "",
@@ -119,6 +149,10 @@ class MSECalculationRepository(BaseRepository):
                 rotary_term_psi=summary.get("rotary_term_psi"),
                 bit_area_in2=summary.get("bit_area_in2"),
                 created_by=created_by,
+                wellbore_id=wellbore_id,
+                report_id=report_id,
+                input_source=(input_source or MANUAL_ENTRY)[:80],
+                lineage_version=LINEAGE_VERSION,
             )
             session.add(record)
             session.flush()
@@ -159,4 +193,8 @@ class MSECalculationRepository(BaseRepository):
             well_id=row.well_id,
             created_at=row.created_at,
             summary=result_summary(row.result_json or {}),
+            wellbore_id=row.wellbore_id,
+            report_id=row.report_id,
+            input_source=row.input_source,
+            lineage_version=row.lineage_version,
         )

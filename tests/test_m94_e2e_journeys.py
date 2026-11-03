@@ -131,7 +131,7 @@ def test_journey_context_to_operational_analysis_drilldown_and_switch(window, no
     assert result is not None and "SYN-ALPHA-01" in result.scope_label
     daily = panel.tables["daily"]
     assert daily.rowCount() == 2 and daily.item(0, 4).text() == "—"     # no 00:00 depth: footage unknown, not 0
-    panel.tabs.setCurrentIndex(0)
+    panel.tabs.setCurrentIndex(panel.tabs.indexOf(panel.tables["daily"]))
     daily.selectRow(1)
     assert panel.open_selected()
     _pump(0.3)

@@ -2026,6 +2026,11 @@ class CalculationSourceLink(Base):
 # Nullable columns added after a table first shipped: (table, column, SQLite type).
 ADDITIVE_COLUMNS = (
     ("survey_revisions", "results_sha256", "VARCHAR(64)"),
+    # M104: MSE lineage, recorded for new saves only (legacy rows stay NULL = unknown).
+    ("mse_calculations", "wellbore_id", "INTEGER REFERENCES wellbores(id) ON DELETE SET NULL"),
+    ("mse_calculations", "report_id", "INTEGER REFERENCES daily_reports(id) ON DELETE SET NULL"),
+    ("mse_calculations", "input_source", "VARCHAR(80)"),
+    ("mse_calculations", "lineage_version", "INTEGER"),
 )
 
 
@@ -2648,6 +2653,14 @@ class MSECalculationRecord(Base):
     axial_term_psi = Column(Float)
     rotary_term_psi = Column(Float)
     bit_area_in2 = Column(Float)
+
+    # M104 lineage (additive, nullable): the wellbore and daily report selected when the run was saved
+    # (validated to belong to ``well_id``), where the inputs came from, and the lineage schema version.
+    # NULL ``lineage_version`` = saved before M104: lineage unknown, never backfilled.
+    wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"), nullable=True)
+    report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="SET NULL"), nullable=True)
+    input_source = Column(String(80))
+    lineage_version = Column(Integer)
 
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
