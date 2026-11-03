@@ -3844,6 +3844,8 @@ class AnalysisWidget(DrillTabBase):
         # Tab disposal / app shutdown: stop and join the revision worker so no
         # thread outlives the page (cancellation is polled every 512 rows).
         self._cancel_revision(wait_ms=5000)
+        if hasattr(self, "operational_panel"):          # M103: cancel and join its background job (bounded)
+            self.operational_panel.shutdown(5000)
         for view in (getattr(self, "_npt_pie_view", None), getattr(self, "_milestones_view", None)):
             if view is not None:
                 view.cleanup()

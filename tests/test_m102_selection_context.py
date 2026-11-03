@@ -132,17 +132,23 @@ def test_resolve_follows_the_database_relations(sel, world):
 
 
 def test_resolve_withholds_children_of_another_well(world):
-    from core.database import Section
+    from core.database import Section, Wellbore
     db, ids = world
     with db.session_scope() as session:
         foreign_section = session.query(Section).filter(Section.well_id != ids["alpha"]).first()
         foreign_section_id = foreign_section.id if foreign_section else None
+        foreign_bore = Wellbore(well_id=ids["twin_1"], name="SYN-TWIN OH", wellbore_type="original")
+        session.add(foreign_bore)
+        session.flush()
+        foreign_bore_id = foreign_bore.id               # exists, but belongs to another well
     snap = ContextSnapshot(well_id=ids["alpha"], report_id=ids["twin_report"], section_id=foreign_section_id,
-                           wellbore_id=999)
+                           wellbore_id=foreign_bore_id)
     resolved = ctx.resolve(db, snap)
     assert "report" not in resolved and "wellbore" not in resolved and "section" not in resolved
     assert f"report {ids['twin_report']} is not a report of the selected well" in resolved["conflicts"]
-    assert "wellbore 999 is not a wellbore of the selected well" in resolved["conflicts"]
+    assert f"wellbore {foreign_bore_id} is not a wellbore of the selected well" in resolved["conflicts"]
+    missing = ctx.resolve(db, ContextSnapshot(well_id=ids["alpha"], wellbore_id=999))
+    assert missing["conflicts"] == ["wellbore 999 is not a wellbore of the selected well"]
     if foreign_section_id:
         assert f"section {foreign_section_id} is not a section of the selected well" in resolved["conflicts"]
     text = ctx.path_text(resolved)

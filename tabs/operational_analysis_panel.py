@@ -6,8 +6,10 @@ daily footage / ROP, activities, NPT timeline with sources, bit runs, MSE
 points, cost per currency and plan vs actual. A row with a source daily report
 opens it (drill-down through the owner's SelectionManager path); export writes
 CSV or XLSX with the scope, method and UNSIGNED label. Missing values show as
-"—", never as 0. Reads run on the GUI thread on demand (Refresh) and are
-discarded when the selection changes.
+"—", never as 0. M103: Refresh runs the analysis in a background job
+(``core.context_jobs``) with its own read-only connection; a result is shown only
+when it is the newest job and the selection is unchanged, and Cancel/Retry are
+offered. Nothing of a previous scope stays on screen.
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QDateEdit, QFileDia
                                QPushButton, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
 from core import operational_analysis as oa
+from core.context_jobs import CANCELLED, ERROR, LOADING, STALE, ContextJobRunner
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +37,20 @@ def _cell(value) -> str:
     return str(value)
 
 
+def _compute(db, params, cancel_event):
+    """Worker side: plain parameters in, ``OperationalAnalysis`` DTO out."""
+    return oa.analyze(db, params["scope"], start=params["start"], end=params["end"], cancel_event=cancel_event)
+
+
 class OperationalAnalysisPanel(QWidget):
     def __init__(self, owner, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.owner = owner
         self.result: Optional[oa.OperationalAnalysis] = None
         self._scope_pair = None                 # (well, wellbore) the shown result belongs to
+        self.jobs = ContextJobRunner(None, "operational analysis", parent=self)     # M103
+        self.jobs.result_ready.connect(self._show_result)
+        self.jobs.state_changed.connect(self._job_state)
         self.setLayoutDirection(Qt.LeftToRight)
         layout = QVBoxLayout(self)
         intro = QLabel("Operational analysis from the stored daily reports, time logs, drilling parameters, NPT "
@@ -63,8 +74,12 @@ class OperationalAnalysisPanel(QWidget):
         self.open_btn.clicked.connect(lambda _c=False: self.open_selected())
         self.export_btn = QPushButton("Export…")
         self.export_btn.clicked.connect(self._export_clicked)
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(lambda _c=False: self.jobs.cancel())
+        self.retry_btn = QPushButton("Retry")
+        self.retry_btn.clicked.connect(lambda _c=False: self.retry())
         for widget in (self.limit_dates, QLabel("From:"), self.from_date, QLabel("To:"), self.to_date,
-                       self.refresh_btn, self.open_btn, self.export_btn):
+                       self.refresh_btn, self.cancel_btn, self.retry_btn, self.open_btn, self.export_btn):
             row.addWidget(widget)
         row.addStretch(1)
         layout.addLayout(row)
@@ -89,6 +104,9 @@ class OperationalAnalysisPanel(QWidget):
         self.status = QLabel("")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+        self._pending_pair = None
+        self.cancel_btn.setEnabled(False)
+        self.retry_btn.setEnabled(False)
         self.invalidate()
 
     # -- state ----------------------------------------------------------------
@@ -103,7 +121,11 @@ class OperationalAnalysisPanel(QWidget):
                             else "Press Refresh to analyse the selected scope.")
 
     def invalidate(self, message: str = "Press Refresh to analyse the selected scope.") -> None:
-        """The selection changed: nothing of the previous scope stays on screen."""
+        """The selection changed: nothing of the previous scope stays on screen (a running job is dropped)."""
+        self.jobs.invalidate()
+        self._clear(message)
+
+    def _clear(self, message: str) -> None:
         self.result = None
         self._scope_pair = None
         for table in self.tables.values():
@@ -117,19 +139,49 @@ class OperationalAnalysisPanel(QWidget):
             return None, None
         return self.from_date.date().toPython(), self.to_date.date().toPython()
 
-    def refresh(self) -> Optional[oa.OperationalAnalysis]:
+    def refresh(self) -> Optional[int]:
+        """Start the analysis for the current scope; returns the job id (None when nothing can run).
+
+        The GUI snapshot (scope ids, dates) is validated here; the read runs in the background job.
+        """
         db = getattr(self.owner, "db", None)
         if db is None or not getattr(self.owner, "current_well_id", None):
             self.invalidate("Select a well first.")
             return None
         start, end = self._range()
-        try:
-            result = oa.analyze(db, self.owner._analysis_scope(), start=start, end=end)
-        except ValueError as exc:
-            self.invalidate(str(exc))
+        scope = self.owner._analysis_scope()
+        problem = scope.problem()
+        if problem or (start and end and start > end):
+            self.invalidate(f"Operational analysis not assessed: {problem}." if problem
+                            else "The start date is after the end date.")
             return None
+        self._clear("")
+        self.jobs.db_manager = db
+        self._pending_pair = self._owner_pair()
+        return self.jobs.start(_compute, {"scope": scope, "start": start, "end": end})
+
+    def retry(self) -> Optional[int]:
+        return self.jobs.retry() if self.jobs.state in (ERROR, STALE, CANCELLED) else None
+
+    def wait(self, timeout_ms: int = 30000) -> Optional[oa.OperationalAnalysis]:
+        """Block (pumping events) until the running job has been delivered; returns the shown result."""
+        self.jobs.wait(timeout_ms)
+        return self.result
+
+    def shutdown(self, timeout_ms: int = 5000) -> bool:
+        return self.jobs.shutdown(timeout_ms)
+
+    def _job_state(self, state: str, message: str) -> None:
+        if state in (STALE, ERROR, CANCELLED):
+            self._clear(message)
+        elif message:
+            self.status.setText(message)
+        self.cancel_btn.setEnabled(state == LOADING)
+        self.retry_btn.setEnabled(state in (ERROR, STALE, CANCELLED))
+
+    def _show_result(self, _job_id: int, result) -> None:
         self.result = result
-        self._scope_pair = self._owner_pair()
+        self._scope_pair = self._pending_pair
         for key, table in self.tables.items():
             _columns, rows = result.tables[key]
             table.setRowCount(len(rows))
@@ -146,9 +198,9 @@ class OperationalAnalysisPanel(QWidget):
             f"({s['weighted_rop_days']} days); logged {_cell(s['logged_hours'])} h; NPT {_cell(s['npt_hours'])} h "
             f"({_cell(s['npt_percent'])} %) from time logs, NPT register {_cell(s['npt_register_hours'])} h "
             f"(separate source); {s['bit_runs']} bit run(s); {s['mse_points']} MSE point(s); {money}.")
-        self.status.setText("Notes: " + ("; ".join(result.notes) if result.notes else "none") + f". {oa.OA_VERSION}.")
+        self.status.setText("Notes: " + ("; ".join(result.notes) if result.notes else "none") + f". {oa.OA_VERSION}."
+                            + f" {self.jobs.message}")
         self._update_actions()
-        return result
 
     def current_key(self) -> str:
         return list(TITLES)[self.tabs.currentIndex()]

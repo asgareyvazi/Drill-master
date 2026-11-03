@@ -126,7 +126,8 @@ def test_journey_context_to_operational_analysis_drilldown_and_switch(window, no
     w12 = _tab(win, "AnalysisWidget")
     w12.analysis_tabs.setCurrentWidget(w12.operational_panel)
     panel = w12.operational_panel
-    result = panel.refresh()
+    assert panel.refresh() is not None                   # M103: background job on the file database
+    result = panel.wait()
     assert result is not None and "SYN-ALPHA-01" in result.scope_label
     daily = panel.tables["daily"]
     assert daily.rowCount() == 2 and daily.item(0, 4).text() == "—"     # no 00:00 depth: footage unknown, not 0

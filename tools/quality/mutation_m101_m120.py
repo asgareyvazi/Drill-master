@@ -33,8 +33,39 @@ BT = "core/base_tab.py"
 MW = "main_window.py"
 T102U = ["tests/test_m102_selection_context.py"]
 T102 = ["tests/test_m102_selection_context.py", "tests/test_m102_context_probes.py"]
+CJ = "core/context_jobs.py"
+T103 = ["tests/test_m103_context_jobs.py"]
 
 MUTANTS = [
+    # ---- M103 background jobs bound to the selection context (D3) ------------------------------------
+    Mutant("CJ-superseded-result-shown", CJ,
+           "        if job_id != self.current_id:",
+           "        if False:",
+           T103, "an older job's result replaces the newer job's"),
+    Mutant("CJ-stale-result-shown", CJ,
+           "        if not self._sel().is_current(self._token):",
+           "        if False:",
+           T103, "a result computed for the previous selection is shown after a switch"),
+    Mutant("CJ-cancel-ignored", CJ,
+           "        if error == \"JobCancelled\" or (self._cancel is not None and self._cancel.is_set()):",
+           "        if error == \"JobCancelled\":",
+           T103, "a cancelled job's result is shown when the job did not notice the cancellation"),
+    Mutant("CJ-shutdown-does-not-cancel", CJ,
+           "        \"\"\"Cancel and wait (bounded) for running workers; never deletes a running thread.\"\"\"\n        self.invalidate()",
+           "        \"\"\"Cancel and wait (bounded) for running workers; never deletes a running thread.\"\"\"\n        pass",
+           T103, "closing waits for a running read instead of stopping it"),
+    Mutant("CJ-always-synchronous", CJ,
+           "        self.synchronous = not has_isolated_reader(self.db_manager)",
+           "        self.synchronous = True",
+           T103, "every job runs on the GUI thread (the file database is never read in the background)"),
+    Mutant("OA-cancel-points-ignored", "core/operational_analysis.py",
+           "    if cancel_event is not None and cancel_event.is_set():\n        from core.context_jobs import JobCancelled",
+           "    if False:\n        from core.context_jobs import JobCancelled",
+           T103, "a cancelled operational analysis keeps reading to the end"),
+    Mutant("W12-close-leaves-job-running", "tabs/w12_Analysis.py",
+           "            self.operational_panel.shutdown(5000)",
+           "            pass",
+           T103, "closing the analysis page leaves its background job running"),
     # ---- M102 selection context (D7) ---------------------------------------------------------------
     Mutant("SM-batch-not-suppressed", SM,
            "        if self._batch:\n            return\n        self.context_changed.emit",

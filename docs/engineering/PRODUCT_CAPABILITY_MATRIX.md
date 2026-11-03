@@ -464,11 +464,11 @@ Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Start: 
 |---|---|---|---|---|
 | D1 | P0 safety | `survey_revisions.verify_results` compares TVD/N/E only and passes when a key is missing; MD, inclination, azimuth, DLS, VS and HD are unchecked | M105 | **resolved (M105)** |
 | D2 | P0 safety | `tie_in_from_revision` checks only the station hash (and defaults a missing `integrity` to VERIFIED), then uses the stored derived results. A tampered `results_json` can become a plan tie-in. `compare_revisions` and plan vs actual also use unverified results | M105 | **resolved (M105)**; also found and closed: `directional_plans._check_survey_tie_in` matched the tie-in against unverified `results_json` |
-| D3 | P1 | `tabs/operational_analysis_panel.refresh` runs `oa.analyze` synchronously on the GUI thread | M103 | open |
+| D3 | P1 | `tabs/operational_analysis_panel.refresh` runs `oa.analyze` synchronously on the GUI thread | M103 | **resolved (M103)**: measured 168 ms on one synthetic year; now a `ContextJobRunner` job with its own read-only connection, stale/superseded rejection, cancel, retry and bounded close |
 | D4 | P1 | `core/professional_export.py` writes a hard-coded `"Revision": "Rev 0"` and shows a free-text `Approved By` as an approval; the 16-sheet workbook bypasses M93 provenance | M110 | open |
 | D5 | P1 | `operational_analysis` uses whole-well `get_actual_vs_plan` and flags it only for a wellbore scope, not for a date range | M104 | open |
 | D6 | P1 | MSE records carry no wellbore/MD/source lineage; the trend is per well only | M104 | open |
-| D7 | P1 | `SelectionManager` has well/wellbore/section/report signals only; `context_token()` exists but no tab consumes it; workers use tab-local tokens (W12, analysis views, trajectory compare, knowledge assistant) | M102/M103 | open |
+| D7 | P1 | `SelectionManager` has well/wellbore/section/report signals only; `context_token()` exists but no tab consumes it; workers use tab-local tokens (W12, analysis views, trajectory compare, knowledge assistant) | M102/M103 | **PARTIAL**: context snapshot and `context_changed` reach all 21 tabs (M102); `context_token()` is consumed by `core.context_jobs` (M103, OA). The existing tab-local tokens in W12 snapshot reads, analysis views, trajectory compare and the knowledge assistant stay (they already reject stale results; migration is not needed for correctness) |
 | D8 | P1 | 20 of 27 W13 leaves NOT_SUPPORTED (`core/calculator_contracts.NOT_SUPPORTED`) | M107 | open |
 | D9 | P2 | Cement worksheet captured only (no re-run adapter) | M109 | open |
 | D10 | P2 | Directional solver: one arc + tangent only (no S-profile, build-turn or multiple targets) | M106 | open |
@@ -478,6 +478,7 @@ Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Start: 
 | D14 | P3 | Legacy trajectory calculations are captured only (no method identity) | M108 | open (by design for legacy) |
 | D15 | P2 | (found in M105) The M101 warning inventory counted pytest's collapsed `file: N warnings` lines (ten or more locations) as one occurrence each and read only the first summary section. CI 3.12 on `fc2daf2` therefore annotated 134 occurrences where pytest counts 859 | M105 | **resolved (M105)**: collapsed lines count N, every section is read, and the inventory is reconciled against pytest's own total (a mismatch is printed and annotated, never hidden) |
 | D16 | P3 | (found in M105 from CI 3.12 annotations) Repository `DeprecationWarning`: sqlite3's default datetime adapter (deprecated in Python 3.12), raised through `core/database.py` raw `execute` calls. Its largest groups are 86 and 12 occurrences, as counted by the faulty inventory and so under-counted | M116 | open; legacy, not suppressed |
+| D18 | P1 | (found in M102 by the extended probe) Values of the previous context stayed on screen: the daily report form kept the loaded report's date and summary after a well switch and after a clear; the export centre kept the report list and preview; planning tables kept report dates after a clear; cost cards kept the cost after a clear; section data kept the section label after a switch. M83's probe missed them because it never loaded a report and did not read date edits or model views | M102 | **resolved (M102)** |
 | D17 | P3 | (found in M105) The CI 3.12 coverage numerator differs between runs: 62291/93969 on `c776e8c` (job 125298732667), 62289/93969 on `fc2daf2` (job 125749573280). The denominator is the same and M101 changed no tracked product file, so the ±2 lines are run-to-run variation (timing-dependent branches). This is not a regression | M118 | recorded; each report quotes the exact job |
 
 ### M105 – Survey integrity, depth datum and plan references
@@ -497,3 +498,37 @@ Acceptance criteria and evidence (synthetic data; offscreen Qt):
 
 Limits: CRS, geodetic datums, magnetic models and grid-convergence computation stay NOT IMPLEMENTED (owner scope).
 The datum shift is vertical only.
+
+### M102 – Full selection context
+
+Acceptance criteria and evidence (synthetic data; offscreen Qt, Linux):
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| One context object with every level the model supports: company, project, well, rig, wellbore, section, report number and date, period | PASS | `ContextSnapshot` (frozen) from `SelectionManager.snapshot()`. Rig is the well attribute `rig_name`: the model has no rig entity, so there is no rig selection and none is invented. The period is an analysis filter (validated, day-granular, kept across well switches and clears) |
+| Labels come from the database relations, not from payloads; no invented relations | PASS | `core/selection_context.resolve` follows Company ← Project ← Well ← Wellbore/Section ← DailyReport only. A wellbore, section or report of another well is withheld and reported as a context conflict (tested with real foreign rows) |
+| Signals reach all tabs, including legacy ones | PASS | `context_changed` after every change; `select_full_context` emits it once. All 19 `DrillTabBase` tabs get `current_context`, `current_wellbore_id` and the `on_context_changed` hook; CalculationHistoryTab and DocumentsTab are subscribed. The status bar shows the resolved path. Test: every one of the 21 tabs holds the same snapshot |
+| Leak probes beyond IDs: report numbers, dates, descriptions, stations, architecture, plans, cost and NPT, forms, rows | PASS | `tests/test_m102_context_probes.py` reads line edits, labels, combo values, text edits, spin boxes, date edits, group titles, tab labels, table/list/tree widgets, every model view and pyqtgraph data. Positive controls first prove that every data kind is visible for the alpha well (at least 10 tabs). After a switch and after a clear no tab shows any alpha mark; switching back shows alpha again. Architecture names are not listed by the panel, so it is checked by revision rows (1 for alpha, 0 after the switch) |
+| Real leaks fixed | PASS | D18: daily report form (switch and clear), export centre, planning tables, cost cards, section label |
+| Documents follow the selection on request | PASS | "Linked to the selected well" filter; the default view stays portfolio-wide |
+| Mutation | PASS | 18 mutants: **18/18 killed**. On the first run `SC-foreign-wellbore-shown` survived because the test used a non-existent wellbore id; the test now uses a real wellbore of another well and the mutant is killed |
+| Regression | PASS | 238 tests across 26 selection/tab/journey files, rc=0 |
+
+Portfolio views (Home, Documents with "All documents") list every well by design and are outside the leak probe.
+
+### M103 – Background jobs bound to the selection context
+
+Measured first (`tools/quality/measure_m103.py`, one synthetic year: 365 reports, 4,380 time-log rows; median of 3; Linux CPython 3.11.2):
+`operational_analysis.analyze` 0.168 s (over the 100 ms GUI budget), `calculation_history.load_history` 0.0064 s (under budget, stays synchronous).
+Trajectory comparison and Export Center jobs already ran in workers before M103.
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| Reusable pattern: GUI snapshot, worker session, DTOs, context token, stale rejection | PASS | `core/context_jobs.ContextJobRunner`. Plain parameters are captured on the GUI thread; the worker gets its own read-only connection (`worker_database`, `mode=ro`; a write fails); `SelectionManager.context_token()` is captured at start and a changed token rejects the result as STALE. In-memory databases run synchronously and say so |
+| Loading / empty / error / retry / cancel / safe close | PASS | States LOADING, DONE, EMPTY, ERROR (type name only), CANCELLED, STALE. `retry()` re-runs the captured snapshot. Cancel is cooperative and the result is discarded even if the job ignores it. `shutdown(timeout)` cancels and joins within the bound and reports a worker that did not stop |
+| Operational analysis uses it | PASS | Refresh starts a job; Cancel and Retry buttons; `oa.analyze(cancel_event=…)` checks between its five sections; W12 `cleanup()` joins the job |
+| Tests: switch during a job, close during a job, newer job finishing first | PASS | `tests/test_m103_context_jobs.py` (16 tests, real QThreads, event-gated so each interleaving is exact): stale after switch; newer job wins whether the older finishes first or last; close joins a cooperative job and bounds an uncooperative one; OA switch shows nothing of either well; OA close joins the worker; OA error then retry |
+| Mutation | PASS | 7 mutants: **7/7 killed** |
+| Regression | PASS | 323 tests across the W12, analysis, trajectory compare, export worker, journey and M102 files, rc=0 |
+
+Not migrated (they already reject stale results with their own tokens): W12 snapshot reads, analysis views, trajectory compare, knowledge assistant.

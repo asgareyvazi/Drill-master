@@ -190,7 +190,8 @@ def test_w12_page_refresh_drilldown_invalidation_and_export(env, tmp_path):
         panel = tab.operational_panel
         assert panel.refresh() is None and "Select a well" in panel.status.text()
         tab.current_well_id, tab.current_wellbore_id, tab.current_well_name = out["well"], out["bore"], "SYN-A"
-        result = panel.refresh()
+        assert panel.refresh() is not None               # M103: a job id; the result arrives via the runner
+        result = panel.wait()
         assert result is not None and f"{250 / 28:,.2f}" in panel.summary.text()
         assert panel.tables["daily"].item(2, 4).text() == "—"           # missing, not 0
         panel.tabs.setCurrentIndex(0)

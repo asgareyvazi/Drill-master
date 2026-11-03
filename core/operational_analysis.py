@@ -135,9 +135,19 @@ def _time(value) -> str:
     return value.strftime("%H:%M") if value is not None else ""
 
 
+def _check_cancel(cancel_event) -> None:
+    """M103: cooperative cancellation between sections (a background job was cancelled or superseded)."""
+    if cancel_event is not None and cancel_event.is_set():
+        from core.context_jobs import JobCancelled
+        raise JobCancelled()
+
+
 def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
-            end: Optional[date] = None) -> OperationalAnalysis:
-    """Compute every table for ``scope``; sessions stay inside, DTOs come out."""
+            end: Optional[date] = None, cancel_event=None) -> OperationalAnalysis:
+    """Compute every table for ``scope``; sessions stay inside, DTOs come out.
+
+    ``cancel_event`` (M103): checked between sections; a set event stops the run with ``JobCancelled``.
+    """
     from core.activity_mapper import ActivityMapper
     from core.cost_semantics import summarize_costs
     from core.database import CostRecord, DailyReport, DrillingParameters, MSECalculationRecord, NPTReport, TimeLog24H
@@ -171,6 +181,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
                     category=log.npt_category or "", description=log.activity_description or "",
                     time_from=log.time_from, time_to=log.time_to))
 
+        _check_cancel(cancel_event)
         # ---- daily footage / hours / ROP ------------------------------------------------------------
         daily, daily_ids, weighted_pairs = [], [], []
         footages: List[Optional[float]] = []
@@ -243,6 +254,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
             for name, b in sorted(activity.items())])
         drill["activities"] = [None] * len(tables["activities"][1])
 
+        _check_cancel(cancel_event)
         # ---- NPT register: a second source, listed apart -----------------------------------------
         register = (session.query(NPTReport).filter(NPTReport.well_id == scope.well_id)
                     .order_by(NPTReport.npt_date, NPTReport.start_time, NPTReport.id).all())
@@ -262,6 +274,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
         tables["npt"] = (COLUMNS["npt"], [npt_rows[i] for i in order])
         drill["npt"] = [npt_ids[i] for i in order]
 
+        _check_cancel(cancel_event)
         # ---- bit runs (DrillingParameters; legacy duplicates excluded) ----------------------------
         query = session.query(DrillingParameters).filter(DrillingParameters.well_id == scope.well_id)
         if scope.wellbore_id:
@@ -299,6 +312,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
             bit_ids.append(linked[0] if linked else None)
         tables["bit_runs"], drill["bit_runs"] = (COLUMNS["bit_runs"], bit_rows), bit_ids
 
+        _check_cancel(cancel_event)
         # ---- MSE: stored calculations only, time order, no interpolation --------------------------
         mse_rows = []
         for row in (session.query(MSECalculationRecord).filter(MSECalculationRecord.well_id == scope.well_id)
@@ -316,6 +330,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
         if scope.wellbore_id and mse_rows:
             notes.append("MSE calculations are stored per well (no wellbore); shown for the whole well")
 
+        _check_cancel(cancel_event)
         # ---- cost: per currency, never mixed --------------------------------------------------------
         cost_rows = [SimpleNamespace(currency=c.currency, category=c.category, planned_cost=c.planned_cost,
                                      actual_cost=c.actual_cost)
