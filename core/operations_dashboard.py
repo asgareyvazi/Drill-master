@@ -599,7 +599,12 @@ class WellDetail:
     rop: list = field(default_factory=list)              # [(date, ROP m/h)] drilling parameters avg_rop
     mud_weight: list = field(default_factory=list)       # [(date, MW as stored)]
     mud_weight_unit: str = "pcf"
-    mse: list = field(default_factory=list)              # [(saved at, MSE psi)] saved calculations
+    # MSE (D6, M123): every saved run of the well, whatever its lineage scope (whole-well trend),
+    # dated by SAVE time - not a depth log, and not continuous. ``mse_legacy`` is the subset saved
+    # before lineage was recorded ("LEGACY - LINEAGE UNKNOWN"); ``mse_recorded`` the rest.
+    mse: list = field(default_factory=list)              # [(saved at, MSE psi)] all saved calculations
+    mse_recorded: list = field(default_factory=list)     # [(saved at, MSE psi)] lineage recorded at save
+    mse_legacy: list = field(default_factory=list)       # [(saved at, MSE psi)] lineage unknown
     npt_by_category: dict = field(default_factory=dict)  # all dates (hours)
     bit_runs: list = field(default_factory=list)         # [(bit no, footage m, weighted ROP m/h)]
     cost_groups: list = field(default_factory=list)      # [(category, planned, actual)] single currency only
@@ -655,11 +660,15 @@ def build_well_detail(db_manager, well_id: int) -> Optional[WellDetail]:
                         .filter(MudReport.well_id == well_id).order_by(MudReport.report_date).all()):
             if day is not None and _finite(mw) is not None:
                 detail.mud_weight.append((day, float(mw)))
-        for created, mse in (session.query(MSECalculationRecord.created_at, MSECalculationRecord.mse_psi)
-                             .filter(MSECalculationRecord.well_id == well_id)
-                             .order_by(MSECalculationRecord.created_at).all()):
+        for created, mse, lineage_version in (
+                session.query(MSECalculationRecord.created_at, MSECalculationRecord.mse_psi,
+                              MSECalculationRecord.lineage_version)
+                .filter(MSECalculationRecord.well_id == well_id)
+                .order_by(MSECalculationRecord.created_at).all()):
             if created is not None and _finite(mse) is not None:
-                detail.mse.append((created, float(mse)))
+                point = (created, float(mse))
+                detail.mse.append(point)
+                (detail.mse_recorded if lineage_version is not None else detail.mse_legacy).append(point)
         npt = defaultdict(float)
         for duration, category in (session.query(TimeLog24H.duration, TimeLog24H.npt_category)
                                    .join(DailyReport, TimeLog24H.report_id == DailyReport.id)

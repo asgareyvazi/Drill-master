@@ -125,6 +125,9 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     "calculation_source_links": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "survey_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "well_architecture_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    # M123 (D6): audited MSE lineage repairs are insert-only; they leave only with their MSE run or well
+    # (report/wellbore deletes only unlink the reference, REPORT_DELETE_UNLINK / FK SET NULL).
+    "mse_lineage_repairs": TablePolicy(write=(NOBODY,), delete=(DELETE_REPORTS, DELETE_WELL), insert=(EDIT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }
@@ -176,7 +179,8 @@ REPORT_DELETE_UNLINK = OperationScope(
     # M116 (D33): a report delete sets report references declared ON DELETE SET NULL (lineage, e.g. the report an
     # MSE run was based on) to NULL instead of deleting the referencing record.  Same rule as
     # HIERARCHY_DELETE_UNLINK: only inside the policy-checked delete of that report, no permission of its own.
-    "report_delete_unlink", None, {"mse_calculations": frozenset({"report_id"})}, frozenset({"update"}),
+    "report_delete_unlink", None, {"mse_calculations": frozenset({"report_id"}),
+                                   "mse_lineage_repairs": frozenset({"report_id"})}, frozenset({"update"}),
 )
 IMPORT_SCOPE = OperationScope(
     "import", IMPORT,

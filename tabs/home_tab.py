@@ -826,8 +826,13 @@ class HomeTab(DrillTabBase):
                     f"MW ({detail.mud_weight_unit if detail else 'pcf'}, as stored)", "No mud reports with MW")
         well_series("bits", "bar", [("Footage", [(b[0], b[1]) for b in detail.bit_runs], "amber")] if detail else [],
                     "Footage (m)", "No bit runs with valid depth in/out and hours")
-        well_series("mse", "line", [(name, detail.mse, "cyan")] if detail else [], "MSE (psi)",
-                    "No saved MSE calculations for this well")
+        # D6 (M123): saved MSE runs are discrete, whole-well and dated by save time - drawn as
+        # unjoined points, with legacy runs (lineage unknown) kept visibly apart.
+        well_series("mse", "points",
+                    [("Lineage recorded", detail.mse_recorded, "cyan"),
+                     ("LEGACY — lineage unknown", detail.mse_legacy, "amber")] if detail else [],
+                    "MSE (psi), whole-well", "No saved MSE calculations for this well",
+                    x_unit="saved at (not depth)")
         if detail and detail.cost_status not in ("single-currency", "no-records"):
             reason = {"multi-currency": "Cost records use several currencies; not combined",
                       "unknown-currency": "Cost records lack a currency; not combined"}[detail.cost_status]

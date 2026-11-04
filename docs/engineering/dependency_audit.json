@@ -23,7 +23,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 25,
+    "evidence_tests": 27,
     "licence": "own code (product licence)",
     "method_id": "engine.mse",
     "status": "IMPLEMENTED",
@@ -37,6 +37,7 @@
      "test_hydraulics_m40_regressions.py",
      "test_m104_operational_kpis.py",
      "test_m116_persistence.py",
+     "test_m123_mse_lineage.py",
      "test_m30_semantic_regressions.py",
      "test_m53_dashboard.py",
      "test_m67_calculation_history.py",
@@ -44,6 +45,7 @@
      "test_m87_w13_contracts.py",
      "test_m91_operational_analysis.py",
      "test_m92_method_catalogue.py",
+     "test_m96_persistence_audit.py",
      "test_mse_cross_process.py",
      "test_mse_history_viewmodel.py",
      "test_mse_persistence.py",
@@ -391,13 +393,14 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 5,
+    "evidence_tests": 6,
     "licence": "own code (product licence)",
     "method_id": "analysis.operational",
     "status": "IMPLEMENTED",
     "tests": [
      "test_m103_context_jobs.py",
      "test_m104_operational_kpis.py",
+     "test_m123_mse_lineage.py",
      "test_m91_operational_analysis.py",
      "test_m94_e2e_journeys.py",
      "test_m95_ux_responsiveness.py"
@@ -778,7 +781,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.csg/cmt.casing_strength",
     "status": "NOT SUPPORTED",
@@ -793,6 +796,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -816,7 +820,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.anti-collision",
     "status": "NOT SUPPORTED",
@@ -831,6 +835,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -854,7 +859,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.multi-survey",
     "status": "NOT SUPPORTED",
@@ -869,6 +874,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -892,7 +898,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.dp_database",
     "status": "NOT SUPPORTED",
@@ -907,6 +913,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -930,7 +937,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.hydraulics",
     "status": "NOT SUPPORTED",
@@ -945,6 +952,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -968,7 +976,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.volume.well_volumes",
     "status": "NOT SUPPORTED",
@@ -983,6 +991,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1006,7 +1015,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.weight",
     "status": "NOT SUPPORTED",
@@ -1021,6 +1030,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1044,7 +1054,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.well_control.choke_schedule",
     "status": "NOT SUPPORTED",
@@ -1059,6 +1069,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1082,7 +1093,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.well_control.kill_sheet",
     "status": "NOT SUPPORTED",
@@ -1097,6 +1108,7 @@
      "test_m104_operational_kpis.py",
      "test_m107_w13_contracts.py",
      "test_m112_dependency_audit.py",
+     "test_m123_mse_lineage.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -2365,7 +2377,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    2851
+    2886
    ],
    "module": "openpyxl"
   },
@@ -2518,8 +2530,8 @@
    "file": "core/authorization.py",
    "guarded": false,
    "lines": [
-    257,
-    335
+    261,
+    339
    ],
    "module": "sqlalchemy"
   },
@@ -2527,7 +2539,7 @@
    "file": "core/calculation_history.py",
    "guarded": false,
    "lines": [
-    206
+    209
    ],
    "module": "sqlalchemy"
   },
@@ -2548,18 +2560,18 @@
     44,
     628,
     671,
-    2983,
-    2984,
-    3719,
-    4232,
-    4846,
-    3564,
     3025,
-    5436,
-    7684,
-    6049,
-    6096,
-    6278
+    3026,
+    3761,
+    4274,
+    4888,
+    3606,
+    3067,
+    5478,
+    7726,
+    6091,
+    6138,
+    6320
    ],
    "module": "sqlalchemy"
   },

@@ -2042,6 +2042,11 @@ ADDITIVE_COLUMNS = (
     ("mse_calculations", "report_id", "INTEGER REFERENCES daily_reports(id) ON DELETE SET NULL"),
     ("mse_calculations", "input_source", "VARCHAR(80)"),
     ("mse_calculations", "lineage_version", "INTEGER"),
+    # M123: MSE lineage v2 - explicit MD only, input units (legacy rows stay NULL = not recorded).
+    ("mse_calculations", "md_m", "FLOAT"),
+    ("mse_calculations", "md_entered_value", "FLOAT"),
+    ("mse_calculations", "md_entered_unit", "VARCHAR(8)"),
+    ("mse_calculations", "input_units_json", "JSON"),
     # M108: trajectory records carry their method version (legacy rows stay NULL = unversioned).
     ("trajectory_calculations", "method_version", "VARCHAR(120)"),
 )
@@ -2674,6 +2679,13 @@ class MSECalculationRecord(Base):
     report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="SET NULL"), nullable=True)
     input_source = Column(String(80))
     lineage_version = Column(Integer)
+    # M123 (D6) lineage v2, additive and nullable: the measured depth of the run ONLY when the user entered it
+    # (canonical metres plus the exact entered value and unit), and the units of the frozen inputs.  Never
+    # derived from a report, a survey or the current selection; NULL = not recorded.
+    md_m = Column(Float)
+    md_entered_value = Column(Float)
+    md_entered_unit = Column(String(8))
+    input_units_json = Column(JSON)
 
     created_at = Column(DateTime, default=_now_utc)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc)
@@ -2681,6 +2693,36 @@ class MSECalculationRecord(Base):
 
     well = relationship("Well", foreign_keys=[well_id])
     creator = relationship("User", foreign_keys=[created_by])
+
+
+class MSELineageRepair(Base):
+    """M123 (D6): one audited repair of ONE unknown lineage field of a stored MSE run.
+
+    Append-only (storage guard ``trg_mse_lineage_repair_*``; insert-only policy).  The MSE record itself is
+    never rewritten: a repair is a separate, attributed annotation with the evidence, the reason, the
+    confirming user, the timestamp and the before/after values.  Only a field that is unknown on the record
+    (and not already repaired) can be repaired; the value must belong to the record's well.  ``value_label``
+    freezes the human-readable value at repair time, so the evidence stays readable after a report delete
+    unlinks ``report_id`` (D33) or a wellbore delete unlinks ``wellbore_id``.
+    """
+    __tablename__ = "mse_lineage_repairs"
+
+    id = Column(Integer, primary_key=True)
+    mse_calculation_id = Column(Integer, ForeignKey("mse_calculations.id", ondelete="CASCADE"), nullable=False)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    field = Column(String(20), nullable=False)          # 'wellbore_id' | 'report_id' | 'md_m'
+    wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"))
+    report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="SET NULL"))
+    md_m = Column(Float)
+    md_entered_value = Column(Float)
+    md_entered_unit = Column(String(8))
+    value_label = Column(String(200), nullable=False)
+    before_value = Column(String(200), nullable=False)
+    evidence = Column(Text, nullable=False)
+    reason = Column(Text, nullable=False)
+    confirmed_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    confirmed_at = Column(DateTime, nullable=False, default=_now_utc)
+    method_version = Column(String(60), nullable=False)
 
 
 class MudVolumeCalculationRecord(Base):

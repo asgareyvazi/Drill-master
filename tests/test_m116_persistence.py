@@ -145,7 +145,8 @@ def test_a_fresh_database_has_every_guard_foreign_keys_and_integrity(env):
         assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
 
 
-MSE_LINEAGE = ("wellbore_id", "report_id", "input_source", "lineage_version")
+MSE_LINEAGE = ("wellbore_id", "report_id", "input_source", "lineage_version",
+               "md_m", "md_entered_value", "md_entered_unit", "input_units_json")       # + M123 lineage v2
 
 
 def _rebuild_mse_without_lineage(path):
@@ -157,6 +158,7 @@ def _rebuild_mse_without_lineage(path):
         old_ddl = old_ddl.replace("(id),\n)", "(id)\n)").rstrip()
         keep = [r[1] for r in con.execute("PRAGMA table_info(mse_calculations)") if r[1] not in MSE_LINEAGE]
         con.execute("PRAGMA foreign_keys=OFF")
+        con.execute("DROP TABLE IF EXISTS mse_lineage_repairs")   # M123: did not exist before M104 either
         con.execute(old_ddl)
         con.execute(f"INSERT INTO mse_old ({', '.join(keep)}) SELECT {', '.join(keep)} FROM mse_calculations")
         con.execute("DROP TABLE mse_calculations")

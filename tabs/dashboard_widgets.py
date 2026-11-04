@@ -302,6 +302,8 @@ class MiniChart(QWidget):
             painter.drawText(QRectF(plot.left(), plot.bottom() + 6, plot.width(), 14), Qt.AlignHCenter,
                              self.x_unit)
         legend_x = plot.left() + 70
+        # "points": discrete samples (e.g. saved MSE runs) - never joined, so no continuity is implied.
+        connect = self.kind != "points"
         for label, points, color_key in self.series:
             color = QColor(t[color_key])
             path = QPainterPath()
@@ -316,9 +318,13 @@ class MiniChart(QWidget):
                                                     f"{self.unit}".strip()))
             painter.setPen(QPen(color, 2))
             painter.setBrush(Qt.NoBrush)
-            painter.drawPath(path)
+            if connect:
+                painter.drawPath(path)
             painter.setBrush(color)
-            if len(points) <= 60:
+            if not connect:
+                for point, _text in self._hits[-len(points):]:
+                    painter.drawEllipse(point, 3.2, 3.2)
+            elif len(points) <= 60:
                 for point, _text in self._hits[-len(points):]:
                     painter.drawEllipse(point, 2.6, 2.6)
             if len(self.series) > 1:

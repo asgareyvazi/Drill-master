@@ -781,7 +781,8 @@ MUTANTS = [
            "                if False:",
            T116 + ["tests/test_m96_persistence_audit.py"], "D33 restored: deleting a report deletes the MSE runs based on it"),
     Mutant("AUTH-report-unlink-scope-empty", "core/authorization.py",
-           "\"report_delete_unlink\", None, {\"mse_calculations\": frozenset({\"report_id\"})}, frozenset({\"update\"}),",
+           "\"report_delete_unlink\", None, {\"mse_calculations\": frozenset({\"report_id\"}),\n"
+           "                                   \"mse_lineage_repairs\": frozenset({\"report_id\"})}, frozenset({\"update\"}),",
            "\"report_delete_unlink\", None, {}, frozenset({\"update\"}),",
            T116, "a report deleter without edit rights can no longer delete the report (or the unlink is unscoped)"),
     Mutant("DB-report-unlink-not-audited", DB,

@@ -312,6 +312,11 @@ def test_selecting_a_well_loads_its_charts_and_trajectory(app, enriched):
     assert home.detail is not None and home.detail.well_id == ids["dev"]
     for key in ("depth", "rop", "mw", "bits", "mse", "cost", "npt_cat"):
         assert home.charts[key].has_data, key
+    # M123 (D6): saved MSE runs are discrete whole-well points by save time; the fixture run has no
+    # recorded lineage, so it is drawn only in the legacy series.
+    mse_chart = home.charts["mse"]
+    assert mse_chart.kind == "points" and mse_chart.x_unit == "saved at (not depth)"
+    assert [label for label, _pts, _c in mse_chart.series] == ["LEGACY — lineage unknown"]
     assert len(home.trajectory_preview.stations) == len(home.detail.trajectory) > 2
     assert home.selected_title.text() == "SYN-DEV-01"
     assert home.full_trajectory_btn.isEnabled()

@@ -104,9 +104,12 @@ def _adapters():
         source, scope = SNAPSHOT_SOURCES[table]
 
         def adapt(row):
+            # M123 (D6): the RECORDED wellbore travels with the entry (MSE lineage), so a re-run case keeps it;
+            # repaired lineage is an annotation and is not copied into new records.
             return HistoryEntry(source, table, row.id, row.well_id, row.label or f"{source} #{row.id}",
                                 row.method or "", f"snapshot schema v{row.snapshot_schema_version}",
-                                row.created_at, scope, _json(row.input_snapshot_json), _json(row.result_json))
+                                row.created_at, scope, _json(row.input_snapshot_json), _json(row.result_json),
+                                wellbore_id=getattr(row, "wellbore_id", None))
         return model, adapt
 
     by_table = {mapper.class_.__tablename__: mapper.class_ for mapper in d.Base.registry.mappers}

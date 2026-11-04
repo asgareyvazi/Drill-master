@@ -39,7 +39,8 @@ OA_VERSION = "M104 operational analysis v2"
 DEPTH_UNIT = "m"
 LABEL = "UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED"
 COMPLETE, PARTIAL, NOT_ASSESSED = "COMPLETE", "PARTIAL", "NOT ASSESSED"
-LEGACY_LINEAGE = "unknown (saved before lineage was recorded)"
+from core.repositories.mse_repository import LEGACY_LABEL as LEGACY_LINEAGE  # M123: one legacy label
+from core.repositories.mse_repository import runs_for_well as mse_runs_for_well
 PLAN_UNITS = {"depth": "m", "hours": "h", "rop": "m/h", "cost": "currency of the cost records"}
 DRILLING_ACTIVITY = "DRILLING"
 TRUSTED_MAPPING = ("exact", "learned", "description")   # fuzzy matches are shown as UNCERTAIN, never drilling time
@@ -55,7 +56,8 @@ COLUMNS = {
     "bit_rows": ("Bit #", "Rerun", "Date", "Report #", "Depth in (m)", "Depth out (m)", "Drilled (m)",
                  "Hours on bottom", "ROP (m/h)", "Notes", "Source"),
     "mse": ("Saved at (UTC)", "Label", "MSE (psi)", "WOB (lbf)", "RPM", "Torque (ft·lbf)", "ROP (ft/h)",
-            "Bit (in)", "Wellbore", "Report #", "Input source", "Source"),
+            "Bit (in)", "Wellbore", "Report #", "Input source", "Source", "Lineage class", "MD (m)",
+            "Lineage repairs"),
     "cost": ("Currency", "Category", "Planned", "Actual", "Variance"),
     "plan_vs_actual": ("Metric", "Unit", "Planned", "Actual", "Delta", "Delta %", "Status", "Reason"),
 }
@@ -77,6 +79,18 @@ class OperationalAnalysis:
         return {"scope": self.scope_label, "from": self.start or "first report", "to": self.end or "last report",
                 "generated_utc": self.generated_at, "method": self.version, "depth_unit": DEPTH_UNIT,
                 "status": LABEL, "notes": " | ".join(self.notes) or "none"}
+
+
+def _mse_row(saved) -> SimpleNamespace:
+    """One stored MSE run as OA reads it (M123): the EFFECTIVE lineage under the record's attribute names."""
+    repairs = "; ".join(
+        f"{r.field} = {r.value_label}{' (reference since deleted)' if r.unlinked else ''} — repair #{r.id} by "
+        f"{r.confirmer} at {r.confirmed_at:%Y-%m-%d %H:%M} UTC; evidence: {r.evidence}" for r in saved.repairs)
+    return SimpleNamespace(
+        id=saved.id, created_at=saved.created_at, label=saved.label, mse_psi=saved.stored_mse_psi,
+        input_snapshot_json=saved.input_snapshot, wellbore_id=saved.effective_wellbore_id,
+        report_id=saved.effective_report_id, md_m=saved.effective_md_m, lineage_version=saved.lineage_version,
+        input_source=saved.input_source, lineage_class=saved.lineage_class, repairs_text=repairs)
 
 
 def _num(value, *, allow_negative: bool = False) -> Optional[float]:
@@ -221,7 +235,7 @@ def _kpis(summary, costs, time_summary, footages, drilling_totals, scope_text, s
     add("Bit runs", summary["bit_runs"], "runs", "drilling_parameters (canonical rows)", COMPLETE, "")
     mse_reason = []
     if summary.get("mse_legacy_lineage"):
-        mse_reason.append(f"{summary['mse_legacy_lineage']} saved before lineage was recorded")
+        mse_reason.append(f"{summary['mse_legacy_lineage']} saved before lineage was recorded ({LEGACY_LINEAGE})")
     if summary.get("mse_without_wellbore"):
         mse_reason.append(f"{summary['mse_without_wellbore']} without a wellbore not attributed")
     mse_reason.append("dated by save time")
@@ -256,7 +270,7 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
     """
     from core.activity_mapper import ActivityMapper
     from core.cost_semantics import summarize_costs
-    from core.database import (CostRecord, DailyReport, DrillingParameters, MSECalculationRecord, NPTReport,
+    from core.database import (CostRecord, DailyReport, DrillingParameters, NPTReport,
                                TimeLog24H, Wellbore)
     from core.operational_time import summarize_time_logs
     from core.operations_intelligence import canonical_params_clause
@@ -445,13 +459,15 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
 
         _check_cancel(cancel_event)
         # ---- MSE: stored calculations only, time order, no interpolation --------------------------
+        # M123 (D6): runs are read with their audited repairs; ``row`` carries the EFFECTIVE lineage (recorded,
+        # else repaired, else unknown) and the class (whole-well / wellbore / depth / unscoped legacy).
         mse_rows, mse_ids = [], []
         mse_without_bore = mse_legacy = 0
+        mse_classes: Dict[str, int] = {}
         bore_names = {b.id: b.name for b in session.query(Wellbore).filter(Wellbore.well_id == scope.well_id)}
         well_reports = {r.id: r for r in session.query(DailyReport.id, DailyReport.report_number)
                         .filter(DailyReport.well_id == scope.well_id)}
-        for row in (session.query(MSECalculationRecord).filter(MSECalculationRecord.well_id == scope.well_id)
-                    .order_by(MSECalculationRecord.created_at, MSECalculationRecord.id)):
+        for row in (_mse_row(saved) for saved in mse_runs_for_well(session, scope.well_id)):
             day = row.created_at.date() if row.created_at else None
             if not _in_range(day, start, end):
                 continue
@@ -461,6 +477,8 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
                 continue
             if row.lineage_version is None:
                 mse_legacy += 1
+            base_class = row.lineage_class.split(" (repaired:")[0]
+            mse_classes[base_class] = mse_classes.get(base_class, 0) + 1
             params = (row.input_snapshot_json or {}).get("parameters", {}) if isinstance(
                 row.input_snapshot_json, dict) else {}
             report = well_reports.get(row.report_id)
@@ -472,12 +490,15 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
                              (report.report_number if report is not None
                               else (LEGACY_LINEAGE if row.lineage_version is None else "")),
                              row.input_source if row.lineage_version is not None else LEGACY_LINEAGE,
-                             f"mse_calculations #{row.id}"])
+                             f"mse_calculations #{row.id}", row.lineage_class, _num(row.md_m), row.repairs_text])
             mse_ids.append(report.id if report is not None else None)
         tables["mse"], drill["mse"] = (COLUMNS["mse"], mse_rows), mse_ids
         if mse_without_bore:
             notes.append(f"{mse_without_bore} MSE calculation(s) without a recorded wellbore are not attributed to "
                          "this wellbore")
+        if mse_classes:
+            notes.append("MSE lineage: " + "; ".join(f"{name} {count}" for name, count in sorted(mse_classes.items()))
+                         + " (only depth-class runs carry an entered MD; MSE is dated by save time)")
 
         _check_cancel(cancel_event)
         # ---- cost: per currency, never mixed --------------------------------------------------------

@@ -126,6 +126,9 @@ def test_every_reference_is_removed_or_unlinked_when_its_parent_is_deleted(env, 
         tag += 1
         parents = _world(manager, f"{kind}{tag}")
         try:
+            if table == "mse_lineage_repairs":      # M123: its owner is an MSE run of the same well
+                parents["mse_calculations"] = _row(manager, "mse_calculations", parents, None,
+                                                   well_id=parents["wells"], method="SYN")
             child = _row(manager, table, parents, target)
         except Exception as exc:                      # recorded, then asserted empty below
             outcomes[table] = f"FIXTURE {type(exc).__name__}: {str(exc).splitlines()[0][:120]}"

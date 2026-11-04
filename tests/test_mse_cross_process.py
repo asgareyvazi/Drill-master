@@ -106,7 +106,9 @@ def test_migration_provisions_table_on_existing_db(tmp_path):
     out = json.loads(_run(code, "."))
     assert out["before"] is False
     assert out["after"] is True
-    assert out["cols"] == 18          # 14 + M104 lineage: wellbore_id, report_id, input_source, lineage_version
+    # 14 + M104 lineage (wellbore_id, report_id, input_source, lineage_version)
+    #    + M123 lineage v2 (md_m, md_entered_value, md_entered_unit, input_units_json)
+    assert out["cols"] == 22
     assert out["td"] is True
     assert out["casing"] is True
     assert out["cement"] is True

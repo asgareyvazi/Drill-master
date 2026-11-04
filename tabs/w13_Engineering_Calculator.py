@@ -2210,6 +2210,25 @@ class EngineeringCalculatorTab(DrillTabBase):
         mse_history.clicked.connect(self._mse_open_history)
         res_layout.addWidget(mse_history, 4, 2)
 
+        # M123 (D6): the measured depth of the run is recorded ONLY when the user enters it here (with the
+        # wellbore it was measured in); nothing derives it from a report, a survey or the selection.
+        self.mse_md_check = QCheckBox("Record the measured depth of this run")
+        self.mse_md_check.setToolTip(
+            "Optional. Enter the MD at which these parameters were measured. Without it the saved run has no "
+            "depth (shown as 'MD not recorded') and is not depth-reproducible.")
+        self.mse_md_value = QDoubleSpinBox()
+        self.mse_md_value.setRange(0.0, 20000.0)
+        self.mse_md_value.setDecimals(2)
+        self.mse_md_value.setEnabled(False)
+        self.mse_md_unit = QComboBox()
+        self.mse_md_unit.addItems(["m", "ft"])
+        self.mse_md_unit.setEnabled(False)
+        self.mse_md_check.toggled.connect(self.mse_md_value.setEnabled)
+        self.mse_md_check.toggled.connect(self.mse_md_unit.setEnabled)
+        res_layout.addWidget(self.mse_md_check, 5, 0, 1, 2)
+        res_layout.addWidget(self.mse_md_value, 5, 2)
+        res_layout.addWidget(self.mse_md_unit, 5, 3)
+
         bh_layout.addWidget(g_results)
 
         self.bit_reco = QLabel("")
@@ -2404,6 +2423,14 @@ class EngineeringCalculatorTab(DrillTabBase):
                 self, "Save Calculation",
                 "No database is available, so calculations cannot be saved.")
             return
+        lineage = self._mse_lineage()
+        md = self._mse_entered_md()
+        if md and lineage.get("wellbore_id") is None:
+            QMessageBox.information(
+                self, "Save Calculation",
+                "A measured depth can only be recorded with the wellbore it was measured in. Select the "
+                "wellbore, or clear 'Record the measured depth of this run'.")
+            return
         try:
             calc_id = repo.save_run(
                 inputs=run["inputs"],
@@ -2411,7 +2438,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                 method=run["method"],
                 label="MSE (Teale)",
                 well_id=getattr(self, "current_well_id", None),
-                **self._mse_lineage(),
+                **lineage,
+                **md,
             )
         except Exception as exc:
             logger.exception("Failed to save MSE calculation")
@@ -2426,6 +2454,13 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"(axial {v.get('axial_term_psi')} + rotary {v.get('rotary_term_psi')}).\n"
             f"{self._save_attribution_line()}"
             "Inputs and full result were stored for reproducibility.")
+
+    def _mse_entered_md(self) -> dict:
+        """M123: the MD the user entered for this run ({} when not entered); never derived."""
+        check = getattr(self, "mse_md_check", None)
+        if check is None or not check.isChecked():
+            return {}
+        return {"md_value": self.mse_md_value.value(), "md_unit": self.mse_md_unit.currentText()}
 
     def _mse_lineage(self) -> dict:
         """M104: the wellbore and report selected now (the selection already withholds foreign ones)."""

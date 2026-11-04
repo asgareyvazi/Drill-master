@@ -73,6 +73,12 @@ _CASE_FROZEN = ("id", "well_id", "calculator", "name", "method", "method_version
 _LINK_FROZEN = ("id", "case_id", "source_table", "source_id", "source_well_id", "source_method",
                 "source_method_version", "recalc_method", "recalc_method_version",
                 "verification_status", "method_changed", "link_type", "created_at")
+#: M123 (D6): an audited MSE lineage repair. ``report_id`` may only be cleared (the D33 report-delete unlink, which
+#: runs while the report row still exists) and ``wellbore_id`` only by the FK ``SET NULL`` of a deleted wellbore;
+#: ``value_label`` keeps the repaired value readable afterwards.
+_MSE_REPAIR_FROZEN = ("id", "mse_calculation_id", "well_id", "field", "md_m", "md_entered_value", "md_entered_unit",
+                      "value_label", "before_value", "evidence", "reason", "confirmed_by", "confirmed_at",
+                      "method_version")
 _SURVEY_FROZEN = ("id", "well_id", "revision", "mode", "source_type", "source_ref", "source_unit",
                   "azimuth_reference", "depth_datum", "stations_json", "station_count", "stations_sha256",
                   "results_json", "results_sha256", "warnings_json", "method", "method_version", "note",
@@ -111,6 +117,11 @@ def trigger_statements() -> dict[str, str]:
         _nullable_reference("parent_id", "well_architecture_revisions"),
         _nullable_reference("created_by", "users"),
     ])
+    repair_change = " OR ".join([
+        _frozen(_MSE_REPAIR_FROZEN),
+        _nullable_reference("wellbore_id", "wellbores"),
+        "(NEW.report_id IS NOT OLD.report_id AND NEW.report_id IS NOT NULL)",
+    ])
     guards = {
         f"trg_plan_revision_immutable_v{v}": (
             f"CREATE TRIGGER trg_plan_revision_immutable_v{v} BEFORE UPDATE ON directional_plan_revisions "
@@ -136,6 +147,10 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_calculation_source_link_immutable_v{v} BEFORE UPDATE ON calculation_source_links "
             f"WHEN {link_change} BEGIN SELECT RAISE(ABORT, "
             "'calculation_source_links: a lineage record is immutable'); END"),
+        f"trg_mse_lineage_repair_immutable_v{v}": (
+            f"CREATE TRIGGER trg_mse_lineage_repair_immutable_v{v} BEFORE UPDATE ON mse_lineage_repairs "
+            f"WHEN {repair_change} BEGIN SELECT RAISE(ABORT, "
+            "'mse_lineage_repairs: an audited lineage repair is immutable'); END"),
     }
     guards.update(_insert_and_delete_guards())
     return guards
@@ -157,6 +172,9 @@ _OWNED = {
     "trg_well_architecture": ("well_architecture_revisions",
                               (("uq_well_architecture_revision", ("well_id", "revision")),),
                               "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_mse_lineage_repair": ("mse_lineage_repairs", (),
+                               "NOT EXISTS (SELECT 1 FROM mse_calculations WHERE id = OLD.mse_calculation_id) OR "
+                               "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
 }
 INSERT_GUARD_VERSION = 1
 DELETE_GUARD_VERSION = 1
@@ -186,7 +204,8 @@ def _insert_and_delete_guards() -> dict[str, str]:
 
 _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation_case": "calculation_cases",
              "trg_calculation_source_link": "calculation_source_links", "trg_survey_revision": "survey_revisions",
-             "trg_well_architecture": "well_architecture_revisions"}
+             "trg_well_architecture": "well_architecture_revisions",
+             "trg_mse_lineage_repair": "mse_lineage_repairs"}
 
 
 def install(raw) -> list[str]:

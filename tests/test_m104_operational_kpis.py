@@ -21,7 +21,7 @@ from core import analysis_evidence as ev  # noqa: E402
 from core import operational_analysis as oa  # noqa: E402
 from core.database import (CostRecord, DailyReport, DrillingParameters, MSECalculationRecord,  # noqa: E402
                            TimeLog24H, WellPlan, Wellbore)
-from core.repositories.mse_repository import MANUAL_ENTRY, MSECalculationRepository  # noqa: E402
+from core.repositories.mse_repository import LINEAGE_VERSION, MANUAL_ENTRY, MSECalculationRepository  # noqa: E402
 from tests.test_m70_integrity import _open, _seed  # noqa: E402
 
 D = [date(2026, 2, d) for d in range(1, 6)]
@@ -94,7 +94,7 @@ def test_new_mse_runs_record_lineage_and_legacy_runs_stay_unknown(env):
     manager, out = env
     saved = MSECalculationRepository(manager).get(out["mse_bore"])
     assert (saved.wellbore_id, saved.report_id, saved.input_source, saved.lineage_version) == (
-        out["bore"], out["reports"][1], MANUAL_ENTRY, 1)
+        out["bore"], out["reports"][1], MANUAL_ENTRY, LINEAGE_VERSION)   # M123: v2 (+ explicit MD, units)
     whole = _analyze(manager, out)
     rows = {r[1]: dict(zip(oa.COLUMNS["mse"], r)) for r in whole.tables["mse"][1]}
     legacy = rows["SYN legacy MSE"]
@@ -135,7 +135,8 @@ def test_lineage_refuses_relations_the_model_does_not_have(env):
 def test_an_old_database_gains_the_lineage_columns_without_backfill(env):
     manager, out = env
     manager.close()
-    lineage = ("wellbore_id", "report_id", "input_source", "lineage_version")
+    lineage = ("wellbore_id", "report_id", "input_source", "lineage_version",
+               "md_m", "md_entered_value", "md_entered_unit", "input_units_json")      # + M123 lineage v2
     with sqlite3.connect(out["path"]) as con:            # rebuild the table as it was before M104
         ddl = con.execute("SELECT sql FROM sqlite_master WHERE name='mse_calculations'").fetchone()[0]
         lines = [ln for ln in ddl.splitlines() if not any(c in ln for c in lineage)]
@@ -143,6 +144,7 @@ def test_an_old_database_gains_the_lineage_columns_without_backfill(env):
         old_ddl = old_ddl.replace("(id),\n)", "(id)\n)").rstrip()
         keep = [r[1] for r in con.execute("PRAGMA table_info(mse_calculations)") if r[1] not in lineage]
         con.execute("PRAGMA foreign_keys=OFF")
+        con.execute("DROP TABLE IF EXISTS mse_lineage_repairs")   # M123: did not exist before M104 either
         con.execute(old_ddl)
         con.execute(f"INSERT INTO mse_old ({', '.join(keep)}) SELECT {', '.join(keep)} FROM mse_calculations")
         con.execute("DROP TABLE mse_calculations")
@@ -151,7 +153,9 @@ def test_an_old_database_gains_the_lineage_columns_without_backfill(env):
     manager.initialize()
     with sqlite3.connect(out["path"]) as con:
         columns = {r[1] for r in con.execute("PRAGMA table_info(mse_calculations)")}
-        assert {"wellbore_id", "report_id", "input_source", "lineage_version"} <= columns
+        assert set(lineage) <= columns                   # M104 and M123 columns are added back, never backfilled
+        assert con.execute("SELECT COUNT(*) FROM sqlite_master WHERE name='mse_lineage_repairs'").fetchone()[0] == 1
+        assert con.execute("SELECT COUNT(*) FROM mse_calculations WHERE md_m IS NOT NULL").fetchone()[0] == 0
         assert con.execute("SELECT COUNT(*) FROM mse_calculations WHERE lineage_version IS NOT NULL").fetchone()[0] == 0
         fks = {(r[2], r[3]) for r in con.execute("PRAGMA foreign_key_list(mse_calculations)")}
         assert {("wellbores", "wellbore_id"), ("daily_reports", "report_id")} <= fks
