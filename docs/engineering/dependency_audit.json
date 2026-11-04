@@ -23,7 +23,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 27,
+    "evidence_tests": 28,
     "licence": "own code (product licence)",
     "method_id": "engine.mse",
     "status": "IMPLEMENTED",
@@ -38,6 +38,7 @@
      "test_m104_operational_kpis.py",
      "test_m116_persistence.py",
      "test_m123_mse_lineage.py",
+     "test_m124_central_identity.py",
      "test_m30_semantic_regressions.py",
      "test_m53_dashboard.py",
      "test_m67_calculation_history.py",
@@ -268,7 +269,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 12,
+    "evidence_tests": 13,
     "licence": "own code (product licence)",
     "method_id": "directional.plan_vs_actual",
     "status": "IMPLEMENTED",
@@ -277,6 +278,7 @@
      "test_m108_history_coverage.py",
      "test_m117_widget_journeys.py",
      "test_m119_adversarial.py",
+     "test_m124_central_identity.py",
      "test_m52_trajectory_compare.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m55_directional.py",
@@ -1285,8 +1287,8 @@
    "guarded": false,
    "lines": [
     22,
-    269,
-    290
+    293,
+    314
    ],
    "module": "PySide6"
   },
@@ -1818,7 +1820,7 @@
    "lines": [
     23,
     24,
-    430
+    464
    ],
    "module": "PySide6"
   },
@@ -1865,9 +1867,9 @@
     26,
     27,
     32,
-    4115,
-    4286,
-    4287
+    4150,
+    4321,
+    4322
    ],
    "module": "PySide6"
   },
@@ -2500,9 +2502,9 @@
    "file": "tabs/w12_Analysis.py",
    "guarded": true,
    "lines": [
-    4170,
-    4171,
-    4172
+    4205,
+    4206,
+    4207
    ],
    "module": "reportlab"
   },

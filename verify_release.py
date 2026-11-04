@@ -45,7 +45,7 @@ _SUMMARY_NAMES = (
 )
 
 
-def _run(command: list[str], *, echo=True, cwd=None) -> subprocess.CompletedProcess[str]:
+def _run(command: list[str], *, echo=True, cwd=None, env=None) -> subprocess.CompletedProcess[str]:
     """Run a release command, echoing its output without hiding failures."""
     print("$", " ".join(command))
     completed = subprocess.run(
@@ -54,6 +54,7 @@ def _run(command: list[str], *, echo=True, cwd=None) -> subprocess.CompletedProc
         check=False,
         text=True,
         capture_output=True,
+        env=env,
     )
     output = (completed.stdout or "") + (completed.stderr or "")
     if output and echo:
@@ -103,6 +104,65 @@ OPTIONAL_ACCEPTANCE_SKIPS = {
     ("test_packaging_smoke", "test_real_windows_bundle_smoke_when_provided"):
         "Windows bundle not available in this environment",
 }
+
+
+# M124: a test still running after this many seconds is a hang (tests/conftest.py watchdog).  The slowest
+# bounded test, the M122 CPU-load cancel test, is bounded at about 405 s of waits (15 cycles x (15 s + 10 s)
+# + 10 s + 20 s); 900 s leaves room for slow CI runners and coverage tracing and still ends a hang before
+# the job timeout, which would cancel the job and lose all captured output.
+TEST_HANG_SECONDS = 900
+# Not anchored: pytest's progress marks share the line the dump starts on (".Timeout (0:15:00)!").
+_HANG_HEADER = re.compile(r"Timeout \((?P<after>[0-9:.]+)\)!")
+_HANG_FRAME = re.compile(r'File "(?P<path>[^"]+)", line (?P<line>\d+) in (?P<name>\S+)')
+
+
+def _short_path(path: str) -> str:
+    normal = path.replace("\\", "/")
+    for marker in ("/tests/", "/core/", "/tabs/", "/dialogs/"):
+        at = normal.rfind(marker)
+        if at >= 0:
+            return normal[at + 1:]
+    return normal.rsplit("/", 1)[-1]
+
+
+def describe_hang(output: str) -> Optional[str]:
+    """One line naming the hung test from a faulthandler watchdog dump, or None when there is none.
+
+    The dump lists every thread, most recent call first.  The test function's frame is the one directly
+    above pytest's ``pytest_pyfunc_call``; the innermost frame reported is the top of THAT thread (where
+    the test is blocked).  A hang in a fixture falls back to the first frame under tests/.
+    """
+    header = _HANG_HEADER.search(output or "")
+    if header is None:
+        return None
+    threads, current = [], None
+    for line in output[header.end():].splitlines():
+        if line.startswith(("Thread 0x", "Current thread 0x")):
+            current = []
+            threads.append(current)
+            continue
+        frame = _HANG_FRAME.search(line)
+        if frame and current is not None:
+            current.append(frame)
+    test, blocked = None, None
+    for frames in threads:
+        for index, frame in enumerate(frames):
+            if frame["name"] == "pytest_pyfunc_call" and index > 0:
+                test, blocked = frames[index - 1], frames[0]
+                break
+        if test is not None:
+            break
+    if test is None:
+        for frames in threads:
+            test = next((f for f in frames if "/tests/" in f["path"].replace("\\", "/")), None)
+            if test is not None:
+                blocked = frames[0]
+                break
+
+    def where(frame):
+        return f"{_short_path(frame['path'])}:{frame['line']} in {frame['name']}" if frame else "not found"
+    return (f"a test did not finish within {header['after']} (faulthandler watchdog, process ended); "
+            f"test frame: {where(test)}; blocked in: {where(blocked)}")
 
 
 def validate_pytest_report(path, collected, counts):
@@ -277,8 +337,14 @@ def run_pytest(coverage_data: Path | None = None) -> bool:
         runner = [sys.executable, "-m"]
         if coverage_data is not None:
             runner += ["coverage", "run", f"--data-file={coverage_data}", "-m"]
-        result = _run([*runner, "pytest", "-ra", f"--junitxml={report}"])
+        env = dict(os.environ)
+        env.setdefault("DRILLMASTER_TEST_HANG_SECONDS", str(TEST_HANG_SECONDS))
+        result = _run([*runner, "pytest", "-ra", f"--junitxml={report}"], env=env)
         output = (result.stdout or "") + (result.stderr or "")
+        hang = describe_hang(output)
+        if hang:
+            print(f"Release verification failed: {hang}")
+            _ci_error("pytest hang", hang)
         report_valid = validate_pytest_report(report, collected, _pytest_counts(output))
         annotate_failures(report)
     output = (result.stdout or "") + (result.stderr or "")

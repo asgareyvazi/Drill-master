@@ -12,7 +12,10 @@ jobs:
   source:
     runs-on: ubuntu-24.04
     # 25 -> 40 in M81: the 3.12 coverage leg took 22m12s at 05920d0 and passed 25m at 5a464fa (4276 tests).
-    timeout-minutes: 40
+    # 40 -> 60 in M124: at b820552 (4745 tests) the 3.12 coverage leg took 39m23s and the 3.13 leg was
+    # cancelled at 40m (3.11: 26m36s); at 4878476 3.11 took 39m16s.  A hang can no longer hide behind the
+    # limit: verify_release arms a per-test watchdog (TEST_HANG_SECONDS) that fails the run and names the test.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

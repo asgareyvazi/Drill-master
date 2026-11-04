@@ -38,6 +38,16 @@ OFFSET_COLUMNS = (("reference_md", "Reference MD (m)"), ("offset_md", "Offset MD
                   ("distance_m", "Centre-to-centre (m)"))
 
 
+def _selection():
+    """The application's SelectionManager (M124), or None where it cannot be created."""
+    try:
+        from core.selection_manager import SelectionManager
+        return SelectionManager()
+    except Exception as exc:  # silent-ok: a panel without the global selection checks its local token only
+        logger.debug("Selection manager unavailable: %s", type(exc).__name__)
+        return None
+
+
 def _compute(inputs: dict):
     """Worker body: plain dicts in, a Comparison out (no Qt, no ORM). M108: the same function re-runs a
     stored record, so it lives in ``core.trajectory_compare``."""
@@ -59,7 +69,8 @@ class TrajectoryComparePanel(QWidget):
         self.result: Optional[tc.Comparison] = None
         self.last_inputs: Optional[dict] = None
         self.saved_ids: list = []
-        self._token = 0
+        self._token = 0                         # local: a newer comparison or a cleared result (same context)
+        self._run_ticket = None                 # M124: central identity the running comparison was started for
         self._worker = None
         self._build_ui()
 
@@ -298,6 +309,9 @@ class TrajectoryComparePanel(QWidget):
             return
         self._clear_result("Comparing...")          # increments the token: older results are stale
         token = self._token
+        selection = _selection()
+        # M124 (D7): the comparison reads the well's surveys, so it depends on the selected well only.
+        self._run_ticket = selection.ticket(("well_id",), local=token) if selection is not None else None
         self.last_inputs = inputs
         self.run_button.setEnabled(False)
         worker = FunctionWorker(_compute, inputs)
@@ -313,8 +327,18 @@ class TrajectoryComparePanel(QWidget):
             self._worker = None
             self.run_button.setEnabled(True)
 
+    def _central_change(self, token):
+        """M124: why a comparison started under ``token`` must not be shown although no newer one ran."""
+        ticket = self._run_ticket
+        if ticket is None or ticket.local != token:
+            return None
+        return ticket.stale_reason(_selection(), token)
+
     def _failed(self, token, message):
         if token != self._token:
+            return
+        if self._central_change(token):
+            self._clear_result("The selected well changed while comparing; nothing is shown. Compare again.")
             return
         logger.error("Trajectory comparison failed: %s", message.splitlines()[0] if message else "")
         self._clear_result("Comparison failed (verification failure); no result is shown.")
@@ -322,6 +346,11 @@ class TrajectoryComparePanel(QWidget):
     def _done(self, token, result):
         if token != self._token:
             return                                       # a newer comparison was started
+        if self._central_change(token):
+            # M124 (D7): the app's selected well moved while the worker ran (the viewer may not have been
+            # told yet: a hidden tab defers its handlers) - never show a comparison for another well.
+            self._clear_result("The selected well changed while comparing; nothing is shown. Compare again.")
+            return
         self.result = result
         self.reason_list.clear()
         for text in list(result.reasons) + list(result.warnings):
@@ -380,6 +409,11 @@ class TrajectoryComparePanel(QWidget):
     # ------------------------------------------------------- save / export
     def save(self) -> Optional[int]:
         if self.result is None or self.result.status != tc.ASSESSED or not self.last_inputs:
+            return None
+        ticket = self._run_ticket
+        if ticket is not None and ticket.stale_reason(_selection(), ticket.local):
+            # M124: the result was computed for the well selected when it ran; never save it for another
+            self._clear_result("The selected well changed since this comparison; nothing was saved. Compare again.")
             return None
         # M108: the station rows are stored with the record so it can be re-run and verified later
         inputs = {k: v for k, v in self.last_inputs.items()}

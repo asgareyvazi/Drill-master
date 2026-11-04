@@ -726,6 +726,8 @@ class EquipmentWidget(DrillTabBase):
         if index >= 0:
             well_id = self.well_combo.currentData()
             if well_id and well_id != self.current_well:
+                if self.select_well_from_picker(well_id):    # M124: one well for the whole application
+                    return
                 self.current_well = well_id
                 self.load_all_data()
 
@@ -1097,13 +1099,24 @@ class EquipmentWidget(DrillTabBase):
             self.show_message("All tables cleared")
 
     def populate_wells(self):
+        """Fill the picker without selecting anything (M124, D7).
+
+        Before M124 filling the picker emitted ``currentIndexChanged`` for the first well, so the tab
+        loaded (and could save) that well's equipment while the application had another well or none
+        selected.  Now the picker shows the application's selected well, else "-- Select Well --".
+        """
         if self.db:
+            self.well_combo.blockSignals(True)
             self.well_combo.clear()
+            self.well_combo.addItem("-- Select Well --", None)
             hierarchy = self.db.get_hierarchy()
             for company in hierarchy:
                 for project in company.get('projects', []):
                     for well in project.get('wells', []):
                         self.well_combo.addItem(f"{well['name']} ({project['name']})", well['id'])
+            index = self.well_combo.findData(self.current_well) if self.current_well else -1
+            self.well_combo.setCurrentIndex(index if index >= 0 else 0)
+            self.well_combo.blockSignals(False)
 
     def save_data(self):
         """Used by AutoSaveManager"""

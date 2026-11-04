@@ -46,3 +46,100 @@ def test_annotation_text_is_single_line_and_bounded():
     text = verify_release._annotation_text("a\r\nb%" + "x" * 500, limit=20)
     assert "\n" not in text and "\r" not in text and text.startswith("a b%25")
     assert len(text) <= 24
+
+
+# ---- M124: a hung test fails the run and is named (the CI job timeout loses all captured output) ----
+DUMP = """....Timeout (0:15:00)!
+Thread 0x00007f0000000001 (most recent call first):
+  File "/usr/lib/python3.13/threading.py", line 359 in wait
+  File "/home/runner/work/Drill-master/Drill-master/core/async_workers.py", line 88 in join
+
+Thread 0x00007f0000000000 (most recent call first):
+  File "/usr/lib/python3.13/time.py", line 1 in sleep
+  File "/home/runner/work/Drill-master/Drill-master/tests/helpers.py", line 12 in _wait
+  File "/home/runner/work/Drill-master/Drill-master/tests/test_slow.py", line 40 in test_waits_for_ever
+  File "/opt/venv/lib/python3.13/site-packages/_pytest/python.py", line 167 in pytest_pyfunc_call
+  File "/opt/venv/lib/python3.13/site-packages/pluggy/_callers.py", line 103 in _multicall
+"""
+
+
+def test_a_watchdog_dump_names_the_test_function_frame():
+    hang = verify_release.describe_hang(DUMP)
+    assert "within 0:15:00" in hang
+    assert "test frame: tests/test_slow.py:40 in test_waits_for_ever" in hang      # above pytest_pyfunc_call
+    assert "blocked in: time.py:1 in sleep" in hang                               # top of the test's thread
+    assert verify_release.describe_hang("12 passed in 3.0s") is None
+
+
+def test_a_hang_in_a_fixture_falls_back_to_the_first_test_frame():
+    fixture_dump = "Timeout (0:00:02)!\nThread 0x1 (most recent call first):\n" \
+                   '  File "/r/tests/conftest.py", line 9 in slow_fixture\n' \
+                   '  File "/v/_pytest/fixtures.py", line 1 in call_fixture_func\n'
+    assert "test frame: tests/conftest.py:9 in slow_fixture" in verify_release.describe_hang(fixture_dump)
+
+
+def test_the_watchdog_ends_a_hung_test_and_the_gate_names_it(tmp_path):
+    """Real pytest subprocess with the repository conftest as a plugin and a 2 s limit."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    tests_dir = Path(__file__).resolve().parent
+    (tmp_path / "test_hang_probe.py").write_text(
+        "import time\n\n\ndef test_quick():\n    assert True\n\n\n"
+        "def test_sleeps_past_the_limit():\n    time.sleep(60)\n", encoding="utf-8")
+    env = dict(os.environ, DRILLMASTER_TEST_HANG_SECONDS="2", PYTHONPATH=os.pathsep.join([str(tests_dir), str(tests_dir.parent)]))
+    env.pop("PYTEST_ADDOPTS", None)
+    done = subprocess.run([sys.executable, "-m", "pytest", "-p", "conftest", "-q", "-p", "no:cacheprovider",
+                           str(tmp_path / "test_hang_probe.py")],
+                          cwd=tmp_path, env=env, capture_output=True, text=True, timeout=50)
+    output = done.stdout + done.stderr
+    assert done.returncode != 0                                   # the run FAILS; nothing is skipped
+    hang = verify_release.describe_hang(output)
+    assert hang and "test_hang_probe.py:9 in test_sleeps_past_the_limit" in hang, output[-2000:]
+    assert "within 0:00:02" in hang
+
+
+def test_without_the_variable_no_watchdog_is_armed(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    tests_dir = Path(__file__).resolve().parent
+    (tmp_path / "test_slowish.py").write_text(
+        "import time\n\n\ndef test_three_seconds():\n    time.sleep(3)\n", encoding="utf-8")
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(tests_dir), str(tests_dir.parent)]))
+    env.pop("DRILLMASTER_TEST_HANG_SECONDS", None)
+    env.pop("PYTEST_ADDOPTS", None)
+    done = subprocess.run([sys.executable, "-m", "pytest", "-p", "conftest", "-q", "-p", "no:cacheprovider",
+                           str(tmp_path / "test_slowish.py")],
+                          cwd=tmp_path, env=env, capture_output=True, text=True, timeout=50)
+    assert done.returncode == 0 and "Timeout (" not in done.stdout + done.stderr
+
+
+def test_the_gate_arms_the_watchdog_below_the_job_timeout():
+    import re
+    from pathlib import Path
+    workflow = (Path(verify_release.__file__).resolve().parent / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    job_minutes = int(re.search(r"timeout-minutes: (\d+)", workflow)[1])
+    assert 0 < verify_release.TEST_HANG_SECONDS < job_minutes * 60 / 2       # a hang ends well before the job does
+
+
+def test_the_gate_arms_the_watchdog_and_annotates_a_hang(monkeypatch, capsys):
+    import subprocess
+    seen = {}
+
+    def fake_run(command, *, echo=True, cwd=None, env=None):
+        if "--collect-only" in command:
+            return subprocess.CompletedProcess(command, 0, "tests/test_slow.py: 1\n", "")
+        seen["env"] = env
+        return subprocess.CompletedProcess(command, 1, "", DUMP)
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.delenv("DRILLMASTER_TEST_HANG_SECONDS", raising=False)
+    monkeypatch.setattr(verify_release, "_run", fake_run)
+    assert verify_release.run_pytest() is False
+    assert seen["env"]["DRILLMASTER_TEST_HANG_SECONDS"] == str(verify_release.TEST_HANG_SECONDS)
+    out = capsys.readouterr().out
+    assert "::error title=pytest hang::a test did not finish within 0:15:00" in out
+    assert "tests/test_slow.py:40 in test_waits_for_ever" in out

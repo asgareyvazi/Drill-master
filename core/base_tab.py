@@ -244,6 +244,30 @@ class DrillTabBase(QWidget):
         """Called when well selection changes. Override in subclass."""
         pass
 
+    def select_well_from_picker(self, well_id) -> bool:
+        """M124 (D7): a tab's own well picker selects the well for the WHOLE application.
+
+        Before M124 the W5, W6 and W10 pickers switched only their tab, so the tab (its plans, equipment
+        and the trajectory viewer/comparison) could work on another well than the status bar, the other
+        tabs and every background job bound to the central selection.  The picker now goes through the
+        SelectionManager like the hierarchy tree does; the tab follows through its own ``on_well_changed``
+        (which re-syncs the picker with its signals blocked).  Returns False when there is no selection
+        manager or no well, so the caller can keep its previous behaviour.
+        """
+        manager = getattr(self, "sel_manager", None)
+        if manager is None or not well_id:
+            return False
+        well_data = {}
+        getter = getattr(self.db, "get_well_by_id", None)
+        if callable(getter):
+            try:
+                well_data = getter(well_id) or {}
+            except Exception as exc:  # the id is still selected; labels come from the payload when present
+                logger.warning("%s: well %s could not be read for the selection: %s",
+                               self.widget_name, well_id, type(exc).__name__)
+        manager.select_well(well_id, well_data)
+        return True
+
     def on_section_changed(self, section_id: int, section_data: dict):
         """Called when section selection changes. Override in subclass."""
         pass

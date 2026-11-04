@@ -2743,6 +2743,8 @@ class PlanningWidget(DrillTabBase):
 
     def on_well_combo_changed(self, index):
         well_id = self.well_combo.currentData()
+        if well_id and well_id != self.current_well_id and self.select_well_from_picker(well_id):
+            return                                          # M124: one well for the whole application
         if well_id:
             self.current_well_id = well_id
             self.load_sections(well_id)

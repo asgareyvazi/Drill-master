@@ -269,6 +269,22 @@ class _FrozenScope:
         raise AttributeError(f"{name} is not available to an Analysis worker")
 
 
+class ScopeGeneration(tuple):
+    """M124 (D7): an analysis page's generation - (local counter, central selection identity).
+
+    Every place that captured ``page._generation`` and compares it later now also sees a change of
+    the central selection (well, wellbore, section, report) that the page's own handlers have not
+    run for yet - a hidden tab defers them (``DrillTabBase``), and a queued worker result can arrive
+    after the selection moved.  ``+= 1`` bumps the local counter (an in-context supersede), so the
+    existing bump sites keep their meaning.
+    """
+
+    __slots__ = ()
+
+    def __add__(self, step):
+        return ScopeGeneration((self[0] + step, self[1]))
+
+
 class _StagedPaint:
     """One snapshot paint, one view per event-loop turn (M52 §2.1).
 
@@ -603,6 +619,21 @@ def _trend_words(result, unit, noun):
 class AnalysisWidget(DrillTabBase):
     """Advanced Professional Analysis and Monitoring Dashboard – PySide6 Version"""
 
+    # M124 (D7): the selection fields this page's numbers depend on (its cache key: scope, section, report).
+    _CONTEXT_FIELDS = ("well_id", "wellbore_id", "section_id", "report_id")
+
+    @property
+    def _generation(self):
+        return ScopeGeneration((self.__dict__.get("_local_generation", 0), self._central_identity()))
+
+    @_generation.setter
+    def _generation(self, value):
+        self._local_generation = value[0] if isinstance(value, tuple) else int(value)
+
+    def _central_identity(self) -> tuple:
+        manager = getattr(self, "sel_manager", None)
+        identity = getattr(manager, "identity", None)
+        return identity(self._CONTEXT_FIELDS) if callable(identity) else ()
     def __init__(self, db_manager, parent=None):
         super().__init__("AnalysisWidget", db_manager, parent)
         self.db = db_manager
@@ -4102,6 +4133,10 @@ class AnalysisWidget(DrillTabBase):
     def _snapshot_painted(self, revision, error, reloads, failed):
         """The staged paint of a snapshot finished (``failed`` None: the selection changed)."""
         if failed is None:
+            # M124: the page's own selection handlers start a cycle for the new scope; a change only the
+            # central identity saw (handler deferred while hidden, or not subscribed) restarts one here.
+            if self.current_well_id and self._rev_worker is None and self._paint_job is None:
+                self.update_all_data()
             return
         if error:
             failed.append(f"read data revision ({error})")

@@ -27,6 +27,11 @@ T122 = ["tests/test_m122_assistant_worker_lifecycle.py"]
 MR = "core/repositories/mse_repository.py"
 T123 = ["tests/test_m123_mse_lineage.py"]
 T123_DASH = ["tests/test_m123_mse_lineage.py", "tests/test_m53_dashboard.py"]
+SM = "core/selection_manager.py"
+W12 = "tabs/w12_Analysis.py"
+TCP = "tabs/trajectory_compare_panel.py"
+T124 = ["tests/test_m124_central_identity.py"]
+THANG = ["tests/test_release_gate_annotations.py"]
 
 MUTANTS = [
     # ---- M122 Knowledge Assistant worker lifecycle (D28) ------------------------------------------------
@@ -150,6 +155,86 @@ MUTANTS = [
            "        connect = self.kind != \"points\"\n",
            "        connect = True\n",
            T123_DASH, "discrete saved MSE runs are joined into a line that implies continuity"),
+    # ---- M124 central selection identity (D7) and global pickers (D38) ------------------------------
+    Mutant("CTX-ticket-local-ignored", SM,
+           "        if local != self.local:\n",
+           "        if False:\n",
+           T124, "a newer request in the same context no longer supersedes an older result"),
+    Mutant("CTX-ticket-fields-ignored", SM,
+           "        changed = [name for name in self.fields if getattr(current, name) != getattr(self.snapshot, name)]\n",
+           "        changed = []\n",
+           T124, "a result started for one well/wellbore/report is accepted after the selection moved"),
+    Mutant("CTX-ticket-unknown-field", SM,
+           "        if unknown:\n",
+           "        if False:\n",
+           T124, "a misspelt dependency silently makes the ticket depend on nothing"),
+    Mutant("CTX-w12-generation-local-only", W12,
+           "        return ScopeGeneration((self.__dict__.get(\"_local_generation\", 0), self._central_identity()))\n",
+           "        return ScopeGeneration((self.__dict__.get(\"_local_generation\", 0), ()))\n",
+           T124, "the pre-M124 page generation: a hidden page paints a queued result of the old well"),
+    Mutant("CTX-w12-no-restart", W12,
+           "            if self.current_well_id and self._rev_worker is None and self._paint_job is None:\n",
+           "            if False:\n",
+           T124, "a staged paint stopped by a central-only change leaves the page without a cycle"),
+    Mutant("CTX-w12-restart-competes", W12,
+           "            if self.current_well_id and self._rev_worker is None and self._paint_job is None:\n",
+           "            if self.current_well_id and self._paint_job is None:\n",
+           T124, "the restart starts a second cycle next to the one a handler already started"),
+    Mutant("CTX-compare-done-unchecked", TCP,
+           "        if self._central_change(token):\n            # M124 (D7): the app's selected well moved",
+           "        if False:\n            # M124 (D7): the app's selected well moved",
+           T124, "a comparison computed for well A is shown after the app switched to well B"),
+    Mutant("CTX-compare-save-unchecked", TCP,
+           "        if ticket is not None and ticket.stale_reason(_selection(), ticket.local):\n",
+           "        if False:\n",
+           T124, "a comparison of well A is saved as a record while well B is selected"),
+    Mutant("CTX-compare-ticket-all-fields", TCP,
+           "selection.ticket((\"well_id\",), local=token)",
+           "selection.ticket(local=token)",
+           T124, "a report/period change (which a comparison does not read) discards a valid comparison"),
+    Mutant("CTX-picker-local-only", "core/base_tab.py",
+           "        manager.select_well(well_id, well_data)\n        return True\n",
+           "        return False\n",
+           T124, "the pre-M124 pickers: a tab switches its own well while the app keeps another (D38)"),
+    Mutant("CTX-w10-picker-local", "tabs/w10_Planning_Widget.py",
+           "        if well_id and well_id != self.current_well_id and self.select_well_from_picker(well_id):\n",
+           "        if False:\n",
+           T124, "the W10 picker switches only the planning tab (D38)"),
+    Mutant("CTX-w6-fill-selects-first", "tabs/w6_Trajectory_Widget.py",
+           "        self.well_combo.blockSignals(True)\n        self.well_combo.clear()\n"
+           "        self.well_combo.addItem(\"-- Select Well --\", None)\n        if self.db:\n",
+           "        self.well_combo.blockSignals(False)\n        self.well_combo.clear()\n        if self.db:\n",
+           T124, "the pre-M124 fill: W6 switches to the first well while nothing is selected (D38)"),
+    Mutant("CTX-w5-fill-selects-first", "tabs/w5_Equipment_Widget.py",
+           "            self.well_combo.blockSignals(True)\n            self.well_combo.clear()\n"
+           "            self.well_combo.addItem(\"-- Select Well --\", None)\n",
+           "            self.well_combo.blockSignals(False)\n            self.well_combo.clear()\n",
+           T124, "the pre-M124 fill: W5 loads the first well's equipment while nothing is selected (D38)"),
+    Mutant("CTX-w6-init-hides-selection", "tabs/w6_Trajectory_Widget.py",
+           "        # M124 (D7): keep the well/section/report DrillTabBase read from the central selection.  Resetting\n",
+           "        self.current_well_id = None\n",
+           T124, "a W6 built after a selection never shows or loads it"),
+    # ---- M124 CI hang watchdog (a hang no longer hides behind the job timeout) -----------------------
+    Mutant("HANG-not-armed-by-gate", "verify_release.py",
+           "        env.setdefault(\"DRILLMASTER_TEST_HANG_SECONDS\", str(TEST_HANG_SECONDS))\n",
+           "",
+           THANG, "the release gate runs pytest without the watchdog: a hang runs into the job timeout again"),
+    Mutant("HANG-not-annotated", "verify_release.py",
+           "            _ci_error(\"pytest hang\", hang)\n",
+           "            pass\n",
+           THANG, "a hang fails the run but the readable CI annotations do not name the test"),
+    Mutant("HANG-header-anchored", "verify_release.py",
+           "_HANG_HEADER = re.compile(r\"Timeout \\((?P<after>[0-9:.]+)\\)!\")",
+           "_HANG_HEADER = re.compile(r\"^Timeout \\((?P<after>[0-9:.]+)\\)!\", re.M)",
+           THANG, "the dump shares a line with pytest's progress marks and is never recognised"),
+    Mutant("HANG-not-rearmed-per-test", "tests/conftest.py",
+           "    _arm_hang_watchdog()\n    if os.environ.get(_CRASH_BREADCRUMB_ENV) != \"1\":\n",
+           "    if os.environ.get(_CRASH_BREADCRUMB_ENV) != \"1\":\n",
+           THANG, "the watchdog is never armed, so a hung test is not ended"),
+    Mutant("HANG-dump-to-captured-fd", "tests/conftest.py",
+           "        faulthandler.dump_traceback_later(seconds, exit=True, file=_hang_fd)\n",
+           "        faulthandler.dump_traceback_later(seconds, exit=True, file=2)\n",
+           THANG, "the dump goes to pytest's capture file, which dies with the process"),
 ]
 
 

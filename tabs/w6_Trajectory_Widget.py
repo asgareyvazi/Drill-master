@@ -748,9 +748,9 @@ class TrajectoryWidget(DrillTabBase):
     
     def __init__(self, db_manager: DatabaseManager = None, parent=None):
         super().__init__("TrajectoryWidget", db_manager, parent)
-        self.current_well_id = None
-        self.current_report_id = None
-        self.current_section_id = None
+        # M124 (D7): keep the well/section/report DrillTabBase read from the central selection.  Resetting
+        # them to None here hid an existing selection from the picker and from the base showEvent
+        # bootstrap, so a W6 built after a selection never loaded it.
         
         self.trip_sheet_tab = None
         self.survey_data_tab = None
@@ -800,7 +800,12 @@ class TrajectoryWidget(DrillTabBase):
         self.load_wells()
     
     def load_wells(self):
+        """Fill the picker without selecting anything (M124, D7): it shows the application's selected
+        well, else "-- Select Well --".  Before M124 filling it switched the tab (viewer, comparison,
+        survey table) to the first well while the application had another well or none selected."""
+        self.well_combo.blockSignals(True)
         self.well_combo.clear()
+        self.well_combo.addItem("-- Select Well --", None)
         if self.db:
             hierarchy = self.db.get_hierarchy()
             for company in hierarchy:
@@ -808,11 +813,16 @@ class TrajectoryWidget(DrillTabBase):
                     for well in project.get('wells', []):
                         display = f"{well['name']} ({well['code']}) - {project['name']}"
                         self.well_combo.addItem(display, well['id'])
+        index = self.well_combo.findData(self.current_well_id) if self.current_well_id else -1
+        self.well_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.well_combo.blockSignals(False)
     
     def on_well_combo_changed(self, index):
         if index >= 0:
             well_id = self.well_combo.currentData()
             if well_id != self.current_well_id:
+                if self.select_well_from_picker(well_id):    # M124: one well for the whole application
+                    return
                 self.current_well_id = well_id
                 self.load_sections(well_id)
                 self.update_tabs()

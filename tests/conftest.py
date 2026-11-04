@@ -30,6 +30,7 @@ def pytest_configure(config):
         os.environ["DRILLMASTER_ENV"] = "test"
     os.environ["DRILLMASTER_DATA_DIR"] = directory
     os.environ["DRILLMASTER_DB_PATH"] = str(Path(directory) / "test-session.db")
+    _arm_hang_watchdog_output()
 
 
 
@@ -56,6 +57,47 @@ def _isolate_session_principal():
         permissions._user = previous
 
 
+_HANG_SECONDS_ENV = "DRILLMASTER_TEST_HANG_SECONDS"
+_hang_fd = None
+
+
+def _hang_seconds() -> int:
+    """Per-test hang limit in seconds from the environment; 0 (off) when unset or invalid."""
+    try:
+        value = int(os.environ.get(_HANG_SECONDS_ENV, "0"))
+    except ValueError:
+        return 0
+    return value if value > 0 else 0
+
+
+def _arm_hang_watchdog_output():
+    """Keep a duplicate of the REAL stderr for the hang watchdog (M124).
+
+    Opt-in (``verify_release.py`` sets the variable for its pytest run).  A test that never ends used to
+    run into the CI job timeout, which cancels the job and loses every line of the captured output (the
+    3.13 leg at ``b820552``), so a hang could not be told from a slow runner.  ``pytest_configure`` runs
+    while pytest's global capture is suspended, so fd 2 is the real descriptor here; during a test it is
+    redirected to a capture file that dies with the process.  The same technique as pytest's own
+    faulthandler plugin.
+    """
+    global _hang_fd
+    if _hang_seconds() and _hang_fd is None:
+        _hang_fd = os.dup(2)
+
+
+def _arm_hang_watchdog():
+    """Re-arm faulthandler's watchdog for the test that starts now.
+
+    faulthandler's watchdog is a C thread, so it fires even when the hang holds the GIL; it dumps every
+    thread's stack to the real stderr and exits the process.  ``verify_release.describe_hang`` turns that
+    dump into a CI annotation naming the test.  Nothing is retried and no test is skipped: the run FAILS.
+    """
+    seconds = _hang_seconds()
+    if seconds and _hang_fd is not None:
+        import faulthandler
+        faulthandler.dump_traceback_later(seconds, exit=True, file=_hang_fd)
+
+
 _CRASH_BREADCRUMB_ENV = "DRILLMASTER_CRASH_BREADCRUMB"
 _CRASH_BREADCRUMB_PREFIX = "DRILLMASTER-TEST-START "
 
@@ -71,6 +113,7 @@ def pytest_runtest_logstart(nodeid, location):
     run is byte-for-byte unchanged; ``packaging/junit_report.py`` quotes the last breadcrumb into the
     crash annotation.  A breadcrumb must never fail a test, so a dead descriptor is swallowed.
     """
+    _arm_hang_watchdog()
     if os.environ.get(_CRASH_BREADCRUMB_ENV) != "1":
         return
     try:
@@ -79,7 +122,20 @@ def pytest_runtest_logstart(nodeid, location):
         return
 
 
+def pytest_runtest_logfinish(nodeid, location):
+    """The test (with its setup and teardown) ended: the watchdog covers tests only."""
+    if _hang_fd is not None:
+        import faulthandler
+        faulthandler.cancel_dump_traceback_later()
+
+
 def pytest_unconfigure(config):
+    global _hang_fd
+    if _hang_fd is not None:
+        import faulthandler
+        faulthandler.cancel_dump_traceback_later()
+        os.close(_hang_fd)
+        _hang_fd = None
     if getattr(config, "_drillmaster_test_mode_added", False):
         os.environ.pop("DRILLMASTER_ENV", None)
     for key, value in config._drillmaster_previous_paths.items():

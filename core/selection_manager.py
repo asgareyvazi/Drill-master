@@ -59,6 +59,47 @@ class ContextSnapshot:
         return dict(self.__dict__)
 
 
+# M124 (D7): the selection fields a consumer can depend on, in hierarchy order.
+CONTEXT_FIELDS = ("well_id", "wellbore_id", "section_id", "report_id", "period_from", "period_to")
+
+
+@dataclass(frozen=True)
+class ContextTicket:
+    """M124 (D7): the central selection identity a piece of background work was started for.
+
+    ``snapshot`` is the immutable ``ContextSnapshot`` taken on the GUI thread when the work starts;
+    ``fields`` names the parts of the selection the work depends on (a trajectory comparison depends
+    on the well only, an analysis page on well, wellbore, section and report); ``local`` is the
+    consumer's own supersede token (a newer request in the SAME context), kept for that separate
+    purpose.  A result is shown only while BOTH are still current, so a result can no longer be
+    accepted just because a tab-local counter was not bumped (a hidden tab defers its selection
+    handlers; a queued result can arrive after the selection moved).
+    """
+
+    snapshot: ContextSnapshot
+    fields: tuple = CONTEXT_FIELDS
+    local: Any = None
+
+    def identity(self) -> tuple:
+        return tuple(getattr(self.snapshot, name) for name in self.fields)
+
+    def stale_reason(self, selection, local: Any = None) -> Optional[str]:
+        """``None`` while the work is current, else why its result must not be shown."""
+        if local != self.local:
+            return "superseded by a newer request"
+        if selection is None:
+            return None
+        current = selection.snapshot()
+        changed = [name for name in self.fields if getattr(current, name) != getattr(self.snapshot, name)]
+        if changed:
+            return "the selection changed (" + ", ".join(name.replace("_id", "").replace("_", " ")
+                                                         for name in changed) + ")"
+        return None
+
+    def is_current(self, selection, local: Any = None) -> bool:
+        return self.stale_reason(selection, local) is None
+
+
 def _as_date(value, label: str) -> Optional[date]:
     if value in (None, ""):
         return None
@@ -460,6 +501,23 @@ class SelectionManager(QObject):
 
     def is_current(self, token) -> bool:
         return tuple(token) == self.context_token()
+
+    @property
+    def generation(self) -> int:
+        """Bumped before every selection signal (well, wellbore, section, report, clear, period)."""
+        return self._generation
+
+    def identity(self, fields=CONTEXT_FIELDS) -> tuple:
+        """M124: the current values of ``fields`` (as in ``ContextSnapshot``), for a consumer's own key."""
+        snapshot = self.snapshot()
+        return tuple(getattr(snapshot, name) for name in fields)
+
+    def ticket(self, fields=CONTEXT_FIELDS, local: Any = None) -> ContextTicket:
+        """M124: capture the central identity for background work (see ``ContextTicket``)."""
+        unknown = [name for name in fields if name not in CONTEXT_FIELDS]
+        if unknown:
+            raise ValueError(f"Unknown selection field(s): {', '.join(unknown)}")
+        return ContextTicket(self.snapshot(), tuple(fields), local)
 
     def wellbore_for(self, well_id, db=None) -> Optional[int]:
         """The selected wellbore when it belongs to ``well_id`` (M70.7), else ``None``.
