@@ -479,6 +479,10 @@ def verify_cement_case(db_manager, inputs: Dict[str, Any], results: Dict[str, An
         return {**blank, "status": "NOT_REPRODUCIBLE", "detail": why}
     if db_manager is None:
         return {**blank, "status": "NOT_REPRODUCIBLE", "detail": "the architecture revision cannot be read here"}
+    if results is not None and not (isinstance(results, dict) and all(isinstance(v, dict) for v in results.values())):
+        # M119 (D35): a stored result of another shape is reported, never dereferenced
+        return {**blank, "status": "UNREADABLE", "detail": "the stored result is not a worksheet payload; "
+                                                            "it is shown as saved"}
     try:
         work = rerun_cement_worksheet(db_manager, inputs)
     except LookupError as exc:

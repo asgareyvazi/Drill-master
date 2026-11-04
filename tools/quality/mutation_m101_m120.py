@@ -67,6 +67,7 @@ W11 = "tabs/w11_Export.py"
 CHT = "tabs/calculation_history_tab.py"
 T117I = ["tests/test_m117_journey_index.py"]
 T117W = ["tests/test_m117_widget_journeys.py"]
+T119 = ["tests/test_m119_adversarial.py"]
 T115A = ["tests/test_m115_chart_axes.py"]
 
 MUTANTS = [
@@ -820,6 +821,19 @@ MUTANTS = [
            "self.save_recalc_btn.setEnabled(bool(self.last_outcome and self.last_outcome.get(\"values\")))",
            "self.save_recalc_btn.setEnabled(bool(self.last_outcome))",
            T117W, "journey M: a NOT_REPRODUCIBLE outcome could be stored as a recalculation"),
+    # ---- M119 second adversarial review (D35) --------------------------------------------------------------
+    Mutant("CH-recheck-guard-removed", CH,
+           "    try:\n        return _recalculate_entry(entry, db)\n    except Exception as exc:",
+           "    try:\n        return _recalculate_entry(entry, db)\n    except ZeroDivisionError as exc:",
+           T119, "D35 restored: a malformed stored record raises out of the history tab's re-check"),
+    Mutant("WA-cement-shape-check-removed", WA,
+           "    if results is not None and not (isinstance(results, dict) and all(isinstance(v, dict) for v in results.values())):",
+           "    if False:",
+           T119, "the cement adapter dereferences a malformed result (only the generic guard reports it)"),
+    Mutant("SR-verify-bool-accepted", SR,
+           "            if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):",
+           "            if not isinstance(x, (int, float)) or not math.isfinite(x):",
+           T119, "D1 probe: a boolean result (== 0) passes as a number"),
 ]
 
 

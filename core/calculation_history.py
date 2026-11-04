@@ -32,6 +32,7 @@ from __future__ import annotations
 import csv
 import html
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -464,6 +465,18 @@ PERSISTENCE_MODULES = {
 
 
 def recalculate_entry(entry: HistoryEntry, db=None) -> Dict[str, Any]:
+    """Re-run an entry; a malformed stored record is reported as UNREADABLE, never raised (M119, D35)."""
+    try:
+        return _recalculate_entry(entry, db)
+    except Exception as exc:  # silent-ok: reported to the user as UNREADABLE with the type and reason, and logged
+        logging.getLogger(__name__).warning("Re-check of %s failed: %s", entry.key, type(exc).__name__,
+                                            exc_info=True)
+        return {"status": "UNREADABLE", "method_matches": None, "current_method": "",
+                "detail": f"the stored record could not be re-checked ({type(exc).__name__}: {exc}); "
+                          "it is shown as saved and nothing was changed", "values": {}}
+
+
+def _recalculate_entry(entry: HistoryEntry, db=None) -> Dict[str, Any]:
     """Re-run an entry with the CURRENT method and classify it against the stored result.
 
     Engine snapshots reuse each engine's ``recalculate_from_snapshot`` and the

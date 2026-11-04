@@ -163,6 +163,14 @@ data and backup folder readable only by the user, and full-disk encryption
 write immutable revisions. Without enforcement (direct file access) audit rows
 can be altered; the audit trail is evidence, not tamper-proof storage.
 
+The same limit applies to the integrity checks (M119 review). Survey station and results SHA-256 (M105),
+calculation inputs SHA-256 (M108), architecture component SHA-256 (M74) and the immutability triggers detect
+an edit that does not also recompute the hash. They do **not** detect a consistent forgery by someone with
+direct file access, who can drop a trigger and rewrite the data together with its hash. No keyed MAC or
+signature is used: a key stored on the same machine would be just as reachable. Detecting such a forgery
+needs a reference kept elsewhere, for example a verified backup or exported hashes. That is not implemented,
+and it is an owner decision together with database encryption (§7).
+
 ## 6. Privacy
 
 See `docs/privacy/README.md`: no real operational data in the repository,

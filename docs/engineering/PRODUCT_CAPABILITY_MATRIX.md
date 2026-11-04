@@ -492,6 +492,7 @@ Product label: UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Start: 
 | D32 | P2 | (found in M116 column classification) `survey_revisions.results_sha256` (added in M105) was not in the survey guard's frozen list. A writer could therefore replace the recorded results hash, for example together with tampered results, without the storage guard refusing it | M116 | **resolved (M116)**: the column is frozen, and the survey guard is versioned separately (`SURVEY_GUARD_VERSION = 2`). On the next start an existing database gets `trg_survey_revision_immutable_v2` and loses the v1 trigger, after the additive column exists (legacy test). Refused for ORM flush, ORM bulk update, `text()` and raw sqlite3 writers. The hash is set only at insert, so nothing that worked before is refused. 3 mutants killed |
 | D33 | P2 | (found in M116 while requalifying SET NULL references) `delete_daily_report` deleted every mapped row with a `report_id`, including rows whose reference is declared `ON DELETE SET NULL`. Deleting a daily report therefore silently deleted the MSE runs (calculation history) that cited it as lineage (M104), instead of setting their report to unknown. The M96 test accepted "removed or unlinked" without checking the declared action | M116 | **resolved (M116)**: the report delete honours the declared action. References declared SET NULL are set to NULL in the same transaction, the record is kept, and the audit record counts `references_unlinked`. The unlink runs in `REPORT_DELETE_UNLINK`, which has no permission of its own, may change only `mse_calculations.report_id`, and never authorizes a plain update (test with a viewer holding only `can_delete_reports`). The M96 test now fails `DELETED DESPITE ON DELETE SET NULL` when the well survives, and it detects the defect on its own when the fix is reverted. 3 mutants killed |
 | D34 | P3 | (found in M115 chart-axis audit) The W12 performance chart plots ROP and WOB as a percentage of their scope maximum against the calendar day since the first record. Its axes said "Performance Metrics" and "Bit Run #", so the x axis named the wrong quantity. Also, the W10 material chart's axis read "Consumed (unit)" (a placeholder), and the mud chart's gel axes had no unit | M115 | **resolved (M115)**: `PERFORMANCE_AXES` = "Percent of scope maximum (%)" / "Calendar day (day 1 = first dated record)" (widget test on the real W12 tab). The material axis now reads "each bar in its material's own unit" (bars carry their unit), and the gels read "lb/100ft²" (the canonical schema unit). A static audit requires every axis label in `tabs/` and `core/` to state a unit, or to be a reviewed category or unit-named axis. Computed labels are a reviewed set. 2 mutants killed |
+| D35 | P3 | (found in M119 by probing the M109 adapter with malformed stored results) `well_architecture.verify_cement_case` raised `AttributeError`/`TypeError` when a stored worksheet result was not a mapping of field payloads (a number, a list). `calculation_history.recalculate_entry` did not guard any adapter, so a malformed record aborted the history tab's re-check slot (traceback printed, no result shown) instead of being reported | M119 | **resolved (M119)**: the cement adapter reports UNREADABLE ("not a worksheet payload"), and every adapter failure in `recalculate_entry` becomes UNREADABLE with the exception type and message, logged. Nothing is stored and nothing is changed; the record is shown as saved. 2 mutants killed |
 
 ### M105 – Survey integrity, depth datum and plan references
 
@@ -764,3 +765,42 @@ field acceptance.
 | Mutation | PASS | 5 index mutants (QApplication counted, child scripts ignored, fixture parameters ignored, helpers not followed, missing citation accepted) and 3 product mutants on the journeys (conversion skips verification, per-report option ignored, NOT_REPRODUCIBLE storable): **8/8 killed** |
 | Limits | stated | Dialogs answered by fixed test doubles; production widget methods driven directly (no synthesised mouse events); offscreen fonts/DPI only |
 | Regression | PASS | Full suite (offscreen, Python 3.11, Linux): 4693 collected (4684 + 9 M117), 4689 passed, 4 skipped (the four opt-in skips; not passes), 0 failed, 1610 s. `dependency_audit.json` regenerated (catalogue evidence now cites `test_m117_widget_journeys.py`) |
+
+### M119 – Second adversarial review
+
+**Interpretation.** "The 14 known findings" are register entries **D1–D14**, the findings of the M101 audit. Each was
+attacked again from an angle its own tests did not take, and its tests were read for what they assert.
+`tests/test_m119_adversarial.py` holds the new probes.
+
+| Finding | Second review | Result |
+|---|---|---|
+| D1 survey results verification | Azimuth stored as 359.999999999° for 0° (wrap), swapped stations, a boolean `False` for 0, a numeric string, an extra field, NaN | **holds**: wrap is a MATCH, and every other attack is DIFFERENT and refused by `verify_for_use`. New mutant `SR-verify-bool-accepted` killed. The wrap and missing/extra mutants already existed (M105), so they were not duplicated |
+| D2 tie-in fail-closed | A revision dict without an `integrity` key, and with `integrity=None` | **holds**: refused ("station hash"). **Limit documented**: the hashes are unkeyed, so a consistent forgery by someone with file access (drop trigger, rewrite data and hash) is not detected. `docs/SECURITY_MODEL.md` §5 now says so, next to the audit-trail statement |
+| D3 OA off the GUI thread | Read `test_m103_context_jobs.py`: the switch, close and newer-job tests assert on what the panel shows, not only on job states | holds |
+| D4 "Rev 0" / approval | `test_m110…::test_revision_is_the_stored_one_or_none_recorded_never_rev_0` also scans the generator sources. M117 journey U reads the per-report workbooks written through W11 | holds |
+| D5 plan vs actual scope | Read `test_m104…`: wellbore and date-range scopes give NOT ASSESSED with a reason, never a whole-well number | holds |
+| D6 MSE lineage | Legacy runs stay unknown (M104). M116 found **D33**: deleting a report deleted the MSE runs that cited it; fixed | PARTIAL stays (legacy runs cannot gain lineage) |
+| D7 context in every worker | `context_token()` guards `core.context_jobs` jobs. The tab-local tokens in W12 snapshot reads, analysis views, trajectory compare and the knowledge assistant remain; they already reject stale results | PARTIAL stays |
+| D8 W13 calculators | `test_m107…::test_all_27_leaves_have_a_contract_or_an_exact_reason` enumerates the real W13 leaves, not a copied list | holds |
+| D9 cement re-run | Probed the adapter with malformed stored results: it raised (**D35**, fixed). Integrity failures were already UNREADABLE (M109) | holds after D35 |
+| D10 multi-segment solver | Infeasible cases return structured codes (`INC_LIMIT` in the designer journey, M106 goldens); no optimality claim in the UI text ("not an optimum") | holds |
+| D11 datum / CRS | Explicit vertical shift only; CRS NOT IMPLEMENTED by scope | PARTIAL stays (owner gate) |
+| D12 interruptible parse | M111: cancel never commits, child stopped, no orphans (`multiprocessing.active_children()` and pid checks). Identity change is a separate status | holds |
+| D13 licences | Disclosure complete (M112). Decisions are owner gates; nothing was installed | holds for disclosure |
+| D14 legacy trajectory | M117 journey M through the real history tab: NOT REPRODUCIBLE, nothing storable, no method assigned | holds |
+
+**What the tests assert.** An AST audit of every test function in `tests/` (it follows same-file helpers) found 3
+with no `assert`, `pytest.raises`, `pytest.fail` or checking call. All 3 are deliberate "must not raise" tests
+(teardown of the Matplotlib 3D canvas ×2; a consistent parent/child edit). Such a test only proves something if
+an exception in a Qt slot reaches the test. A subprocess probe shows that PySide6 6.8.1.1 re-raises a slot's
+exception from `processEvents()`, which is what these tests drive. In a running `exec()` loop the traceback is printed
+and the loop continues (checked the same way). That is the behaviour the M101 reasoning about "swallowed" slot
+exceptions relies on, so both statements hold. The audit and the probe are tests, so a new assertion-free test, or a PySide
+change that swallows slot exceptions, fails the suite.
+
+**Register numbering.** D19–D22 were never assigned: the register in every phase commit goes from D18 to D23
+(M104, `fe7ee66`). No defect is missing; the numbers are simply unused.
+
+| Mutation | 3 M119 mutants (`CH-recheck-guard-removed`, `WA-cement-shape-check-removed`, `SR-verify-bool-accepted`): **3/3 killed** |
+|---|---|
+| Regression | PASS | Full suite (offscreen, Python 3.11, Linux): 4706 collected (4693 + 13 M119), 4702 passed, 4 skipped (the four opt-in skips; not passes), 0 failed, 1574 s. `dependency_audit.json` regenerated (catalogue evidence cites `test_m119_adversarial.py`; one import line moved) |

@@ -57,7 +57,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 10,
+    "evidence_tests": 11,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
@@ -65,6 +65,7 @@
      "test_m102_context_probes.py",
      "test_m109_cement_worksheet.py",
      "test_m116_persistence.py",
+     "test_m119_adversarial.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -142,7 +143,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 10,
+    "evidence_tests": 11,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
@@ -150,6 +151,7 @@
      "test_m102_context_probes.py",
      "test_m109_cement_worksheet.py",
      "test_m116_persistence.py",
+     "test_m119_adversarial.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -161,7 +163,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 60,
+    "evidence_tests": 61,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -192,6 +194,7 @@
      "test_kill_sheet_casing_id_gate.py",
      "test_m107_w13_contracts.py",
      "test_m109_cement_worksheet.py",
+     "test_m119_adversarial.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -262,7 +265,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 11,
+    "evidence_tests": 12,
     "licence": "own code (product licence)",
     "method_id": "directional.plan_vs_actual",
     "status": "IMPLEMENTED",
@@ -270,6 +273,7 @@
      "test_m105_survey_references.py",
      "test_m108_history_coverage.py",
      "test_m117_widget_journeys.py",
+     "test_m119_adversarial.py",
      "test_m52_trajectory_compare.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m55_directional.py",
@@ -459,7 +463,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 15,
+    "evidence_tests": 16,
     "licence": "own code (product licence)",
     "method_id": "survey.azimuth_transform",
     "status": "IMPLEMENTED",
@@ -469,6 +473,7 @@
      "test_m105_survey_references.py",
      "test_m116_persistence.py",
      "test_m117_widget_journeys.py",
+     "test_m119_adversarial.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
      "test_m74_well_architecture.py",
@@ -483,7 +488,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 15,
+    "evidence_tests": 16,
     "licence": "own code (product licence)",
     "method_id": "survey.datum_transform",
     "status": "IMPLEMENTED",
@@ -493,6 +498,7 @@
      "test_m105_survey_references.py",
      "test_m116_persistence.py",
      "test_m117_widget_journeys.py",
+     "test_m119_adversarial.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
      "test_m74_well_architecture.py",
@@ -507,7 +513,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 15,
+    "evidence_tests": 16,
     "licence": "own code (product licence)",
     "method_id": "survey.revision",
     "status": "IMPLEMENTED",
@@ -517,6 +523,7 @@
      "test_m105_survey_references.py",
      "test_m116_persistence.py",
      "test_m117_widget_journeys.py",
+     "test_m119_adversarial.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
      "test_m74_well_architecture.py",
@@ -2519,7 +2526,7 @@
    "file": "core/calculation_history.py",
    "guarded": false,
    "lines": [
-    205
+    206
    ],
    "module": "sqlalchemy"
   },
