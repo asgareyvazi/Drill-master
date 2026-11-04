@@ -825,3 +825,10 @@ and CI cover it.
 | Gates at `c7b6ac1` | PASS | lint 727 (ceiling 727); `ruff --select E722,F821` clean; privacy 1348 files / 0 findings; dependency audit 26 pins, 0 FAIL; engine inventory, constant inventory, journey index current; schema compat 26/26; mutation anchors 570 / 0 bad |
 | Goldens | PASS | in the full suite: build-hold TD 1623.903201 m, J-profile VS 488.7133898 m, Teale MSE 127997.67 psi, bit ΔP 920.98 psi, datum shift −25 m, S-profile 24.355°, nozzles [7, 7, 9] / TFA 0.1371 in² |
 | Regression | PASS | Full suite (offscreen, Python 3.11, Linux): 4707 collected (4706 + 1 M118), 4703 passed, 4 skipped (the four opt-in skips; not passes), 0 failed, 1580 s |
+
+### M120 – Closure report
+
+`docs/mission-reports/M101_M120_PRODUCT_CLOSURE_REPORT.md` (§A–§H) summarises this register; it does not compete with
+it. Final code SHA `c7b6ac194fc531995da5d4722254100dc2fbfab1`. State: *Integrated drilling engineering product candidate
+— implemented and qualified within the documented technical scope; Windows desktop acceptance, field acceptance, legal
+approvals and release authorization remain open.* UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.
