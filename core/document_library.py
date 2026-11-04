@@ -598,6 +598,19 @@ class DocumentLibrary:
         finally:
             session.close()
 
+    def _page_ids_of(self, document_ids) -> set:
+        """Stored page ids of the given documents (M114 search scope); unknown ids contribute nothing."""
+        from core.database import DocumentPage
+        wanted = {int(d) for d in document_ids if d is not None}
+        if not wanted:
+            return set()
+        session = self.db.create_session()
+        try:
+            return {row[0] for row in session.query(DocumentPage.id)
+                    .filter(DocumentPage.document_id.in_(sorted(wanted))).all()}
+        finally:
+            session.close()
+
     def _ensure_index(self):
         signature = self._signature()
         if self._index is not None and signature == self._index_signature:
@@ -654,22 +667,41 @@ class DocumentLibrary:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 20) -> dict:
-        """{'status', 'method', 'hits', 'message'}; each hit names its file and page."""
+    def search(self, query: str, limit: int = 20, document_ids=None) -> dict:
+        """{'status', 'method', 'hits', 'message', 'scope'}; each hit names its file and page.
+
+        ``document_ids`` (M114) restricts the search to those documents BEFORE the limit is applied:
+        ``None`` searches the whole library, an empty collection searches nothing.  A well-scoped view
+        passes the documents linked to that well, so another well's documents can never appear.
+        """
         groups = parse_query(query)
         terms = [t for group in groups for t in group]
+        scope = "whole library" if document_ids is None else f"{len(set(document_ids))} document(s) in scope"
         if not terms or sum(len(t) for t in terms) < 2:
-            return {"status": "invalid_query", "method": None, "hits": [],
+            return {"status": "invalid_query", "method": None, "hits": [], "scope": scope,
                     "message": "Enter at least two letters or digits"}
+        allowed = None if document_ids is None else self._page_ids_of(document_ids)
+        if allowed is not None and not allowed:
+            return {"status": "no_matches", "method": None, "hits": [], "terms": terms,
+                    "groups": [list(group) for group in groups], "normalization_version": NORMALIZATION_VERSION,
+                    "scope": scope, "message": "No documents in scope; nothing was searched."}
         index = self._ensure_index()
         if index is not None:
-            rows = index.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH ? ORDER BY bm25(page_fts) LIMIT ?",
-                                 (fts_match_expression(groups), int(limit))).fetchall()
+            if allowed is None:
+                rows = index.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH ? ORDER BY bm25(page_fts) LIMIT ?",
+                                     (fts_match_expression(groups), int(limit))).fetchall()
+            else:
+                # read-only restriction: the page ids travel as one JSON parameter (SQLite JSON1, built in
+                # since 3.38), so the scope applies inside the query, before LIMIT, and nothing is written
+                rows = index.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH ? "
+                                     "AND rowid IN (SELECT value FROM json_each(?)) ORDER BY bm25(page_fts) LIMIT ?",
+                                     (fts_match_expression(groups), json.dumps(sorted(allowed)),
+                                      int(limit))).fetchall()
             method = "SQLite FTS5 (in-memory index of reviewed pages, Persian/Arabic-normalised)"
             order = [row[0] for row in rows]
         else:
             method = "Substring scan (FTS5 unavailable in this SQLite build, Persian/Arabic-normalised)"
-            order = self._scan_search(groups, limit)
+            order = self._scan_search(groups, limit, allowed)
         details = self._page_details(order)
         hits = []
         for rowid in order:
@@ -686,17 +718,20 @@ class DocumentLibrary:
                          "match_count": len(spans), "snippet": make_snippet(original, groups)})
         return {"status": "matched" if hits else "no_matches", "method": method, "hits": hits,
                 "terms": terms, "groups": [list(group) for group in groups],
-                "normalization_version": NORMALIZATION_VERSION,
+                "normalization_version": NORMALIZATION_VERSION, "scope": scope,
                 "message": (f"{len(hits)} page(s) match" if hits else
                             "No matching text. Only reviewed, stored text is searchable; pages without a "
                             "text layer or unapproved OCR are not indexed.")}
 
-    def _scan_search(self, groups, limit):
+    def _scan_search(self, groups, limit, allowed=None):
         """Fallback without FTS5: the same normalisation AND the same match
         semantics as the index (word prefixes, exact phrases/identifiers,
-        half-space alternatives) - see ``text_matches``."""
+        half-space alternatives) - see ``text_matches``.  ``allowed`` (page ids)
+        restricts the scan before the limit (M114)."""
         hits = []
         for page_id, text in sorted(self._all_pages()):
+            if allowed is not None and page_id not in allowed:
+                continue
             if text_matches(text, groups):
                 hits.append(page_id)
                 if len(hits) >= int(limit):

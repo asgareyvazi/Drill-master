@@ -53,6 +53,10 @@ OUTCOME_TEXT = {"imported": "Imported", "duplicate": "Duplicate - not imported",
 LIBRARY_FILTERS = (("all", "All documents"), ("unlinked", "Unlinked documents only"),
                    ("linked", "Linked documents only"),
                    ("selected_well", "Linked to the selected well"))   # M102: follows the selection
+#: M114: the search runs in the same scope as the list and says so
+SEARCH_SCOPE_TEXT = {"all": "Scope: whole library", "unlinked": "Scope: documents not linked to a well",
+                     "linked": "Scope: documents linked to a well",
+                     "selected_well": "Scope: documents linked to the selected well"}
 
 
 class ExtractionWorker(QThread):
@@ -442,21 +446,12 @@ class DocumentsTab(QWidget):
             return
         total, unlinked = len(documents), sum(1 for d in documents if not d["links"])
         mode = self.filter_combo.currentData()
-        if mode == "selected_well":
-            well_id = getattr(self, "context_well_id", None)
-            linked = set()
-            if well_id:
-                try:
-                    linked = {link["document_id"] for link in self.link_service.links_for_well(well_id)}
-                except Exception as exc:
-                    logger.warning("Document links could not be read: %s", type(exc).__name__)
-                    self.library_info.setText(f"Links could not be read ({type(exc).__name__})")
-                    return
-            documents = [d for d in documents if d["id"] in linked]
-        elif mode == "unlinked":
-            documents = [d for d in documents if not d["links"]]
-        elif mode == "linked":
-            documents = [d for d in documents if d["links"]]
+        try:
+            documents = self._filter_documents(documents, mode)
+        except Exception as exc:
+            logger.warning("Document links could not be read: %s", type(exc).__name__)
+            self.library_info.setText(f"Links could not be read ({type(exc).__name__})")
+            return
         selected = self.current_document_id
         self.table.blockSignals(True)
         self.table.setSortingEnabled(False)
@@ -489,6 +484,23 @@ class DocumentsTab(QWidget):
         self._refresh_links()
         if hasattr(self, "assistant"):
             self.assistant.library_changed()       # an answer never outlives its documents/links
+        # M114: an open search follows the scope (filter, selected well, links, deletions) - never stale hits
+        if self.last_search is not None and self.search_edit.text().strip():
+            self.run_search()
+
+    def _filter_documents(self, documents, mode):
+        """The library filter, shared by the list and the search (M114) so both always use the same scope."""
+        if mode == "selected_well":
+            well_id = getattr(self, "context_well_id", None)
+            linked = set()
+            if well_id:
+                linked = {link["document_id"] for link in self.link_service.links_for_well(well_id)}
+            return [d for d in documents if d["id"] in linked]
+        if mode == "unlinked":
+            return [d for d in documents if not d["links"]]
+        if mode == "linked":
+            return [d for d in documents if d["links"]]
+        return documents
 
     def on_context_changed(self, snapshot) -> None:
         """M102: the library is portfolio-wide by default; the "selected well" filter follows the selection."""
@@ -788,8 +800,18 @@ class DocumentsTab(QWidget):
     # ---------------------------------------------------------------- search
     def run_search(self):
         query = self.search_edit.text()
+        mode = self.filter_combo.currentData() or "all"
+        if mode == "selected_well" and not getattr(self, "context_well_id", None):
+            self.last_search = {"status": "no_scope", "method": None, "hits": [], "scope": "no well selected",
+                                "message": "Select a well to search the documents linked to it."}
+            self.results.clear()
+            self.search_info.setText(self.last_search["message"])
+            return
         try:
-            result = self.library.search(query)
+            scope = None
+            if mode != "all":
+                scope = {d["id"] for d in self._filter_documents(self.library.list_documents(), mode)}
+            result = self.library.search(query, document_ids=scope)
         except Exception as exc:
             logger.warning("Document search failed: %s", type(exc).__name__)
             self.search_info.setText(f"Search failed ({type(exc).__name__})")
@@ -808,7 +830,7 @@ class DocumentsTab(QWidget):
             item.setToolTip("Select to open the stored text of this page")
             self.results.addItem(item)
         method = f" · {result['method']}" if result["method"] else ""
-        self.search_info.setText(result["message"] + method)
+        self.search_info.setText(result["message"] + method + " · " + SEARCH_SCOPE_TEXT.get(mode, mode))
 
     def _result_selected(self, row):
         item = self.results.item(row) if row >= 0 else None

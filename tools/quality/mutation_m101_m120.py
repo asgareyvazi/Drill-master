@@ -54,6 +54,9 @@ DA = "tools/quality/dependency_audit.py"
 T112 = ["tests/test_m112_dependency_audit.py"]
 CI = "tools/quality/constant_inventory.py"
 T113 = ["tests/test_m113_constant_inventory.py"]
+DLIB = "core/document_library.py"
+DTAB = "tabs/documents_tab.py"
+T114 = ["tests/test_m114_document_scope.py"]
 
 MUTANTS = [
     # ---- M107 W13 contracts (D8) and the weight-up sack count (D26) --------------------------------------
@@ -298,8 +301,8 @@ MUTANTS = [
            "        pass",
            T102, "the status bar never shows the context path"),
     Mutant("DOC-selected-well-filter-unfiltered", "tabs/documents_tab.py",
-           "            documents = [d for d in documents if d[\"id\"] in linked]",
-           "            pass",
+           "            return [d for d in documents if d[\"id\"] in linked]",
+           "            return documents",
            T102, "the 'selected well' library filter lists every document"),
     # ---- M105 survey derived-result integrity (D1) -------------------------------------------------
     Mutant("SR-field-set-unchecked", SR,
@@ -683,6 +686,42 @@ MUTANTS = [
            "        if len(same_meaning) > 1:",
            "        if len(same_meaning) > 3:",
            T113, "several literals of one quantity are not reported"),
+    # ---- M114 document search scope (D31) ---------------------------------------------------------------
+    Mutant("DLIB-scope-ignored", DLIB,
+           "        allowed = None if document_ids is None else self._page_ids_of(document_ids)",
+           "        allowed = None",
+           T114, "the document scope is ignored: other wells' documents appear in a scoped search"),
+    Mutant("DLIB-empty-scope-means-all", DLIB,
+           "        allowed = None if document_ids is None else self._page_ids_of(document_ids)",
+           "        allowed = None if not document_ids else self._page_ids_of(document_ids)",
+           T114, "an empty scope (no linked documents) searches the whole library"),
+    Mutant("DLIB-limit-before-scope", DLIB,
+           "                rows = index.execute(\"SELECT rowid FROM page_fts WHERE page_fts MATCH ? \"\n"
+           "                                     \"AND rowid IN (SELECT value FROM json_each(?)) ORDER BY bm25(page_fts) LIMIT ?\",\n"
+           "                                     (fts_match_expression(groups), json.dumps(sorted(allowed)),\n"
+           "                                      int(limit))).fetchall()",
+           "                rows = [r for r in index.execute(\"SELECT rowid FROM page_fts WHERE page_fts MATCH ? \"\n"
+           "                                     \"ORDER BY bm25(page_fts) LIMIT ?\",\n"
+           "                                     (fts_match_expression(groups), int(limit))).fetchall() if r[0] in allowed]",
+           T114, "the limit is applied before the scope, so in-scope hits are lost"),
+    Mutant("DLIB-scan-unscoped", DLIB,
+           "            if allowed is not None and page_id not in allowed:\n                continue",
+           "            if False:\n                continue",
+           T114, "the substring-scan fallback ignores the scope"),
+    Mutant("DTAB-search-not-scoped", DTAB,
+           "            result = self.library.search(query, document_ids=scope)",
+           "            result = self.library.search(query)",
+           T114, "the tab searches the whole library whatever the filter or selected well"),
+    Mutant("DTAB-stale-hits-kept", DTAB,
+           "        if self.last_search is not None and self.search_edit.text().strip():\n            self.run_search()",
+           "        if False:\n            self.run_search()",
+           T114, "a well switch, filter change or deletion keeps the previous search hits"),
+    Mutant("DTAB-no-well-searches-all", DTAB,
+           "        if mode == \"selected_well\" and not getattr(self, \"context_well_id\", None):\n"
+           "            self.last_search = {",
+           "        if False:\n"
+           "            self.last_search = {",
+           T114, "with no well selected the well-scoped view does not say so"),
 ]
 
 
