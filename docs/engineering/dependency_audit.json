@@ -326,7 +326,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 10,
+    "evidence_tests": 11,
     "licence": "own code (product licence)",
     "method_id": "engine.hydraulics",
     "status": "IMPLEMENTED",
@@ -336,6 +336,7 @@
      "test_final_hardening_regressions.py",
      "test_hydraulics_m40_regressions.py",
      "test_hydraulics_m41_model_certification.py",
+     "test_m113_constant_inventory.py",
      "test_m75_engine_inventory.py",
      "test_nozzle_optimization.py",
      "test_release_gate_and_w13.py",
@@ -1176,7 +1177,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 20,
+    "evidence_tests": 21,
     "licence": "own code (product licence)",
     "method_id": "engine.well_control",
     "status": "IMPLEMENTED",
@@ -1189,6 +1190,7 @@
      "test_engineering_integrations.py",
      "test_engineering_non_finite_contract.py",
      "test_kill_sheet_casing_id_gate.py",
+     "test_m113_constant_inventory.py",
      "test_m31_scenarios.py",
      "test_mse_cross_process.py",
      "test_mud_volume_cross_process.py",
@@ -1833,9 +1835,9 @@
     26,
     27,
     32,
-    4110,
-    4281,
-    4282
+    4115,
+    4286,
+    4287
    ],
    "module": "PySide6"
   },
@@ -2410,8 +2412,8 @@
    "file": "tabs/w12_Analysis.py",
    "guarded": true,
    "lines": [
-    76,
-    78
+    80,
+    82
    ],
    "module": "pyqtgraph"
   },
@@ -2468,9 +2470,9 @@
    "file": "tabs/w12_Analysis.py",
    "guarded": true,
    "lines": [
-    4165,
-    4166,
-    4167
+    4170,
+    4171,
+    4172
    ],
    "module": "reportlab"
   },

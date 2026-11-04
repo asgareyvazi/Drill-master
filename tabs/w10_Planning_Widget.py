@@ -2211,8 +2211,8 @@ class MudParamsTab(QWidget):
                 "Mud Sample MW (PCF)": ('mw', 'Mud Sample MW (PCF)', '#3498db'),
                 "PV (cp)": ('pv', 'PV (cp)', '#e74c3c'),
                 "YP": ('yp', 'YP (lb/100ft²)', '#2ecc71'),
-                "Gel 10s": ('gel_10s', 'Gel 10s', '#f39c12'),
-                "Gel 10m": ('gel_10m', 'Gel 10m', '#9b59b6'),
+                "Gel 10s": ('gel_10s', 'Gel 10s (lb/100ft²)', '#f39c12'),     # M115: canonical unit lb/100ft2
+                "Gel 10m": ('gel_10m', 'Gel 10m (lb/100ft²)', '#9b59b6'),
                 "pH": ('ph', 'pH', '#1abc9c'),
                 "Temperature": ('temp', 'Temperature (°C)', '#e67e22'),
             }
@@ -2585,7 +2585,7 @@ class MaterialInventoryTab(QWidget):
         colors = plt.cm.viridis(range(len(materials)))
         bars = ax.bar(materials, used_vals, color=colors, edgecolor='white')
         ax.set_xlabel("Material", color='white')
-        ax.set_ylabel("Consumed (unit)", color='white')
+        ax.set_ylabel("Consumed (each bar in its material's own unit)", color='white')   # M115: was "(unit)"
         ax.set_title("Material Consumption", color='white', fontsize=12)
         ax.tick_params(axis='x', colors='white', rotation=45)
         ax.tick_params(axis='y', colors='white')

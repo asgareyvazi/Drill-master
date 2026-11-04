@@ -43,6 +43,10 @@ from core.engineering.result import EngineeringError
 
 
 
+#: M115 (D34): axes of the W12 performance chart - what is actually plotted (was "Performance Metrics" / "Bit Run #")
+PERFORMANCE_AXES = ("Percent of scope maximum (%)", "Calendar day (day 1 = first dated record)")
+
+
 class _LoadError:
     """A failed read: shown as a read error with Retry, never as "No data"."""
 
@@ -1257,8 +1261,9 @@ class AnalysisWidget(DrillTabBase):
         
         self.performance_plot = _analysis_plot_widget()
         self.performance_plot.setBackground("#1e1e1e")
-        self.performance_plot.setLabel("left", "Performance Metrics", color="#ffffff", size=14)
-        self.performance_plot.setLabel("bottom", "Bit Run #", color="#ffffff", size=14)
+        # M115 (D34): the chart plots ROP and WOB as % of their scope maximum against the calendar day
+        self.performance_plot.setLabel("left", PERFORMANCE_AXES[0], color="#ffffff", size=14)
+        self.performance_plot.setLabel("bottom", PERFORMANCE_AXES[1], color="#ffffff", size=14)
         self.performance_plot.addLegend()
         self.performance_plot.setMinimumHeight(300)
         charts_layout.addWidget(self.performance_plot)

@@ -57,6 +57,9 @@ T113 = ["tests/test_m113_constant_inventory.py"]
 DLIB = "core/document_library.py"
 DTAB = "tabs/documents_tab.py"
 T114 = ["tests/test_m114_document_scope.py"]
+UXS = "tools/quality/ux_startup_m115.py"
+T115 = ["tests/test_m115_ux_startup.py"]
+T115A = ["tests/test_m115_chart_axes.py"]
 
 MUTANTS = [
     # ---- M107 W13 contracts (D8) and the weight-up sack count (D26) --------------------------------------
@@ -722,6 +725,27 @@ MUTANTS = [
            "        if False:\n"
            "            self.last_search = {",
            T114, "with no well selected the well-scoped view does not say so"),
+    # ---- M115 start-up breakdown and RTL/LTR ------------------------------------------------------------
+    Mutant("UXS-direction-not-applied", UXS,
+           "    app.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)",
+           "    app.setLayoutDirection(Qt.LeftToRight)",
+           T115, "the RTL run is really left-to-right, so the right-to-left check proves nothing"),
+    Mutant("UXS-tab-timing-dropped", UXS,
+           "        if marks[\"last\"] is not None and getattr(self, \"_m115_main\", False):",
+           "        if False:",
+           T115, "per-tab construction times are not recorded"),
+    Mutant("CH-ltr-pin-removed", "tabs/calculation_history_tab.py",
+           "        self.setLayoutDirection(Qt.LeftToRight)\n        layout = QVBoxLayout(self)",
+           "        layout = QVBoxLayout(self)",
+           T115, "the English-only calculation history follows RTL (its tables and numbers would mirror)"),
+    Mutant("W12-performance-axes-old-text", "tabs/w12_Analysis.py",
+           "PERFORMANCE_AXES = (\"Percent of scope maximum (%)\", \"Calendar day (day 1 = first dated record)\")",
+           "PERFORMANCE_AXES = (\"Performance Metrics\", \"Bit Run #\")",
+           T115A, "D34 restored: the x axis says bit run while calendar days are plotted"),
+    Mutant("W10-gel-unit-dropped", "tabs/w10_Planning_Widget.py",
+           "\"Gel 10s\": ('gel_10s', 'Gel 10s (lb/100ft²)', '#f39c12'),",
+           "\"Gel 10s\": ('gel_10s', 'Gel 10s', '#f39c12'),",
+           T115A, "a mud chart axis without its unit"),
 ]
 
 
