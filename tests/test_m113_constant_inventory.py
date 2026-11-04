@@ -36,6 +36,19 @@ def test_comments_and_strings_are_not_counted(tmp_path):
     assert "inconsistency" not in pcf
 
 
+def test_f_string_replacement_fields_count_on_every_python_version(tmp_path):
+    """M118: v1 counted these only on Python >= 3.12 (tokenizer change), so CI 3.12/3.13 disagreed with 3.11."""
+    (tmp_path / "core").mkdir()
+    (tmp_path / "core" / "a.py").write_text(
+        'A = f"{d * 3.28084:.1f} ft, {{0.3048}} escaped"\n'
+        "B = f'{x!r:>10} {(lambda: 0.3048)()} {y = }'\n"
+        'C = "{3.28084} is text"\n', encoding="utf-8")
+    ft = ci.scan(tmp_path)["quantities"]["ft per m"]["variants"]
+    assert (ft["3.28084"]["uses"], ft["0.3048"]["uses"]) == (1, 1)
+    assert ci._code_tokens('f"{a!=2} {b[1:2]:{w}.3f}"') == ["2", "1", "2"]
+    assert ci.scan()["version"] == "M113 constant inventory v2"
+
+
 def test_conventions_and_the_document_agree_with_the_scan():
     result = ci.scan()
     for name in ("cost per length", "dog-leg severity unit", "temperature unit"):

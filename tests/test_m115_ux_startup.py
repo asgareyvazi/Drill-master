@@ -25,7 +25,7 @@ def _run(tmp_path, rtl):
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     proc = subprocess.run([sys.executable, str(TOOL), "--json", str(out)] + (["--rtl"] if rtl else []),
                           cwd=ROOT, env=env, capture_output=True, text=True, timeout=600)
-    assert proc.returncode == 0, proc.stderr[-3000:]
+    assert proc.returncode == 0, f"exit status {proc.returncode} (negative = signal); stderr tail: {proc.stderr[-2500:]}"
     return json.loads(out.read_text(encoding="utf-8"))
 
 

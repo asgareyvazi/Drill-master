@@ -17,6 +17,7 @@ Usage:  python tools/quality/ux_startup_m115.py [--rtl] [--json OUT]
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import json
 import os
 import platform
@@ -125,8 +126,27 @@ def measure(rtl: bool = False, work: Path = None) -> dict:
         "slowest_tabs": sorted(tabs, key=lambda t: -t["ms"])[:5],
         "visits": visits,
     }
-    win.close()
+    _close(app, win, db)
     return result
+
+
+def _close(app, win, db) -> None:
+    """Shut the window down the way the application does (M102 fixture), and prove it closed.
+
+    The measurement answers every QMessageBox.question with No, which includes the exit confirmation, so the
+    close is confirmed explicitly. A close that is ignored would leave worker threads running at interpreter
+    exit, so it is an error here rather than a timing-dependent crash."""
+    from core.selection_manager import SelectionManager
+    end = time.monotonic() + 10
+    while win._hierarchy_worker is not None and time.monotonic() < end:
+        _pump(app, 0.05)
+    SelectionManager().clear()
+    win._close_confirmed = True
+    win.close()
+    _pump(app, 0.2)
+    if win.isVisible() or win._hierarchy_worker is not None:
+        raise RuntimeError("the main window did not close (close ignored or hierarchy worker still running)")
+    db.engine.dispose()
 
 
 def main(argv=None) -> int:
@@ -134,6 +154,7 @@ def main(argv=None) -> int:
     parser.add_argument("--rtl", action="store_true")
     parser.add_argument("--json")
     args = parser.parse_args(argv)
+    faulthandler.enable()          # a native crash prints its stack instead of a bare exit status
     result = measure(rtl=args.rtl)
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.json:

@@ -75,7 +75,7 @@ def _lock() -> List[tuple]:
 
 def _declared() -> List[str]:
     text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
-    return sorted(re.split(r"[<>=!~\[ ]", line, 1)[0] for line in text.splitlines()
+    return sorted(re.split(r"[<>=!~\[ ]", line, maxsplit=1)[0] for line in text.splitlines()
                   if line.strip() and not line.lstrip().startswith("#"))
 
 

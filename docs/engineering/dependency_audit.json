@@ -163,7 +163,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 61,
+    "evidence_tests": 62,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -194,6 +194,7 @@
      "test_kill_sheet_casing_id_gate.py",
      "test_m107_w13_contracts.py",
      "test_m109_cement_worksheet.py",
+     "test_m113_constant_inventory.py",
      "test_m119_adversarial.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",

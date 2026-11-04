@@ -1,7 +1,10 @@
 """M113: inventory of unit-conversion constants in the product code (read-only; changes no value).
 
 For each physical quantity the literal variants found in ``core``, ``tabs`` and ``dialogs`` are counted per
-file (comments excluded).  Several variants of the same quantity are reported as an INCONSISTENCY with the
+file (comments and string text excluded; numbers inside f-string replacement fields are code and count). Python
+3.12 tokenizes f-string fields itself, while 3.11 returns an f-string as one STRING token, so on 3.11 the fields
+are extracted here and the result is the same on every version (M118: the v1 count differed between 3.11 and
+3.12).  Several variants of the same quantity are reported as an INCONSISTENCY with the
 relative difference; whether one value becomes authoritative is an owner decision (M112 pack "7.48 vs
 7.48052").  A change would be a new method version — stored records keep the version they were computed
 with and are never relabelled.
@@ -20,7 +23,7 @@ from typing import Any, Dict, List
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs" / "engineering" / "constant_inventory.json"
-INVENTORY_VERSION = "M113 constant inventory v1"
+INVENTORY_VERSION = "M113 constant inventory v2"   # v2 (M118): numbers in f-string replacement fields count
 DIRS = ("core", "tabs", "dialogs")
 
 #: quantity -> (unit statement, {variant literal: exact value it stands for})
@@ -52,13 +55,60 @@ CONVENTIONS: Dict[str, Dict[str, str]] = {
 }
 
 
+def _replacement_fields(body: str) -> List[str]:
+    """Expressions of the replacement fields of an f-string body (format specs are text, nested fields count)."""
+    fields, i, n = [], 0, len(body)
+    while i < n:
+        if body[i:i + 2] in ("{{", "}}"):
+            i += 2
+            continue
+        if body[i] != "{":
+            i += 1
+            continue
+        depth, quote, end_expr, j = 0, None, None, i + 1
+        while j < n:
+            ch = body[j]
+            if quote:
+                quote = None if ch == quote else quote
+            elif ch in "'\"":
+                quote = ch
+            elif ch in "([{":
+                depth += 1
+            elif ch in ")]":
+                depth -= 1
+            elif ch == "}":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif depth == 0 and end_expr is None and (ch == ":" or (ch == "!" and body[j + 1:j + 2] != "=")):
+                end_expr = j
+            j += 1
+        fields.append(re.sub(r"=\s*$", "", body[i + 1:j if end_expr is None else end_expr]))
+        if end_expr is not None:
+            fields.extend(_replacement_fields(body[end_expr + 1:j]))
+        i = j + 1
+    return fields
+
+
+def _fstring_fields(token: str) -> List[str]:
+    """Replacement-field expressions of an f-string STRING token (Python < 3.12); [] for any other string."""
+    match = re.match(r"([A-Za-z]*)('''|\"\"\"|'|\")", token)
+    if not match or "f" not in match.group(1).lower():
+        return []
+    start, quote = match.end(), match.group(2)
+    return _replacement_fields(token[start:len(token) - len(quote)])
+
+
 def _code_tokens(text: str) -> List[str]:
-    """NUMBER tokens of the source (comments and strings excluded)."""
+    """NUMBER tokens of the source, including f-string replacement fields (comments and string text excluded)."""
     out = []
     try:
         for tok in tokenize.generate_tokens(io.StringIO(text).readline):
             if tok.type == tokenize.NUMBER:
                 out.append(tok.string)
+            elif tok.type == tokenize.STRING:
+                for expression in _fstring_fields(tok.string):
+                    out.extend(_code_tokens("(" + expression + ")"))
     except (tokenize.TokenError, IndentationError):  # silent-ok: unparsable file contributes no tokens
         return out
     return out

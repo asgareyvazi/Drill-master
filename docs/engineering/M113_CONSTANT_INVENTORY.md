@@ -4,8 +4,12 @@ UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED
 
 Generated evidence: `docs/engineering/constant_inventory.json` (`python tools/quality/constant_inventory.py
 --write`; `--check` fails when it is stale; `tests/test_m113_constant_inventory.py` checks it). Counts are
-**code literals only** (Python NUMBER tokens in `core`, `tabs`, `dialogs`; comments and strings excluded), so a
-value that appears only in a help text or comment shows 0 uses. **No value was changed in M113.**
+**code literals only** (Python NUMBER tokens in `core`, `tabs`, `dialogs`; comments and string text excluded), so a
+value that appears only in a help text or comment shows 0 uses. Numbers inside f-string replacement fields
+(`f"{depth * 3.28084:.1f}"`) are code and count. *Inventory v2 (M118):* v1 counted them only on Python ≥ 3.12,
+whose tokenizer splits f-strings, so the CI 3.12/3.13 legs disagreed with the committed 3.11 inventory. v2 extracts
+the fields on 3.11 too (cross-checked against the AST: 571 numbers in f-string fields, 0 files differing). Three
+uses were added: 0.052 in the W13 tab, 3.28084 in W12, 0.3048 in `dialogs/calculator_dialog.py`. **No value was changed in M113.**
 
 ## Inconsistencies (same quantity, several literals)
 
@@ -23,9 +27,9 @@ in the M112 pack "7.48 vs 7.48052".
 | Quantity | Literal (uses) | Note |
 |---|---|---|
 | gal per bbl | 42.0 (6) | bare `42` is not counted (ambiguous) |
-| psi/ft per ppg | 0.052 (13) | exact 0.051948; the oilfield convention |
+| psi/ft per ppg | 0.052 (14) | exact 0.051948; the oilfield convention |
 | psi/ft per pcf | 144.0 (2) | in² per ft² |
-| ft per m | 3.28084 (53), 0.3048 (14, m per ft) | consistent: 1/0.3048 = 3.280840 |
+| ft per m | 3.28084 (54), 0.3048 (15, m per ft) | consistent: 1/0.3048 = 3.280840 |
 | bbl/ft capacity constant | 1029.4 (10) | (D² − d²)/1029.4 bbl/ft |
 | m per 100 ft (DLS conversion) | 30.48 (3) | |
 | °F per °C | 1.8 (4) | hydraulics engine and W15 |

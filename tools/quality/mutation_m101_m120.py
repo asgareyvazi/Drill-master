@@ -834,6 +834,15 @@ MUTANTS = [
            "            if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):",
            "            if not isinstance(x, (int, float)) or not math.isfinite(x):",
            T119, "D1 probe: a boolean result (== 0) passes as a number"),
+    # ---- M118 CI fixes (Python 3.12/3.13 legs) ----------------------------------------------------------------
+    Mutant("UXS-close-not-confirmed", UXS,
+           "    win._close_confirmed = True\n    win.close()\n    _pump(app, 0.2)",
+           "    win.close()\n    _pump(app, 0.2)",
+           T115, "the exit confirmation answers No, the close is ignored and threads outlive the process (CI 3.12/3.13)"),
+    Mutant("CI-fstring-fields-skipped", CI,
+           "                for expression in _fstring_fields(tok.string):",
+           "                for expression in []:",
+           T113, "on Python 3.11 numbers in f-string fields are not counted, unlike 3.12+ (inventory v1 behaviour)"),
 ]
 
 
