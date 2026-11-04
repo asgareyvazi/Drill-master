@@ -1,0 +1,317 @@
+"""M122 - D28: Knowledge Assistant worker lifecycle.
+
+Root cause (source-backed, see the M121-M140 report §B/D28): the panel released
+a retired worker with *check, then connect*::
+
+    if worker.isRunning():
+        self._old_workers.append(worker)
+        worker.finished.connect(lambda w=worker: self._forget(w))
+
+``CancelToken.cancel()`` aborts the streaming HTTP read, so a cancelled worker
+unwinds at once and can end its thread between ``isRunning()`` (True) and
+``connect`` - ``finished`` is then emitted with nobody listening, ``_forget`` never
+runs and the worker stays in ``_old_workers`` for ever (the 10 s wait in
+``test_generation_never_blocks_the_ui_and_cancel_works`` timed out once in a
+loaded full suite).  The fix connects first and only then looks at the thread.
+
+These tests make the race deterministic: the thread-state queries are wrapped
+so the thread ends exactly inside the window (the UI thread "pre-empted" after
+the query).  No timeout was raised; no retry was added.
+"""
+from __future__ import annotations
+
+import os
+import sys
+import threading
+import time
+from pathlib import Path
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
+
+import test_m49_knowledge_ui as m49  # noqa: E402
+from m49_fake_ollama import FakeOllama  # noqa: E402
+from tabs import knowledge_assistant as kat  # noqa: E402
+
+app = m49.app            # the M49 fixtures, reused (not their tests)
+world = m49.world
+KICK = m49.KICK
+_wait = m49._wait
+_model_ready = m49._model_ready
+
+
+def _flush(app_):
+    """Deliver queued calls AND deferred deletions (processEvents alone does not delete)."""
+    app_.processEvents()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    app_.processEvents()
+
+
+def _settle(app_, condition, timeout):
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        _flush(app_)
+        if condition():
+            return True
+        time.sleep(0.005)
+    _flush(app_)
+    return condition()
+
+
+def _live_ask_workers(panel):
+    return [w for w in panel.findChildren(kat.AskWorker) if w.isRunning()]
+
+
+def _ask_workers(panel):
+    return panel.findChildren(kat.AskWorker)
+
+
+def _generating(app_, panel, fake):
+    _model_ready(app_, panel, fake)
+    panel.question_edit.setPlainText(KICK)
+    assert panel.ask()
+    assert _wait(app_, lambda: panel.current_state == "generating", 10)
+    return panel.worker
+
+
+def _stale_then_finish(worker):
+    """Each thread-state query returns what it read, then lets the thread END before
+    the caller's next statement runs - the UI thread pre-empted right after the check."""
+    for name in ("isRunning", "isFinished"):
+        original = getattr(worker, name)
+
+        def query(original=original):
+            value = original()
+            worker.wait(10000)
+            return value
+        setattr(worker, name, query)
+
+
+def _finish_then_read(worker):
+    """The thread ends before any thread-state query is answered."""
+    for name in ("isRunning", "isFinished"):
+        original = getattr(worker, name)
+
+        def query(original=original):
+            worker.wait(10000)
+            return original()
+        setattr(worker, name, query)
+
+
+# ------------------------------------------------------------- the D28 race
+@pytest.mark.parametrize("inject", [_stale_then_finish, _finish_then_read], ids=["stale-then-finish", "finish-then-read"])
+def test_cancel_releases_the_worker_however_its_end_interleaves_with_the_check(app, world, inject):
+    _tab, panel, _ids, _db = world
+    with FakeOllama(hold_after_first=20.0) as fake:
+        worker = _generating(app, panel, fake)
+        inject(worker)
+        panel.cancel()
+        assert panel.current_state == "cancelled" and panel.last_answer is None
+        assert _settle(app, lambda: not panel._old_workers, 5), "a retired worker was never released (D28)"
+        assert _settle(app, lambda: not _ask_workers(panel), 5)
+    assert panel.last_answer is None
+
+
+@pytest.mark.parametrize("inject", [_stale_then_finish, _finish_then_read], ids=["stale-then-finish", "finish-then-read"])
+def test_superseding_question_releases_the_old_worker_however_it_interleaves(app, world, inject):
+    _tab, panel, _ids, _db = world
+    with FakeOllama(hold_after_first=20.0) as fake:
+        old = _generating(app, panel, fake)
+        inject(old)
+        fake.release.set()                     # the new question must not be held
+        assert panel.ask()                     # supersedes the running generation
+        assert panel.worker is not old
+        assert _settle(app, lambda: panel.worker is None and panel.current_state not in
+                       ("searching", "retrieving", "generating"), 10)
+        assert _settle(app, lambda: not panel._old_workers and not _ask_workers(panel), 5)
+    assert panel.current_state == "ready" and panel.last_answer is not None
+
+
+@pytest.mark.parametrize("inject", [_stale_then_finish, _finish_then_read], ids=["stale-then-finish", "finish-then-read"])
+def test_scope_change_releases_the_old_worker_however_it_interleaves(app, world, inject):
+    _tab, panel, ids, _db = world
+    with FakeOllama(hold_after_first=20.0) as fake:
+        worker = _generating(app, panel, fake)
+        inject(worker)
+        m49._set_scope(panel, m49.kr.SCOPE_DOCUMENT, ids["lessons"])
+        assert panel.current_state == "stale"
+        assert _settle(app, lambda: not panel._old_workers and not _ask_workers(panel), 5)
+    assert panel.last_answer is None and panel.answer_view.toPlainText() == ""
+
+
+@pytest.mark.parametrize("inject", [_stale_then_finish, _finish_then_read], ids=["stale-then-finish", "finish-then-read"])
+def test_retired_scope_list_worker_is_released_however_it_interleaves(app, world, inject):
+    """The second check-then-connect site (``_retire``) used by the scope pickers."""
+    _tab, panel, _ids, _db = world
+    gate = threading.Event()
+
+    class Slow(kat.ScopeChoicesWorker):
+        def run(self):
+            gate.wait(10)
+
+    worker = Slow(panel._choices_token["targets"], "documents", None, None, None, None, parent=panel)
+    worker.start()
+    inject(worker)
+    gate.set()
+    panel._retire(worker)
+    assert _settle(app, lambda: worker not in panel._old_workers, 5)
+    assert _settle(app, lambda: not [w for w in panel.findChildren(Slow)], 5)
+
+
+def test_a_completed_question_releases_its_worker(app, world):
+    """Before M122 a finished AskWorker was dropped from ``self.worker`` but never
+    deleted: one QThread object accumulated on the panel per question."""
+    _tab, panel, _ids, _db = world
+    for _ in range(5):
+        m49._ask(app, panel, KICK)
+        assert panel.current_state == "ready"
+    assert _settle(app, lambda: not _ask_workers(panel) and not panel._old_workers, 5)
+
+
+def test_completed_corpus_check_worker_is_released(app, world):
+    """``_corpus_checked`` connected ``finished`` only after ``done`` arrived - usually too late."""
+    _tab, panel, _ids, _db = world
+
+    class Instant(kat.CorpusCheckWorker):
+        def run(self):
+            self.done.emit(self.token, None, "synthetic")
+
+    panel._check_token += 1
+    worker = Instant(panel._check_token, None, parent=panel)
+    worker.done.connect(panel._corpus_checked)
+    panel.check_worker = worker
+    worker.start()
+    assert worker.wait(5000)                   # finished is emitted before done is handled
+    assert _settle(app, lambda: not panel.findChildren(Instant), 5)
+
+
+# ------------------------------------------------------- stress / measured
+def test_repeated_cancel_cycles_measured_and_bounded(app, world):
+    """30 ask/cancel cycles: cancel latency, release time and live workers are measured;
+    no worker leaks and no late result is ever shown."""
+    _tab, panel, _ids, _db = world
+    latencies, releases = [], []
+    with FakeOllama(hold_after_first=20.0) as fake:
+        _model_ready(app, panel, fake)
+        panel.question_edit.setPlainText(KICK)
+        for _ in range(30):
+            assert panel.ask()
+            assert _wait(app, lambda: panel.current_state == "generating", 10)
+            t0 = time.monotonic()
+            panel.cancel()
+            latencies.append(time.monotonic() - t0)
+            assert panel.current_state == "cancelled"
+            t1 = time.monotonic()
+            assert _settle(app, lambda: not panel._old_workers, 5)
+            releases.append(time.monotonic() - t1)
+            assert not _live_ask_workers(panel)
+        assert _settle(app, lambda: not _ask_workers(panel), 5)
+    assert panel.last_answer is None and panel.current_state == "cancelled"
+    assert max(latencies) < 0.5                 # cancel() itself never blocks the UI thread
+    print(f"M122 cancel latency max {max(latencies) * 1000:.1f} ms; "
+          f"release max {max(releases) * 1000:.1f} ms; median {sorted(releases)[15] * 1000:.1f} ms")
+
+
+def test_cancel_under_cpu_load_releases_every_worker(app, world):
+    """The full-suite failure happened under load: four CPU-bound Python threads compete
+    for the GIL while 15 cancel cycles run; every retired worker is still released."""
+    _tab, panel, _ids, _db = world
+    stop = threading.Event()
+
+    def burn():
+        x = 0
+        while not stop.is_set():
+            x = (x * 31 + 7) % 1000003
+
+    burners = [threading.Thread(target=burn, daemon=True) for _ in range(4)]
+    for t in burners:
+        t.start()
+    try:
+        with FakeOllama(hold_after_first=20.0) as fake:
+            _model_ready(app, panel, fake)
+            panel.question_edit.setPlainText(KICK)
+            for _ in range(15):
+                assert panel.ask()
+                assert _wait(app, lambda: panel.current_state in ("generating", "retrieving"), 15)
+                panel.cancel()
+                assert _settle(app, lambda: not panel._old_workers, 10)
+            assert _settle(app, lambda: not _ask_workers(panel), 10)
+    finally:
+        stop.set()
+        for t in burners:
+            t.join(5)
+    assert panel.last_answer is None
+
+
+def test_cancel_before_the_worker_reaches_the_model(app, world):
+    """Cancel immediately after ask(): the worker may still be reading the corpus."""
+    _tab, panel, _ids, _db = world
+    with FakeOllama(hold_after_first=20.0, delay_before=0.3) as fake:
+        _model_ready(app, panel, fake)
+        panel.question_edit.setPlainText(KICK)
+        for _ in range(10):
+            assert panel.ask()
+            panel.cancel()                      # same UI turn as ask()
+            assert panel.current_state == "cancelled"
+            assert _settle(app, lambda: not panel._old_workers, 5)
+        _wait(app, lambda: False, 0.5)          # anything still queued is delivered now
+    assert panel.last_answer is None and panel.current_state == "cancelled"
+    assert _settle(app, lambda: not _ask_workers(panel), 5)
+
+
+def test_out_of_order_completion_only_the_newest_is_shown(app, world):
+    """An older worker that finishes AFTER a newer one is never shown (generation guard)."""
+    _tab, panel, _ids, _db = world
+    panel.question_edit.setPlainText(KICK)
+    assert panel.ask()
+    first = panel.worker
+    assert panel.ask()                          # supersede at once (extractive, quick)
+    second = panel.worker
+    assert first is not second
+    assert second.wait(10000) and first.wait(10000)
+    _wait(app, lambda: False, 0.5)
+    assert panel.current_state == "ready" and panel.last_answer is not None
+    assert _settle(app, lambda: not panel._old_workers and not _ask_workers(panel), 5)
+
+
+def test_panel_cleanup_during_generation_ends_every_thread(app, world):
+    """Closing the tab (app shutdown path) while a generation is held: cleanup cancels,
+    waits for the thread and returns quickly; nothing is left running."""
+    tab, panel, _ids, _db = world
+    with FakeOllama(hold_after_first=20.0) as fake:
+        worker = _generating(app, panel, fake)
+        t0 = time.monotonic()
+        panel.cleanup()
+        elapsed = time.monotonic() - t0
+        assert worker.isFinished() and not _live_ask_workers(panel)
+        assert elapsed < 3.0, elapsed
+    _wait(app, lambda: False, 0.3)
+    assert panel.last_answer is None
+
+
+def test_cleanup_keeps_an_unfinished_worker_referenced(app, world, monkeypatch):
+    """A thread that does not end within cleanup's wait is never destroyed while running:
+    it is detached from the panel and held until its ``finished``."""
+    _tab, panel, _ids, _db = world
+    gate = threading.Event()
+
+    class Stuck(kat.ScopeChoicesWorker):
+        def run(self):
+            gate.wait(10)
+
+    worker = Stuck(0, "documents", None, None, None, None, parent=panel)
+    worker.start()
+    panel._old_workers.append(worker)
+    monkeypatch.setattr(kat, "CLEANUP_WAIT_MS", 50)
+    panel.cleanup()
+    assert worker.isRunning() and worker.parent() is None     # detached, not destroyed
+    from core import async_workers
+    assert worker in async_workers._RELEASING
+    gate.set()
+    assert worker.wait(5000)
+    assert _settle(app, lambda: worker not in async_workers._RELEASING, 5)

@@ -225,6 +225,9 @@ def _read_corpus_on_worker(db_manager) -> "kr.CorpusSnapshot":
 
 # What each scope picker lists, the noun used in its messages, and the reader that fills it.
 CHOICE_NOUNS = {"wells": "wells", "documents": "documents", "reports": "reports"}
+# M122 (D28): how long cleanup() waits for each worker thread to end before it detaches a
+# still-running one and hands it to release_when_finished (never destroyed while running).
+CLEANUP_WAIT_MS = 5000
 
 
 def _read_scope_rows(db_manager, kind, well_id=None, link_class=None, library_class=None) -> list:
@@ -880,7 +883,7 @@ class KnowledgeAssistantPanel(QWidget):
         worker = self.sender()
         if worker is self.check_worker:
             self.check_worker = None
-            worker.finished.connect(worker.deleteLater)
+            self._keep_until_finished(worker)   # M122: `finished` has usually fired already
         if token != self._check_token:
             return                              # a newer library change superseded this check
         self._apply_library_signature(signature)
@@ -891,11 +894,26 @@ class KnowledgeAssistantPanel(QWidget):
             worker.done.disconnect()
         except (RuntimeError, TypeError):  # silent-ok: already disconnected
             pass
-        if worker.isRunning():
-            self._old_workers.append(worker)
-            worker.finished.connect(lambda w=worker: self._forget(w))
-        else:
-            worker.deleteLater()
+        self._keep_until_finished(worker)
+
+    def _keep_until_finished(self, worker) -> None:
+        """Worker lifecycle (M122, D28): a worker that is no longer current stays owned by the panel
+        (``_old_workers``) until its thread has ENDED, then it is deleted exactly once.
+
+        Connect first, then look - never the reverse.  Before M122 the panel asked ``isRunning()`` and
+        only then connected ``finished``: a cancelled worker (its HTTP read aborted by the cancel token)
+        could end between the two, ``finished`` was emitted with nobody listening and the worker was kept
+        for ever.  Now a thread ending after the connection is released by the queued ``finished``; one
+        that has already ended (or is ending: ``isFinished`` covers Qt's in-finish state, whose destructor
+        waits for it) is released here.  ``_forget`` is idempotent, so both together release it once.
+        Result rejection does not depend on this: the generation tokens drop late results.
+        """
+        if worker is None or worker in self._old_workers:
+            return
+        self._old_workers.append(worker)
+        worker.finished.connect(lambda w=worker: self._forget(w))
+        if worker.isFinished():
+            self._forget(worker)
 
     def _semantic_out_of_date(self, signature) -> None:
         """A semantic index built for other documents is never shown as ready (retrieval already refuses it)."""
@@ -1005,8 +1023,9 @@ class KnowledgeAssistantPanel(QWidget):
 
     def _worker_done(self, generation, outcome, index):
         worker = self.sender()
-        if worker is self.worker:
+        if worker is not None and worker is self.worker:
             self.worker = None
+            self._keep_until_finished(worker)   # M122: a completed worker was never deleted before
             self._update_suggest_button()
         if index is not None and generation == self._generation:
             self._index = index
@@ -1037,13 +1056,13 @@ class KnowledgeAssistantPanel(QWidget):
                 worker.done.disconnect()
             except (RuntimeError, TypeError):  # silent-ok: signals already disconnected (worker finished or replaced)
                 pass
-            if worker.isRunning():
-                self._old_workers.append(worker)   # keep a reference until the thread ends
-                worker.finished.connect(lambda w=worker: self._forget(w))
+            self._keep_until_finished(worker)      # keep a reference until the thread ends (M122)
 
     def _forget(self, worker):
-        if worker in self._old_workers:
-            self._old_workers.remove(worker)
+        """Release a retired worker once its thread has ended; a second call is a no-op (M122)."""
+        if worker not in self._old_workers:
+            return                                  # already released (signal and immediate check both ran)
+        self._old_workers.remove(worker)
         worker.deleteLater()
 
     # ------------------------------------------------------------ results
@@ -1243,10 +1262,22 @@ class KnowledgeAssistantPanel(QWidget):
         self._stop_worker()
         if self._semantic_cancel is not None:
             self._semantic_cancel.cancel()
-        for worker in [self.semantic_worker, self.status_worker, self.check_worker,
-                       *self.choices_workers.values(), *self._old_workers]:
-            if worker is not None:
-                worker.wait(5000)
+        workers = [self.semantic_worker, self.status_worker, self.check_worker,
+                   *self.choices_workers.values(), *self._old_workers]
+        unfinished = 0
+        for worker in workers:
+            if worker is None or worker.wait(CLEANUP_WAIT_MS):
+                continue
+            # M122: never destroy a running thread with its parent panel.  Detach it and keep it
+            # referenced (release_when_finished) until its own `finished`.
+            unfinished += 1
+            if worker in self._old_workers:
+                self._old_workers.remove(worker)
+            worker.setParent(None)
+            release_when_finished(worker)
+        if unfinished:
+            logger.warning("Knowledge Assistant closed with %d worker thread(s) still running; "
+                           "they are kept until they end", unfinished)
         if self._index is not None:
             self._index.close()
         if self._store is not None:
