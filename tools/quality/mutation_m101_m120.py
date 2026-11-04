@@ -52,6 +52,8 @@ DLG = "dialogs/excel_import_dialog.py"
 T111 = ["tests/test_m111_isolated_parse.py"]
 DA = "tools/quality/dependency_audit.py"
 T112 = ["tests/test_m112_dependency_audit.py"]
+CI = "tools/quality/constant_inventory.py"
+T113 = ["tests/test_m113_constant_inventory.py"]
 
 MUTANTS = [
     # ---- M107 W13 contracts (D8) and the weight-up sack count (D26) --------------------------------------
@@ -668,6 +670,19 @@ MUTANTS = [
            "        try:\n            import torque_drag\n        except ImportError:  # silent-ok: optional LGPL package, owner-gated and never installed; None = no result\n            return None",
            "        import torque_drag",
            T112, "calling the adapter without the LGPL package raises instead of returning nothing"),
+    # ---- M113 constant inventory -------------------------------------------------------------------------
+    Mutant("CI-raw-text-scan", CI,
+           "    out = []\n    try:\n        for tok in tokenize.generate_tokens(",
+           "    return re.findall(r\"\\d[\\d_]*\\.?\\d*\", text)\n    out = []\n    try:\n        for tok in tokenize.generate_tokens(",
+           T113, "numbers in comments and strings are counted as code constants (raw text scan instead of tokens)"),
+    Mutant("CI-trailing-zero-variant-missed", CI,
+           "    if re.fullmatch(r\"\\d+\\.\\d*0+\", s):",
+           "    if False:",
+           T113, "7.480 is not recognised as the 7.48 literal"),
+    Mutant("CI-inconsistency-hidden", CI,
+           "        if len(same_meaning) > 1:",
+           "        if len(same_meaning) > 3:",
+           T113, "several literals of one quantity are not reported"),
 ]
 
 

@@ -1,0 +1,367 @@
+{
+ "conventions": {
+  "cost per length": {
+   "per foot": {
+    "files": {
+     "core/calculator_contracts.py": 7,
+     "core/engineering/engines/bit_performance.py": 2,
+     "core/report_engine.py": 3,
+     "tabs/w12_Analysis.py": 2,
+     "tabs/w13_Engineering_Calculator.py": 4
+    },
+    "uses": 18
+   },
+   "per metre": {
+    "files": {
+     "core/operations_dashboard.py": 4,
+     "core/operations_intelligence.py": 4,
+     "core/report_engine.py": 4,
+     "tabs/home_tab.py": 1,
+     "tabs/w12_Analysis.py": 1,
+     "tabs/w16_Cost_Management.py": 1
+    },
+    "uses": 15
+   }
+  },
+  "dog-leg severity unit": {
+   "°/100 ft": {
+    "files": {
+     "core/calculation_history.py": 1,
+     "core/engineering/core.py": 3,
+     "core/engineering/engines/trajectory.py": 2,
+     "core/unit_manager.py": 3,
+     "core/well_trajectory.py": 2,
+     "tabs/trajectory_viewer.py": 6,
+     "tabs/w15_Reference_Tables.py": 2
+    },
+    "uses": 19
+   },
+   "°/30 m": {
+    "files": {
+     "core/ai_tools.py": 1,
+     "core/calculation_history.py": 2,
+     "core/calculator_contracts.py": 3,
+     "core/directional_plans.py": 3,
+     "core/engineering/core.py": 7,
+     "core/engineering/engines/trajectory.py": 6,
+     "core/hydraulics_engine.py": 1,
+     "core/professional_export.py": 1,
+     "core/report_engine.py": 2,
+     "core/survey_revisions.py": 1,
+     "core/table_record_mapper.py": 1,
+     "core/unit_manager.py": 2,
+     "core/validators.py": 1,
+     "core/well_plan_designer.py": 8,
+     "core/well_trajectory.py": 4,
+     "dialogs/engineering_dialogs.py": 2,
+     "tabs/trajectory_viewer.py": 6,
+     "tabs/w13_Engineering_Calculator.py": 8,
+     "tabs/w15_Reference_Tables.py": 1,
+     "tabs/w6_Trajectory_Widget.py": 1,
+     "tabs/well_plan_designer_panel.py": 7
+    },
+    "uses": 68
+   }
+  },
+  "temperature unit": {
+   "°C": {
+    "files": {
+     "core/report_engine.py": 2,
+     "core/specialist_methods.py": 1,
+     "core/validators.py": 1,
+     "dialogs/settings_dialog.py": 3,
+     "tabs/w10_Planning_Widget.py": 1,
+     "tabs/w15_Reference_Tables.py": 7,
+     "tabs/w3_drilling_report.py": 3
+    },
+    "uses": 18
+   },
+   "°F": {
+    "files": {
+     "dialogs/settings_dialog.py": 1,
+     "tabs/w15_Reference_Tables.py": 13
+    },
+    "uses": 14
+   }
+  }
+ },
+ "inconsistent": [
+  "ft³ per bbl",
+  "pcf per ppg (gal per ft³)"
+ ],
+ "quantities": {
+  "bbl/ft capacity constant (in²)": {
+   "exact": 1029.4,
+   "note": "",
+   "variants": {
+    "1029.4": {
+     "files": {
+      "core/engineering/extended.py": 3,
+      "core/hydraulics_engine.py": 7
+     },
+     "uses": 10,
+     "value": 1029.4
+    }
+   }
+  },
+  "fresh water density": {
+   "exact": 8.3454,
+   "note": "8.33 ppg ≈ 62.31 pcf vs 62.4 pcf ≈ 8.342 ppg",
+   "variants": {
+    "62.4": {
+     "files": {},
+     "uses": 0,
+     "value": 62.4
+    },
+    "8.33": {
+     "files": {
+      "core/engineering/extended.py": 1,
+      "core/hydraulics_engine.py": 1,
+      "tabs/w15_Reference_Tables.py": 1
+     },
+     "uses": 3,
+     "value": 8.33
+    }
+   }
+  },
+  "ft per m": {
+   "exact": 3.280839895013123,
+   "note": "0.3048 = m per ft",
+   "variants": {
+    "0.3048": {
+     "files": {
+      "core/engineering/extended.py": 1,
+      "core/managers.py": 1,
+      "core/survey_file_import.py": 1,
+      "core/survey_revisions.py": 1,
+      "core/trajectory_compare.py": 1,
+      "core/unit_manager.py": 7,
+      "core/well_trajectory.py": 1,
+      "tabs/w13_Engineering_Calculator.py": 1
+     },
+     "uses": 14,
+     "value": 0.3048
+    },
+    "3.28084": {
+     "files": {
+      "core/calculator_contracts.py": 6,
+      "core/engineering/engines/bit_performance.py": 1,
+      "core/engineering/engines/torque_drag.py": 4,
+      "core/engineering/well_control_kill_sheet.py": 1,
+      "core/hydraulics_engine.py": 17,
+      "core/report_engine.py": 1,
+      "core/well_architecture.py": 1,
+      "dialogs/calculator_dialog.py": 6,
+      "dialogs/engineering_dialogs.py": 4,
+      "tabs/w12_Analysis.py": 2,
+      "tabs/w13_Engineering_Calculator.py": 9,
+      "tabs/w3c_section_data.py": 1
+     },
+     "uses": 53,
+     "value": 3.28084
+    }
+   }
+  },
+  "ft³ per bbl": {
+   "exact": 5.614583333333333,
+   "inconsistency": {
+    "max_relative_difference": 7.124e-05,
+    "variants": [
+     "5.6146",
+     "5.615"
+    ]
+   },
+   "note": "0.1781 = bbl per ft³ (1/5.6146)",
+   "variants": {
+    "0.1781": {
+     "files": {},
+     "uses": 0,
+     "value": 0.1781
+    },
+    "5.6146": {
+     "files": {
+      "core/engineering/engines/cement.py": 1
+     },
+     "uses": 1,
+     "value": 5.6146
+    },
+    "5.615": {
+     "files": {
+      "tabs/w3c_section_data.py": 1
+     },
+     "uses": 1,
+     "value": 5.615
+    }
+   }
+  },
+  "gal per bbl": {
+   "exact": 42.0,
+   "note": "only 42.0 literals are counted (bare 42 is ambiguous)",
+   "variants": {
+    "42.0": {
+     "files": {
+      "core/engineering/engines/cement.py": 2,
+      "core/engineering/engines/mud_volume.py": 1,
+      "core/hydraulics_engine.py": 1,
+      "core/unit_manager.py": 1,
+      "dialogs/engineering_dialogs.py": 1
+     },
+     "uses": 6,
+     "value": 42.0
+    }
+   }
+  },
+  "lb per kg": {
+   "exact": 2.2046226218,
+   "note": "",
+   "variants": {
+    "2.20462": {
+     "files": {
+      "core/unit_manager.py": 2
+     },
+     "uses": 2,
+     "value": 2.20462
+    }
+   }
+  },
+  "m per 100 ft (DLS °/100 ft ↔ °/30 m)": {
+   "exact": 30.48,
+   "note": "",
+   "variants": {
+    "30.48": {
+     "files": {
+      "core/engineering/core.py": 1,
+      "core/unit_manager.py": 1,
+      "core/well_trajectory.py": 1
+     },
+     "uses": 3,
+     "value": 30.48
+    }
+   }
+  },
+  "mm per in": {
+   "exact": 25.4,
+   "note": "",
+   "variants": {
+    "25.4": {
+     "files": {},
+     "uses": 0,
+     "value": 25.4
+    }
+   }
+  },
+  "pcf per ppg (gal per ft³)": {
+   "exact": 7.480519480519481,
+   "inconsistency": {
+    "max_relative_difference": 6.952e-05,
+    "variants": [
+     "7.48052",
+     "7.4805",
+     "7.48"
+    ]
+   },
+   "note": "",
+   "variants": {
+    "7.48": {
+     "files": {
+      "core/calculator_contracts.py": 1,
+      "core/engineering/engines/torque_drag.py": 1,
+      "core/engineering/well_control_kill_sheet.py": 1,
+      "dialogs/calculator_dialog.py": 2,
+      "tabs/w13_Engineering_Calculator.py": 6
+     },
+     "uses": 11,
+     "value": 7.48
+    },
+    "7.4805": {
+     "files": {
+      "core/engineering/engines/mud_volume.py": 1
+     },
+     "uses": 1,
+     "value": 7.4805
+    },
+    "7.48052": {
+     "files": {
+      "core/calculator_contracts.py": 1,
+      "core/engineering/extended.py": 2,
+      "core/hydraulics_engine.py": 4,
+      "dialogs/calculator_dialog.py": 1,
+      "tabs/w13_Engineering_Calculator.py": 1,
+      "tabs/w15_Reference_Tables.py": 1
+     },
+     "uses": 10,
+     "value": 7.48052
+    }
+   }
+  },
+  "psi per bar / kPa": {
+   "exact": 14.503773773,
+   "note": "6.894 = kPa per psi",
+   "variants": {
+    "14.5038": {
+     "files": {},
+     "uses": 0,
+     "value": 14.5038
+    },
+    "6.894": {
+     "files": {},
+     "uses": 0,
+     "value": 6.894
+    }
+   }
+  },
+  "psi/ft per pcf": {
+   "exact": 0.006944444444444444,
+   "note": "144.0 = in² per ft²",
+   "variants": {
+    "0.006944": {
+     "files": {},
+     "uses": 0,
+     "value": 0.006944
+    },
+    "144.0": {
+     "files": {
+      "core/hydraulics_engine.py": 2
+     },
+     "uses": 2,
+     "value": 144.0
+    }
+   }
+  },
+  "psi/ft per ppg": {
+   "exact": 0.051948,
+   "note": "",
+   "variants": {
+    "0.052": {
+     "files": {
+      "core/calculator_contracts.py": 1,
+      "core/engineering/engines/cement.py": 1,
+      "core/engineering/engines/well_control.py": 1,
+      "core/engineering/extended.py": 5,
+      "core/engineering/well_control_kill_sheet.py": 1,
+      "core/hydraulics_engine.py": 1,
+      "dialogs/calculator_dialog.py": 1,
+      "tabs/w15_Reference_Tables.py": 2
+     },
+     "uses": 13,
+     "value": 0.052
+    }
+   }
+  },
+  "°F per °C": {
+   "exact": 1.8,
+   "note": "1.8 also appears in non-temperature uses; see files",
+   "variants": {
+    "1.8": {
+     "files": {
+      "core/hydraulics_engine.py": 3,
+      "tabs/w15_Reference_Tables.py": 1
+     },
+     "uses": 4,
+     "value": 1.8
+    }
+   }
+  }
+ },
+ "version": "M113 constant inventory v1"
+}
