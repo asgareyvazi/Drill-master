@@ -1,0 +1,267 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_engineering_ground_truth.py",
+      "tests/test_engineering_independent_golden.py",
+      "tests/test_hydraulics_m40_regressions.py",
+      "tests/test_m72_surveys_solver.py",
+      "tests/test_m73_contracts_history.py",
+      "tests/test_m74_well_architecture.py"
+    ],
+    "exit": 0,
+    "summary": "144 passed in 35.32s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "HY-bit-dp-constant",
+      "path": "core/hydraulics_engine.py",
+      "note": "bit pressure drop uses a wrong constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_engineering_ground_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.15s"
+    },
+    {
+      "id": "HY-hhp-constant",
+      "path": "core/hydraulics_engine.py",
+      "note": "bit hydraulic horsepower uses a wrong constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_engineering_ground_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.17s"
+    },
+    {
+      "id": "HY-jet-velocity-constant",
+      "path": "core/hydraulics_engine.py",
+      "note": "nozzle jet velocity uses a wrong constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_engineering_ground_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.17s"
+    },
+    {
+      "id": "HY-annular-capacity-constant",
+      "path": "core/hydraulics_engine.py",
+      "note": "annular capacity uses a wrong constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m74_well_architecture.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.71s"
+    },
+    {
+      "id": "HY-pipe-capacity-constant",
+      "path": "core/hydraulics_engine.py",
+      "note": "pipe capacity uses a wrong constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m73_contracts_history.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.37s"
+    },
+    {
+      "id": "HY-fann-pv",
+      "path": "core/hydraulics_engine.py",
+      "note": "plastic viscosity from Fann readings is wrong",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_hydraulics_m40_regressions.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 51 passed in 0.28s"
+    },
+    {
+      "id": "MSE-rotary-term",
+      "path": "core/engineering/engines/mse.py",
+      "note": "MSE uses the 480 spreadsheet constant instead of 120*pi",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_engineering_ground_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 28 passed in 0.17s"
+    },
+    {
+      "id": "SG-architecture-frozen-columns",
+      "path": "core/storage_guards.py",
+      "note": "a saved architecture revision's components can be rewritten",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m74_well_architecture.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 3.76s"
+    },
+    {
+      "id": "WP-inside-build-circle-accepted",
+      "path": "core/well_plan_designer.py",
+      "note": "a target inside the build circle is not reported infeasible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m72_surveys_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 19.76s"
+    },
+    {
+      "id": "WP-tie-in-shift-dropped",
+      "path": "core/well_plan_designer.py",
+      "note": "a plan tied to a survey station is not shifted to the tie-in TVD",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m72_surveys_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 20.35s"
+    },
+    {
+      "id": "DP-survey-sha-unchecked",
+      "path": "core/directional_plans.py",
+      "note": "a plan pinned to a survey revision with a different SHA-256 is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m72_surveys_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 12.83s"
+    },
+    {
+      "id": "CON-unversioned-reproducible",
+      "path": "core/calculator_contracts.py",
+      "note": "a case without a method version is treated as reproducible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m73_contracts_history.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.79s"
+    },
+    {
+      "id": "CON-tolerance-widened",
+      "path": "core/calculator_contracts.py",
+      "note": "a stored result outside display rounding still verifies as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m73_contracts_history.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.71s"
+    },
+    {
+      "id": "CH-unit-mismatch-compared",
+      "path": "core/calculation_history.py",
+      "note": "values in different units are compared numerically",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m73_contracts_history.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 4.58s"
+    },
+    {
+      "id": "WA-liner-fit-unchecked",
+      "path": "core/well_architecture.py",
+      "note": "a liner larger than its host string is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m74_well_architecture.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.52s"
+    },
+    {
+      "id": "WA-shoe-depth-unchecked",
+      "path": "core/well_architecture.py",
+      "note": "a shoe away from its string bottom is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m74_well_architecture.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.53s"
+    },
+    {
+      "id": "WA-open-hole-assumed",
+      "path": "core/well_architecture.py",
+      "note": "an unknown open-hole size is replaced by an assumed one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m74_well_architecture.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 6.00s"
+    },
+    {
+      "id": "WA-cased-interval-as-open-hole",
+      "path": "core/well_architecture.py",
+      "note": "a cased interval uses the open-hole size",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m74_well_architecture.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 5.98s"
+    }
+  ],
+  "killed": [
+    "HY-bit-dp-constant",
+    "HY-hhp-constant",
+    "HY-jet-velocity-constant",
+    "HY-annular-capacity-constant",
+    "HY-pipe-capacity-constant",
+    "HY-fann-pv",
+    "MSE-rotary-term",
+    "SG-architecture-frozen-columns",
+    "WP-inside-build-circle-accepted",
+    "WP-tie-in-shift-dropped",
+    "DP-survey-sha-unchecked",
+    "CON-unversioned-reproducible",
+    "CON-tolerance-widened",
+    "CH-unit-mismatch-compared",
+    "WA-liner-fit-unchecked",
+    "WA-shoe-depth-unchecked",
+    "WA-open-hole-assumed",
+    "WA-cased-interval-as-open-hole"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

@@ -1,0 +1,2466 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m102_context_probes.py",
+      "tests/test_m102_selection_context.py",
+      "tests/test_m103_context_jobs.py",
+      "tests/test_m104_operational_kpis.py",
+      "tests/test_m105_survey_integrity.py",
+      "tests/test_m105_survey_references.py",
+      "tests/test_m106_multi_segment_solver.py",
+      "tests/test_m107_w13_contracts.py",
+      "tests/test_m108_history_coverage.py",
+      "tests/test_m109_cement_worksheet.py",
+      "tests/test_m110_professional_export.py",
+      "tests/test_m111_isolated_parse.py",
+      "tests/test_m112_dependency_audit.py",
+      "tests/test_m113_constant_inventory.py",
+      "tests/test_m114_document_scope.py",
+      "tests/test_m115_chart_axes.py",
+      "tests/test_m115_ux_startup.py",
+      "tests/test_m116_persistence.py",
+      "tests/test_m117_journey_index.py",
+      "tests/test_m117_widget_journeys.py",
+      "tests/test_m119_adversarial.py",
+      "tests/test_m44_ui.py",
+      "tests/test_m96_persistence_audit.py"
+    ],
+    "exit": 0,
+    "summary": "295 passed, 23 warnings in 297.33s (0:04:57)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "CC-text-input-dropped",
+      "path": "core/calculator_contracts.py",
+      "note": "a list-entry input (weight-up additive) is read as a number and the case is unreadable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 11.17s"
+    },
+    {
+      "id": "CC-bool-input-dropped",
+      "path": "core/calculator_contracts.py",
+      "note": "a radio-button input (nozzle model) is read as a number and the case is unreadable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 13.09s"
+    },
+    {
+      "id": "CC-not-recorded-read-as-value",
+      "path": "core/calculator_contracts.py",
+      "note": "a kill-sheet-style \"Not recorded\" input (-1) reaches the engine as a value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.76s"
+    },
+    {
+      "id": "CC-unknown-additive-defaulted",
+      "path": "core/calculator_contracts.py",
+      "note": "an unknown additive entry silently gets the barite density",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 10.91s"
+    },
+    {
+      "id": "CC-nozzle-model-ignored",
+      "path": "core/calculator_contracts.py",
+      "note": "the nozzle optimisation model choice is not an input",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 13.28s"
+    },
+    {
+      "id": "CC-nozzle-zero-fallback-accepted",
+      "path": "core/calculator_contracts.py",
+      "note": "the engine's zero fallbacks (no pump limit) are stored as a nozzle result",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 13.50s"
+    },
+    {
+      "id": "CC-overshot-flag-constant",
+      "path": "core/calculator_contracts.py",
+      "note": "an overshot that does not fit is reported compatible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 12.27s"
+    },
+    {
+      "id": "CC-plug-zero-yield-passed",
+      "path": "core/calculator_contracts.py",
+      "note": "a 0 = omit yield reaches the plug engine as a yield",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.04s"
+    },
+    {
+      "id": "MV-weight-up-v1-formula",
+      "path": "core/engineering/engines/mud_volume.py",
+      "note": "D26: the weight-up sack mass leaves out the additive density",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 10.80s"
+    },
+    {
+      "id": "FL-nested-row-label-lost",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "radio buttons nested in a form row are captured without a label",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m107_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.73s"
+    },
+    {
+      "id": "MS-leg-direction-not-carried",
+      "path": "core/well_plan_designer.py",
+      "note": "each leg starts in the tie-in direction instead of the direction the well arrives with",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.07s"
+    },
+    {
+      "id": "MS-hold-after-ignored",
+      "path": "core/well_plan_designer.py",
+      "note": "the hold after a target is dropped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.23s"
+    },
+    {
+      "id": "MS-dls-limit-unchecked",
+      "path": "core/well_plan_designer.py",
+      "note": "a leg rate above the DLS limit is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.42s"
+    },
+    {
+      "id": "MS-verification-skipped",
+      "path": "core/well_plan_designer.py",
+      "note": "the multi-target result is never re-computed by the canonical engine",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.07s"
+    },
+    {
+      "id": "MS-tolerance-ignored",
+      "path": "core/well_plan_designer.py",
+      "note": "a re-computed path that misses a target is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.48s"
+    },
+    {
+      "id": "MS-order-unchecked",
+      "path": "core/well_plan_designer.py",
+      "note": "a target passed at another MD (out of order) is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.63s"
+    },
+    {
+      "id": "SP-tangent-angle-sign",
+      "path": "core/well_plan_designer.py",
+      "note": "the S-profile tangent inclination takes the wrong root",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.24s"
+    },
+    {
+      "id": "SP-final-hold-ignored",
+      "path": "core/well_plan_designer.py",
+      "note": "the S-profile final hold is left out of the horizontal balance",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.27s"
+    },
+    {
+      "id": "SP-inclined-tie-in-accepted",
+      "path": "core/well_plan_designer.py",
+      "note": "an S-profile is solved from an inclined tie-in with vertical-plane algebra",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.51s"
+    },
+    {
+      "id": "SP-no-drop-accepted",
+      "path": "core/well_plan_designer.py",
+      "note": "an S-profile whose tangent is not above the final inclination is not reported as NO_DROP",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.44s"
+    },
+    {
+      "id": "SP-inc-limit-unchecked",
+      "path": "core/well_plan_designer.py",
+      "note": "an S-profile above the inclination limit is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.44s"
+    },
+    {
+      "id": "UI-solver-mode-ignored",
+      "path": "tabs/well_plan_designer_panel.py",
+      "note": "the designer always solves only the first target",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m106_multi_segment_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 14 warnings in 3.22s"
+    },
+    {
+      "id": "OA-mse-wellbore-filter-off",
+      "path": "core/operational_analysis.py",
+      "note": "a wellbore analysis lists MSE runs of other wellbores and runs without a wellbore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.12s"
+    },
+    {
+      "id": "OA-mse-legacy-shown-as-known",
+      "path": "core/operational_analysis.py",
+      "note": "a run saved before lineage is shown with the current input source",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.02s"
+    },
+    {
+      "id": "MSE-lineage-foreign-wellbore-accepted",
+      "path": "core/repositories/mse_repository.py",
+      "note": "an MSE run records a wellbore of another well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.80s"
+    },
+    {
+      "id": "MSE-lineage-foreign-report-accepted",
+      "path": "core/repositories/mse_repository.py",
+      "note": "an MSE run records a report of another well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.76s"
+    },
+    {
+      "id": "MIG-lineage-column-not-added",
+      "path": "core/database.py",
+      "note": "an old database never gains the lineage column",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.94s"
+    },
+    {
+      "id": "W13-lineage-takes-stale-report",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a saved MSE run records a report of a previously selected well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.33s"
+    },
+    {
+      "id": "OA-plan-assessed-for-wellbore",
+      "path": "core/operational_analysis.py",
+      "note": "a whole-well plan is compared with one wellbore's actuals",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.40s"
+    },
+    {
+      "id": "OA-plan-assessed-for-date-range",
+      "path": "core/operational_analysis.py",
+      "note": "a whole-well plan is compared with a date range of actuals",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.39s"
+    },
+    {
+      "id": "OA-cost-shown-for-wellbore",
+      "path": "core/operational_analysis.py",
+      "note": "whole-well costs are shown as a wellbore's costs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.27s"
+    },
+    {
+      "id": "OA-kpi-partial-as-complete",
+      "path": "core/operational_analysis.py",
+      "note": "a KPI with unknown values on some reports is labelled COMPLETE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 11.48s"
+    },
+    {
+      "id": "OA-kpi-currencies-merged",
+      "path": "core/operational_analysis.py",
+      "note": "costs in different currencies are added together",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.44s"
+    },
+    {
+      "id": "OA-bit-zero-hours-unexplained",
+      "path": "core/operational_analysis.py",
+      "note": "a bit run with no hours on bottom claims a footage/hours ROP basis",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.77s"
+    },
+    {
+      "id": "OA-bit-invalid-depths-unexplained",
+      "path": "core/operational_analysis.py",
+      "note": "a bit run whose depth out is shallower than depth in is not flagged INVALID",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.46s"
+    },
+    {
+      "id": "CJ-superseded-result-shown",
+      "path": "core/context_jobs.py",
+      "note": "an older job's result replaces the newer job's",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m103_context_jobs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.76s"
+    },
+    {
+      "id": "CJ-stale-result-shown",
+      "path": "core/context_jobs.py",
+      "note": "a result computed for the previous selection is shown after a switch",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m103_context_jobs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.71s"
+    },
+    {
+      "id": "CJ-cancel-ignored",
+      "path": "core/context_jobs.py",
+      "note": "a cancelled job's result is shown when the job did not notice the cancellation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m103_context_jobs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.85s"
+    },
+    {
+      "id": "CJ-shutdown-does-not-cancel",
+      "path": "core/context_jobs.py",
+      "note": "closing waits for a running read instead of stopping it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m103_context_jobs.py"
+      ],
+      "status": "KILLED",
+      "exit": -6,
+      "summary": "1 failed, 4 passed in 10.69s"
+    },
+    {
+      "id": "CJ-always-synchronous",
+      "path": "core/context_jobs.py",
+      "note": "every job runs on the GUI thread (the file database is never read in the background)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m103_context_jobs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.77s"
+    },
+    {
+      "id": "OA-cancel-points-ignored",
+      "path": "core/operational_analysis.py",
+      "note": "a cancelled operational analysis keeps reading to the end",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m103_context_jobs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 16.09s"
+    },
+    {
+      "id": "W12-close-leaves-job-running",
+      "path": "tabs/w12_Analysis.py",
+      "note": "closing the analysis page leaves its background job running",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m103_context_jobs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 13.27s"
+    },
+    {
+      "id": "SM-batch-not-suppressed",
+      "path": "core/selection_manager.py",
+      "note": "a full-context selection emits one context per level (tabs see half-built contexts)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.11s"
+    },
+    {
+      "id": "SM-batch-not-restored",
+      "path": "core/selection_manager.py",
+      "note": "after one full-context selection no context ever reaches the tabs again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.11s"
+    },
+    {
+      "id": "SM-reversed-period-accepted",
+      "path": "core/selection_manager.py",
+      "note": "a period ending before it starts is stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.11s"
+    },
+    {
+      "id": "SM-datetime-not-normalised",
+      "path": "core/selection_manager.py",
+      "note": "the same day given with a time is a new period (spurious refresh, unequal snapshots)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.12s"
+    },
+    {
+      "id": "SM-clear-emits-no-context",
+      "path": "core/selection_manager.py",
+      "note": "after a clear the tabs and status bar keep the previous well's context",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.18s"
+    },
+    {
+      "id": "SC-foreign-report-shown",
+      "path": "core/selection_context.py",
+      "note": "a report of another well is shown in the selected well's context path",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.73s"
+    },
+    {
+      "id": "SC-foreign-wellbore-shown",
+      "path": "core/selection_context.py",
+      "note": "a wellbore of another well is labelled as the selected well's",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.80s"
+    },
+    {
+      "id": "BT-context-hook-not-connected",
+      "path": "core/base_tab.py",
+      "note": "tabs never receive the full context",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed, 14 warnings in 61.11s (0:01:01)"
+    },
+    {
+      "id": "BT-wellbore-kept-on-well-switch",
+      "path": "core/base_tab.py",
+      "note": "a tab keeps the previous well's wellbore after a well switch",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 62.86s (0:01:02)"
+    },
+    {
+      "id": "W2-report-form-kept-on-well-switch",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "the daily report form shows (and could save) the previous well's report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed, 14 warnings in 34.73s"
+    },
+    {
+      "id": "W2-report-form-kept-on-clear",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "after a clear the daily report form keeps the old report's date and summary",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 51.61s"
+    },
+    {
+      "id": "EX-report-list-kept-on-clear",
+      "path": "tabs/w11_Export.py",
+      "note": "after a clear the export centre keeps the old well's report list and preview",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 52.10s"
+    },
+    {
+      "id": "PL-tables-kept-on-clear",
+      "path": "tabs/w10_Planning_Widget.py",
+      "note": "after a clear the planning tables keep the old well's report dates",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 52.45s"
+    },
+    {
+      "id": "CM-clear-handler-empty",
+      "path": "tabs/w16_Cost_Management.py",
+      "note": "after a clear the cost cards keep the old well's cost",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 52.94s"
+    },
+    {
+      "id": "S3C-section-label-kept",
+      "path": "tabs/w3c_section_data.py",
+      "note": "section data keeps the previous well's section label",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed, 14 warnings in 34.75s"
+    },
+    {
+      "id": "MW-report-payload-not-enriched",
+      "path": "main_window.py",
+      "note": "the context carries no report number/date after navigation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py",
+        "tests/test_m44_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed, 14 warnings in 61.26s (0:01:01)"
+    },
+    {
+      "id": "MW-status-path-not-connected",
+      "path": "main_window.py",
+      "note": "the status bar never shows the context path",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed, 14 warnings in 62.23s (0:01:02)"
+    },
+    {
+      "id": "DOC-selected-well-filter-unfiltered",
+      "path": "tabs/documents_tab.py",
+      "note": "the 'selected well' library filter lists every document",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m102_selection_context.py",
+        "tests/test_m102_context_probes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed, 14 warnings in 64.37s (0:01:04)"
+    },
+    {
+      "id": "SR-field-set-unchecked",
+      "path": "core/survey_revisions.py",
+      "note": "a result station with a missing or extra field verifies as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 21.10s"
+    },
+    {
+      "id": "SR-azimuth-not-wrapped",
+      "path": "core/survey_revisions.py",
+      "note": "an azimuth of 359.999999999 deg is reported as differing from 0 deg",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 19.91s"
+    },
+    {
+      "id": "SR-tolerance-loosened",
+      "path": "core/survey_revisions.py",
+      "note": "a result field 10x outside its tolerance verifies as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 11.10s"
+    },
+    {
+      "id": "SR-results-hash-not-checked",
+      "path": "core/survey_revisions.py",
+      "note": "results edited after saving still read as hash VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 21.70s"
+    },
+    {
+      "id": "SR-save-hash-not-recorded",
+      "path": "core/survey_revisions.py",
+      "note": "a new revision is saved without its results hash",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.79s"
+    },
+    {
+      "id": "SR-transform-hash-not-recorded",
+      "path": "core/survey_revisions.py",
+      "note": "an azimuth-converted revision is saved without its results hash",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 37 passed in 36.03s"
+    },
+    {
+      "id": "SR-missing-integrity-trusted",
+      "path": "core/survey_revisions.py",
+      "note": "a revision without an integrity state is used as VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 22.81s"
+    },
+    {
+      "id": "SR-use-without-recompute",
+      "path": "core/survey_revisions.py",
+      "note": "forged results of a legacy (no results hash) revision feed a tie-in",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.75s"
+    },
+    {
+      "id": "SR-compare-unverified",
+      "path": "core/survey_revisions.py",
+      "note": "a tampered revision is compared as if valid",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 21.06s"
+    },
+    {
+      "id": "DP-tie-in-results-unverified",
+      "path": "core/directional_plans.py",
+      "note": "a plan is saved against a survey revision whose results fail verification",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 39 passed in 37.08s"
+    },
+    {
+      "id": "SR-datum-offset-sign",
+      "path": "core/survey_revisions.py",
+      "note": "a datum shift moves depths the wrong way",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 24.92s"
+    },
+    {
+      "id": "SR-datum-missing-elevation-zero",
+      "path": "core/survey_revisions.py",
+      "note": "a missing datum elevation is silently taken as zero",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 27 passed in 27.28s"
+    },
+    {
+      "id": "SR-datum-inclined-first-accepted",
+      "path": "core/survey_revisions.py",
+      "note": "a datum shift is applied to a survey whose first station is inclined",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 35 passed in 34.14s"
+    },
+    {
+      "id": "SR-datum-stations-above-kept",
+      "path": "core/survey_revisions.py",
+      "note": "stations above the new datum are saved with negative MD",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 34 passed in 33.21s"
+    },
+    {
+      "id": "DP-reference-contradiction-accepted",
+      "path": "core/directional_plans.py",
+      "note": "a plan declaring GL is saved tied to an RKB survey",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 39 passed in 36.89s"
+    },
+    {
+      "id": "DP-references-dropped",
+      "path": "core/directional_plans.py",
+      "note": "declared plan references are not stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 38 passed in 35.79s"
+    },
+    {
+      "id": "TC-reference-conflict-accepted",
+      "path": "core/trajectory_compare.py",
+      "note": "plan-vs-actual runs across different azimuth references or datums",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 42 passed in 38.65s"
+    },
+    {
+      "id": "TC-comment-rows-not-parsed",
+      "path": "core/trajectory_compare.py",
+      "note": "a plan file's declared reference is ignored (and the file is refused)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 40 passed in 38.17s"
+    },
+    {
+      "id": "CP-reference-gate-removed",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "the desktop compares a plan in another reference",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 43 passed in 39.25s"
+    },
+    {
+      "id": "DB-additive-column-skipped",
+      "path": "core/database.py",
+      "note": "an existing database never gains the results-hash column",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m105_survey_integrity.py",
+        "tests/test_m105_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 24.13s"
+    },
+    {
+      "id": "TC-legacy-treated-as-versioned",
+      "path": "core/trajectory_compare.py",
+      "note": "a legacy trajectory row is not reported as saved before M108",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 3 warnings in 2.01s"
+    },
+    {
+      "id": "TC-other-version-accepted",
+      "path": "core/trajectory_compare.py",
+      "note": "a record of another method version is re-run with the current method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed, 3 warnings in 2.01s"
+    },
+    {
+      "id": "TC-missing-rows-accepted",
+      "path": "core/trajectory_compare.py",
+      "note": "a record without its station rows is offered as reproducible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed, 3 warnings in 2.13s"
+    },
+    {
+      "id": "TC-input-hash-unchecked",
+      "path": "core/trajectory_compare.py",
+      "note": "altered stored inputs are recomputed instead of reported UNREADABLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 3 warnings in 2.05s"
+    },
+    {
+      "id": "TC-numeric-difference-ignored",
+      "path": "core/trajectory_compare.py",
+      "note": "a changed stored distance still verifies as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 2 warnings in 1.99s"
+    },
+    {
+      "id": "TC-row-count-unchecked",
+      "path": "core/trajectory_compare.py",
+      "note": "a missing stored result row is hidden by the pairwise walk",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 3 warnings in 1.99s"
+    },
+    {
+      "id": "TC-target-checks-not-verified",
+      "path": "core/trajectory_compare.py",
+      "note": "the stored target checks are never compared on re-run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 3 warnings in 1.93s"
+    },
+    {
+      "id": "TC-record-version-not-stored",
+      "path": "core/trajectory_compare.py",
+      "note": "a new comparison record is saved without its method version",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 warning in 1.88s"
+    },
+    {
+      "id": "CP-station-rows-stripped",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "the desktop saves a record that cannot be re-run (stations dropped)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 warning in 1.87s"
+    },
+    {
+      "id": "CH-trajectory-version-ignored",
+      "path": "core/calculation_history.py",
+      "note": "history shows every trajectory record as unversioned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 warning in 1.83s"
+    },
+    {
+      "id": "CH-legacy-given-current-method",
+      "path": "core/calculation_history.py",
+      "note": "a legacy trajectory row is shown with the method name as its version",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 3 warnings in 1.94s"
+    },
+    {
+      "id": "CH-trajectory-status-adapter-missing",
+      "path": "core/calculation_history.py",
+      "note": "a versioned trajectory record is reported NOT REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 warning in 1.93s"
+    },
+    {
+      "id": "CH-trajectory-recalc-adapter-missing",
+      "path": "core/calculation_history.py",
+      "note": "History cannot re-run a versioned trajectory record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 warning in 1.92s"
+    },
+    {
+      "id": "CH-unit-mismatch-compared",
+      "path": "core/calculation_history.py",
+      "note": "1000 m and 3280.84 ft are compared as plain numbers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed, 3 warnings in 1.94s"
+    },
+    {
+      "id": "CH-only-a-merged",
+      "path": "core/calculation_history.py",
+      "note": "a field present on one side only is shown as changed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed, 3 warnings in 2.02s"
+    },
+    {
+      "id": "DB-trajectory-version-column-not-migrated",
+      "path": "core/database.py",
+      "note": "an existing database never gains trajectory_calculations.method_version",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 3 warnings in 2.96s"
+    },
+    {
+      "id": "WA-cement-version-unchecked",
+      "path": "core/well_architecture.py",
+      "note": "a worksheet of another version is re-run with the current method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 4.92s"
+    },
+    {
+      "id": "WA-cement-missing-inputs-accepted",
+      "path": "core/well_architecture.py",
+      "note": "a case without its revision, hash or string is offered as reproducible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 4.78s"
+    },
+    {
+      "id": "WA-cement-input-hash-unchecked",
+      "path": "core/well_architecture.py",
+      "note": "a re-run uses a revision whose components differ from those the case used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 4.77s"
+    },
+    {
+      "id": "WA-cement-value-difference-ignored",
+      "path": "core/well_architecture.py",
+      "note": "a changed stored volume still verifies as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.95s"
+    },
+    {
+      "id": "WA-cement-label-difference-ignored",
+      "path": "core/well_architecture.py",
+      "note": "a changed interval description (outer boundary source) verifies as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.85s"
+    },
+    {
+      "id": "WA-cement-one-sided-field-ignored",
+      "path": "core/well_architecture.py",
+      "note": "a result field missing from the stored case is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.91s"
+    },
+    {
+      "id": "WA-cement-unreadable-stored",
+      "path": "core/well_architecture.py",
+      "note": "an UNREADABLE re-run can be stored as a new case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 4.80s"
+    },
+    {
+      "id": "WA-cement-rerun-unlinked",
+      "path": "core/well_architecture.py",
+      "note": "a stored re-run has no lineage to the original case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.08s"
+    },
+    {
+      "id": "CH-cement-status-adapter-missing",
+      "path": "core/calculation_history.py",
+      "note": "a cement worksheet case is reported NOT REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.93s"
+    },
+    {
+      "id": "CH-cement-recalc-adapter-missing",
+      "path": "core/calculation_history.py",
+      "note": "History cannot re-run a cement worksheet case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.90s"
+    },
+    {
+      "id": "CH-cement-save-generic",
+      "path": "core/calculation_history.py",
+      "note": "a cement re-run is stored as a generic recalculation (plain numbers, not a worksheet case)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.95s"
+    },
+    {
+      "id": "CH-cement-scope-unlabelled",
+      "path": "core/calculation_history.py",
+      "note": "History shows a cement worksheet without the not-an-approval label",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.91s"
+    },
+    {
+      "id": "HT-recalculate-without-db",
+      "path": "tabs/calculation_history_tab.py",
+      "note": "the desktop cannot re-run a cement worksheet (no database handed over)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.99s"
+    },
+    {
+      "id": "PE-rev0-restored",
+      "path": "core/professional_export.py",
+      "note": "the export states revision 0 whatever was stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.91s"
+    },
+    {
+      "id": "PE-missing-revision-invented",
+      "path": "core/professional_export.py",
+      "note": "a report with no stored revision is shown with an invented one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.92s"
+    },
+    {
+      "id": "PE-oldest-revision-shown",
+      "path": "core/professional_export.py",
+      "note": "the first revision is shown instead of the latest",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.98s"
+    },
+    {
+      "id": "PE-approval-from-any-report",
+      "path": "core/professional_export.py",
+      "note": "another report's approval appears on this report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.82s"
+    },
+    {
+      "id": "PE-approval-note-dropped",
+      "path": "core/professional_export.py",
+      "note": "a workflow status is presented as an approval",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.76s"
+    },
+    {
+      "id": "PE-blank-name-shown-as-name",
+      "path": "core/professional_export.py",
+      "note": "a missing approver is a blank cell next to 'Approved By' instead of 'not recorded'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.87s"
+    },
+    {
+      "id": "PE-provenance-sheet-missing",
+      "path": "core/professional_export.py",
+      "note": "the workbook has no provenance, revision or label sheet",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.26s"
+    },
+    {
+      "id": "PE-pdf-provenance-missing",
+      "path": "core/professional_export.py",
+      "note": "the PDF has no label banner, provenance or text direction",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.84s"
+    },
+    {
+      "id": "PE-pdf-metadata-unescaped",
+      "path": "core/professional_export.py",
+      "note": "report text such as '&' or '<' is interpreted as markup in the PDF",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.86s"
+    },
+    {
+      "id": "PE-pdf-summary-unescaped",
+      "path": "core/professional_export.py",
+      "note": "the report summary is interpreted as markup in the PDF",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.71s"
+    },
+    {
+      "id": "PE-chemicals-without-source",
+      "path": "core/professional_export.py",
+      "note": "chemicals are listed without the mud report they come from",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.28s"
+    },
+    {
+      "id": "PE-no-mud-sheet-missing",
+      "path": "core/professional_export.py",
+      "note": "a report without mud shows an empty chemicals sheet without saying why",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.57s"
+    },
+    {
+      "id": "RP-workbook-report-scoped-as-well",
+      "path": "core/report_provenance.py",
+      "note": "a per-report workbook carries whole-well provenance",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.27s"
+    },
+    {
+      "id": "EJ-professional-direction-dropped",
+      "path": "core/export_jobs.py",
+      "note": "an RTL batch writes LTR professional files",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.94s"
+    },
+    {
+      "id": "EJ-per-report-workbooks-dropped",
+      "path": "core/export_jobs.py",
+      "note": "the per-report workbook option writes nothing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.75s"
+    },
+    {
+      "id": "PE-pdf-report-info-set-literal",
+      "path": "core/professional_export.py",
+      "note": "D29 restored: a set holding a dict raises TypeError and no professional PDF is written",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m110_professional_export.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.79s"
+    },
+    {
+      "id": "IP-identity-before-unchecked",
+      "path": "core/isolated_parse.py",
+      "note": "a file changed before the child read it is parsed and offered for saving",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed, 1 warning in 9.99s"
+    },
+    {
+      "id": "IP-identity-after-unchecked",
+      "path": "core/isolated_parse.py",
+      "note": "a file changed while the child read it is offered for saving",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 1 warning in 10.20s"
+    },
+    {
+      "id": "IP-parent-recheck-dropped",
+      "path": "core/isolated_parse.py",
+      "note": "a file changed after the parse is offered for saving",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 1 warning in 10.66s"
+    },
+    {
+      "id": "IP-late-result-after-cancel-kept",
+      "path": "core/isolated_parse.py",
+      "note": "a cancelled parse keeps waiting and returns the child's late result",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed, 1 warning in 10.63s"
+    },
+    {
+      "id": "IP-timeout-hundredfold",
+      "path": "core/isolated_parse.py",
+      "note": "a hanging parser is not stopped at the configured timeout",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed, 1 warning in 62.07s (0:01:02)"
+    },
+    {
+      "id": "IP-no-terminate",
+      "path": "core/isolated_parse.py",
+      "note": "shutdown skips the polite terminate step",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed, 1 warning in 12.17s"
+    },
+    {
+      "id": "IP-no-kill",
+      "path": "core/isolated_parse.py",
+      "note": "a child that ignores terminate survives as an orphan",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed, 1 warning in 14.01s"
+    },
+    {
+      "id": "IP-non-plain-result-accepted",
+      "path": "core/isolated_parse.py",
+      "note": "an object that is not plain data is accepted from the parser process",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed, 1 warning in 14.05s"
+    },
+    {
+      "id": "IP-error-type-lost",
+      "path": "core/isolated_parse.py",
+      "note": "a ValueError from the child becomes another type (status mapping changes)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.41s"
+    },
+    {
+      "id": "IP-child-unregistered",
+      "path": "core/isolated_parse.py",
+      "note": "shutdown_all cannot see a running child (orphan at exit)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 1 warning in 44.10s"
+    },
+    {
+      "id": "IP-request-not-checked",
+      "path": "core/isolated_parse.py",
+      "note": "a session or ORM object could be sent to the parser process",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed, 1 warning in 10.24s"
+    },
+    {
+      "id": "DLG-mineru-success-isolated",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "a successful MinerU result would be sent to the child (not plain data)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed, 1 warning in 16.51s"
+    },
+    {
+      "id": "DLG-injected-extract-isolated",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "an injected parser is silently replaced by the production one in the child",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed, 1 warning in 16.93s"
+    },
+    {
+      "id": "DLG-injected-route-isolated",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "an injected router is silently replaced by the production one in the child",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed, 1 warning in 18.42s"
+    },
+    {
+      "id": "DLG-isolation-never-used",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "the dialog keeps parsing in its own process",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed, 1 warning in 15.86s"
+    },
+    {
+      "id": "IP-timedelta-not-plain",
+      "path": "core/isolated_parse.py",
+      "note": "real workbooks with time-log durations are rejected as NOT_PLAIN",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m111_isolated_parse.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 1 warning in 10.04s"
+    },
+    {
+      "id": "DA-guard-always-true",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "an unguarded optional import is reported as guarded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m112_dependency_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 6.27s"
+    },
+    {
+      "id": "DA-forbidden-binding-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a GPL Qt binding in the product is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m112_dependency_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.65s"
+    },
+    {
+      "id": "DA-undeclared-import-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "an undeclared third-party import is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m112_dependency_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.73s"
+    },
+    {
+      "id": "DA-agpl-called-permissive",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "PyMuPDF (AGPL) is not classed as strong copyleft / owner gate",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m112_dependency_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.64s"
+    },
+    {
+      "id": "DA-lgpl-called-permissive",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "Qt for Python (LGPL) is not an owner gate",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m112_dependency_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.71s"
+    },
+    {
+      "id": "W13-pyqt5-sheet-dialog-restored",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "D30 restored: the sheet prompt fails and the active sheet is imported without asking",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m112_dependency_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.47s"
+    },
+    {
+      "id": "TDA-unguarded-import",
+      "path": "core/engineering/adapters/torque_drag_adapter.py",
+      "note": "calling the adapter without the LGPL package raises instead of returning nothing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m112_dependency_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.88s"
+    },
+    {
+      "id": "CI-raw-text-scan",
+      "path": "tools/quality/constant_inventory.py",
+      "note": "numbers in comments and strings are counted as code constants (raw text scan instead of tokens)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m113_constant_inventory.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.28s"
+    },
+    {
+      "id": "CI-trailing-zero-variant-missed",
+      "path": "tools/quality/constant_inventory.py",
+      "note": "7.480 is not recognised as the 7.48 literal",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m113_constant_inventory.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.99s"
+    },
+    {
+      "id": "CI-inconsistency-hidden",
+      "path": "tools/quality/constant_inventory.py",
+      "note": "several literals of one quantity are not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m113_constant_inventory.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.05s"
+    },
+    {
+      "id": "DLIB-scope-ignored",
+      "path": "core/document_library.py",
+      "note": "the document scope is ignored: other wells' documents appear in a scoped search",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m114_document_scope.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 warnings in 1.18s"
+    },
+    {
+      "id": "DLIB-empty-scope-means-all",
+      "path": "core/document_library.py",
+      "note": "an empty scope (no linked documents) searches the whole library",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m114_document_scope.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 warnings in 1.28s"
+    },
+    {
+      "id": "DLIB-limit-before-scope",
+      "path": "core/document_library.py",
+      "note": "the limit is applied before the scope, so in-scope hits are lost",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m114_document_scope.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 5 warnings in 1.40s"
+    },
+    {
+      "id": "DLIB-scan-unscoped",
+      "path": "core/document_library.py",
+      "note": "the substring-scan fallback ignores the scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m114_document_scope.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 5 warnings in 1.27s"
+    },
+    {
+      "id": "DTAB-search-not-scoped",
+      "path": "tabs/documents_tab.py",
+      "note": "the tab searches the whole library whatever the filter or selected well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m114_document_scope.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 5 warnings in 1.66s"
+    },
+    {
+      "id": "DTAB-stale-hits-kept",
+      "path": "tabs/documents_tab.py",
+      "note": "a well switch, filter change or deletion keeps the previous search hits",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m114_document_scope.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 5 warnings in 1.66s"
+    },
+    {
+      "id": "DTAB-no-well-searches-all",
+      "path": "tabs/documents_tab.py",
+      "note": "with no well selected the well-scoped view does not say so",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m114_document_scope.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 5 warnings in 1.75s"
+    },
+    {
+      "id": "UXS-direction-not-applied",
+      "path": "tools/quality/ux_startup_m115.py",
+      "note": "the RTL run is really left-to-right, so the right-to-left check proves nothing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m115_ux_startup.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 16.74s"
+    },
+    {
+      "id": "UXS-tab-timing-dropped",
+      "path": "tools/quality/ux_startup_m115.py",
+      "note": "per-tab construction times are not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m115_ux_startup.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 16.68s"
+    },
+    {
+      "id": "CH-ltr-pin-removed",
+      "path": "tabs/calculation_history_tab.py",
+      "note": "the English-only calculation history follows RTL (its tables and numbers would mirror)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m115_ux_startup.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 16.78s"
+    },
+    {
+      "id": "W12-performance-axes-old-text",
+      "path": "tabs/w12_Analysis.py",
+      "note": "D34 restored: the x axis says bit run while calendar days are plotted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m115_chart_axes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.42s"
+    },
+    {
+      "id": "W10-gel-unit-dropped",
+      "path": "tabs/w10_Planning_Widget.py",
+      "note": "a mud chart axis without its unit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m115_chart_axes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.35s"
+    },
+    {
+      "id": "SG-results-hash-not-frozen",
+      "path": "core/storage_guards.py",
+      "note": "D32 restored: the survey results hash can be rewritten",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.51s"
+    },
+    {
+      "id": "SG-survey-guard-version-kept",
+      "path": "core/storage_guards.py",
+      "note": "old databases keep the v1 survey guard that does not freeze the results hash",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.79s"
+    },
+    {
+      "id": "SQC-datetime-adapter-format",
+      "path": "core/sqlite_connection.py",
+      "note": "datetimes are stored with a 'T' separator, unlike every existing row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.85s"
+    },
+    {
+      "id": "SQC-adapters-not-registered",
+      "path": "core/sqlite_connection.py",
+      "note": "the deprecated default adapters are still used (D16 open)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.80s"
+    },
+    {
+      "id": "SG-update-guard-dropped",
+      "path": "core/storage_guards.py",
+      "note": "the survey update guard is renamed out of its prefix, so the old guard is never replaced",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.56s"
+    },
+    {
+      "id": "DB-report-delete-removes-set-null-rows",
+      "path": "core/database.py",
+      "note": "D33 restored: deleting a report deletes the MSE runs based on it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py",
+        "tests/test_m96_persistence_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 5.97s"
+    },
+    {
+      "id": "AUTH-report-unlink-scope-empty",
+      "path": "core/authorization.py",
+      "note": "a report deleter without edit rights can no longer delete the report (or the unlink is unscoped)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 6.81s"
+    },
+    {
+      "id": "DB-report-unlink-not-audited",
+      "path": "core/database.py",
+      "note": "the audit record no longer states how many references were set to unknown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m116_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 7.76s"
+    },
+    {
+      "id": "JI-application-counts-as-widget",
+      "path": "tools/quality/journey_index.py",
+      "note": "a test that only creates a QApplication is reported as a widget journey",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_journey_index.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.50s"
+    },
+    {
+      "id": "JI-child-scripts-ignored",
+      "path": "tools/quality/journey_index.py",
+      "note": "subprocess journeys (backup/restore) are no longer recognised",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_journey_index.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.26s"
+    },
+    {
+      "id": "JI-fixture-parameters-ignored",
+      "path": "tools/quality/journey_index.py",
+      "note": "widgets reached through a fixture are not seen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_journey_index.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.48s"
+    },
+    {
+      "id": "JI-helpers-not-followed",
+      "path": "tools/quality/journey_index.py",
+      "note": "fixtures and helpers are not followed transitively",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_journey_index.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.27s"
+    },
+    {
+      "id": "JI-missing-citation-accepted",
+      "path": "tools/quality/journey_index.py",
+      "note": "a citation of a test that does not exist no longer fails the register",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_journey_index.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.72s"
+    },
+    {
+      "id": "SR-conversion-skips-verification",
+      "path": "core/survey_revisions.py",
+      "note": "journey G: a tampered revision is converted into a new revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_widget_journeys.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.05s"
+    },
+    {
+      "id": "W11-per-report-workbooks-ignored",
+      "path": "tabs/w11_Export.py",
+      "note": "journey U: the per-report option is shown but writes no per-report workbook",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_widget_journeys.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.85s"
+    },
+    {
+      "id": "CHT-store-without-recalculated-values",
+      "path": "tabs/calculation_history_tab.py",
+      "note": "journey M: a NOT_REPRODUCIBLE outcome could be stored as a recalculation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m117_widget_journeys.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.10s"
+    },
+    {
+      "id": "CH-recheck-guard-removed",
+      "path": "core/calculation_history.py",
+      "note": "D35 restored: a malformed stored record raises out of the history tab's re-check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m119_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 4.15s"
+    },
+    {
+      "id": "WA-cement-shape-check-removed",
+      "path": "core/well_architecture.py",
+      "note": "the cement adapter dereferences a malformed result (only the generic guard reports it)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m119_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.06s"
+    },
+    {
+      "id": "SR-verify-bool-accepted",
+      "path": "core/survey_revisions.py",
+      "note": "D1 probe: a boolean result (== 0) passes as a number",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m119_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.24s"
+    },
+    {
+      "id": "UXS-close-not-confirmed",
+      "path": "tools/quality/ux_startup_m115.py",
+      "note": "the exit confirmation answers No, the close is ignored and threads outlive the process (CI 3.12/3.13)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m115_ux_startup.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 error in 8.49s"
+    },
+    {
+      "id": "CI-fstring-fields-skipped",
+      "path": "tools/quality/constant_inventory.py",
+      "note": "on Python 3.11 numbers in f-string fields are not counted, unlike 3.12+ (inventory v1 behaviour)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m113_constant_inventory.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.84s"
+    }
+  ],
+  "killed": [
+    "CC-text-input-dropped",
+    "CC-bool-input-dropped",
+    "CC-not-recorded-read-as-value",
+    "CC-unknown-additive-defaulted",
+    "CC-nozzle-model-ignored",
+    "CC-nozzle-zero-fallback-accepted",
+    "CC-overshot-flag-constant",
+    "CC-plug-zero-yield-passed",
+    "MV-weight-up-v1-formula",
+    "FL-nested-row-label-lost",
+    "MS-leg-direction-not-carried",
+    "MS-hold-after-ignored",
+    "MS-dls-limit-unchecked",
+    "MS-verification-skipped",
+    "MS-tolerance-ignored",
+    "MS-order-unchecked",
+    "SP-tangent-angle-sign",
+    "SP-final-hold-ignored",
+    "SP-inclined-tie-in-accepted",
+    "SP-no-drop-accepted",
+    "SP-inc-limit-unchecked",
+    "UI-solver-mode-ignored",
+    "OA-mse-wellbore-filter-off",
+    "OA-mse-legacy-shown-as-known",
+    "MSE-lineage-foreign-wellbore-accepted",
+    "MSE-lineage-foreign-report-accepted",
+    "MIG-lineage-column-not-added",
+    "W13-lineage-takes-stale-report",
+    "OA-plan-assessed-for-wellbore",
+    "OA-plan-assessed-for-date-range",
+    "OA-cost-shown-for-wellbore",
+    "OA-kpi-partial-as-complete",
+    "OA-kpi-currencies-merged",
+    "OA-bit-zero-hours-unexplained",
+    "OA-bit-invalid-depths-unexplained",
+    "CJ-superseded-result-shown",
+    "CJ-stale-result-shown",
+    "CJ-cancel-ignored",
+    "CJ-shutdown-does-not-cancel",
+    "CJ-always-synchronous",
+    "OA-cancel-points-ignored",
+    "W12-close-leaves-job-running",
+    "SM-batch-not-suppressed",
+    "SM-batch-not-restored",
+    "SM-reversed-period-accepted",
+    "SM-datetime-not-normalised",
+    "SM-clear-emits-no-context",
+    "SC-foreign-report-shown",
+    "SC-foreign-wellbore-shown",
+    "BT-context-hook-not-connected",
+    "BT-wellbore-kept-on-well-switch",
+    "W2-report-form-kept-on-well-switch",
+    "W2-report-form-kept-on-clear",
+    "EX-report-list-kept-on-clear",
+    "PL-tables-kept-on-clear",
+    "CM-clear-handler-empty",
+    "S3C-section-label-kept",
+    "MW-report-payload-not-enriched",
+    "MW-status-path-not-connected",
+    "DOC-selected-well-filter-unfiltered",
+    "SR-field-set-unchecked",
+    "SR-azimuth-not-wrapped",
+    "SR-tolerance-loosened",
+    "SR-results-hash-not-checked",
+    "SR-save-hash-not-recorded",
+    "SR-transform-hash-not-recorded",
+    "SR-missing-integrity-trusted",
+    "SR-use-without-recompute",
+    "SR-compare-unverified",
+    "DP-tie-in-results-unverified",
+    "SR-datum-offset-sign",
+    "SR-datum-missing-elevation-zero",
+    "SR-datum-inclined-first-accepted",
+    "SR-datum-stations-above-kept",
+    "DP-reference-contradiction-accepted",
+    "DP-references-dropped",
+    "TC-reference-conflict-accepted",
+    "TC-comment-rows-not-parsed",
+    "CP-reference-gate-removed",
+    "DB-additive-column-skipped",
+    "TC-legacy-treated-as-versioned",
+    "TC-other-version-accepted",
+    "TC-missing-rows-accepted",
+    "TC-input-hash-unchecked",
+    "TC-numeric-difference-ignored",
+    "TC-row-count-unchecked",
+    "TC-target-checks-not-verified",
+    "TC-record-version-not-stored",
+    "CP-station-rows-stripped",
+    "CH-trajectory-version-ignored",
+    "CH-legacy-given-current-method",
+    "CH-trajectory-status-adapter-missing",
+    "CH-trajectory-recalc-adapter-missing",
+    "CH-unit-mismatch-compared",
+    "CH-only-a-merged",
+    "DB-trajectory-version-column-not-migrated",
+    "WA-cement-version-unchecked",
+    "WA-cement-missing-inputs-accepted",
+    "WA-cement-input-hash-unchecked",
+    "WA-cement-value-difference-ignored",
+    "WA-cement-label-difference-ignored",
+    "WA-cement-one-sided-field-ignored",
+    "WA-cement-unreadable-stored",
+    "WA-cement-rerun-unlinked",
+    "CH-cement-status-adapter-missing",
+    "CH-cement-recalc-adapter-missing",
+    "CH-cement-save-generic",
+    "CH-cement-scope-unlabelled",
+    "HT-recalculate-without-db",
+    "PE-rev0-restored",
+    "PE-missing-revision-invented",
+    "PE-oldest-revision-shown",
+    "PE-approval-from-any-report",
+    "PE-approval-note-dropped",
+    "PE-blank-name-shown-as-name",
+    "PE-provenance-sheet-missing",
+    "PE-pdf-provenance-missing",
+    "PE-pdf-metadata-unescaped",
+    "PE-pdf-summary-unescaped",
+    "PE-chemicals-without-source",
+    "PE-no-mud-sheet-missing",
+    "RP-workbook-report-scoped-as-well",
+    "EJ-professional-direction-dropped",
+    "EJ-per-report-workbooks-dropped",
+    "PE-pdf-report-info-set-literal",
+    "IP-identity-before-unchecked",
+    "IP-identity-after-unchecked",
+    "IP-parent-recheck-dropped",
+    "IP-late-result-after-cancel-kept",
+    "IP-timeout-hundredfold",
+    "IP-no-terminate",
+    "IP-no-kill",
+    "IP-non-plain-result-accepted",
+    "IP-error-type-lost",
+    "IP-child-unregistered",
+    "IP-request-not-checked",
+    "DLG-mineru-success-isolated",
+    "DLG-injected-extract-isolated",
+    "DLG-injected-route-isolated",
+    "DLG-isolation-never-used",
+    "IP-timedelta-not-plain",
+    "DA-guard-always-true",
+    "DA-forbidden-binding-ignored",
+    "DA-undeclared-import-ignored",
+    "DA-agpl-called-permissive",
+    "DA-lgpl-called-permissive",
+    "W13-pyqt5-sheet-dialog-restored",
+    "TDA-unguarded-import",
+    "CI-raw-text-scan",
+    "CI-trailing-zero-variant-missed",
+    "CI-inconsistency-hidden",
+    "DLIB-scope-ignored",
+    "DLIB-empty-scope-means-all",
+    "DLIB-limit-before-scope",
+    "DLIB-scan-unscoped",
+    "DTAB-search-not-scoped",
+    "DTAB-stale-hits-kept",
+    "DTAB-no-well-searches-all",
+    "UXS-direction-not-applied",
+    "UXS-tab-timing-dropped",
+    "CH-ltr-pin-removed",
+    "W12-performance-axes-old-text",
+    "W10-gel-unit-dropped",
+    "SG-results-hash-not-frozen",
+    "SG-survey-guard-version-kept",
+    "SQC-datetime-adapter-format",
+    "SQC-adapters-not-registered",
+    "SG-update-guard-dropped",
+    "DB-report-delete-removes-set-null-rows",
+    "AUTH-report-unlink-scope-empty",
+    "DB-report-unlink-not-audited",
+    "JI-application-counts-as-widget",
+    "JI-child-scripts-ignored",
+    "JI-fixture-parameters-ignored",
+    "JI-helpers-not-followed",
+    "JI-missing-citation-accepted",
+    "SR-conversion-skips-verification",
+    "W11-per-report-workbooks-ignored",
+    "CHT-store-without-recalculated-values",
+    "CH-recheck-guard-removed",
+    "WA-cement-shape-check-removed",
+    "SR-verify-bool-accepted",
+    "UXS-close-not-confirmed",
+    "CI-fstring-fields-skipped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

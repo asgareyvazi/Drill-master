@@ -1,0 +1,293 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m73_contracts_history.py",
+      "tests/test_m83_selection_lifecycle.py",
+      "tests/test_m84_ddr_identity_cleanup.py",
+      "tests/test_m85_survey_references.py",
+      "tests/test_m86_directional_solver.py",
+      "tests/test_m87_w13_contracts.py",
+      "tests/test_m88_history_lineage.py",
+      "tests/test_m89_architecture_casing_cement.py",
+      "tests/test_m91_operational_analysis.py",
+      "tests/test_m92_method_catalogue.py",
+      "tests/test_m93_report_provenance.py",
+      "tests/test_m94_e2e_journeys.py",
+      "tests/test_m95_ux_responsiveness.py",
+      "tests/test_m96_persistence_audit.py"
+    ],
+    "exit": 0,
+    "summary": "187 passed, 14 warnings in 191.29s (0:03:11)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "SM-stale-token-accepted",
+      "path": "core/selection_manager.py",
+      "note": "a worker result for a previous selection is applied to the new one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m83_selection_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.60s"
+    },
+    {
+      "id": "Q-identity-not-rechecked",
+      "path": "core/ddr_import_queue.py",
+      "note": "a file changed between preview and commit is persisted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m84_ddr_identity_cleanup.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.31s"
+    },
+    {
+      "id": "SR-hash-not-verified",
+      "path": "core/survey_revisions.py",
+      "note": "a survey revision whose stations no longer match their hash reads as VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m85_survey_references.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 8.24s"
+    },
+    {
+      "id": "WP-dogleg-180-accepted",
+      "path": "core/well_plan_designer.py",
+      "note": "a target needing a >= 180 deg dogleg is not reported infeasible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m86_directional_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 1.10s"
+    },
+    {
+      "id": "CON-unsupported-claimed",
+      "path": "core/calculator_contracts.py",
+      "note": "a calculator without a contract is shown as supported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m87_w13_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 31.50s"
+    },
+    {
+      "id": "CH-survey-hash-not-checked-on-rerun",
+      "path": "core/calculation_history.py",
+      "note": "a re-run recalculates tampered survey stations instead of reporting UNREADABLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m88_history_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.55s"
+    },
+    {
+      "id": "CH-unreadable-as-readable",
+      "path": "core/calculation_history.py",
+      "note": "a record whose stored data cannot be read is labelled READABLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m73_contracts_history.py",
+        "tests/test_m88_history_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.73s"
+    },
+    {
+      "id": "WA-excess-on-cased-hole",
+      "path": "core/well_architecture.py",
+      "note": "the declared excess is applied to cased intervals too",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m89_architecture_casing_cement.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.70s"
+    },
+    {
+      "id": "OA-incomplete-sum-as-total",
+      "path": "core/operational_analysis.py",
+      "note": "a missing value is counted as zero in a total",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m91_operational_analysis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.93s"
+    },
+    {
+      "id": "OA-rop-not-time-weighted",
+      "path": "core/operational_analysis.py",
+      "note": "the summary ROP is the mean of daily ROPs instead of sum(footage)/sum(hours)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m91_operational_analysis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.97s"
+    },
+    {
+      "id": "MC-approved-by-default",
+      "path": "core/method_catalogue.py",
+      "note": "catalogue methods read as approved without an owner decision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m92_method_catalogue.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 6.25s"
+    },
+    {
+      "id": "RP-unsigned-label-dropped",
+      "path": "core/report_provenance.py",
+      "note": "exported reports lose the unsigned / not-approved label",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m93_report_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.14s"
+    },
+    {
+      "id": "OA-scope-without-well-name",
+      "path": "core/operational_analysis.py",
+      "note": "an analysis / export no longer names the well it covers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m94_e2e_journeys.py",
+        "tests/test_m91_operational_analysis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 6.78s"
+    },
+    {
+      "id": "OA-memo-ignores-description",
+      "path": "core/operational_analysis.py",
+      "note": "an unresolved code is cached per code although its description decides the mapping",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m95_ux_responsiveness.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.58s"
+    },
+    {
+      "id": "W10-state-on-wrapper",
+      "path": "tabs/w10_Planning_Widget.py",
+      "note": "the section load of a W10 sub-tab runs against the previous well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m95_ux_responsiveness.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 14 warnings in 7.41s"
+    },
+    {
+      "id": "W10-stale-section-kept",
+      "path": "tabs/w10_Planning_Widget.py",
+      "note": "re-selecting a well keeps the W10 sub-tabs filtered by the old section",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m95_ux_responsiveness.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 14 warnings in 8.34s"
+    },
+    {
+      "id": "DB-sweep-table-missing",
+      "path": "core/database.py",
+      "note": "a saved MSE calculation makes its well undeletable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m96_persistence_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.17s"
+    },
+    {
+      "id": "DB-unlink-unscoped",
+      "path": "core/database.py",
+      "note": "a deleter without edit rights cannot delete a section that has procedures",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m96_persistence_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 17.73s"
+    },
+    {
+      "id": "SG-replace-allowed",
+      "path": "core/storage_guards.py",
+      "note": "INSERT OR REPLACE overwrites an immutable history record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m96_persistence_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 25.94s"
+    },
+    {
+      "id": "SG-single-delete-allowed",
+      "path": "core/storage_guards.py",
+      "note": "a single history record can be deleted while its well exists",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m96_persistence_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 25.35s"
+    }
+  ],
+  "killed": [
+    "SM-stale-token-accepted",
+    "Q-identity-not-rechecked",
+    "SR-hash-not-verified",
+    "WP-dogleg-180-accepted",
+    "CON-unsupported-claimed",
+    "CH-survey-hash-not-checked-on-rerun",
+    "CH-unreadable-as-readable",
+    "WA-excess-on-cased-hole",
+    "OA-incomplete-sum-as-total",
+    "OA-rop-not-time-weighted",
+    "MC-approved-by-default",
+    "RP-unsigned-label-dropped",
+    "OA-scope-without-well-name",
+    "OA-memo-ignores-description",
+    "W10-state-on-wrapper",
+    "W10-stale-section-kept",
+    "DB-sweep-table-missing",
+    "DB-unlink-unscoped",
+    "SG-replace-allowed",
+    "SG-single-delete-allowed"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

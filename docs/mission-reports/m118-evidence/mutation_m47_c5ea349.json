@@ -1,0 +1,365 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_search_closure_m47.py",
+      "tests/test_search_normalization.py",
+      "tests/test_search_parity_m46.py",
+      "tests/test_sqlite_pool_isolation_m47.py"
+    ],
+    "exit": 0,
+    "summary": "100 passed, 14 warnings in 36.41s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "P-staticpool",
+      "path": "core/database.py",
+      "note": "file database back on StaticPool: every session shares one DB-API connection (M46)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 error in 1.57s"
+    },
+    {
+      "id": "P-fk-checkout",
+      "path": "core/database.py",
+      "note": "a pooled connection without foreign-key enforcement is reused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 9.86s"
+    },
+    {
+      "id": "P-settings-bounds",
+      "path": "core/sqlite_connection.py",
+      "note": "out-of-range pool settings accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.59s"
+    },
+    {
+      "id": "G-unmatched-checkin",
+      "path": "core/db_maintenance.py",
+      "note": "a refused checkout's checkin releases another holder (G1, old max(0, n-1))",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed, 14 warnings in 28.88s"
+    },
+    {
+      "id": "G-install-reset",
+      "path": "core/db_maintenance.py",
+      "note": "initialize resets and reopens the gate (old install_gate)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed, 14 warnings in 28.56s"
+    },
+    {
+      "id": "G-connect-guard",
+      "path": "core/database.py",
+      "note": "new DB-API connections are opened (and configured) while maintenance holds the file",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed, 14 warnings in 23.51s"
+    },
+    {
+      "id": "G-reentrant-close",
+      "path": "core/db_maintenance.py",
+      "note": "a second maintenance stacks on the first instead of being refused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed, 14 warnings in 23.82s"
+    },
+    {
+      "id": "G-no-dispose",
+      "path": "core/db_maintenance.py",
+      "note": "restore keeps idle pooled connections open on the file it replaces",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed, 14 warnings in 20.65s"
+    },
+    {
+      "id": "M-worker-thread",
+      "path": "core/export_jobs.py",
+      "note": "a worker thread may query the shared in-memory connection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 31 passed, 14 warnings in 29.82s"
+    },
+    {
+      "id": "M-hierarchy-thread",
+      "path": "main_window.py",
+      "note": "in-memory hierarchy read moved to a QThread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 32 passed, 14 warnings in 31.45s"
+    },
+    {
+      "id": "M-export-thread",
+      "path": "tabs/w11_Export.py",
+      "note": "in-memory export moved to a QThread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 33 passed, 14 warnings in 32.37s"
+    },
+    {
+      "id": "W-hierarchy-not-read-only",
+      "path": "main_window.py",
+      "note": "hierarchy worker reads through the writable application pool instead of its mode=ro view",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 14.78s"
+    },
+    {
+      "id": "M-detect",
+      "path": "core/export_jobs.py",
+      "note": "the shared in-memory connection is not recognised",
+      "equivalent": "",
+      "tests": [
+        "tests/test_sqlite_pool_isolation_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 31 passed, 14 warnings in 31.76s"
+    },
+    {
+      "id": "A-library-flat",
+      "path": "core/document_library.py",
+      "note": "search results highlight every token of an identifier separately (old flat terms)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 1.47s"
+    },
+    {
+      "id": "A-ui-flat",
+      "path": "tabs/documents_tab.py",
+      "note": "the viewer highlights every token of an identifier separately (old flat terms)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 41 passed in 3.52s"
+    },
+    {
+      "id": "A-phrase-prefix",
+      "path": "core/search_normalization.py",
+      "note": "a multi-token group matches token prefixes (SYN-DEV-012 for SYN-DEV-01)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py",
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.62s"
+    },
+    {
+      "id": "A-no-merge",
+      "path": "core/search_normalization.py",
+      "note": "overlapping spans are not merged (order-dependent highlight)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py",
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.61s"
+    },
+    {
+      "id": "A-utf16",
+      "path": "core/search_normalization.py",
+      "note": "Qt positions taken as code points: highlight shifts after a non-BMP character",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.55s"
+    },
+    {
+      "id": "B-full-casefold",
+      "path": "core/search_normalization.py",
+      "note": "full case folding truncated to one character (old _fold: 'ß' -> 's')",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 1.38s"
+    },
+    {
+      "id": "B-fold-order",
+      "path": "core/search_normalization.py",
+      "note": "diacritic fold not applied after case folding (U+1E9B -> U+1E61 kept)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.93s"
+    },
+    {
+      "id": "B-keeps",
+      "path": "core/search_normalization.py",
+      "note": "U+01E0/U+01E1 folded although FTS5 unicode61 keeps them",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 1.38s"
+    },
+    {
+      "id": "B-version",
+      "path": "core/search_normalization.py",
+      "note": "fold rules changed without an index signature bump",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py",
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 1.51s"
+    },
+    {
+      "id": "C-old-normalize",
+      "path": "core/document_links.py",
+      "note": "old note expression: whitespace-only notes stored as ''",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 1.42s"
+    },
+    {
+      "id": "C-read-raw",
+      "path": "core/document_links.py",
+      "note": "legacy '' notes read back as '' instead of None",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 38 passed in 1.67s"
+    },
+    {
+      "id": "C-unchanged-ignores-note",
+      "path": "core/document_links.py",
+      "note": "a note-only change is refused as unchanged",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 37 passed in 1.75s"
+    },
+    {
+      "id": "C-note-dropped",
+      "path": "core/document_links.py",
+      "note": "update_link ignores the note argument",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_closure_m47.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 37 passed in 1.73s"
+    }
+  ],
+  "killed": [
+    "P-staticpool",
+    "P-fk-checkout",
+    "P-settings-bounds",
+    "G-unmatched-checkin",
+    "G-install-reset",
+    "G-connect-guard",
+    "G-reentrant-close",
+    "G-no-dispose",
+    "M-worker-thread",
+    "M-hierarchy-thread",
+    "M-export-thread",
+    "W-hierarchy-not-read-only",
+    "M-detect",
+    "A-library-flat",
+    "A-ui-flat",
+    "A-phrase-prefix",
+    "A-no-merge",
+    "A-utf16",
+    "B-full-casefold",
+    "B-fold-order",
+    "B-keeps",
+    "B-version",
+    "C-old-normalize",
+    "C-read-raw",
+    "C-unchanged-ignores-note",
+    "C-note-dropped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

@@ -1,0 +1,528 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m50_trajectory_3d_disposal.py",
+      "tests/test_m53_dashboard.py",
+      "tests/test_m54_ddr_workflow.py",
+      "tests/test_m54_pdf_generic_tables.py",
+      "tests/test_m54_report_profiles.py",
+      "tests/test_m55_directional.py",
+      "tests/test_m56_calculator_finder.py",
+      "tests/test_operations_dashboard.py"
+    ],
+    "exit": 0,
+    "summary": "114 passed, 14 warnings in 15.24s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "OD-negative-footage-counted",
+      "path": "core/operations_dashboard.py",
+      "note": "a plug-back / typo (24:00 below 00:00 depth) is summed as negative footage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.15s"
+    },
+    {
+      "id": "OD-npt-alert-dropped",
+      "path": "core/operations_dashboard.py",
+      "note": "a well above 20 % NPT raises no NPT_HIGH alert",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.31s"
+    },
+    {
+      "id": "OD-afe-alert-dropped",
+      "path": "core/operations_dashboard.py",
+      "note": "a well over its AFE raises no COST_OVER_AFE alert",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.26s"
+    },
+    {
+      "id": "OD-portfolio-cost-per-metre",
+      "path": "core/operations_dashboard.py",
+      "note": "cost per metre / NPT cost are shown for a multi-well portfolio (first well's figure)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.93s"
+    },
+    {
+      "id": "OD-company-filter-ignored",
+      "path": "core/operations_dashboard.py",
+      "note": "the company filter does not scope the KPIs and lists",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 2.04s"
+    },
+    {
+      "id": "OD-options-from-filtered-wells",
+      "path": "core/operations_dashboard.py",
+      "note": "filter choices shrink to the current filter, so the user cannot switch rig",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 2.01s"
+    },
+    {
+      "id": "HT-stale-result-accepted",
+      "path": "tabs/home_tab.py",
+      "note": "a load for an old filter overwrites the dashboard of the new filter",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 2.93s"
+    },
+    {
+      "id": "HT-rtl-inherited",
+      "path": "tabs/home_tab.py",
+      "note": "the dashboard inherits the application's RTL direction",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m53_dashboard.py",
+        "tests/test_operations_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.66s"
+    },
+    {
+      "id": "W2-overlap-saves",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "an overlapping time log is saved (pre-M54)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_ddr_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 2.46s"
+    },
+    {
+      "id": "W2-midnight-start-as-2400",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "a stored 00:00 start (loaded with the 24:00 flag) is validated as end-of-day",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_ddr_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.91s"
+    },
+    {
+      "id": "W2-gap-blocks",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "an incomplete day cannot be saved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_ddr_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.00s"
+    },
+    {
+      "id": "W2-duplicate-keeps-source-id",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "saving a duplicate overwrites the source report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_ddr_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.63s"
+    },
+    {
+      "id": "W2-timeline-ignores-guard",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "double-clicking the timeline discards unsaved edits without asking",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_ddr_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.57s"
+    },
+    {
+      "id": "W2-new-report-ignores-guard",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "New Report discards unsaved edits without asking (pre-M54)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_ddr_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 2.68s"
+    },
+    {
+      "id": "PG-header-row-as-data",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a ruled table's header row is emitted as a data row (M52 limit)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_pdf_generic_tables.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.24s"
+    },
+    {
+      "id": "PG-margins-kept",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "repeated page headers/footers leak into tables and text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_pdf_generic_tables.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.15s"
+    },
+    {
+      "id": "PG-no-repeated-header-join",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a table continued on the next page is split into fragments",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_pdf_generic_tables.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.15s"
+    },
+    {
+      "id": "PG-wrapped-cell-new-row",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a wrapped description line ends the table instead of joining its row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_pdf_generic_tables.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.14s"
+    },
+    {
+      "id": "PG-scanned-not-reported",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a scanned page is not reported, so OCR-unavailable is never stated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_pdf_generic_tables.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.27s"
+    },
+    {
+      "id": "PG-ruled-headerless-not-joined",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a header-less ruled continuation keeps Column N keys instead of the table's headers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_pdf_generic_tables.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.33s"
+    },
+    {
+      "id": "PR-unknown-field-accepted",
+      "path": "core/ddr_report_profiles.py",
+      "note": "an alias to a non-existent canonical field is saved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_report_profiles.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.11s"
+    },
+    {
+      "id": "PR-version-not-incremented",
+      "path": "core/ddr_report_profiles.py",
+      "note": "a second save cannot create a new immutable version",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_report_profiles.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 1.70s"
+    },
+    {
+      "id": "ME-profile-ignored",
+      "path": "core/mineru_engine.py",
+      "note": "the selected report profile has no effect on mapping",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_report_profiles.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 2.49s"
+    },
+    {
+      "id": "ME-profile-unit-overrides-header",
+      "path": "core/mineru_engine.py",
+      "note": "a profile unit overrides an explicit unit in the header",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_report_profiles.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 2.57s"
+    },
+    {
+      "id": "EB-display-panel-counted-as-edit",
+      "path": "core/editor_bindings.py",
+      "note": "a document link made elsewhere makes New report open a modal discard prompt",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m54_ddr_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 2.85s"
+    },
+    {
+      "id": "SI-unit-conflict-ignored",
+      "path": "core/survey_file_import.py",
+      "note": "an MD header in feet is silently overridden by a metres choice",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.18s"
+    },
+    {
+      "id": "SI-missing-unit-assumed",
+      "path": "core/survey_file_import.py",
+      "note": "a file without a depth unit is imported as if in metres",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.18s"
+    },
+    {
+      "id": "SI-feet-not-converted",
+      "path": "core/survey_file_import.py",
+      "note": "feet are stored as metres",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.20s"
+    },
+    {
+      "id": "SI-azimuth-range-unchecked",
+      "path": "core/survey_file_import.py",
+      "note": "an azimuth of 400 degrees is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.18s"
+    },
+    {
+      "id": "W6-refused-import-applied",
+      "path": "tabs/w6_Trajectory_Widget.py",
+      "note": "a refused import clears the editable survey table",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed, 14 warnings in 3.03s"
+    },
+    {
+      "id": "WP-dls-limit-not-warned",
+      "path": "core/well_plan_designer.py",
+      "note": "a curve above the DLS limit raises no warning",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.36s"
+    },
+    {
+      "id": "WP-dls-per-100ft-arc",
+      "path": "core/well_plan_designer.py",
+      "note": "the DLS course length is taken as 100 ft instead of 30 m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.32s"
+    },
+    {
+      "id": "WP-target-radius-ignored",
+      "path": "core/well_plan_designer.py",
+      "note": "every target is reported as hit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.33s"
+    },
+    {
+      "id": "CP-single-station-plan-accepted",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "a one-station plan is accepted for comparison",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed, 14 warnings in 3.06s"
+    },
+    {
+      "id": "TV-callback-reference-cycle",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "the designer holds the viewer in a Python cycle (Qt wrappers left to an arbitrary GC)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m55_directional.py",
+        "tests/test_m50_trajectory_3d_disposal.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed, 14 warnings in 3.33s"
+    },
+    {
+      "id": "CF-any-term-matches",
+      "path": "tabs/calculator_finder.py",
+      "note": "a multi-word search matches calculators containing only one word",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m56_calculator_finder.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.15s"
+    },
+    {
+      "id": "CF-recents-unbounded",
+      "path": "tabs/calculator_finder.py",
+      "note": "the recent list grows without bound",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m56_calculator_finder.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.17s"
+    },
+    {
+      "id": "CF-stale-favourites-kept",
+      "path": "tabs/calculator_finder.py",
+      "note": "a favourite pointing at a removed calculator is still listed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m56_calculator_finder.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.16s"
+    }
+  ],
+  "killed": [
+    "OD-negative-footage-counted",
+    "OD-npt-alert-dropped",
+    "OD-afe-alert-dropped",
+    "OD-portfolio-cost-per-metre",
+    "OD-company-filter-ignored",
+    "OD-options-from-filtered-wells",
+    "HT-stale-result-accepted",
+    "HT-rtl-inherited",
+    "W2-overlap-saves",
+    "W2-midnight-start-as-2400",
+    "W2-gap-blocks",
+    "W2-duplicate-keeps-source-id",
+    "W2-timeline-ignores-guard",
+    "W2-new-report-ignores-guard",
+    "PG-header-row-as-data",
+    "PG-margins-kept",
+    "PG-no-repeated-header-join",
+    "PG-wrapped-cell-new-row",
+    "PG-scanned-not-reported",
+    "PG-ruled-headerless-not-joined",
+    "PR-unknown-field-accepted",
+    "PR-version-not-incremented",
+    "ME-profile-ignored",
+    "ME-profile-unit-overrides-header",
+    "EB-display-panel-counted-as-edit",
+    "SI-unit-conflict-ignored",
+    "SI-missing-unit-assumed",
+    "SI-feet-not-converted",
+    "SI-azimuth-range-unchecked",
+    "W6-refused-import-applied",
+    "WP-dls-limit-not-warned",
+    "WP-dls-per-100ft-arc",
+    "WP-target-radius-ignored",
+    "CP-single-station-plan-accepted",
+    "TV-callback-reference-cycle",
+    "CF-any-term-matches",
+    "CF-recents-unbounded",
+    "CF-stale-favourites-kept"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
