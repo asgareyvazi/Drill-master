@@ -24,6 +24,7 @@ import os
 import sys
 import threading
 import time
+import warnings
 from pathlib import Path
 
 import pytest
@@ -155,10 +156,16 @@ def test_retired_scope_list_worker_is_released_however_it_interleaves(app, world
             gate.wait(10)
 
     worker = Slow(panel._choices_token["targets"], "documents", None, None, None, None, parent=panel)
+    worker.done.connect(panel._choices_read)      # as _request_choices connects every scope-list worker
     worker.start()
     inject(worker)
     gate.set()
-    panel._retire(worker)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        panel._retire(worker)
+    # CI at 4878476 counted a new "Failed to disconnect (None)" RuntimeWarning group: this test retired a
+    # worker that had no receiver, which production never does.  No warning may be emitted here.
+    assert not [w for w in caught if issubclass(w.category, RuntimeWarning)], [str(w.message) for w in caught]
     assert _settle(app, lambda: worker not in panel._old_workers, 5)
     assert _settle(app, lambda: not [w for w in panel.findChildren(Slow)], 5)
 
@@ -219,16 +226,33 @@ def test_repeated_cancel_cycles_measured_and_bounded(app, world):
 
 def test_cancel_under_cpu_load_releases_every_worker(app, world):
     """The full-suite failure happened under load: four CPU-bound Python threads compete
-    for the GIL while 15 cancel cycles run; every retired worker is still released."""
+    for the GIL while 15 cancel cycles run; every retired worker is still released.
+
+    What is asserted is the lifecycle, not the worker's speed: each cancel lands wherever the
+    worker is (reading the corpus, building the index, retrieving, generating) and every retired
+    worker must be released, with no result accepted after the cancel.  CI 3.13 at ``4878476``
+    showed why the stage must not be a precondition: under GIL starvation the panel did not reach
+    "retrieving"/"generating" within 15 s on one cycle (precondition, before any release check).
+    The bound is unchanged; the stage reached is recorded, and the state history, timings and
+    last error are reported if a lifecycle assertion fails.
+    """
     _tab, panel, _ids, _db = world
     stop = threading.Event()
+    history: list = []
+    original_set_state = panel._set_state
+
+    def recording_set_state(state, detail=""):
+        history.append((time.monotonic(), state))
+        original_set_state(state, detail)
 
     def burn():
         x = 0
         while not stop.is_set():
             x = (x * 31 + 7) % 1000003
 
+    cycles = []
     burners = [threading.Thread(target=burn, daemon=True) for _ in range(4)]
+    panel._set_state = recording_set_state
     for t in burners:
         t.start()
     try:
@@ -236,16 +260,32 @@ def test_cancel_under_cpu_load_releases_every_worker(app, world):
             _model_ready(app, panel, fake)
             panel.question_edit.setPlainText(KICK)
             for _ in range(15):
+                mark, started = len(history), time.monotonic()
                 assert panel.ask()
-                assert _wait(app, lambda: panel.current_state in ("generating", "retrieving"), 15)
+                worker = panel.worker
+                reached = _wait(app, lambda: panel.worker is None or any(
+                    state in ("retrieving", "generating") for _t, state in history[mark:]), 15)
+                live = worker is not None and worker.isRunning()
                 panel.cancel()
-                assert _settle(app, lambda: not panel._old_workers, 10)
-            assert _settle(app, lambda: not _ask_workers(panel), 10)
+                cancelled_at = time.monotonic()
+                released = _settle(app, lambda: not panel._old_workers, 10)
+                cycle = {"stage_seen": reached, "live_at_cancel": live, "elapsed_to_cancel": round(cancelled_at - started, 2),
+                         "release_s": round(time.monotonic() - cancelled_at, 2), "states": [s for _t, s in history[mark:]],
+                         "last_error": panel.last_error}
+                cycles.append(cycle)
+                assert released, cycles
+                if live:                            # a cancelled live worker's result is never accepted later
+                    assert panel.current_state == "cancelled" and panel.last_answer is None, cycles
+            assert _settle(app, lambda: not _ask_workers(panel), 10), cycles
     finally:
         stop.set()
+        del panel._set_state
         for t in burners:
             t.join(5)
-    assert panel.last_answer is None
+    assert any(c["live_at_cancel"] for c in cycles), cycles   # the load case was exercised, not skipped
+    print(f"M122 load: {sum(c['live_at_cancel'] for c in cycles)}/15 cancels hit a live worker, "
+          f"{sum(c['stage_seen'] for c in cycles)}/15 had reached retrieval; "
+          f"release max {max(c['release_s'] for c in cycles):.2f} s")
 
 
 def test_cancel_before_the_worker_reaches_the_model(app, world):
