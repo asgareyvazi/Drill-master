@@ -10,6 +10,7 @@ from typing import Optional, Dict, Any, List
 
 from pathlib import Path
 
+from core import sqlite_connection as _sqlite_connection  # noqa: F401 - registers the explicit date adapters (D16)
 from core.runtime_config import backup_dir as configured_backup_dir
 from core.runtime_config import database_path as configured_database_path
 from core.default_procedure_templates import default_procedure_templates
@@ -2026,6 +2027,14 @@ class CalculationSourceLink(Base):
 
 
 # Nullable columns added after a table first shipped: (table, column, SQLite type).
+def report_reference_action(model) -> str:
+    """The declared ON DELETE action of ``model.report_id`` towards daily_reports ('' when none) - M116 D33."""
+    column = model.__table__.c.get("report_id")
+    actions = {str(fk.ondelete or "").upper() for fk in getattr(column, "foreign_keys", ())
+               if fk.column.table.name == "daily_reports"}
+    return actions.pop() if len(actions) == 1 else ""
+
+
 ADDITIVE_COLUMNS = (
     ("survey_revisions", "results_sha256", "VARCHAR(64)"),
     # M104: MSE lineage, recorded for new saves only (legacy rows stay NULL = unknown).
@@ -5036,10 +5045,18 @@ class DatabaseManager:
                 return False
             # Do not rely solely on SQLite FK pragma: several legacy tables
             # predate cascade definitions. Delete all mapped report children.
-            removed = 0
+            removed = unlinked = 0
             for mapper in list(Base.registry.mappers):
                 model = mapper.class_
                 if model is DailyReport or not hasattr(model, "report_id"):
+                    continue
+                if report_reference_action(model) == "SET NULL":
+                    # M116 (D33): a lineage reference becomes unknown; the referencing record is kept.
+                    from core.authorization import REPORT_DELETE_UNLINK, operation_scope
+                    table = model.__table__
+                    with operation_scope(REPORT_DELETE_UNLINK):
+                        unlinked += session.execute(table.update().where(table.c.report_id == report_id)
+                                                    .values({"report_id": None})).rowcount
                     continue
                 column = getattr(model, "report_id")
                 removed += session.query(model).filter(column == report_id).delete(synchronize_session=False)
@@ -5047,8 +5064,11 @@ class DatabaseManager:
             session.delete(report)
             session.flush()
             # Mandatory audit: same transaction; counts only, never row content.
+            details = {"child_rows_deleted": removed}
+            if unlinked:
+                details["references_unlinked"] = unlinked
             self._add_mandatory_audit(session, "delete", "daily_report", report_id, label,
-                                      json.dumps({"child_rows_deleted": removed}, sort_keys=True))
+                                      json.dumps(details, sort_keys=True))
             return True
 
     def get_planned_total_days(self, well_id: int):

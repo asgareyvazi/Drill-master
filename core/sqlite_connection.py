@@ -72,6 +72,29 @@ DEFAULT_POOL_TIMEOUT_S = 30
 _POOL_TIMEOUT_RANGE = (1, 600)
 
 
+#: M116 (D16): explicit date/datetime adapters. Python 3.12 deprecates sqlite3's default adapters; these produce
+#: exactly the same text (``date.isoformat()``, ``datetime.isoformat(" ")``), so stored values do not change.
+ADAPTER_VERSION = 1
+
+
+def _adapt_date(value) -> str:
+    return value.isoformat()
+
+
+def _adapt_datetime(value) -> str:
+    return value.isoformat(" ")
+
+
+def register_adapters() -> None:
+    """Register the explicit adapters (process-wide; idempotent). Runs when this module is imported."""
+    import datetime as _dt
+    sqlite3.register_adapter(_dt.date, _adapt_date)
+    sqlite3.register_adapter(_dt.datetime, _adapt_datetime)
+
+
+register_adapters()
+
+
 class ConnectionConfigurationError(sqlite3.DatabaseError):
     """A connection could not be given the required integrity settings."""
 

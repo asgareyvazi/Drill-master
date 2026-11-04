@@ -34,6 +34,10 @@ Installed on every start inside the atomic schema migration
 from __future__ import annotations
 
 GUARD_VERSION = 1
+#: M116 (D32): ``results_sha256`` (added by M105) was not in the frozen list, so the recorded hash of the derived
+#: results could be rewritten together with tampered results. Version 2 freezes it; older databases get the v2
+#: trigger on their next start and the v1 trigger is dropped (``install``).
+SURVEY_GUARD_VERSION = 2
 PLAN_STATUS_TRANSITIONS = {
     "draft": ("draft", "approved", "archived"),
     "approved": ("approved", "archived"),
@@ -71,7 +75,8 @@ _LINK_FROZEN = ("id", "case_id", "source_table", "source_id", "source_well_id", 
                 "verification_status", "method_changed", "link_type", "created_at")
 _SURVEY_FROZEN = ("id", "well_id", "revision", "mode", "source_type", "source_ref", "source_unit",
                   "azimuth_reference", "depth_datum", "stations_json", "station_count", "stations_sha256",
-                  "results_json", "warnings_json", "method", "method_version", "note", "created_at")
+                  "results_json", "results_sha256", "warnings_json", "method", "method_version", "note",
+                  "created_at")
 
 
 def trigger_statements() -> dict[str, str]:
@@ -119,8 +124,8 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_calculation_case_immutable_v{v} BEFORE UPDATE ON calculation_cases "
             f"WHEN {case_change} BEGIN SELECT RAISE(ABORT, "
             "'calculation_cases: a saved case is immutable'); END"),
-        f"trg_survey_revision_immutable_v{v}": (
-            f"CREATE TRIGGER trg_survey_revision_immutable_v{v} BEFORE UPDATE ON survey_revisions "
+        f"trg_survey_revision_immutable_v{SURVEY_GUARD_VERSION}": (
+            f"CREATE TRIGGER trg_survey_revision_immutable_v{SURVEY_GUARD_VERSION} BEFORE UPDATE ON survey_revisions "
             f"WHEN {survey_change} BEGIN SELECT RAISE(ABORT, "
             "'survey_revisions: a saved survey revision is immutable'); END"),
         f"trg_well_architecture_immutable_v{v}": (

@@ -43,7 +43,7 @@ def test_restore_brings_back_revisions_with_their_immutability_guards(env):  # n
     assert wa.get_revision(manager, first["id"])["components_sha256"] == first["components_sha256"]
     with manager.session_scope() as session:
         triggers = set(session.execute(text("SELECT name FROM sqlite_master WHERE type='trigger'")).scalars())
-    assert {"trg_survey_revision_immutable_v1", "trg_well_architecture_immutable_v1"} <= triggers
+    assert {"trg_survey_revision_immutable_v2", "trg_well_architecture_immutable_v1"} <= triggers   # v2: M116 D32
     with pytest.raises(Exception, match="immutable"):
         with manager.session_scope() as session:
             session.execute(text("UPDATE well_architecture_revisions SET note='x' WHERE id=:i"), {"i": first["id"]})

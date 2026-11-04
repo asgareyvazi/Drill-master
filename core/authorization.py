@@ -172,6 +172,12 @@ HIERARCHY_DELETE_UNLINK = OperationScope(
     # refused), so it carries no permission of its own and may change nothing but these columns.
     "hierarchy_delete_unlink", None, {"operational_procedures": frozenset({"section_id"})}, frozenset({"update"}),
 )
+REPORT_DELETE_UNLINK = OperationScope(
+    # M116 (D33): a report delete sets report references declared ON DELETE SET NULL (lineage, e.g. the report an
+    # MSE run was based on) to NULL instead of deleting the referencing record.  Same rule as
+    # HIERARCHY_DELETE_UNLINK: only inside the policy-checked delete of that report, no permission of its own.
+    "report_delete_unlink", None, {"mse_calculations": frozenset({"report_id"})}, frozenset({"update"}),
+)
 IMPORT_SCOPE = OperationScope(
     "import", IMPORT,
     {name: None for name in (*_REPORT_TABLES, "audit_logs", "wells", "wellbores")},

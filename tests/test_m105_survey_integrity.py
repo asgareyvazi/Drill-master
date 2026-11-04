@@ -15,6 +15,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from core import storage_guards  # noqa: E402
 from core import survey_revisions as sr  # noqa: E402
 from tests.test_m70_integrity import _open, _seed  # noqa: E402
 
@@ -174,11 +175,23 @@ def test_an_old_database_gains_the_results_hash_column_without_backfill(env):
     rev = _save(manager, ids)
     manager.close()
     with sqlite3.connect(path) as con:                   # the pre-M105 schema had no such column
+        # ... and its survey guard was v1, which did not name the column (M116 D32: v2 freezes it)
+        for (name,) in con.execute("SELECT name FROM sqlite_master WHERE type='trigger' "
+                                   "AND name LIKE 'trg_survey_revision_immutable%'").fetchall():
+            con.execute(f"DROP TRIGGER {name}")
+        legacy = [c for c in storage_guards._SURVEY_FROZEN if c != "results_sha256"]
+        con.execute("CREATE TRIGGER trg_survey_revision_immutable_v1 BEFORE UPDATE ON survey_revisions WHEN "
+                    + " OR ".join(f"NEW.{c} IS NOT OLD.{c}" for c in legacy) + " BEGIN SELECT RAISE(ABORT, "
+                    "'survey_revisions: a saved survey revision is immutable'); END")
         con.execute("ALTER TABLE survey_revisions DROP COLUMN results_sha256")
         assert "results_sha256" not in {r[1] for r in con.execute("PRAGMA table_info(survey_revisions)")}
     manager.initialize()                                 # additive migration on startup
     with sqlite3.connect(path) as con:
         assert "results_sha256" in {r[1] for r in con.execute("PRAGMA table_info(survey_revisions)")}
+        names = storage_guards.installed(con)               # column first, then the v2 guard that freezes it
+        assert "trg_survey_revision_immutable_v2" in names and "trg_survey_revision_immutable_v1" not in names
+        with pytest.raises(sqlite3.DatabaseError, match="immutable"):
+            con.execute("UPDATE survey_revisions SET results_sha256='0' WHERE id=?", (rev["id"],))
     old = sr.get_revision(manager, rev["id"])
     assert old["results_sha256"] is None and old["results_integrity"] == "NOT RECORDED"
     manager.initialize()                                 # idempotent

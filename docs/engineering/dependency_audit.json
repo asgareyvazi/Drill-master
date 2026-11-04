@@ -23,7 +23,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 24,
+    "evidence_tests": 25,
     "licence": "own code (product licence)",
     "method_id": "engine.mse",
     "status": "IMPLEMENTED",
@@ -36,6 +36,7 @@
      "test_history_well_scope.py",
      "test_hydraulics_m40_regressions.py",
      "test_m104_operational_kpis.py",
+     "test_m116_persistence.py",
      "test_m30_semantic_regressions.py",
      "test_m53_dashboard.py",
      "test_m67_calculation_history.py",
@@ -56,13 +57,14 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 9,
+    "evidence_tests": 10,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
     "tests": [
      "test_m102_context_probes.py",
      "test_m109_cement_worksheet.py",
+     "test_m116_persistence.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -140,13 +142,14 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 9,
+    "evidence_tests": 10,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
     "tests": [
      "test_m102_context_probes.py",
      "test_m109_cement_worksheet.py",
+     "test_m116_persistence.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -455,7 +458,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 13,
+    "evidence_tests": 14,
     "licence": "own code (product licence)",
     "method_id": "survey.azimuth_transform",
     "status": "IMPLEMENTED",
@@ -463,6 +466,7 @@
      "test_m102_context_probes.py",
      "test_m105_survey_integrity.py",
      "test_m105_survey_references.py",
+     "test_m116_persistence.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
      "test_m74_well_architecture.py",
@@ -477,7 +481,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 13,
+    "evidence_tests": 14,
     "licence": "own code (product licence)",
     "method_id": "survey.datum_transform",
     "status": "IMPLEMENTED",
@@ -485,6 +489,7 @@
      "test_m102_context_probes.py",
      "test_m105_survey_integrity.py",
      "test_m105_survey_references.py",
+     "test_m116_persistence.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
      "test_m74_well_architecture.py",
@@ -499,7 +504,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 13,
+    "evidence_tests": 14,
     "licence": "own code (product licence)",
     "method_id": "survey.revision",
     "status": "IMPLEMENTED",
@@ -507,6 +512,7 @@
      "test_m102_context_probes.py",
      "test_m105_survey_integrity.py",
      "test_m105_survey_references.py",
+     "test_m116_persistence.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
      "test_m74_well_architecture.py",
@@ -2025,7 +2031,7 @@
    "file": "core/database.py",
    "guarded": true,
    "lines": [
-    50
+    51
    ],
    "module": "bcrypt"
   },
@@ -2500,8 +2506,8 @@
    "file": "core/authorization.py",
    "guarded": false,
    "lines": [
-    251,
-    329
+    257,
+    335
    ],
    "module": "sqlalchemy"
   },
@@ -2525,23 +2531,23 @@
    "file": "core/database.py",
    "guarded": false,
    "lines": [
-    22,
-    42,
+    23,
     43,
-    627,
-    670,
-    2974,
-    2975,
-    3710,
-    4223,
-    4837,
-    3555,
-    3016,
-    5416,
-    7664,
-    6029,
-    6076,
-    6258
+    44,
+    628,
+    671,
+    2983,
+    2984,
+    3719,
+    4232,
+    4846,
+    3564,
+    3025,
+    5436,
+    7684,
+    6049,
+    6096,
+    6278
    ],
    "module": "sqlalchemy"
   },

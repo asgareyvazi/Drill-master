@@ -137,8 +137,12 @@ def test_every_reference_is_removed_or_unlinked_when_its_parent_is_deleted(env, 
             continue
         refs = [fk.parent.name for fk in Base.metadata.tables[table].foreign_keys if fk.column.table.name == target]
         left = _q(path, f"SELECT {', '.join(refs)} FROM {table} WHERE id=?", child)
+        set_null = all(str(fk.ondelete or "").upper() == "SET NULL"
+                       for fk in Base.metadata.tables[table].foreign_keys if fk.column.table.name == target)
         if left and any(v is not None for v in left[0]):
             outcomes[table] = f"DANGLING {left[0]}"
+        elif kind != "well" and set_null and not left:   # M116 D33: the well survives, so the record must too
+            outcomes[table] = "DELETED DESPITE ON DELETE SET NULL"
         elif _q(path, "PRAGMA foreign_key_check"):
             outcomes[table] = "FK VIOLATION"
         elif _q(path, f"SELECT COUNT(*) FROM {target} WHERE id=?", parents[target])[0][0]:

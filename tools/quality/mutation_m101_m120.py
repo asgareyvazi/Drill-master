@@ -59,6 +59,9 @@ DTAB = "tabs/documents_tab.py"
 T114 = ["tests/test_m114_document_scope.py"]
 UXS = "tools/quality/ux_startup_m115.py"
 T115 = ["tests/test_m115_ux_startup.py"]
+SG = "core/storage_guards.py"
+SQC = "core/sqlite_connection.py"
+T116 = ["tests/test_m116_persistence.py"]
 T115A = ["tests/test_m115_chart_axes.py"]
 
 MUTANTS = [
@@ -746,6 +749,39 @@ MUTANTS = [
            "\"Gel 10s\": ('gel_10s', 'Gel 10s (lb/100ft²)', '#f39c12'),",
            "\"Gel 10s\": ('gel_10s', 'Gel 10s', '#f39c12'),",
            T115A, "a mud chart axis without its unit"),
+    # ---- M116 persistence requalification (D32, D16) ------------------------------------------------------
+    Mutant("SG-results-hash-not-frozen", SG,
+           "                  \"results_json\", \"results_sha256\", \"warnings_json\",",
+           "                  \"results_json\", \"warnings_json\",",
+           T116, "D32 restored: the survey results hash can be rewritten"),
+    Mutant("SG-survey-guard-version-kept", SG,
+           "SURVEY_GUARD_VERSION = 2",
+           "SURVEY_GUARD_VERSION = 1",
+           T116, "old databases keep the v1 survey guard that does not freeze the results hash"),
+    Mutant("SQC-datetime-adapter-format", SQC,
+           "    return value.isoformat(\" \")",
+           "    return value.isoformat()",
+           T116, "datetimes are stored with a 'T' separator, unlike every existing row"),
+    Mutant("SQC-adapters-not-registered", SQC,
+           "\n\nregister_adapters()\n",
+           "\n\n",
+           T116, "the deprecated default adapters are still used (D16 open)"),
+    Mutant("SG-update-guard-dropped", SG,
+           "        f\"trg_survey_revision_immutable_v{SURVEY_GUARD_VERSION}\": (",
+           "        f\"trg_survey_revision_disabled_v{SURVEY_GUARD_VERSION}\": (",
+           T116, "the survey update guard is renamed out of its prefix, so the old guard is never replaced"),
+    Mutant("DB-report-delete-removes-set-null-rows", DB,
+           "                if report_reference_action(model) == \"SET NULL\":",
+           "                if False:",
+           T116 + ["tests/test_m96_persistence_audit.py"], "D33 restored: deleting a report deletes the MSE runs based on it"),
+    Mutant("AUTH-report-unlink-scope-empty", "core/authorization.py",
+           "\"report_delete_unlink\", None, {\"mse_calculations\": frozenset({\"report_id\"})}, frozenset({\"update\"}),",
+           "\"report_delete_unlink\", None, {}, frozenset({\"update\"}),",
+           T116, "a report deleter without edit rights can no longer delete the report (or the unlink is unscoped)"),
+    Mutant("DB-report-unlink-not-audited", DB,
+           "            if unlinked:\n                details[\"references_unlinked\"] = unlinked\n",
+           "",
+           T116, "the audit record no longer states how many references were set to unknown"),
 ]
 
 
