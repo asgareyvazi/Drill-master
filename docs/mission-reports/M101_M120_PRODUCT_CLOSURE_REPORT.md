@@ -59,7 +59,10 @@ Phase checkpoints:
 | M119 second adversarial review - malformed stored records are UNREADABLE (D35), forgery limi… | `c5ea34983dd6fe99454d4ce86ecc7bd1b475a5b0` | Source **failed** on 3.12/3.13 (D36, D37), 3.11 ✅, Windows ✅ |
 | M118 fix CI 3.12/3.13 legs - UX tool confirms its own close (D36), version-independent const… | `c7b6ac194fc531995da5d4722254100dc2fbfab1` | Source 3.11/3.12/3.13 ✅, Windows ✅ (**final code**) |
 
-A run cancelled because a newer commit was pushed is **not** a pass. Only the final code and report SHAs carry the
+The docs-only commits `31957bd` (M118 results) and `d28e33c` (first version of this report) got **no CI run**. GitHub
+created no check suite for the push; nothing was queued, and a manual `workflow_dispatch` was refused to this
+integration (HTTP 403). This commit was pushed to trigger the gate. Its result is in the final reply. A run
+cancelled because a newer commit was pushed is **not** a pass. Only the final code and report SHAs carry the
 CI result that this report relies on (§F).
 
 ## B. Phases
