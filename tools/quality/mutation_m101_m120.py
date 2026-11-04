@@ -62,6 +62,11 @@ T115 = ["tests/test_m115_ux_startup.py"]
 SG = "core/storage_guards.py"
 SQC = "core/sqlite_connection.py"
 T116 = ["tests/test_m116_persistence.py"]
+JI = "tools/quality/journey_index.py"
+W11 = "tabs/w11_Export.py"
+CHT = "tabs/calculation_history_tab.py"
+T117I = ["tests/test_m117_journey_index.py"]
+T117W = ["tests/test_m117_widget_journeys.py"]
 T115A = ["tests/test_m115_chart_axes.py"]
 
 MUTANTS = [
@@ -782,6 +787,39 @@ MUTANTS = [
            "            if unlinked:\n                details[\"references_unlinked\"] = unlinked\n",
            "",
            T116, "the audit record no longer states how many references were set to unknown"),
+    # ---- M117 user journeys A-Z through real widgets ------------------------------------------------------
+    Mutant("JI-application-counts-as-widget", JI,
+           "names.update(a.asname or a.name for a in node.names if a.name not in NOT_A_WIDGET)",
+           "names.update(a.asname or a.name for a in node.names)",
+           T117I, "a test that only creates a QApplication is reported as a widget journey"),
+    Mutant("JI-child-scripts-ignored", JI,
+           "            if any(SCRIPT_WIDGET_IMPORT.search(text) for text in strings):",
+           "            if False:",
+           T117I, "subprocess journeys (backup/restore) are no longer recognised"),
+    Mutant("JI-fixture-parameters-ignored", JI,
+           "        used |= {a.arg for a in node.args.args}",
+           "        pass",
+           T117I, "widgets reached through a fixture are not seen"),
+    Mutant("JI-helpers-not-followed", JI,
+           "        todo.extend(u for u in used if u in functions and u not in seen)",
+           "        todo.extend(())",
+           T117I, "fixtures and helpers are not followed transitively"),
+    Mutant("JI-missing-citation-accepted", JI,
+           "        if not citations or \"missing\" in levels.values():",
+           "        if not citations:",
+           T117I, "a citation of a test that does not exist no longer fails the register"),
+    Mutant("SR-conversion-skips-verification", SR,
+           "    verify_for_use(source, \"an azimuth conversion\")\n",
+           "",
+           T117W, "journey G: a tampered revision is converted into a new revision"),
+    Mutant("W11-per-report-workbooks-ignored", W11,
+           "per_report = \"professional\" in selected and self.batch_professional_per_report.isChecked()",
+           "per_report = False",
+           T117W, "journey U: the per-report option is shown but writes no per-report workbook"),
+    Mutant("CHT-store-without-recalculated-values", CHT,
+           "self.save_recalc_btn.setEnabled(bool(self.last_outcome and self.last_outcome.get(\"values\")))",
+           "self.save_recalc_btn.setEnabled(bool(self.last_outcome))",
+           T117W, "journey M: a NOT_REPRODUCIBLE outcome could be stored as a recalculation"),
 ]
 
 
