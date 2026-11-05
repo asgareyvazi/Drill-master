@@ -82,7 +82,7 @@ def test_all_27_leaves_have_a_contract_or_an_exact_reason(w13):
     leaves = [p for p in paths if not any(o != p and o.startswith(p + " › ") for o in paths)]
     assert len(leaves) == 27 and set(contracts.CONTRACTS) | set(contracts.NOT_SUPPORTED) == set(leaves)
     assert not set(contracts.CONTRACTS) & set(contracts.NOT_SUPPORTED)
-    assert len(contracts.CONTRACTS) == 22 and len(contracts.NOT_SUPPORTED) == 5   # M126: +2; M127: Weight, Casing
+    assert len(contracts.CONTRACTS) == 23 and len(contracts.NOT_SUPPORTED) == 4   # M126 +2; M127 +2; M128 Choke
     assert set(NEW) <= set(contracts.CONTRACTS)
     for calculator, reason in contracts.NOT_SUPPORTED.items():
         assert "not yet contracted" not in reason and len(reason) > 40, calculator
@@ -99,8 +99,7 @@ def test_exact_reasons_name_what_is_not_captured():
     assert "Volume › Well Volumes" not in reasons and "Hydraulics" not in reasons   # contracted in M126
     assert "Weight" not in reasons and "CSG/CMT › Casing Strength" not in reasons   # contracted in M127
     assert "TRAINING AID" in reasons["Well Control › Kill Sheet"]
-    assert "table" in reasons["Well Control › Choke Schedule"] and "no case can be saved" in \
-        reasons["Well Control › Choke Schedule"]
+    assert "Well Control › Choke Schedule" not in reasons     # M128: a WORKSHEET contract (schedule rows)
     assert "not a calculator" in reasons["DP Database"]
 
 

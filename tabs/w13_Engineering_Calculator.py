@@ -4794,11 +4794,20 @@ class EngineeringCalculatorTab(DrillTabBase):
         cs_tab = QWidget()
         cs_layout = QVBoxLayout(cs_tab)
 
-        g_cs = QGroupBox("📋 Choke Pressure Schedule")
+        # M128 (D43): these are drill-pipe pressures the choke is adjusted to hold - not choke pressures
+        g_cs = QGroupBox("📋 Drill-pipe pressure schedule (kill mud to the bit)")
         cs_form = QFormLayout(g_cs)
-        self.cs_icp = self._make_dspin(1200, 0, 10000, 0, " psi")
-        self.cs_fcp = self._make_dspin(800, 0, 10000, 0, " psi")
-        self.cs_strokes = self._make_dspin(1500, 0, 10000, 0, " strokes")
+        cs_note = QLabel("WORKSHEET of the entered values: drill-pipe (standpipe) circulating pressure to hold "
+                         "with the choke while kill mud is pumped to the bit, linear from ICP to FCP (Wait and "
+                         "Weight); from the bit to surface FCP is held. Not a kill procedure.")
+        cs_note.setWordWrap(True)
+        cs_form.addRow(cs_note)
+        self.cs_icp = self._make_dspin(0, 0, 10000, 0, " psi")          # M128: never seeded
+        self.cs_fcp = self._make_dspin(0, 0, 10000, 0, " psi")
+        self.cs_strokes = self._make_dspin(0, 0, 100000, 0, " strokes")
+        self.cs_pump_output = self._make_dspin(0, 0, 1, 4, " bbl/stk")
+        for spin in (self.cs_icp, self.cs_fcp, self.cs_strokes, self.cs_pump_output):
+            spin.setSpecialValueText("Not entered")
         self.cs_intervals = QSpinBox()
         self.cs_intervals.setRange(5, 20)
         self.cs_intervals.setValue(10)
@@ -4806,15 +4815,23 @@ class EngineeringCalculatorTab(DrillTabBase):
         cs_form.addRow("FCP:", self.cs_fcp)
         cs_form.addRow("Strokes to Bit:", self.cs_strokes)
         cs_form.addRow("Intervals:", self.cs_intervals)
+        cs_form.addRow("Pump output (volume column):", self.cs_pump_output)
 
         cs_calc = QPushButton("🔄 Generate Schedule")
         cs_calc.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
         cs_calc.clicked.connect(self._wc_calc_choke)
         cs_form.addRow(cs_calc)
+        self.cs_result = self._result_label("#2c3e50")
+        cs_form.addRow("Schedule:", self.cs_result)
+        self.cs_status = QLabel("")            # M128: NOT ASSESSED reasons stay out of the captured result
+        self.cs_status.setWordWrap(True)
+        self.cs_status.setStyleSheet("color: #c0392b;")
+        cs_form.addRow(self.cs_status)
         cs_layout.addWidget(g_cs)
 
         self.cs_table = QTableWidget(0, 4)
-        self.cs_table.setHorizontalHeaderLabels(["Strokes", "Pressure (psi)", "% Complete", "Cum. Volume (bbl)"])
+        self.cs_table.setHorizontalHeaderLabels(["Strokes", "Drill-pipe pressure (psi)", "% to bit",
+                                                 "Cum. volume (bbl)"])
         self.cs_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.cs_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.cs_table.setAlternatingRowColors(True)
@@ -5412,43 +5429,41 @@ class EngineeringCalculatorTab(DrillTabBase):
                                  f"Could not open history:\n{exc}")
 
     def _wc_calc_choke(self):
-        icp = self.cs_icp.value()
-        fcp = self.cs_fcp.value()
-        stk = int(self.cs_strokes.value())
-        intervals = self.cs_intervals.value()
+        """M128: the drill-pipe pressure schedule of core.dp_schedule (the case contract runs the same call)."""
+        from core import dp_schedule
 
         self.cs_table.setRowCount(0)
-        if stk <= 0 or intervals <= 0:
+        self.cs_rows = []
+        self.cs_result.setText("")
+        self.cs_status.setText("")
+        try:
+            out = dp_schedule.schedule(self.cs_icp.value(), self.cs_fcp.value(), self.cs_strokes.value(),
+                                       self.cs_intervals.value(), self.cs_pump_output.value() or None)
+        except ValueError as exc:
+            self.cs_status.setText(f"NOT ASSESSED: {exc}")
             return
-
-        step = stk / intervals
-        dp = (icp - fcp) / intervals
-
-        for i in range(intervals + 1):
-            row = self.cs_table.rowCount()
-            self.cs_table.insertRow(row)
-            strokes = round(i * step)
-            pressure = round(icp - i * dp, 1)
-            pct = round(i / intervals * 100)
-
-            self.cs_table.setItem(row, 0, QTableWidgetItem(str(strokes)))
-            pi = QTableWidgetItem(f"{pressure:.0f}")
-            pi.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.cs_table.setItem(row, 1, pi)
-            self.cs_table.setItem(row, 2, QTableWidgetItem(f"{pct}%"))
-            self.cs_table.setItem(row, 3, QTableWidgetItem(""))
-
-            # Color coding
-            if i == 0:
-                for c in range(4):
-                    it = self.cs_table.item(row, c)
-                    if it:
-                        it.setBackground(QColor("#fadbd8"))
-            elif i == intervals:
-                for c in range(4):
-                    it = self.cs_table.item(row, c)
-                    if it:
-                        it.setBackground(QColor("#d5f5e3"))
+        self.cs_rows = out["rows"]
+        last = len(out["rows"]) - 1
+        for row in out["rows"]:
+            r = self.cs_table.rowCount()
+            self.cs_table.insertRow(r)
+            volume = row["cum_volume_bbl"]
+            cells = (f"{row['strokes']:.0f}", f"{row['dp_psi']:.0f}", f"{row['percent_to_bit']:.0f}%",
+                     "—" if volume is None else f"{volume:.1f}")
+            for c, text in enumerate(cells):
+                item = QTableWidgetItem(text)
+                if c in (1, 3):
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                if row["step"] in (0, last):
+                    item.setBackground(QColor("#fadbd8" if row["step"] == 0 else "#d5f5e3"))
+                self.cs_table.setItem(r, c, item)
+        res = out["results"]
+        self.cs_result.setText(
+            f"ICP {res['initial_dp_psi']:.0f} → FCP {res['final_dp_psi']:.0f} psi over "
+            f"{self.cs_strokes.value():.0f} strokes; {res['pressure_step_psi']:.1f} psi per "
+            f"{res['strokes_per_step']:.0f}-stroke step ({res['psi_per_100_strokes']:.2f} psi / 100 strokes)"
+            + ("" if res["kill_mud_to_bit_bbl"] is None else f"; {res['kill_mud_to_bit_bbl']:.1f} bbl to the bit")
+            + "  [WORKSHEET]")
 
     def _wc_calc_eaton(self):
         from core.engineering.engines.well_control import WellControlEngine

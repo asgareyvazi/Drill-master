@@ -49,8 +49,8 @@ def test_all_27_real_leaves_are_classified_consistently_with_the_registry(w13):
     assert len(leaves) == 27 and set(contracts.LEAF_CLASSES) == set(leaves)
     assert contracts.classification_violations() == []
     assert Counter(contracts.LEAF_CLASSES.values()) == {
-        contracts.CLASS_CONTRACT: 9, contracts.CLASS_SCREENING: 10, contracts.CLASS_WORKSHEET: 3,  # M126 +2, M127 +2
-        contracts.CLASS_TRAINING: 1, contracts.CLASS_REFERENCE: 1, contracts.CLASS_NOT_SUPPORTED: 3}
+        contracts.CLASS_CONTRACT: 9, contracts.CLASS_SCREENING: 10, contracts.CLASS_WORKSHEET: 4,  # M126 +2, M127 +2, M128 +1
+        contracts.CLASS_TRAINING: 1, contracts.CLASS_REFERENCE: 1, contracts.CLASS_NOT_SUPPORTED: 2}
     assert contracts.leaf_class("DP Database")[0] == contracts.CLASS_REFERENCE
     assert contracts.leaf_class("Well Control › Kill Sheet")[0] == contracts.CLASS_TRAINING
     assert contracts.leaf_class("Directional › Anti-Collision")[0] == contracts.CLASS_NOT_SUPPORTED

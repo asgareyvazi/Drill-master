@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-CONTRACT_REGISTRY_VERSION = "M127 calculator contracts v5"
+CONTRACT_REGISTRY_VERSION = "M128 calculator contracts v6"
 OBJECT_PREFIX = "w13:"
 STRUCTURED_REL_TOL = 1e-9
 
@@ -1091,12 +1091,44 @@ CASING_STRENGTH = Contract(
 )
 
 
+def _dp_schedule_run(values: Dict[str, Any]) -> Dict[str, Any]:
+    from core import dp_schedule
+
+    return dp_schedule.schedule(values.get("icp"), values.get("fcp"), values.get("strokes"),
+                                values.get("intervals"), values.get("pump_output") or None)
+
+
+CHOKE_SCHEDULE = Contract(
+    stable_id="w13.well_control.dp_schedule", calculator="Well Control › Choke Schedule", schema_version=1,
+    method_id="w13.well_control.dp_pressure_schedule", method_version="M128 drill-pipe pressure schedule v1",
+    inputs=(FieldSpec("icp", "ICP", "psi", attr="cs_icp"), FieldSpec("fcp", "FCP", "psi", attr="cs_fcp"),
+            FieldSpec("strokes", "Strokes to Bit", "stk", attr="cs_strokes"),
+            FieldSpec("intervals", "Intervals", "count", attr="cs_intervals"),
+            FieldSpec("pump_output", "Pump output (volume column)", "bbl/stk (0 = not entered)",
+                      attr="cs_pump_output", required=False)),
+    results=(FieldSpec("initial_dp_psi", "Initial drill-pipe pressure (ICP)", "psi"),
+             FieldSpec("final_dp_psi", "Final drill-pipe pressure (FCP)", "psi"),
+             FieldSpec("strokes_per_step", "Strokes per step", "stk"),
+             FieldSpec("pressure_step_psi", "Pressure drop per step", "psi"),
+             FieldSpec("psi_per_100_strokes", "Pressure drop per 100 strokes", "psi"),
+             FieldSpec("kill_mud_to_bit_bbl", "Kill mud pumped to the bit", "bbl")),
+    recalculate=lambda values: dict(_dp_schedule_run(values)["results"]), structured=True,
+    components=lambda values: _dp_schedule_run(values)["rows"],
+    reference="Linear drill-pipe circulating pressure from ICP at 0 strokes to FCP at strokes to bit in equal "
+              "stroke steps (Wait and Weight); cumulative volume = strokes x entered pump output (core.dp_schedule)",
+    limits="WORKSHEET - arithmetic of the entered ICP, FCP and strokes (never seeded or derived here); drill-pipe "
+           "pressures the choke is adjusted to hold, not choke pressures; not a kill procedure or an approved "
+           "well-control document.",
+)
+
+
 CONTRACTS: Dict[str, Contract] = {c.calculator: c for c in (
     QUICK_CALC, BIT_HYDRAULICS, TFA, HYDROSTATIC, CEMENT_VOLUME, OWR, BUILD_TURN,                    # M73 / M87
     BUOYANCY, BALANCED_PLUG, KICK_TOLERANCE, PORE_FG, STUCK_PIPE, MUD_WDM, MUD_BALANCE, MUD_LAB,    # M107
     FISHING, RHEOLOGY, NOZZLE_OPTIMIZATION,
     WELL_VOLUMES, HYDRAULICS,                                                                          # M126
-    WEIGHT, CASING_STRENGTH)}                                                                          # M127
+    WEIGHT, CASING_STRENGTH,                                                                           # M127
+    CHOKE_SCHEDULE)}                                                                                   # M128
 LEGACY_CONTRACTS: Tuple[Contract, ...] = (QUICK_CALC_V1,)
 # method_id -> versions this build can still run. A version removed from here
 # makes its stored cases NOT REPRODUCIBLE (never silently re-run with another method).
@@ -1108,8 +1140,6 @@ _CAPTURE = "the case capture records form fields and result labels only"
 NOT_SUPPORTED: Dict[str, str] = {
     "Well Control › Kill Sheet": "TRAINING AID (owner decision pending) and the drill-string geometry table (wc_pipes) "
                                  "is not captured; kill-sheet runs are saved in Calc History as TRAINING AID",
-    "Well Control › Choke Schedule": "the output is a schedule table, which the case capture does not record, so no "
-                                     "case can be saved from this page",
     "Directional › Multi-Survey": f"the survey table (dd_surveys) is not captured ({_CAPTURE}); use Survey revisions "
                                   f"(immutable, verified, method-versioned)",
     "Directional › Anti-Collision": f"the reference and offset survey tables are not captured ({_CAPTURE}); "
@@ -1164,7 +1194,7 @@ LEAF_CLASSES: Dict[str, str] = {
     "Hydraulics": CLASS_SCREENING,                   # M126
     "Weight": CLASS_SCREENING,                       # M127
     "CSG/CMT › Casing Strength": CLASS_SCREENING,    # M127
-    "Well Control › Choke Schedule": CLASS_NOT_SUPPORTED,
+    "Well Control › Choke Schedule": CLASS_WORKSHEET,     # M128
     "Directional › Multi-Survey": CLASS_NOT_SUPPORTED,
     "Directional › Anti-Collision": CLASS_NOT_SUPPORTED,
 }

@@ -39,6 +39,8 @@ WV = "core/well_volumes.py"
 KA = "tabs/knowledge_assistant.py"
 CC = "core/calculator_contracts.py"
 T127 = ["tests/test_m127_weight_casing.py"]
+T128 = ["tests/test_m128_dp_schedule.py"]
+DPS = "core/dp_schedule.py"
 WW = "core/w13_weight.py"
 W13F = "tabs/w13_Engineering_Calculator.py"
 CH = "core/calculation_history.py"
@@ -384,6 +386,29 @@ MUTANTS = [
     Mutant("CS-restore-drops-origin", W13F,
            'self._csg_origin = {**origin, "loaded": self._csg_values(), "provenance": fields}',
            "self._csg_origin = None", T127, "a reopened case loses where each value came from"),
+    # ---- M128 drill-pipe pressure schedule (W13 Choke Schedule) WORKSHEET contract, D43 ---------------
+    Mutant("DP-seeded-icp", W13F, 'self.cs_icp = self._make_dspin(0, 0, 10000, 0, " psi")',
+           'self.cs_icp = self._make_dspin(1200, 0, 10000, 0, " psi")', T128, "the page seeds an ICP again"),
+    Mutant("DP-unknown-volume-as-zero", DPS, '"cum_volume_bbl": at * output if output is not None else None',
+           '"cum_volume_bbl": at * (output or 0.0)', T128, "no pump output reads as 0 bbl"),
+    Mutant("DP-zero-accepted", DPS, "or value <= 0:", "or value < 0:", T128, "a value not entered (0) is used"),
+    Mutant("DP-fractional-intervals", DPS, "or intervals != int(intervals)", "or False", T128,
+           "a fractional interval count is truncated"),
+    Mutant("DP-interval-ceiling", DPS, "not 1 <= int(intervals) <= MAX_INTERVALS", "not 1 <= int(intervals)",
+           T128, "the interval ceiling is gone"),
+    Mutant("DP-rounded-rows", DPS, "        at = strokes * i / steps\n", "        at = round(strokes * i / steps)\n",
+           T128, "stored rows are rounded"),
+    Mutant("DP-reason-captured-as-result", W13F, 'self.cs_status.setText(f"NOT ASSESSED: {exc}")',
+           'self.cs_result.setText(f"NOT ASSESSED: {exc}")', T128, "a NOT ASSESSED page saves a case"),
+    Mutant("DP-stale-result-kept", W13F, '        self.cs_result.setText("")\n        self.cs_status.setText("")\n',
+           '        self.cs_status.setText("")\n', T128, "an invalid re-run leaves the previous schedule saveable"),
+    Mutant("DP-choke-label", W13F, '["Strokes", "Drill-pipe pressure (psi)", "% to bit",',
+           '["Strokes", "Pressure (psi)", "% to bit",', T128, "the column no longer says drill-pipe pressure"),
+    Mutant("DP-page-ignores-output", W13F, "self.cs_intervals.value(), self.cs_pump_output.value() or None)",
+           "self.cs_intervals.value(), None)", T128, "the entered pump output is ignored by the page"),
+    Mutant("DP-contract-unclassified", CC, '    "Well Control › Choke Schedule": CLASS_WORKSHEET,     # M128\n',
+           '    "Well Control › Choke Schedule": CLASS_CONTRACT,     # M128\n', T128,
+           "the worksheet is labelled a CONTRACT"),
 ]
 
 

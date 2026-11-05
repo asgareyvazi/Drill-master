@@ -322,13 +322,10 @@ def test_casing_case_records_provenance_and_the_architecture_pin(w13, env):
 
 
 def test_registry_after_m127():
-    assert contracts.CONTRACT_REGISTRY_VERSION == "M127 calculator contracts v5"
-    assert len(contracts.CONTRACTS) == 22 and contracts.classification_violations() == []
-    assert set(contracts.NOT_SUPPORTED) == {"Well Control › Kill Sheet", "Well Control › Choke Schedule",
-                                            "Directional › Multi-Survey", "Directional › Anti-Collision",
-                                            "DP Database"}
-    counts = {}
-    for cls in contracts.LEAF_CLASSES.values():
-        counts[cls] = counts.get(cls, 0) + 1
-    assert counts == {contracts.CLASS_CONTRACT: 9, contracts.CLASS_SCREENING: 10, contracts.CLASS_WORKSHEET: 3,
-                      contracts.CLASS_TRAINING: 1, contracts.CLASS_REFERENCE: 1, contracts.CLASS_NOT_SUPPORTED: 3}
+    # M128: the registry-wide counts live in the latest milestone test (test_m128 / test_m125); this keeps
+    # what M127 itself established
+    assert contracts.classification_violations() == []
+    for leaf in ("Weight", "CSG/CMT › Casing Strength"):
+        assert leaf in contracts.CONTRACTS and leaf not in contracts.NOT_SUPPORTED
+        assert contracts.leaf_class(leaf)[0] == contracts.CLASS_SCREENING
+        assert contracts.CONTRACTS[leaf].method_version.startswith("M127")
