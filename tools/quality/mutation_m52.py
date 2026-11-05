@@ -82,8 +82,8 @@ MUTANTS = [
            "        token = self._choices_token[slot]\n        if False:",
            T_SC, "the well / report / document lists are read on the GUI thread again (pre-M52)"),
     Mutant("KP-late-list-accepted", KP,
-           "        if token != self._choices_token[slot]:\n            return",
-           "        if False:\n            return",
+           "        if self._closed or token != self._choices_token[slot]:\n            return",   # D40 (M126)
+           "        if self._closed:\n            return",
            T_SC, "a late well list overwrites the picker of a newer scope"),
     Mutant("KP-error-shown-as-empty", KP,
            "        if error is not None:\n            combo.setPlaceholderText",

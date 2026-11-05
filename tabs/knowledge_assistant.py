@@ -386,6 +386,9 @@ class KnowledgeAssistantPanel(QWidget):
         self.library = library
         self.link_service = link_service
         self._generation = 0
+        # M126 (D40): set by cleanup(). A result already queued when a worker is disconnected is still
+        # delivered (disconnect does not retract queued events), so every result slot checks this state.
+        self._closed = False
         self._index: Optional[kr.KnowledgeIndex] = None
         self._snapshot_signature = None
         self._semantic_signature = None       # corpus the completed semantic index was built for
@@ -723,7 +726,7 @@ class KnowledgeAssistantPanel(QWidget):
         if worker is not None and self.choices_workers.get(slot) is worker:
             self.choices_workers[slot] = None
             release_when_finished(worker)       # done is emitted inside run(): never delete it here
-        if token != self._choices_token[slot]:
+        if self._closed or token != self._choices_token[slot]:
             return                               # a newer scope, well or library change owns the picker
         self._apply_choices(slot, kind, rows, error)
 
@@ -884,7 +887,7 @@ class KnowledgeAssistantPanel(QWidget):
         if worker is self.check_worker:
             self.check_worker = None
             self._keep_until_finished(worker)   # M122: `finished` has usually fired already
-        if token != self._check_token:
+        if self._closed or token != self._check_token:
             return                              # a newer library change superseded this check
         self._apply_library_signature(signature)
 
@@ -1018,6 +1021,8 @@ class KnowledgeAssistantPanel(QWidget):
         return True
 
     def _worker_stage(self, generation, stage):
+        if self._closed:
+            return
         if generation == self._generation and stage in ("retrieving", "generating"):
             self._set_state(stage)
 
@@ -1027,6 +1032,8 @@ class KnowledgeAssistantPanel(QWidget):
             self.worker = None
             self._keep_until_finished(worker)   # M122: a completed worker was never deleted before
             self._update_suggest_button()
+        if self._closed:
+            return                                  # D40: delivered after cleanup - rejected
         if index is not None and generation == self._generation:
             self._index = index
             self._snapshot_signature = index.signature      # the corpus state this answer was read from
@@ -1048,14 +1055,15 @@ class KnowledgeAssistantPanel(QWidget):
 
     def _stop_worker(self):
         worker, self.worker = self.worker, None
-        if self._cancel is not None:
-            self._cancel.cancel()
-        if worker is not None:
+        if worker is not None:                     # D40: disconnect before cancelling (narrows, never relied on)
             try:
                 worker.stage.disconnect()
                 worker.done.disconnect()
             except (RuntimeError, TypeError):  # silent-ok: signals already disconnected (worker finished or replaced)
                 pass
+        if self._cancel is not None:
+            self._cancel.cancel()
+        if worker is not None:
             self._keep_until_finished(worker)      # keep a reference until the thread ends (M122)
 
     def _forget(self, worker):
@@ -1169,6 +1177,8 @@ class KnowledgeAssistantPanel(QWidget):
     def _status_done(self, generation, status):
         worker, self.status_worker = self.status_worker, None
         release_when_finished(worker)           # M52: done is emitted inside run()
+        if self._closed:
+            return                              # D40
         self.check_model_button.setEnabled(True)
         if generation != getattr(self, "_generation_status", 0):
             return
@@ -1232,19 +1242,26 @@ class KnowledgeAssistantPanel(QWidget):
         self.semantic_worker = SemanticBuildWorker(index, adapter, store, self._semantic_cancel, self,
                                                    db_manager=db_manager)
         self.semantic_worker.indexed.connect(self._semantic_indexed)
-        self.semantic_worker.progress.connect(
-            lambda d, t: self.semantic_label.setText(f"Building semantic index… {d}/{t} passages (not ready yet)"))
+        self.semantic_worker.progress.connect(self._semantic_progress)
         self.semantic_worker.done.connect(self._semantic_done)
         self.build_semantic_button.setText("Cancel semantic build")
         self.semantic_worker.start()
 
+    def _semantic_progress(self, done, total):
+        if not self._closed:
+            self.semantic_label.setText(f"Building semantic index… {done}/{total} passages (not ready yet)")
+
     def _semantic_indexed(self, index):
+        if self._closed:
+            return      # D40: never install an index after cleanup; the worker still uses it, so it is not closed here
         self._index, self._snapshot_signature = index, index.signature
         self._semantic_signature, self._semantic_build_signature = None, index.signature
 
     def _semantic_done(self, result):
         worker, self.semantic_worker = self.semantic_worker, None
         release_when_finished(worker)           # M52: done is emitted inside run()
+        if self._closed:
+            return                              # D40
         self.build_semantic_button.setText("Build semantic index")
         state = result.get("state")
         if state == "complete":
@@ -1259,6 +1276,7 @@ class KnowledgeAssistantPanel(QWidget):
 
     # ------------------------------------------------------------ cleanup
     def cleanup(self):
+        self._closed = True                     # D40: results still queued from here on are rejected
         self._stop_worker()
         if self._semantic_cancel is not None:
             self._semantic_cancel.cancel()
