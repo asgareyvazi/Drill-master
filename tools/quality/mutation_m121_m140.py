@@ -38,6 +38,10 @@ TD40 = ["tests/test_m126_d40_assistant_late_results.py", "tests/test_m122_assist
 WV = "core/well_volumes.py"
 KA = "tabs/knowledge_assistant.py"
 CC = "core/calculator_contracts.py"
+T127 = ["tests/test_m127_weight_casing.py"]
+WW = "core/w13_weight.py"
+W13F = "tabs/w13_Engineering_Calculator.py"
+CH = "core/calculation_history.py"
 
 MUTANTS = [
     # ---- M122 Knowledge Assistant worker lifecycle (D28) ------------------------------------------------
@@ -348,6 +352,38 @@ MUTANTS = [
            'if isinstance(exact, (int, float)) and not isinstance(exact, bool) and kind is float:',
            'if False:',
            T126, 'the page computes with the rounded table text (D41)'),
+    # ---- M127 Weight (pinned survey revision) and Casing Strength (provenance) contracts -----------------
+    Mutant("WT-pin-hash-unchecked", WW, 'if sr.stations_sha256(stations) != pin.get("stations_sha256"):', "if False:",
+           T127, "edited pinned stations are used"),
+    Mutant("WT-pin-other-well", WW, 'if well_id is None or revision.get("well_id") != well_id:',
+           "if well_id is None:", T127, "a survey revision of another well is pinned"),
+    Mutant("WT-pin-other-wellbore", WW,
+           "if owner is not None and wellbore_id is not None and owner != wellbore_id:", "if False:",
+           T127, "a survey revision of another wellbore is pinned"),
+    Mutant("WT-verify-for-use-skipped", WW,
+           'sr.verify_for_use(dict(revision) if revision else None, "torque and drag")',
+           'sr.verify_for_use(dict(revision) if revision else None, "torque and drag") if False else None',
+           T127, "a revision whose stored results fail their check is pinned"),
+    Mutant("WT-unknown-td-as-zero", WW, "out.update({key: None for key in TD_RESULTS})",
+           "out.update({key: 0.0 for key in TD_RESULTS})", T127, "no survey pinned reads as zero T&D"),
+    Mutant("WT-well-change-keeps-pin", W13F, 'if pin is not None and pin.get("well_id") != well:',
+           "if False:", T127, "the pin of the previous well survives a well change"),
+    Mutant("WT-survey-source-not-stored", "core/engineering/torque_drag_persistence.py",
+           "    if survey_source:\n", "    if False:\n", T127, "a saved T&D run does not say which survey it used"),
+    Mutant("WT-history-survey-link", CH, 'value = (source or _case_extra(inputs, "survey")).get("revision_id")',
+           'value = source.get("revision_id")', T127, "a Weight case does not link its survey revision"),
+    Mutant("CS-unknown-accepted", CC,
+           'unknown = [key for key in _CASING_REQUIRED if fields.get(key) in (None, "unknown")]', "unknown = []",
+           T127, "a required value unknown in the source is re-run"),
+    Mutant("CS-provenance-missing-accepted", CC, "    if not fields:\n", "    if False:\n", T127,
+           "a case without provenance is judged on its numbers"),
+    Mutant("CS-history-architecture-link", CH, "    if not source:\n", "    if False:\n", T127,
+           "a Casing Strength case does not link its architecture revision"),
+    Mutant("CS-selector-captured", "tabs/calculation_cases_panel.py", 'if widget.property("w13_selector"):',
+           "if False:", T127, "the architecture string selector is captured as an input and cannot be restored"),
+    Mutant("CS-restore-drops-origin", W13F,
+           'self._csg_origin = {**origin, "loaded": self._csg_values(), "provenance": fields}',
+           "self._csg_origin = None", T127, "a reopened case loses where each value came from"),
 ]
 
 

@@ -49,8 +49,8 @@ def test_all_27_real_leaves_are_classified_consistently_with_the_registry(w13):
     assert len(leaves) == 27 and set(contracts.LEAF_CLASSES) == set(leaves)
     assert contracts.classification_violations() == []
     assert Counter(contracts.LEAF_CLASSES.values()) == {
-        contracts.CLASS_CONTRACT: 9, contracts.CLASS_SCREENING: 8, contracts.CLASS_WORKSHEET: 3,   # M126: +2
-        contracts.CLASS_TRAINING: 1, contracts.CLASS_REFERENCE: 1, contracts.CLASS_NOT_SUPPORTED: 5}
+        contracts.CLASS_CONTRACT: 9, contracts.CLASS_SCREENING: 10, contracts.CLASS_WORKSHEET: 3,  # M126 +2, M127 +2
+        contracts.CLASS_TRAINING: 1, contracts.CLASS_REFERENCE: 1, contracts.CLASS_NOT_SUPPORTED: 3}
     assert contracts.leaf_class("DP Database")[0] == contracts.CLASS_REFERENCE
     assert contracts.leaf_class("Well Control › Kill Sheet")[0] == contracts.CLASS_TRAINING
     assert contracts.leaf_class("Directional › Anti-Collision")[0] == contracts.CLASS_NOT_SUPPORTED
@@ -76,9 +76,9 @@ def test_a_relabelled_screening_contract_is_a_violation(monkeypatch):
     changed = dict(contracts.LEAF_CLASSES, **{"Mud › OWR": contracts.CLASS_WORKSHEET})
     monkeypatch.setattr(contracts, "LEAF_CLASSES", changed)
     assert any("OWR" in v and "do not say WORKSHEET" in v for v in contracts.classification_violations())
-    changed = dict(contracts.LEAF_CLASSES, **{"Weight": contracts.CLASS_SCREENING})
-    monkeypatch.setattr(contracts, "LEAF_CLASSES", changed)
-    assert any("Weight" in v and "no contract" in v for v in contracts.classification_violations())
+    changed = dict(contracts.LEAF_CLASSES, **{"Directional › Multi-Survey": contracts.CLASS_SCREENING})
+    monkeypatch.setattr(contracts, "LEAF_CLASSES", changed)       # M127: Weight is contracted; Multi-Survey is not
+    assert any("Multi-Survey" in v and "no contract" in v for v in contracts.classification_violations())
 
 
 def test_the_case_bar_shows_the_class_and_dp_database_saves_nothing(w13):

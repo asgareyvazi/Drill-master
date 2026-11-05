@@ -24,6 +24,7 @@ Design rules honored (see docs/audits/2026-09-13_CALCULATION_PERSISTENCE.md):
 """
 from __future__ import annotations
 
+import json
 import math
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -110,6 +111,7 @@ def build_snapshot(
     wob_klbf: Any = 0.0,
     wellbore_id_in: Any = None,
     method: str,
+    survey_source: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build the deterministic historical input snapshot for one T&D run.
 
@@ -123,13 +125,18 @@ def build_snapshot(
         "wob_klbf": _clean_number(wob_klbf) or 0.0,
         "wellbore_id_in": _clean_number(wellbore_id_in),
     }
-    return {
+    snapshot = {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "method": method,
         "survey": _canonical_survey(list(survey or [])),
         "components": [_canonical_component(c) for c in (components or [])],
         "parameters": scalars,
     }
+    # M127: the survey revision the stations came from (identity + station SHA-256). Provenance only:
+    # reconstruction never reads it, so the schema version is unchanged (as the M89 casing ``source``).
+    if survey_source:
+        snapshot["survey_source"] = json.loads(json.dumps(dict(survey_source), sort_keys=True, default=str))
+    return snapshot
 
 
 def reference_fingerprints(snapshot: Mapping[str, Any]) -> List[str]:

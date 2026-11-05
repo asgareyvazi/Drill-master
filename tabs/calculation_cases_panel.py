@@ -64,6 +64,8 @@ def _inputs(page: QWidget) -> List[QWidget]:
     for widget in page.findChildren(QWidget):
         if not isinstance(widget, INPUT_TYPES):
             continue
+        if widget.property("w13_selector"):      # M127: a chooser whose choice a contract extra records
+            continue
         if isinstance(widget, QLineEdit) and (
             widget.isReadOnly() or isinstance(widget.parentWidget(), (QAbstractSpinBox, QComboBox))
         ):

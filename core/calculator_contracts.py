@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-CONTRACT_REGISTRY_VERSION = "M126 calculator contracts v4"
+CONTRACT_REGISTRY_VERSION = "M127 calculator contracts v5"
 OBJECT_PREFIX = "w13:"
 STRUCTURED_REL_TOL = 1e-9
 
@@ -970,11 +970,133 @@ HYDRAULICS = Contract(
 )
 
 
+def _weight(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    from core import w13_weight
+
+    try:
+        return w13_weight.results(values)
+    except w13_weight.SurveyPinError as exc:
+        raise ValueError(f"NOT REPRODUCIBLE: {exc}") from exc
+
+
+WEIGHT = Contract(
+    stable_id="w13.weight.page", calculator="Weight", schema_version=1,
+    method_id="w13.weight.torque_drag", method_version="M127 weight card and soft-string T&D v1",
+    inputs=(FieldSpec("tds", "TDS/Block Wt", "klbf", attr="wt_tds"),
+            FieldSpec("mw", "Mud Weight", "pcf", attr="wt_mw"),
+            FieldSpec("inclination", "Inclination", "deg (weight card only)", attr="wt_inc"),
+            FieldSpec("friction", "Friction Factor", "dimensionless", attr="wt_friction"),
+            FieldSpec("hole_id", "Hole ID (T&D buckling)", "in (0 = not recorded)", attr="wt_hole", required=False),
+            FieldSpec("wob", "WOB (T&D)", "klbf", attr="wt_wob")),
+    results=(FieldSpec("air_weight_klbf", "Air weight", "klbf"),
+             FieldSpec("axial_air_weight_klbf", "Axial air weight (weight card inclination)", "klbf"),
+             FieldSpec("buoyancy_factor", "Buoyancy factor", "dimensionless"),
+             FieldSpec("buoyed_weight_klbf", "Buoyed weight", "klbf"),
+             FieldSpec("hook_load_klbf", "Hook load (with TDS/block)", "klbf"),
+             FieldSpec("pickup_klbf", "Pickup (weight card)", "klbf"),
+             FieldSpec("slackoff_klbf", "Slack-off (weight card)", "klbf"),
+             FieldSpec("td_pickup_klbf", "T&D pickup hook load", "klbf"),
+             FieldSpec("td_slackoff_klbf", "T&D slack-off hook load", "klbf"),
+             FieldSpec("td_rotating_klbf", "T&D rotating hook load", "klbf"),
+             FieldSpec("td_sliding_klbf", "T&D sliding hook load", "klbf"),
+             FieldSpec("td_surface_torque_ft_lbf", "T&D surface torque (rotating)", "ft-lbf"),
+             FieldSpec("td_buoyed_weight_klbf", "T&D buoyed string weight", "klbf"),
+             FieldSpec("td_neutral_point_md_m", "T&D neutral point (slack-off)", "m MD"),
+             FieldSpec("td_buckling_flag", "T&D buckling screening flag", "1 = flagged, 0 = not flagged")),
+    recalculate=_weight, structured=True,
+    extras=(ExtraSpec("pipes", "wt_pipes", "in, m, ppf", "Drill-string components", refresh="_wt_refresh_table"),
+            ExtraSpec("survey", "wt_survey_pin", "survey revision pin (MD m, deg, station SHA-256)",
+                      "Survey revision (pinned)", refresh="_wt_survey_pin_restored")),
+    reference="TorqueDragEngine: weight card W_axial = W_air cos I, BF = 1 - MW/65.5, drag = W_b mu sin I; "
+              "Johancsik soft-string (SPE 11380) along the pinned survey revision (core.w13_weight)",
+    limits="SCREENING - soft-string (no stiffness, contact or dynamics), constant friction factor, simple "
+           "buoyancy; T&D only on a pinned, hash-verified survey revision of the well, otherwise UNKNOWN.",
+)
+
+
+_CASING_REQUIRED = ("od_in", "id_in", "wall_in", "yield_psi")
+CASING_ORIGINS = ("architecture", "derived", "preset", "user", "unknown")
+
+
+def _casing_strength(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    from core.engineering.engines.casing import CasingEngine
+
+    provenance = values.get("provenance") if isinstance(values.get("provenance"), dict) else {}
+    fields = provenance.get("fields") if isinstance(provenance.get("fields"), dict) else {}
+    if not fields:
+        raise ValueError("NOT REPRODUCIBLE: the per-field provenance was not recorded")
+    odd = sorted(k for k, v in fields.items() if v not in CASING_ORIGINS)
+    if odd:
+        raise ValueError(f"NOT REPRODUCIBLE: unknown provenance class for {', '.join(odd)}")
+    unknown = [key for key in _CASING_REQUIRED if fields.get(key) in (None, "unknown")]
+    if unknown:
+        raise ValueError(f"NOT ASSESSED: {', '.join(unknown)} unknown in the source - enter the value(s)")
+    r = CasingEngine.evaluate(
+        od_in=values["od"], id_in=values["id"], wall_in=values["wall"], yield_psi=values["yield_psi"],
+        internal_pressure_psi=values.get("pi") or None, external_pressure_psi=values.get("pe") or None,
+        axial_tension_lbf=values.get("axial") or None,
+        connection_burst_psi=values.get("conn_burst") or None,
+        connection_collapse_psi=values.get("conn_collapse") or None,
+        connection_tension_lbf=values.get("conn_tension") or None)
+    if not r.success:
+        raise ValueError(r.error or "casing evaluation failed")
+    v = r.values
+    keys = ("burst_rating_psi", "collapse_rating_psi", "d_over_t", "pipe_body_yield_lbf", "collapse_combined_psi",
+            "fyax_psi", "vme_psi", "vme_utilization", "governing_burst_psi", "governing_collapse_psi",
+            "governing_tension_lbf", "burst_sf", "collapse_sf", "tension_sf")
+    return {key: v.get(key) for key in keys}
+
+
+CASING_STRENGTH = Contract(
+    stable_id="w13.casing.strength", calculator="CSG/CMT › Casing Strength", schema_version=1,
+    method_id="w13.casing.strength", method_version="M127 casing pipe-body strength v1",
+    inputs=(FieldSpec("od", "OD", "in", attr="csg_od"),
+            FieldSpec("weight", "Weight", "ppf (recorded, not used by the ratings)", attr="csg_wt_ppf",
+                      required=False),
+            FieldSpec("id", "ID", "in", attr="csg_id_calc"),
+            FieldSpec("yield_psi", "Yield Strength", "psi", attr="csg_yield"),
+            FieldSpec("wall", "Wall Thickness", "in", attr="csg_wall"),
+            FieldSpec("axial", "Axial tension (opt)", "lbf (0 = not supplied)", attr="csg_axial", required=False),
+            FieldSpec("pi", "Internal P (opt)", "psi (0 = not supplied)", attr="csg_pi", required=False),
+            FieldSpec("pe", "External P (opt)", "psi (0 = not supplied)", attr="csg_pe", required=False),
+            FieldSpec("conn_burst", "Connection burst (0=omit)", "psi (0 = not entered)", attr="csg_conn_burst",
+                      required=False),
+            FieldSpec("conn_collapse", "Connection collapse (0=omit)", "psi (0 = not entered)",
+                      attr="csg_conn_coll", required=False),
+            FieldSpec("conn_tension", "Connection tension (0=omit)", "lbf (0 = not entered)",
+                      attr="csg_conn_tens", required=False)),
+    results=(FieldSpec("burst_rating_psi", "Burst rating (pipe body)", "psi"),
+             FieldSpec("collapse_rating_psi", "Collapse rating (pipe body)", "psi"),
+             FieldSpec("d_over_t", "D/t", "dimensionless"),
+             FieldSpec("pipe_body_yield_lbf", "Pipe-body yield", "lbf"),
+             FieldSpec("collapse_combined_psi", "Collapse with axial / internal pressure", "psi"),
+             FieldSpec("fyax_psi", "Axial-stress equivalent yield (fyax)", "psi"),
+             FieldSpec("vme_psi", "VME stress (inner wall)", "psi"),
+             FieldSpec("vme_utilization", "VME utilisation", "fraction of yield"),
+             FieldSpec("governing_burst_psi", "Governing burst (pipe body / connection)", "psi"),
+             FieldSpec("governing_collapse_psi", "Governing collapse (pipe body / connection)", "psi"),
+             FieldSpec("governing_tension_lbf", "Governing tension (pipe body / connection)", "lbf"),
+             FieldSpec("burst_sf", "Burst SF (governing / internal P)", "ratio"),
+             FieldSpec("collapse_sf", "Collapse SF (governing / external P)", "ratio"),
+             FieldSpec("tension_sf", "Tension SF (governing / axial)", "ratio")),
+    recalculate=_casing_strength, structured=True,
+    extras=(ExtraSpec("provenance", "csg_case_provenance", "origin per field (architecture / derived / preset / "
+                      "user / unknown) and the architecture revision pin", "Input provenance",
+                      refresh="_csg_case_provenance_restored"),),
+    reference="CasingEngine (API TR 5C3 pipe-body subset: Barlow burst with 87.5 % wall, four-regime collapse, "
+              "pipe-body yield, fyax and internal-pressure correction, inner-wall VME; capped-end)",
+    limits="SCREENING - API TR 5C3 pipe-body subset only, not a complete rating, casing design or compliance "
+           "statement; connection ratings only as entered; yield never inferred from the grade; a required "
+           "value unknown in the source is NOT ASSESSED; 0 in an optional load means not supplied.",
+)
+
+
 CONTRACTS: Dict[str, Contract] = {c.calculator: c for c in (
     QUICK_CALC, BIT_HYDRAULICS, TFA, HYDROSTATIC, CEMENT_VOLUME, OWR, BUILD_TURN,                    # M73 / M87
     BUOYANCY, BALANCED_PLUG, KICK_TOLERANCE, PORE_FG, STUCK_PIPE, MUD_WDM, MUD_BALANCE, MUD_LAB,    # M107
     FISHING, RHEOLOGY, NOZZLE_OPTIMIZATION,
-    WELL_VOLUMES, HYDRAULICS)}                                                                         # M126
+    WELL_VOLUMES, HYDRAULICS,                                                                          # M126
+    WEIGHT, CASING_STRENGTH)}                                                                          # M127
 LEGACY_CONTRACTS: Tuple[Contract, ...] = (QUICK_CALC_V1,)
 # method_id -> versions this build can still run. A version removed from here
 # makes its stored cases NOT REPRODUCIBLE (never silently re-run with another method).
@@ -984,13 +1106,6 @@ AVAILABLE_METHODS[QUICK_CALC_V1.method_id] = (QUICK_CALC_V1.method_version,)
 _CAPTURE = "the case capture records form fields and result labels only"
 # Every W13 leaf calculator (finder path) without a re-runnable contract, with the exact reason (M107).
 NOT_SUPPORTED: Dict[str, str] = {
-    "Weight": "the drill-string components table (wt_pipes) is not captured and the torque-and-drag result reads the "
-              "survey table of Directional › Multi-Survey (dd_surveys) on another page; torque-and-drag runs are "
-              "saved with their snapshot and verified in Calc History",
-    "CSG/CMT › Casing Strength": "inputs can be inherited from a casing architecture revision and the per-field "
-                                 "provenance (entered / inherited / unknown) is not captured, so a case could not "
-                                 "say where each value came from; casing runs are saved with provenance and "
-                                 "verified in Calc History",
     "Well Control › Kill Sheet": "TRAINING AID (owner decision pending) and the drill-string geometry table (wc_pipes) "
                                  "is not captured; kill-sheet runs are saved in Calc History as TRAINING AID",
     "Well Control › Choke Schedule": "the output is a schedule table, which the case capture does not record, so no "
@@ -1047,8 +1162,8 @@ LEAF_CLASSES: Dict[str, str] = {
     "DP Database": CLASS_REFERENCE,
     "Volume › Well Volumes": CLASS_CONTRACT,          # M126
     "Hydraulics": CLASS_SCREENING,                   # M126
-    "Weight": CLASS_NOT_SUPPORTED,
-    "CSG/CMT › Casing Strength": CLASS_NOT_SUPPORTED,
+    "Weight": CLASS_SCREENING,                       # M127
+    "CSG/CMT › Casing Strength": CLASS_SCREENING,    # M127
     "Well Control › Choke Schedule": CLASS_NOT_SUPPORTED,
     "Directional › Multi-Survey": CLASS_NOT_SUPPORTED,
     "Directional › Anti-Collision": CLASS_NOT_SUPPORTED,

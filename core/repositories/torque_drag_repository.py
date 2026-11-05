@@ -86,6 +86,7 @@ class TorqueDragCalculationRepository(BaseRepository):
         label: str = "",
         well_id: Optional[int] = None,
         created_by: Optional[int] = None,
+        survey_source: Optional[Mapping[str, Any]] = None,
     ) -> int:
         """Persist ONE T&D run as an immutable historical record; returns its id.
 
@@ -102,6 +103,7 @@ class TorqueDragCalculationRepository(BaseRepository):
             wob_klbf=wob_klbf,
             wellbore_id_in=wellbore_id_in,
             method=method,
+            survey_source=survey_source,
         )
         summary = result_summary(result_values or {})
         fps = reference_fingerprints(snapshot)

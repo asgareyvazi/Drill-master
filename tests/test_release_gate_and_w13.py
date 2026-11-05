@@ -175,8 +175,11 @@ class TestW13HeadlessAcceptance:
             friction_factor=0.2,
         )
         assert result.success, result.error
-        assert "TorqueDragEngine.calculate_weight_card" in self.source
-        assert "TorqueDragEngine.calculate(" in self.source[self.source.index("def _wt_run_td"):]
+        # M127: the page and its case contract share core/w13_weight, which calls the canonical engine
+        helper = (REPO / "core" / "w13_weight.py").read_text(encoding="utf-8")
+        assert "w13_weight.weight_card(" in self.source and "TorqueDragEngine.calculate_weight_card" in helper
+        assert "w13_weight.torque_drag(" in self.source[self.source.index("def _wt_run_td"):]
+        assert "TorqueDragEngine.calculate(" in helper
         assert result.values["pickup_lbs"] > result.values["hook_load_lbs"]
         assert result.values["slackoff_lbs"] < result.values["hook_load_lbs"]
 

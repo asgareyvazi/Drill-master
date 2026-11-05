@@ -2710,9 +2710,29 @@ class EngineeringCalculatorTab(DrillTabBase):
         pf.addRow("Inclination:", self.wt_inc)
         pf.addRow("Friction Factor:", self.wt_friction)
         self.wt_hole = self._make_dspin(8.5, 0, 30, 3, " in")
+        self.wt_hole.setSpecialValueText("Not recorded")     # M127: 0 = hole ID not recorded (no buckling)
         self.wt_wob = self._make_dspin(0, 0, 200, 1, " klbf")
         pf.addRow("Hole ID (T&D buckling):", self.wt_hole)
         pf.addRow("WOB (T&D):", self.wt_wob)
+        # M127: T&D runs on an explicitly pinned survey revision of the selected well
+        survey_row = QHBoxLayout()
+        self.wt_survey_combo = QComboBox()
+        self.wt_survey_combo.setObjectName("wt_survey_combo")
+        self.wt_survey_combo.setProperty("w13_selector", True)   # the pin (case extra) records the choice
+        self.wt_survey_combo.setToolTip("Survey revision used for torque and drag; its stations are pinned "
+                                        "with the revision identity and SHA-256.")
+        self.wt_survey_combo.activated.connect(self._wt_select_survey)
+        survey_reload = QPushButton("↻")
+        survey_reload.setToolTip("Reload the survey revisions of the selected well")
+        survey_reload.clicked.connect(self._wt_reload_survey_revisions)
+        survey_row.addWidget(self.wt_survey_combo, 1)
+        survey_row.addWidget(survey_reload)
+        pf.addRow("Survey revision:", survey_row)
+        self.wt_survey_label = QLabel()
+        self.wt_survey_label.setWordWrap(True)
+        pf.addRow(self.wt_survey_label)
+        self.wt_survey_combo.addItem("— none: torque and drag NOT ASSESSED —", None)
+        self._wt_show_survey_pin()
 
         calc_btn = QPushButton("🔄 Calculate Hook Load")
         calc_btn.setStyleSheet("background: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
@@ -2945,15 +2965,9 @@ class EngineeringCalculatorTab(DrillTabBase):
             self.wt_pipe_table.setItem(row, 5, ti)
 
     def _wt_calculate(self):
-        from core.engineering.engines.torque_drag import TorqueDragEngine
+        from core import w13_weight
 
-        result = TorqueDragEngine.calculate_weight_card(
-            components=self.wt_pipes,
-            mud_density_pcf=self.wt_mw.value(),
-            inclination_deg=self.wt_inc.value(),
-            top_drive_weight_klbf=self.wt_tds.value(),
-            friction_factor=self.wt_friction.value(),
-        )
+        result = w13_weight.weight_card(self._wt_values())     # M127: the same call as the case contract
         if not result.success:
             message = f"❌ {result.error}"
             for label in (
@@ -2985,59 +2999,140 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         self._wt_run_td(values["mud_density_ppg"])
 
+    def _wt_values(self) -> dict:
+        """M127: the Weight page inputs exactly as the contract reads them (shared by page and case)."""
+        return {"pipes": self.wt_pipes, "mw": self.wt_mw.value(), "inclination": self.wt_inc.value(),
+                "tds": self.wt_tds.value(), "friction": self.wt_friction.value(),
+                "hole_id": self.wt_hole.value(), "wob": self.wt_wob.value(), "survey": self.wt_survey_pin}
+
+    @property
+    def wt_survey_pin(self):
+        """M127: the survey revision pinned for torque and drag (identity + stations + hash) or None."""
+        import copy
+
+        return copy.deepcopy(getattr(self, "_wt_survey_pin", None))
+
+    @wt_survey_pin.setter
+    def wt_survey_pin(self, value):
+        import copy
+
+        self._wt_survey_pin = copy.deepcopy(value) if isinstance(value, dict) else None
+        self._wt_last_td_run = None
+
+    def _wt_show_survey_pin(self, note: str = "") -> None:
+        from core import w13_weight
+
+        if hasattr(self, "wt_survey_label"):
+            self.wt_survey_label.setText((note + " " if note else "") + w13_weight.pin_label(self.wt_survey_pin))
+
+    def _wt_reload_survey_revisions(self) -> None:
+        """M127: list the survey revisions of the selected well (the pin stays unless it is another well's)."""
+        from core import survey_revisions as sr
+
+        if not hasattr(self, "wt_survey_combo"):
+            return
+        well = getattr(self, "current_well_id", None)
+        pin = self.wt_survey_pin
+        if pin is not None and pin.get("well_id") != well:
+            self.wt_survey_pin = None
+            pin = None
+        revisions = []
+        if getattr(self, "db", None) is not None and well:
+            try:
+                revisions = sr.list_revisions(self.db, well)
+            except Exception:   # silent-ok: an unreadable survey store lists no revision; T&D stays NOT ASSESSED
+                logger.exception("Could not list survey revisions for torque and drag")
+                revisions = []
+        combo = self.wt_survey_combo
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("— none: torque and drag NOT ASSESSED —", None)
+        for rev in revisions:
+            scope = f"wellbore #{rev['wellbore_id']}" if rev.get("wellbore_id") is not None else "well-level"
+            combo.addItem(f"Rev {rev['revision']} — {rev['source_type']} — {rev['station_count']} stations — "
+                          f"{scope} — datum {rev['depth_datum'] or 'unknown'} — azimuth "
+                          f"{rev['azimuth_reference'] or 'unknown'} — {rev['integrity']}", rev["id"])
+        index = combo.findData(pin.get("revision_id")) if pin is not None else 0
+        combo.setCurrentIndex(max(index, 0))
+        combo.blockSignals(False)
+        self._wt_show_survey_pin()
+
+    def _wt_select_survey(self, index: int) -> None:
+        """M127: pin the chosen revision after its integrity, well and wellbore checks (else nothing)."""
+        from core import survey_revisions as sr
+        from core import w13_weight
+
+        revision_id = self.wt_survey_combo.itemData(index)
+        if revision_id is None:
+            self.wt_survey_pin = None
+            self._wt_show_survey_pin()
+            return
+        try:
+            pin = w13_weight.pin_from_revision(sr.get_revision(self.db, revision_id),
+                                               well_id=getattr(self, "current_well_id", None),
+                                               wellbore_id=getattr(self, "current_wellbore_id", None))
+        except w13_weight.SurveyPinError as exc:
+            self.wt_survey_pin = None
+            self.wt_survey_combo.blockSignals(True)
+            self.wt_survey_combo.setCurrentIndex(0)
+            self.wt_survey_combo.blockSignals(False)
+            self._wt_show_survey_pin(f"Not pinned: {exc}")
+            return
+        self.wt_survey_pin = pin
+        self._wt_show_survey_pin()
+
+    def _wt_survey_pin_restored(self) -> None:
+        """M127: a reopened case brought its own pin; show it (the combo only follows when listed)."""
+        pin = self.wt_survey_pin
+        if hasattr(self, "wt_survey_combo"):
+            index = self.wt_survey_combo.findData(pin.get("revision_id")) if pin is not None else 0
+            self.wt_survey_combo.blockSignals(True)
+            self.wt_survey_combo.setCurrentIndex(max(index, 0))
+            self.wt_survey_combo.blockSignals(False)
+        self._wt_show_survey_pin("Restored from the case:" if pin is not None else "")
+
     def _wt_run_td(self, mud_density_ppg):
+        """M127: soft-string T&D on the pinned survey revision only (never the Multi-Survey table)."""
+        from core import w13_weight
         from core.engineering.engines.torque_drag import TorqueDragEngine
+
+        self._wt_last_td_run = None
         if not self.wt_pipes:
             self.wt_td.setText("--")
             return
-        string = []
-        for p in self.wt_pipes:
-            comp = {
-                "name": p.get("type") or "pipe",
-                "type": p.get("type"),
-                "od": p.get("od"),
-                "id": p.get("id"),
-                "length": p.get("length"),
-                "weight": p.get("weight"),
-                "grade": p.get("grade"),
-                "connection": p.get("connection"),
-            }
-            # Carry durable catalog reference traceability when the component was
-            # seeded from a persisted reference (stamped by AddPipeDialog).
-            if p.get("reference_fingerprint"):
-                comp["reference_fingerprint"] = p["reference_fingerprint"]
-            string.append(comp)
-        surveys = []
-        if getattr(self, "dd_surveys", None):
-            surveys = [
-                {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
-                for s in self.dd_surveys
-            ]
-        else:
-            self.wt_td.setText("❌ MISSING_INPUT: directional survey required for torque/drag")
+        pin = self.wt_survey_pin
+        if pin is None:
+            self.wt_td.setText("NOT ASSESSED: select a survey revision of this well under 'Survey revision' "
+                               "(the Multi-Survey table is not used)")
             return
-        r = TorqueDragEngine.calculate(
-            surveys,
-            string,
-            mud_density_ppg=mud_density_ppg,
-            friction_factor=self.wt_friction.value(),
-            wob_klbf=self.wt_wob.value(),
-            wellbore_id_in=self.wt_hole.value() or None,
-        )
+        well, wellbore = getattr(self, "current_well_id", None), getattr(self, "current_wellbore_id", None)
+        if pin.get("well_id") != well:
+            self.wt_td.setText("NOT ASSESSED: the pinned survey revision belongs to another well")
+            return
+        if pin.get("wellbore_id") is not None and wellbore is not None and pin["wellbore_id"] != wellbore:
+            self.wt_td.setText(f"NOT ASSESSED: the pinned survey revision belongs to wellbore #{pin['wellbore_id']}, "
+                               f"not the selected wellbore #{wellbore}")
+            return
+        values = self._wt_values()
+        try:
+            r = w13_weight.torque_drag(values, mud_density_ppg)
+        except w13_weight.SurveyPinError as exc:
+            self.wt_td.setText(f"NOT ASSESSED: {exc}")
+            return
         if not r.success:
             self.wt_td.setText(f"❌ {r.error}")
-            self._wt_last_td_run = None
             return
         # Cache the exact inputs + result of this successful T&D run so it can be
         # persisted verbatim (the snapshot is built from these, not re-read from
         # widgets, so a later widget edit cannot alter a saved run).
         self._wt_last_td_run = {
-            "survey": surveys,
-            "components": string,
+            "survey": w13_weight.pin_stations(pin),
+            "survey_source": {key: pin.get(key) for key in w13_weight.PIN_KEYS},
+            "components": w13_weight.engine_components(self.wt_pipes),
             "mud_density_ppg": mud_density_ppg,
-            "friction_factor": self.wt_friction.value(),
-            "wob_klbf": self.wt_wob.value(),
-            "wellbore_id_in": self.wt_hole.value() or None,
+            "friction_factor": values["friction"],
+            "wob_klbf": values["wob"],
+            "wellbore_id_in": values["hole_id"] or None,
             "result_values": r.values,
             "method": TorqueDragEngine.METHOD,
         }
@@ -3050,9 +3145,10 @@ class EngineeringCalculatorTab(DrillTabBase):
             f"ROT {v['hookload_rotating']:.1f} klbf | "
             f"TQ {v['surface_torque_rotating_ft_lbf']:.0f} ft-lbf | "
             f"stretch {v.get('stretch_rotating_in')} in | "
-            f"twist {v.get('twist_rotating_deg')}° | NP {np_s} | {buck}  [SCREENING]"
+            f"twist {v.get('twist_rotating_deg')}° | NP {np_s} | {buck}  [SCREENING] "
+            f"survey rev {pin.get('revision')}"
         )
-        
+
     def _torque_drag_repo(self):
         """Lazily build the T&D calculation-history repository (or None)."""
         if getattr(self, "db", None) is None:
@@ -3102,6 +3198,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                 result_values=run["result_values"],
                 method=run["method"],
                 label="Torque & Drag",
+                survey_source=run.get("survey_source"),
                 well_id=getattr(self, "current_well_id", None),
             )
         except Exception as exc:
@@ -3758,6 +3855,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         # M89: inputs from the selected well's latest architecture revision, with the origin of each value
         arch_row = QHBoxLayout()
         self.csg_arch_string = QComboBox()
+        self.csg_arch_string.setProperty("w13_selector", True)   # M127: the provenance origin records the string
         self.csg_arch_string.setToolTip("Casing, liner and tubing strings of the latest architecture revision "
                                         "of the selected well.")
         self.csg_arch_btn = QPushButton("🏗 Load from architecture")
@@ -3773,7 +3871,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         g1_lay.addWidget(self.csg_source_label)
         self._csg_origin = None
 
-        csg_form = QFormLayout()
+        csg_box = QWidget()                     # M127: own container so the case capture reads the labels
+        csg_form = QFormLayout(csg_box)
+        csg_form.setContentsMargins(0, 0, 0, 0)
         self.csg_od = self._make_dspin(9.625, 0, 50, 3, " in")
         self.csg_wt_ppf = self._make_dspin(47, 0, 500, 1, " ppf")
         self.csg_id_calc = self._make_dspin(8.681, 0, 50, 3, " in")
@@ -3818,7 +3918,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         history_csg.clicked.connect(self._csg_open_history)
         csg_form.addRow(history_csg)
 
-        g1_lay.addLayout(csg_form)
+        g1_lay.addWidget(csg_box)
 
         self.csg_burst_res = self._result_label("#e74c3c")
         self.csg_collapse_res = self._result_label("#f39c12")
@@ -4021,6 +4121,31 @@ class EngineeringCalculatorTab(DrillTabBase):
             return {key: "user" for key in current}
         return {key: origin["provenance"][key] if abs(value - origin["loaded"][key]) <= 1e-12 else "user"
                 for key, value in current.items()}
+
+    @property
+    def csg_case_provenance(self) -> dict:
+        """M127: what a Casing Strength case records - the origin (architecture pin) and each field's origin."""
+        origin = {k: v for k, v in (getattr(self, "_csg_origin", None) or {"kind": "user"}).items() if k != "loaded"}
+        return {"origin": origin, "fields": self.csg_provenance()}
+
+    @csg_case_provenance.setter
+    def csg_case_provenance(self, value) -> None:
+        self._csg_case_restored = value if isinstance(value, dict) else None
+
+    def _csg_case_provenance_restored(self) -> None:
+        """M127: a reopened case restores its origin; values typed later become \"user\" as on a fresh load."""
+        restored = getattr(self, "_csg_case_restored", None) or {}
+        origin, fields = dict(restored.get("origin") or {}), dict(restored.get("fields") or {})
+        self._csg_last_run = None
+        if origin.get("kind") not in ("architecture", "preset") or not fields or \
+                origin.get("well_id") not in (None, getattr(self, "current_well_id", None)):
+            self._csg_origin = None
+            self.csg_source_label.setText(self._CSG_MANUAL_SOURCE)
+            return
+        self._csg_origin = {**origin, "loaded": self._csg_values(), "provenance": fields}
+        where = (f"architecture rev {origin.get('architecture_revision')}, {origin.get('string')}"
+                 if origin.get("kind") == "architecture" else "built-in preset table")
+        self.csg_source_label.setText(f"Source (restored case): {where}.")
 
     def _csg_arch_clicked(self, _checked=False):
         self.load_casing_from_architecture()
@@ -6027,6 +6152,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         origin = getattr(self, "_csg_origin", None)
         if origin is not None and origin.get("well_id") not in (None, well_id):
             self._csg_reset_origin()
+        self._wt_reload_survey_revisions()       # M127: a pin of another well is dropped
 
     def on_selection_cleared(self):
         """M83: the selected record no longer exists; show the empty state."""

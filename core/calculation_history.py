@@ -580,13 +580,38 @@ _PARENT_CHAINS = {"survey_revisions": "Survey revision", "well_architecture_revi
                   "directional_plan_revisions": "Plan revision", "calculation_cases": "Case"}
 
 
+def _case_extra(inputs: Dict[str, Any], key: str) -> Dict[str, Any]:
+    entry = inputs.get(f"extra:{key}")
+    value = entry.get("value") if isinstance(entry, dict) else None
+    return value if isinstance(value, dict) else {}
+
+
 def architecture_ref(inputs: Dict[str, Any]) -> Optional[int]:
-    """M89: the architecture revision a casing run (snapshot ``source``) or cement worksheet case used."""
+    """M89: the architecture revision a casing run (snapshot ``source``) or cement worksheet case used.
+    M127: also a Casing Strength case (``extra:provenance`` origin)."""
     source = inputs.get("source") if isinstance(inputs.get("source"), dict) else {}
+    if not source:
+        source = _case_extra(inputs, "provenance").get("origin") or {}
+        source = source if isinstance(source, dict) else {}
     value = source.get("architecture_revision_id", inputs.get("architecture_revision_id"))
     if isinstance(value, dict):                    # calculation-case inputs are {label, value}
         value = value.get("value")
     return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def survey_ref(inputs: Dict[str, Any]) -> Optional[int]:
+    """M127: the survey revision a T&D run (snapshot ``survey_source``) or a Weight case (``extra:survey``) used."""
+    source = inputs.get("survey_source") if isinstance(inputs.get("survey_source"), dict) else {}
+    value = (source or _case_extra(inputs, "survey")).get("revision_id")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _survey_users(session, d, revision_id: int, well_id: Optional[int]) -> List[str]:
+    keys = []
+    for model, column in ((d.TorqueDragCalculationRecord, "input_snapshot_json"), (d.CalculationCase, "inputs")):
+        rows = session.query(model.id, getattr(model, column)).filter(model.well_id == well_id).order_by(model.id)
+        keys += [f"{model.__tablename__}:{rid}" for rid, data in rows if survey_ref(_json(data)) == revision_id]
+    return keys
 
 
 def _architecture_users(session, d, revision_id: int, well_id: Optional[int]) -> List[str]:
@@ -609,6 +634,10 @@ def _revision_links(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
     if used is not None:
         items.append({"direction": "uses", "key": f"well_architecture_revisions:{used}",
                       "label": f"Uses: architecture revision id {used}"})
+    surveyed = survey_ref(entry.inputs) if entry.table in ("torque_drag_calculations", "calculation_cases") else None
+    if surveyed is not None:                                   # M127
+        items.append({"direction": "uses", "key": f"survey_revisions:{surveyed}",
+                      "label": f"Uses: survey revision id {surveyed}"})
     models = {"survey_revisions": d.SurveyRevision, "well_architecture_revisions": d.WellArchitectureRevision,
               "directional_plan_revisions": d.DirectionalPlanRevision, "calculation_cases": d.CalculationCase}
     model = models.get(entry.table)
@@ -636,6 +665,8 @@ def _revision_links(db, entry: HistoryEntry) -> List[Dict[str, Any]]:
             for used in session.query(arch.id).filter(arch.survey_revision_id == row.id).order_by(arch.id):
                 items.append({"direction": "used_by", "key": f"well_architecture_revisions:{used.id}",
                               "label": f"Used by: architecture revision id {used.id}"})
+            for key in _survey_users(session, d, row.id, row.well_id):        # M127
+                items.append({"direction": "used_by", "key": key, "label": f"Used by: {key.replace(':', ' #')}"})
     return items
 
 

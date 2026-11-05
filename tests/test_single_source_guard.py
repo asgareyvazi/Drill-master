@@ -268,9 +268,12 @@ class TestEngineeringIntegrationClosure:
             encoding="utf-8",
         ).read()
         weight_section = source[source.index("    def _wt_calculate(self):"):source.index("    def _wt_run_td(", source.index("    def _wt_calculate(self):"))]
+        # M127: the page and its case contract share core/w13_weight, which calls the canonical engine
+        helper = open(os.path.join(REPO, "core", "w13_weight.py"), encoding="utf-8").read()
         for inline_formula in ("489.5", "inc_rad", "hook_load =", "drag =", "pickup =", "slackoff ="):
-            assert inline_formula not in weight_section
-        assert "TorqueDragEngine.calculate_weight_card" in weight_section
+            assert inline_formula not in weight_section and inline_formula not in helper
+        assert "w13_weight.weight_card(" in weight_section
+        assert "TorqueDragEngine.calculate_weight_card" in helper
 
     def test_casing_landing_load_delegates_to_canonical_engine(self):
         canonical = TorqueDragEngine.casing_landing_load(47.0, 5000.0, 0.8163, 0.25)
