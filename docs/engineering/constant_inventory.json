@@ -40,7 +40,7 @@
     "files": {
      "core/ai_tools.py": 1,
      "core/calculation_history.py": 2,
-     "core/calculator_contracts.py": 3,
+     "core/calculator_contracts.py": 4,
      "core/directional_plans.py": 3,
      "core/engineering/core.py": 7,
      "core/engineering/engines/trajectory.py": 6,
@@ -60,7 +60,7 @@
      "tabs/w6_Trajectory_Widget.py": 1,
      "tabs/well_plan_designer_panel.py": 7
     },
-    "uses": 68
+    "uses": 69
    }
   },
   "temperature unit": {
@@ -152,13 +152,14 @@
       "core/hydraulics_engine.py": 17,
       "core/report_engine.py": 1,
       "core/well_architecture.py": 1,
+      "core/well_volumes.py": 1,
       "dialogs/calculator_dialog.py": 6,
       "dialogs/engineering_dialogs.py": 4,
       "tabs/w12_Analysis.py": 3,
-      "tabs/w13_Engineering_Calculator.py": 9,
+      "tabs/w13_Engineering_Calculator.py": 7,
       "tabs/w3c_section_data.py": 1
      },
-     "uses": 54,
+     "uses": 53,
      "value": 3.28084
     }
    }
@@ -205,9 +206,11 @@
       "core/engineering/engines/mud_volume.py": 1,
       "core/hydraulics_engine.py": 1,
       "core/unit_manager.py": 1,
+      "core/w13_hydraulics.py": 1,
+      "core/well_volumes.py": 1,
       "dialogs/engineering_dialogs.py": 1
      },
-     "uses": 6,
+     "uses": 8,
      "value": 42.0
     }
    }

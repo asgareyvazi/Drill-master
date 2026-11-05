@@ -82,7 +82,7 @@ def test_all_27_leaves_have_a_contract_or_an_exact_reason(w13):
     leaves = [p for p in paths if not any(o != p and o.startswith(p + " › ") for o in paths)]
     assert len(leaves) == 27 and set(contracts.CONTRACTS) | set(contracts.NOT_SUPPORTED) == set(leaves)
     assert not set(contracts.CONTRACTS) & set(contracts.NOT_SUPPORTED)
-    assert len(contracts.CONTRACTS) == 18 and len(contracts.NOT_SUPPORTED) == 9
+    assert len(contracts.CONTRACTS) == 20 and len(contracts.NOT_SUPPORTED) == 7   # M126: Well Volumes, Hydraulics
     assert set(NEW) <= set(contracts.CONTRACTS)
     for calculator, reason in contracts.NOT_SUPPORTED.items():
         assert "not yet contracted" not in reason and len(reason) > 40, calculator
@@ -96,7 +96,7 @@ def test_all_27_leaves_have_a_contract_or_an_exact_reason(w13):
 
 def test_exact_reasons_name_what_is_not_captured():
     reasons = contracts.NOT_SUPPORTED
-    assert "vol_pumps" in reasons["Volume › Well Volumes"]
+    assert "Volume › Well Volumes" not in reasons and "Hydraulics" not in reasons   # contracted in M126
     assert "dd_surveys" in reasons["Weight"] and "wt_pipes" in reasons["Weight"]
     assert "provenance" in reasons["CSG/CMT › Casing Strength"]
     assert "TRAINING AID" in reasons["Well Control › Kill Sheet"]
@@ -314,11 +314,12 @@ def test_new_contract_cases_record_the_method_and_rerun(w13, calculator):
     assert ch.recalculate_entry(_entry(w13.db, case["id"]))["status"] == "MATCH"
 
 
-def test_the_hydraulics_reason_does_not_claim_stored_runs():
-    """M87 said saved hydraulics runs are verified in Calc History; no hydraulics table exists (CSV export only)."""
+def test_hydraulics_runs_are_contract_cases_not_a_hydraulics_table():
+    """M87 claimed saved hydraulics runs in a table that never existed. Since M126 a Hydraulics run is stored
+    as a W13 contract case (calculation_cases) and re-run from there - still no hydraulics table is implied."""
     from core import calculator_contracts as cc
     from core.database import Base
 
-    reason = cc.NOT_SUPPORTED["Hydraulics"]
-    assert "not stored" in reason and "verified" not in reason
+    assert "Hydraulics" not in cc.NOT_SUPPORTED
+    assert cc.CONTRACTS["Hydraulics"].method_version.startswith("M126")
     assert not any("hydraulic" in m.class_.__tablename__ for m in Base.registry.mappers)

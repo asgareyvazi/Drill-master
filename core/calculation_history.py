@@ -57,6 +57,13 @@ SOURCES = (tuple(v[0] for v in SNAPSHOT_SOURCES.values()) + ("Trajectory", "Calc
            + tuple(REVISION_SOURCES.values()))
 
 
+def _w13_scope(calculator) -> str:
+    """M125: a W13 case carries its calculator's class (e.g. "W13 CALCULATOR — SCREENING CONTRACT")."""
+    from core import calculator_contracts as contracts
+    leaf, _meaning = contracts.leaf_class(calculator)
+    return "W13 CALCULATOR" if leaf == "UNKNOWN" else f"W13 CALCULATOR — {leaf}"
+
+
 @dataclass
 class HistoryEntry:
     source: str
@@ -127,7 +134,7 @@ def _adapters():
     def case(row):
         return HistoryEntry("Calculation case", "calculation_cases", row.id, row.well_id, row.name,
                             row.method, row.method_version, row.created_at,
-                            CEMENT_SCOPE if row.method in CEMENT_METHODS else "W13 CALCULATOR",
+                            CEMENT_SCOPE if row.method in CEMENT_METHODS else _w13_scope(row.calculator),
                             row.inputs or {}, row.results or {}, f"case #{row.parent_id}" if row.parent_id else "",
                             wellbore_id=row.wellbore_id)
 
@@ -796,6 +803,8 @@ def full_field_compare(a: HistoryEntry, b: HistoryEntry) -> Dict[str, Any]:
             "same_source": a.source == b.source, "same_version": a.version == b.version}
 
 
+from core import calculator_contracts as _contracts  # noqa: E402  (stdlib-only module; no import cycle)
+
 # Every persisted calculation source, what history knows about it (M108). ``coverage()`` adds live counts.
 COVERAGE = (
     ("torque_drag_calculations", "Torque & drag", "every record (engine method + snapshot schema)",
@@ -808,7 +817,8 @@ COVERAGE = (
     ("trajectory_calculations", "Trajectory", "records saved from M108 on; earlier rows are 'unversioned (legacy)'",
      "re-run of the stored stations (M108 records); legacy rows NOT REPRODUCIBLE"),
     ("calculation_cases", "Calculation case", "every case (W13_UNVERSIONED before M73)",
-     "contract re-run (18 W13 calculators); NOT_SUPPORTED calculators NOT REPRODUCIBLE"),
+     f"contract re-run ({len(_contracts.CONTRACTS)} W13 calculators); the {len(_contracts.NOT_SUPPORTED)} "
+     "NOT_SUPPORTED calculators NOT REPRODUCIBLE"),
     ("directional_plan_revisions", "Directional plan", "every revision", "plan re-design + result hash"),
     ("survey_revisions", "Survey revision", "every revision", "minimum curvature re-run after the SHA-256 check"),
     ("well_architecture_revisions", "Well architecture", "every revision (schema version)",

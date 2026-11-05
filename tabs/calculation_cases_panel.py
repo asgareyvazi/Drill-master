@@ -228,16 +228,22 @@ class CaseBar(QWidget):
                 self.case_combo.addItem(f"{case['name']} (#{case['id']})", case["id"])
         for widget in (self.reopen_btn, self.compare_btn, self.rerun_btn, self.clone_btn, self.export_btn):
             widget.setEnabled(enabled and self.case_combo.count() > 0)
-        self.save_btn.setEnabled(enabled)
         from core import calculator_contracts as contracts
 
+        leaf, meaning = contracts.leaf_class(self.calculator()) if self.calculator() else ("", "")
+        # M125: a reference catalogue computes nothing, so there is no case to save
+        self.save_btn.setEnabled(enabled and leaf != contracts.CLASS_REFERENCE)
         status, text = contracts.calculator_status(self.calculator()) if self.calculator() else ("", "")
-        self.contract_label.setText(f"Contract status: {status} — {text}." if status else "")
+        self.contract_label.setText(f"Class: {leaf} — {meaning}. Contract status: {status} — {text}." if status else "")
 
     # -- actions ----------------------------------------------------------
     def save_case(self, name: str) -> Optional[Dict[str, Any]]:
         page = innermost_page(self.tabs)
         if page is None or self.db is None or not self.calculator():
+            return None
+        from core import calculator_contracts as leaf_contracts
+        if leaf_contracts.leaf_class(self.calculator())[0] == leaf_contracts.CLASS_REFERENCE:
+            self.status.setText(f"{self.calculator()} is REFERENCE-ONLY: nothing is computed, so no case is saved.")
             return None
         inputs, results = capture_page(page)
         if not results:

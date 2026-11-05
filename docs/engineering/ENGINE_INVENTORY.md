@@ -40,9 +40,9 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 | `AdvancedHydraulicsEngine.calc_pump_output_duplex` | Duplex (double-acting) pump output (bbl/stroke). | 1 |
 | `AdvancedHydraulicsEngine.calc_critical_flow_rate` | Annular critical (laminar→turbulent) velocity and flow rate. | 2 |
 | `AdvancedHydraulicsEngine.calc_annular_volume` | Annular volume (bbl), with positive dimensions and interval length. | 1 |
-| `AdvancedHydraulicsEngine.calc_pipe_capacity_bbl` | Pipe volume (bbl), with positive ID and interval length. | 1 |
-| `AdvancedHydraulicsEngine.calc_annular_capacity_bbl_ft` | Annular capacity (bbl/ft) — canonical (Dh² − Dp²)/1029.4. | 3 |
-| `AdvancedHydraulicsEngine.calc_pipe_capacity_bbl_ft` | Pipe capacity (bbl/ft) — canonical ID²/1029.4. | 1 |
+| `AdvancedHydraulicsEngine.calc_pipe_capacity_bbl` | Pipe volume (bbl), with positive ID and interval length. | 2 |
+| `AdvancedHydraulicsEngine.calc_annular_capacity_bbl_ft` | Annular capacity (bbl/ft) — canonical (Dh² − Dp²)/1029.4. | 4 |
+| `AdvancedHydraulicsEngine.calc_pipe_capacity_bbl_ft` | Pipe capacity (bbl/ft) — canonical ID²/1029.4. | 2 |
 | `AdvancedHydraulicsEngine.calc_pipe_displacement_bbl_ft` | Pipe metal displacement (bbl/ft) — canonical (OD² − ID²)/1029.4. | 1 |
 | `AdvancedHydraulicsEngine.calc_bottoms_up_strokes` | Strokes of pump output needed to pump the annulus around (stk). | 2 |
 | `AdvancedHydraulicsEngine.calc_bottoms_up_time` | (docstring not in English) | 1 |

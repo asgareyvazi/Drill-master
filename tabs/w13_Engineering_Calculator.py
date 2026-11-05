@@ -968,110 +968,54 @@ class EngineeringCalculatorTab(DrillTabBase):
     # ========== Volume - Calculate ==========
 
     def _vol_calculate(self):
-        """محاسبه حجم‌های چاه"""
-        from core.hydraulics_engine import AdvancedHydraulicsEngine as A
-        bit_depth = self.vol_depth.value()
-        loss_rate = self.vol_loss.value()
+        """Well volumes from the pump, drill-string and casing tables (M126 ``core.well_volumes``).
 
-        # Flow rate
-        total_gpm = sum(
-            p.get('output_bbl_stk', 0) * p.get('spm', 0) * 42
-            for p in self.vol_pumps
-        )
+        The string is placed from the surface down to the bit; a gap, an overlap, a string that does not reach
+        the bit or a missing dimension is NOT ASSESSED - nothing is assumed (D39)."""
+        from core import well_volumes
+        out = well_volumes.assess(self.vol_pumps, self.vol_pipes, self.vol_casings, self.vol_depth.value())
+        self.vol_assessment = out
+        res = out["results"]
 
-        # String volumes
-        total_string = 0
-        string_details = []
-        for p in self.vol_pipes:
-            id_ = p.get('id', 0)
-            L = p.get('length', 0)
-            vol = (A.calc_pipe_capacity_bbl_ft(id_) * (L * 3.28084)
-                   if id_ > 0 and L > 0 else 0)
-            total_string += vol
-            string_details.append((p.get('type', ''), vol))
+        def show(value, digits):
+            return "—" if value is None else f"{value:.{digits}f}"
 
-        # Annular volumes
-        total_annular = 0
-        annular_details = []
+        self._update_card(self.vol_card_string, show(res["string_volume_bbl"], 1), "bbl")
+        self._update_card(self.vol_card_annular, show(res["annular_volume_bbl"], 1), "bbl")
+        self._update_card(self.vol_card_total, show(res["circulating_volume_bbl"], 1), "bbl")
+        self._update_card(self.vol_card_lag, show(res["lag_time_min"], 1), "min")
+        if out["status"] != "ASSESSED":
+            self.vol_results.setText("NOT ASSESSED - " + well_volumes.METHOD_VERSION + "\n\n"
+                                     + "\n".join(f"  • {reason}" for reason in out["reasons"]))
+            return
+        lines = [f"WELL VOLUMES - {well_volumes.METHOD_VERSION} (calculation of the entered geometry)", "",
+                 "PUMPS:"]
+        for row in out["components"]:
+            if row["kind"] == "pump":
+                lines.append(f"  {row['name']}: {row['output_bbl_stk']:.5f} bbl/stk x {row['spm']:.0f} spm = "
+                             f"{row['rate_gpm']:.1f} gpm")
+        lines += [f"  TOTAL FLOW RATE: {show(res['flow_rate_gpm'], 1)} gpm", "", "STRING (inside pipe, surface down):"]
+        for row in out["components"]:
+            if row["kind"] == "string":
+                lines.append(f"  {row['name']:<28} {row['top_m']:>8.1f}-{row['bottom_m']:<8.1f} m "
+                             f"{row['volume_bbl']:>9.2f} bbl")
+        lines += [f"  {'TOTAL STRING:':<45} {res['string_volume_bbl']:>9.2f} bbl", "", "ANNULUS (placed intervals):"]
+        for row in out["components"]:
+            if row["kind"] == "annulus":
+                lines.append(f"  {row['name']:<40} {row['top_m']:>8.1f}-{row['bottom_m']:<8.1f} m "
+                             f"{row['volume_bbl']:>9.2f} bbl")
+        lines += [f"  {'TOTAL ANNULUS:':<58} {res['annular_volume_bbl']:>9.2f} bbl", "",
+                  f"  Circulating volume (string + annulus): {res['circulating_volume_bbl']:.2f} bbl",
+                  f"  Surface to bit: {show(res['surface_to_bit_min'], 1)} min",
+                  f"  Lag time (bottoms up): {show(res['lag_time_min'], 1)} min",
+                  f"  Full circulation: {show(res['circulation_time_min'], 1)} min",
+                  f"  Bottoms-up strokes per pump: {show(res['bottoms_up_strokes'], 0)} stk"]
+        lines += [f"  NOTE: {note}" for note in out["notes"]]
+        if self.vol_loss.value() > 0:
+            lines.append(f"  Loss rate (entered, not used in the volumes): {self.vol_loss.value():.1f} bbl/hr")
+        lines.append("  Excluded: surface lines, pits and the hole below the bit.")
+        self.vol_results.setText("\n".join(lines))
 
-        for p in self.vol_pipes:
-            pipe_od = p.get('od', 0)
-            pipe_len = p.get('length', 0)
-
-            for c in self.vol_casings:
-                csg_id = c.get('id', 0)
-                csg_from = c.get('from', 0)
-                csg_to = c.get('to', 0)
-
-                if csg_id <= pipe_od or pipe_len <= 0:
-                    continue
-
-                # Overlap calculation
-                overlap_len = min(pipe_len, csg_to - csg_from)
-                if overlap_len <= 0:
-                    continue
-
-                ann_vol = (A.calc_annular_capacity_bbl_ft(csg_id, pipe_od)
-                           * (overlap_len * 3.28084))
-                total_annular += ann_vol
-                annular_details.append((
-                    f"{p.get('type', '')} in {c.get('type', '')}",
-                    ann_vol
-                ))
-
-        total_vol = total_string + total_annular
-
-        # Lag time + bottoms-up strokes — canonical (AdvancedHydraulicsEngine)
-        lag_time = A.calc_lag_time(total_annular, total_gpm)
-
-        total_output = sum(p.get('output_bbl_stk', 0) for p in self.vol_pumps)
-        bu_strokes = A.calc_bottoms_up_strokes(total_annular, total_output)
-
-        # Cards
-        self._update_card(self.vol_card_string, f"{total_string:.1f}", "bbl")
-        self._update_card(self.vol_card_annular, f"{total_annular:.1f}", "bbl")
-        self._update_card(self.vol_card_total, f"{total_vol:.1f}", "bbl")
-        self._update_card(self.vol_card_lag, f"{lag_time:.1f}", "min")
-
-        # Detailed results
-        text = "╔═══════════════════════════════════════════╗\n"
-        text += "║         WELL VOLUME CALCULATIONS          ║\n"
-        text += "╠═══════════════════════════════════════════╣\n\n"
-
-        # Pump info
-        text += "💧 PUMP OUTPUT:\n"
-        for p in self.vol_pumps:
-            output = p.get('output_bbl_stk', 0)
-            spm = p.get('spm', 0)
-            gpm = output * spm * 42
-            text += f"  {p.get('name', 'Pump')}: {output:.5f} bbl/stk × {spm:.0f} spm = {gpm:.1f} gpm\n"
-        text += f"  TOTAL FLOW RATE: {total_gpm:.1f} gpm\n\n"
-
-        # String volumes
-        text += "🔩 STRING VOLUMES (Inside pipe):\n"
-        for name, vol in string_details:
-            text += f"  {name:<25} {vol:>8.2f} bbl\n"
-        text += f"  {'TOTAL STRING:':<25} {total_string:>8.2f} bbl\n\n"
-
-        # Annular volumes
-        text += "🌊 ANNULAR VOLUMES:\n"
-        for name, vol in annular_details:
-            text += f"  {name:<35} {vol:>8.2f} bbl\n"
-        text += f"  {'TOTAL ANNULAR:':<35} {total_annular:>8.2f} bbl\n\n"
-
-        # Totals
-        text += "═══════════════════════════════════════════\n"
-        text += f"  {'TOTAL WELL VOLUME:':<25} {total_vol:>8.2f} bbl\n"
-        text += f"  {'Lag Time:':<25} {lag_time:>8.1f} min\n"
-        text += f"  {'Bottoms Up Strokes:':<25} {bu_strokes:>8.0f} stk\n"
-
-        if loss_rate > 0:
-            text += f"\n  ⚠️ Loss Rate: {loss_rate:.1f} bbl/hr\n"
-
-        text += "\n╚═══════════════════════════════════════════╝"
-
-        self.vol_results.setText(text)
-        
     def _create_hydraulics_tab(self) -> QWidget:
         """تب هیدرولیک پیشرفته با دیالوگ‌ها"""
         from core.hydraulics_engine import (
@@ -1094,8 +1038,14 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.hy_model = QComboBox()
         self.hy_model.addItems(["Bingham Plastic", "Power Law", "Herschel-Bulkley (unsupported)"])
         self.hy_model.setStyleSheet("background: #2c3e50; color: white; padding: 4px; border-radius: 3px;")
-        tb_lay.addWidget(QLabel("<span style='color:#bdc3c7'>Model:</span>"))
-        tb_lay.addWidget(self.hy_model)
+        # M126: one-row form layouts so the case capture records the labels of these contract inputs
+        model_box = QWidget()
+        model_form = QFormLayout(model_box)
+        model_form.setContentsMargins(0, 0, 0, 0)
+        model_label = QLabel("Model:")
+        model_label.setStyleSheet("color:#bdc3c7")
+        model_form.addRow(model_label, self.hy_model)
+        tb_lay.addWidget(model_box)
         self.hy_confirm_defaults = QCheckBox(
             "Confirm displayed mud, surface, model and well-profile values"
         )
@@ -1105,7 +1055,13 @@ class EngineeringCalculatorTab(DrillTabBase):
             "are UI seeds, not operator inputs, until this box is explicitly checked."
         )
         self.hy_confirm_defaults.setStyleSheet("color: #f8f9fa; padding: 2px 6px;")
-        tb_lay.addWidget(self.hy_confirm_defaults)
+        confirm_box = QWidget()
+        confirm_form = QFormLayout(confirm_box)
+        confirm_form.setContentsMargins(0, 0, 0, 0)
+        confirm_label = QLabel("Confirm:")
+        confirm_label.setStyleSheet("color:#bdc3c7")
+        confirm_form.addRow(confirm_label, self.hy_confirm_defaults)
+        tb_lay.addWidget(confirm_box)
         tb_lay.addStretch()
 
         for text, icon, slot, color in [
@@ -1256,8 +1212,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         g_nzl = QGroupBox("🔵 Bit Nozzles")
         nzl_lay = QVBoxLayout(g_nzl)
         self.hy_bit_diameter = self._make_wc_spin(50, 2, " in")
-        nzl_lay.addWidget(QLabel("Bit diameter for HSI (optional; not inferred from drill-string OD):"))
-        nzl_lay.addWidget(self.hy_bit_diameter)
+        bit_box = QWidget()
+        bit_form = QFormLayout(bit_box)
+        bit_form.setContentsMargins(0, 0, 0, 0)
+        bit_form.addRow(QLabel("Bit diameter for HSI:"), self.hy_bit_diameter)
+        bit_form.addRow(QLabel("(optional; not inferred from drill-string OD)"))
+        nzl_lay.addWidget(bit_box)
         nzl_btns = QHBoxLayout()
         add_nzl = QPushButton("➕ Add Nozzle")
         add_nzl.setStyleSheet("background: #27ae60; color: white; padding: 4px 10px; border-radius: 3px; border: none;")
@@ -1484,10 +1444,9 @@ class EngineeringCalculatorTab(DrillTabBase):
         row = self.hy_pipe_table.rowCount() if position == -1 else position
         self.hy_pipe_table.insertRow(row)
         self.hy_pipe_table.setItem(row, 0, QTableWidgetItem(data.get('type', '')))
-        self.hy_pipe_table.setItem(row, 1, QTableWidgetItem(f"{data.get('od', 0):.3f}"))
-        self.hy_pipe_table.setItem(row, 2, QTableWidgetItem(f"{data.get('id', 0):.3f}"))
-        self.hy_pipe_table.setItem(row, 3, QTableWidgetItem(f"{data.get('length', 0):.1f}"))
-        self.hy_pipe_table.setItem(row, 4, QTableWidgetItem(f"{data.get('weight', 0):.1f}"))
+        # D41 (M126): the cell shows rounded text; the entered value is kept exactly in Qt.UserRole
+        for col, key, fmt in ((1, 'od', '.3f'), (2, 'id', '.3f'), (3, 'length', '.1f'), (4, 'weight', '.1f')):
+            self.hy_pipe_table.setItem(row, col, self._hy_value_item(data.get(key), fmt))
 
     def _hy_rem_pipe(self):
         row = self.hy_pipe_table.currentRow()
@@ -1529,10 +1488,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         row = self.hy_csg_table.rowCount() if position == -1 else position
         self.hy_csg_table.insertRow(row)
         self.hy_csg_table.setItem(row, 0, QTableWidgetItem(data.get('type', '')))
-        self.hy_csg_table.setItem(row, 1, QTableWidgetItem(f"{data.get('od', 0):.3f}"))
-        self.hy_csg_table.setItem(row, 2, QTableWidgetItem(f"{data.get('id', 0):.3f}"))
-        self.hy_csg_table.setItem(row, 3, QTableWidgetItem(f"{data.get('from', 0):.1f}"))
-        self.hy_csg_table.setItem(row, 4, QTableWidgetItem(f"{data.get('to', 0):.1f}"))
+        for col, key, fmt in ((1, 'od', '.3f'), (2, 'id', '.3f'), (3, 'from', '.1f'), (4, 'to', '.1f')):
+            self.hy_csg_table.setItem(row, col, self._hy_value_item(data.get(key), fmt))
 
     def _hy_rem_csg(self):
         row = self.hy_csg_table.currentRow()
@@ -1619,91 +1576,85 @@ class EngineeringCalculatorTab(DrillTabBase):
             total += output * spm * 42
         return total
 
+    def _hy_values(self):
+        """The page values by contract field id - the same reading as the case capture (M126)."""
+        return {
+            "pumps": self.hy_pumps, "pipes": self.hy_pipe_rows, "casings": self.hy_csg_rows,
+            "nozzles": self.hy_nzl_rows, "model": self.hy_model.currentText(),
+            "confirmed": self.hy_confirm_defaults.isChecked(), "mw": self.hy_mw.value(), "pv": self.hy_pv.value(),
+            "yp": self.hy_yp.value(), "t600": self.hy_t600.value(), "t300": self.hy_t300.value(),
+            "t6": self.hy_t6.value(), "t3": self.hy_t3.value(), "standpipe_length": self.hy_sp_l.value(),
+            "standpipe_id": self.hy_sp_id.value(), "hose_length": self.hy_hose_l.value(),
+            "hose_id": self.hy_hose_id.value(), "bit_diameter": self._wc_value(self.hy_bit_diameter),
+            "well_type": self.hy_wt.currentText(), "kop": self.hy_kop.value(), "eob": self.hy_eob.value(),
+            "max_inc": self.hy_inc.value(), "build_rate": self.hy_br.value(), "bit_depth": self.hy_bit_dep.value(),
+        }
+
+    @staticmethod
+    def _hy_value_item(value, fmt):
+        """A table cell showing ``value`` rounded but holding it exactly (D41); a missing value shows '—'."""
+        number = value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+        item = QTableWidgetItem("—" if number is None else format(number, fmt))
+        if number is not None:
+            item.setData(Qt.UserRole, float(number))
+        return item
+
+    @staticmethod
+    def _hy_cell(table, row, col, kind=float):
+        """The exact entered value of a cell (D41), else its text; an unreadable cell is None."""
+        item = table.item(row, col)
+        if item is None:
+            return None
+        exact = item.data(Qt.UserRole)
+        if isinstance(exact, (int, float)) and not isinstance(exact, bool) and kind is float:
+            return float(exact)
+        try:
+            return kind(item.text().split("/")[0])
+        except ValueError:  # silent-ok: an unreadable cell is None (unknown, refused by the engine set-up), never 0
+            return None
+
+    @property
+    def hy_pipe_rows(self):
+        """Drill-string rows as shown (surface down); an unreadable cell stays None (M126 case extra)."""
+        t = self.hy_pipe_table
+        return [{"type": t.item(r, 0).text() if t.item(r, 0) else "", "od": self._hy_cell(t, r, 1),
+                 "id": self._hy_cell(t, r, 2), "length": self._hy_cell(t, r, 3), "weight": self._hy_cell(t, r, 4)}
+                for r in range(t.rowCount())]
+
+    @hy_pipe_rows.setter
+    def hy_pipe_rows(self, rows):
+        self.hy_pipe_table.setRowCount(0)
+        for row in rows or []:
+            self._hy_insert_pipe_row(row)
+
+    @property
+    def hy_csg_rows(self):
+        t = self.hy_csg_table
+        return [{"type": t.item(r, 0).text() if t.item(r, 0) else "", "od": self._hy_cell(t, r, 1),
+                 "id": self._hy_cell(t, r, 2), "from": self._hy_cell(t, r, 3), "to": self._hy_cell(t, r, 4)}
+                for r in range(t.rowCount())]
+
+    @hy_csg_rows.setter
+    def hy_csg_rows(self, rows):
+        self.hy_csg_table.setRowCount(0)
+        for row in rows or []:
+            self._hy_insert_csg_row(row)
+
+    @property
+    def hy_nzl_rows(self):
+        t = self.hy_nzl_table
+        return [{"size": self._hy_cell(t, r, 1, int), "qty": self._hy_cell(t, r, 2, int)} for r in range(t.rowCount())]
+
+    @hy_nzl_rows.setter
+    def hy_nzl_rows(self, rows):
+        self.hy_nzl_table.setRowCount(0)
+        for row in rows or []:
+            self._hy_insert_nzl_row(row)
+
     def _hy_collect(self):
-        """جمع‌آوری داده از UI برای engine"""
-        from core.hydraulics_engine import (
-            PipeSegment, CasingSection, BitNozzle,
-            MudProperties, SurfaceEquipment, WellProfile
-        )
-        e = self.adv_engine
-
-        # Flow rate from pumps
-        total_gpm = self._hy_get_total_gpm()
-        # An empty pump table is missing operating flow, not a request for the
-        # historical 250-gpm fallback.
-        e.flow_rate_gpm = total_gpm
-        e.bit_depth_m = self.hy_bit_dep.value()
-        e.bit_diameter_in = self._wc_value(self.hy_bit_diameter)
-
-        e.model = {0: "bingham", 1: "power_law", 2: "herschel_bulkley"}.get(
-            self.hy_model.currentIndex(), "bingham"
-        )
-
-        e.mud = MudProperties(
-            mw_pcf=self.hy_mw.value(), pv=self.hy_pv.value(), yp=self.hy_yp.value(),
-            theta600=self.hy_t600.value(), theta300=self.hy_t300.value(),
-            theta6=self.hy_t6.value(), theta3=self.hy_t3.value(),
-        )
-
-        e.surface_equipment = SurfaceEquipment(
-            standpipe_length_m=self.hy_sp_l.value(), standpipe_id_inch=self.hy_sp_id.value(),
-            hose_length_m=self.hy_hose_l.value(), hose_id_inch=self.hy_hose_id.value(),
-        )
-
-        # Pipes from table. Keep malformed rows as invalid sentinels so the
-        # canonical engine rejects the submitted program rather than silently
-        # calculating with the remaining segments.
-        e.pipe_segments = []
-        for row in range(self.hy_pipe_table.rowCount()):
-            try:
-                ptype = self.hy_pipe_table.item(row, 0).text()
-                od = float(self.hy_pipe_table.item(row, 1).text())
-                id_ = float(self.hy_pipe_table.item(row, 2).text())
-                length = float(self.hy_pipe_table.item(row, 3).text())
-                wt = float(self.hy_pipe_table.item(row, 4).text())
-                e.pipe_segments.append(PipeSegment(
-                    name=f"{ptype} ({od:.3f}\\\")", pipe_type=ptype,
-                    od=od, id=id_, length=length, weight_ppf=wt
-                ))
-            except (AttributeError, TypeError, ValueError):
-                e.pipe_segments.append(PipeSegment(name=f"Unparsed pipe row {row + 1}"))
-
-        # Bore rows are also preserved when invalid; incomplete geometry must
-        # be rejected by the engine, not silently omitted from interval coverage.
-        e.casing_sections = []
-        for row in range(self.hy_csg_table.rowCount()):
-            try:
-                ctype = self.hy_csg_table.item(row, 0).text()
-                od = float(self.hy_csg_table.item(row, 1).text())
-                id_ = float(self.hy_csg_table.item(row, 2).text())
-                fr = float(self.hy_csg_table.item(row, 3).text())
-                to = float(self.hy_csg_table.item(row, 4).text())
-                section_type = "open_hole" if "Open" in ctype else "casing"
-                e.casing_sections.append(CasingSection(
-                    name=ctype, section_type=section_type, od=od, id=id_,
-                    top_md=fr, bottom_md=to
-                ))
-            except (AttributeError, TypeError, ValueError):
-                e.casing_sections.append(CasingSection(name=f"Unparsed bore row {row + 1}"))
-
-        # Nozzle rows are preserved as invalid sentinels rather than dropped.
-        e.nozzles = []
-        for row in range(self.hy_nzl_table.rowCount()):
-            try:
-                size_text = self.hy_nzl_table.item(row, 1).text()
-                size = int(size_text.split("/")[0])
-                qty = int(self.hy_nzl_table.item(row, 2).text())
-                e.nozzles.append(BitNozzle(size_32nds=size, quantity=qty))
-            except (AttributeError, TypeError, ValueError, IndexError):
-                e.nozzles.append(BitNozzle())
-
-        # Well Profile
-        wt = {0: "vertical", 1: "directional", 2: "horizontal", 3: "s_shape"}
-        e.well_profile = WellProfile(
-            well_type=wt.get(self.hy_wt.currentIndex(), "vertical"),
-            kop_md=self.hy_kop.value(), eob_md=self.hy_eob.value(),
-            eob_inc=self.hy_inc.value(), build_rate=self.hy_br.value(),
-        )
+        """Load the page into the engine through the same function the case contract uses (M126)."""
+        from core import w13_hydraulics
+        w13_hydraulics.configure(self.adv_engine, self._hy_values())
 
     def _hy_invalidate_results(self, *_args):
         self._hy_clear_results("Not assessed: inputs changed; recalculate hydraulics.")

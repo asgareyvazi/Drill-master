@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-CONTRACT_REGISTRY_VERSION = "M107 calculator contracts v3"
+CONTRACT_REGISTRY_VERSION = "M126 calculator contracts v4"
 OBJECT_PREFIX = "w13:"
 STRUCTURED_REL_TOL = 1e-9
 
@@ -78,6 +78,8 @@ class Contract:
     extras: Tuple[ExtraSpec, ...] = ()
     structured: bool = False      # M87: results stored from the adapter at full precision
     limits: str = ""
+    # M126: per-component rows (e.g. each string / annulus interval) stored with the case and compared on re-run
+    components: Optional[Callable[[Dict[str, Any]], List[Dict[str, Any]]]] = field(default=None, compare=False)
 
 
 def _quick_calc(values: Dict[str, float]) -> Dict[str, Optional[float]]:
@@ -675,6 +677,7 @@ MUD_BALANCE = Contract(
     results=(FieldSpec("final_volume", "Final volume", "bbl"), FieldSpec("net_change", "Net change", "bbl")),
     recalculate=_mud_balance, structured=True,
     reference="final = active + additions + transfers in + returns + dilution - losses - transfers out - dumped",
+    limits="WORKSHEET - bookkeeping of the entered volumes; no engineering model (M125 classification).",
 )
 
 
@@ -857,10 +860,121 @@ NOZZLE_OPTIMIZATION = Contract(
 )
 
 
+# ---- M126: table-driven pages (Well Volumes; Hydraulics) ---------------------------------------------
+def _well_volumes_assessment(values: Dict[str, Any]) -> Dict[str, Any]:
+    from core import well_volumes
+
+    out = well_volumes.assess(values.get("pumps") or [], values.get("pipes") or [], values.get("casings") or [],
+                              values.get("bit_depth"))
+    if out["status"] != "ASSESSED":
+        raise ValueError("NOT ASSESSED: " + "; ".join(out["reasons"]))
+    return out
+
+
+def _well_volumes(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    return dict(_well_volumes_assessment(values)["results"])
+
+
+def _well_volume_rows(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return _well_volumes_assessment(values)["components"]
+
+
+WELL_VOLUMES = Contract(
+    stable_id="w13.volume.well_volumes", calculator="Volume › Well Volumes", schema_version=1,
+    method_id="w13.volume.well_volumes", method_version="M126 well volumes v1",
+    inputs=(FieldSpec("bit_depth", "Bit Depth", "m", attr="vol_depth"),),
+    results=(FieldSpec("string_length_m", "String length", "m"),
+             FieldSpec("string_volume_bbl", "String volume", "bbl"),
+             FieldSpec("annular_volume_bbl", "Annular volume", "bbl"),
+             FieldSpec("circulating_volume_bbl", "Circulating volume (string + annulus)", "bbl"),
+             FieldSpec("flow_rate_gpm", "Flow rate", "gpm"),
+             FieldSpec("surface_to_bit_min", "Surface to bit", "min"),
+             FieldSpec("lag_time_min", "Lag time (bottoms up)", "min"),
+             FieldSpec("circulation_time_min", "Full circulation", "min"),
+             FieldSpec("bottoms_up_strokes", "Bottoms-up strokes per pump", "stk")),
+    recalculate=_well_volumes, structured=True, components=_well_volume_rows,
+    extras=(ExtraSpec("pumps", "vol_pumps", "bbl/stk, spm", "Mud pumps", refresh="_vol_refresh_pump_table"),
+            ExtraSpec("pipes", "vol_pipes", "in, m (surface down)", "Drill string", refresh="_vol_refresh_pipe_table"),
+            ExtraSpec("casings", "vol_casings", "in, m MD", "Casing / open hole", refresh="_vol_refresh_csg_table")),
+    reference="String placed from the surface down to the bit; pipe capacity ID^2/1029.4 bbl/ft, annulus "
+              "(Dh^2 - OD^2)/1029.4 bbl/ft per placed interval; times from sum(output x SPM) (core.well_volumes)",
+    limits="Calculation of the entered geometry, not a measured volume; surface lines, pits and the hole below the "
+           "bit are excluded; gaps, overlaps or a string that does not reach the bit are NOT ASSESSED.",
+)
+
+
+def _hydraulics_run(values: Dict[str, Any]):
+    from core import w13_hydraulics
+
+    if values.get("confirmed") is not True:
+        raise ValueError("NOT ASSESSED: the display-seeded hydraulics inputs were not confirmed")
+    result = w13_hydraulics.run(dict(values, bit_diameter=_recorded(values.get("bit_diameter"))))
+    if result.errors:
+        raise ValueError("; ".join(result.errors))
+    return result
+
+
+def _hydraulics(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    from core import w13_hydraulics
+
+    return w13_hydraulics.scalar_results(_hydraulics_run(values))
+
+
+def _hydraulics_rows(values: Dict[str, Any]) -> List[Dict[str, Any]]:
+    from core import w13_hydraulics
+
+    return w13_hydraulics.component_rows(_hydraulics_run(values))
+
+
+HYDRAULICS = Contract(
+    stable_id="w13.hydraulics.page", calculator="Hydraulics", schema_version=1,
+    method_id="w13.hydraulics.circulating_system", method_version="M126 circulating-system hydraulics v1",
+    inputs=(FieldSpec("model", "Model", "model name", attr="hy_model", kind="text"),
+            FieldSpec("confirmed", "Confirm", "bool (checked = displayed values confirmed)", attr="hy_confirm_defaults",
+                      kind="bool"),
+            FieldSpec("mw", "MW (pcf)", "pcf", attr="hy_mw"), FieldSpec("pv", "PV (cp)", "cP", attr="hy_pv"),
+            FieldSpec("yp", "YP", "lbf/100 ft²", attr="hy_yp"),
+            FieldSpec("t600", "θ600", "dial", attr="hy_t600"), FieldSpec("t300", "θ300", "dial", attr="hy_t300"),
+            FieldSpec("t6", "θ6", "dial", attr="hy_t6"), FieldSpec("t3", "θ3", "dial", attr="hy_t3"),
+            FieldSpec("standpipe_length", "Standpipe Len", "m", attr="hy_sp_l"),
+            FieldSpec("standpipe_id", "Standpipe ID", "in", attr="hy_sp_id"),
+            FieldSpec("hose_length", "Hose Len", "m", attr="hy_hose_l"),
+            FieldSpec("hose_id", "Hose ID", "in", attr="hy_hose_id"),
+            FieldSpec("bit_diameter", "Bit diameter for HSI", "in", attr="hy_bit_diameter", required=False),
+            FieldSpec("well_type", "Well Type", "profile name", attr="hy_wt", kind="text"),
+            FieldSpec("kop", "KOP", "m", attr="hy_kop"), FieldSpec("eob", "EOB", "m", attr="hy_eob"),
+            FieldSpec("max_inc", "Max Inc", "deg", attr="hy_inc"),
+            FieldSpec("build_rate", "Build Rate", "deg/30 m", attr="hy_br"),
+            FieldSpec("bit_depth", "Bit Depth", "m", attr="hy_bit_dep")),
+    results=(FieldSpec("flow_rate_gpm", "Flow rate", "gpm"), FieldSpec("surface_loss_psi", "Surface loss", "psi"),
+             FieldSpec("string_loss_psi", "Drill-string loss (sum of rows)", "psi"),
+             FieldSpec("bit_loss_psi", "Bit ΔP", "psi"),
+             FieldSpec("annular_loss_psi", "Annular loss (sum of rows)", "psi"),
+             FieldSpec("total_loss_psi", "Total (SPP)", "psi"),
+             FieldSpec("ecd_at_bit_ppg", "ECD at bit", "ppg"), FieldSpec("ecd_at_shoe_ppg", "ECD at shoe", "ppg"),
+             FieldSpec("tfa_in2", "TFA", "in²"), FieldSpec("bit_hhp", "Bit HHP", "hp"),
+             FieldSpec("hsi", "HSI", "hp/in²"), FieldSpec("jet_velocity_fps", "Jet velocity", "ft/s"),
+             FieldSpec("impact_force_lbs", "Impact force", "lbf"), FieldSpec("percent_bit_hp", "Bit HP", "%"),
+             FieldSpec("critical_flow_rate_gpm", "Critical flow rate (deepest annulus)", "gpm")),
+    recalculate=_hydraulics, structured=True, components=_hydraulics_rows,
+    extras=(ExtraSpec("pumps", "hy_pumps", "bbl/stk, spm", "Mud pumps", refresh="_hy_refresh_pump_table"),
+            ExtraSpec("pipes", "hy_pipe_rows", "in, m, ppf (surface down)", "Drill string",
+                      refresh="_hy_invalidate_results"),
+            ExtraSpec("casings", "hy_csg_rows", "in, m MD", "Casing / open hole", refresh="_hy_invalidate_results"),
+            ExtraSpec("nozzles", "hy_nzl_rows", "1/32 in x count", "Bit nozzles", refresh="_hy_update_tfa")),
+    reference="AdvancedHydraulicsEngine (Bingham: Guo & Liu 2011 Eqs. 2.58-2.59 laminar, Blasius-type turbulent; "
+              "Power Law); bit ΔP from TFA; ECD = MW + annular loss / (0.052 TVD) with TVD = MD (vertical only) "
+              "(core.w13_hydraulics)",
+    limits="SCREENING - simplified correlations, not an approved hydraulics design; Herschel-Bulkley refused; a "
+           "non-vertical profile is NOT ASSESSED (no measured survey TVD on this page).",
+)
+
+
 CONTRACTS: Dict[str, Contract] = {c.calculator: c for c in (
     QUICK_CALC, BIT_HYDRAULICS, TFA, HYDROSTATIC, CEMENT_VOLUME, OWR, BUILD_TURN,                    # M73 / M87
     BUOYANCY, BALANCED_PLUG, KICK_TOLERANCE, PORE_FG, STUCK_PIPE, MUD_WDM, MUD_BALANCE, MUD_LAB,    # M107
-    FISHING, RHEOLOGY, NOZZLE_OPTIMIZATION)}
+    FISHING, RHEOLOGY, NOZZLE_OPTIMIZATION,
+    WELL_VOLUMES, HYDRAULICS)}                                                                         # M126
 LEGACY_CONTRACTS: Tuple[Contract, ...] = (QUICK_CALC_V1,)
 # method_id -> versions this build can still run. A version removed from here
 # makes its stored cases NOT REPRODUCIBLE (never silently re-run with another method).
@@ -870,11 +984,6 @@ AVAILABLE_METHODS[QUICK_CALC_V1.method_id] = (QUICK_CALC_V1.method_version,)
 _CAPTURE = "the case capture records form fields and result labels only"
 # Every W13 leaf calculator (finder path) without a re-runnable contract, with the exact reason (M107).
 NOT_SUPPORTED: Dict[str, str] = {
-    "Volume › Well Volumes": f"reads the pump, drill-string and casing tables (vol_pumps, vol_pipes, vol_casings), which "
-                             f"are not captured; {_CAPTURE}",
-    "Hydraulics": f"reads the pump, drill-string, casing and nozzle tables of the page, which are not captured "
-                  f"({_CAPTURE}); hydraulics runs are only exported to CSV and are not stored, so they do not appear in "
-                  "Calc History",
     "Weight": "the drill-string components table (wt_pipes) is not captured and the torque-and-drag result reads the "
               "survey table of Directional › Multi-Survey (dd_surveys) on another page; torque-and-drag runs are "
               "saved with their snapshot and verified in Calc History",
@@ -892,6 +1001,89 @@ NOT_SUPPORTED: Dict[str, str] = {
                                     f"SCREENING only, no ISCWSA uncertainty",
     "DP Database": "reference catalogue, not a calculator: nothing is computed, so there is nothing to re-run",
 }
+
+
+# ---- M125: what each W13 leaf IS (separate from whether its cases can be re-run) ----------------------
+LEAF_CLASSIFICATION_VERSION = "M125 W13 leaf classification v1"
+CLASS_CONTRACT = "CONTRACT"
+CLASS_SCREENING = "SCREENING CONTRACT"
+CLASS_WORKSHEET = "WORKSHEET"
+CLASS_TRAINING = "TRAINING AID"
+CLASS_REFERENCE = "REFERENCE-ONLY"
+CLASS_NOT_SUPPORTED = "NOT_SUPPORTED"
+LEAF_CLASS_MEANING: Dict[str, str] = {
+    CLASS_CONTRACT: "a documented calculation with captured inputs, units and method version; cases are re-run and "
+                    "verified",
+    CLASS_SCREENING: "a simplified screening estimate with a re-runnable contract; not a design value and not an "
+                     "approved calculation",
+    CLASS_WORKSHEET: "arithmetic on entered values with a re-runnable contract; no engineering model and not a design "
+                     "approval",
+    CLASS_TRAINING: "a training aid; not an operational well-control procedure (owner decision pending)",
+    CLASS_REFERENCE: "a reference catalogue; nothing is computed, so no case can be saved",
+    CLASS_NOT_SUPPORTED: "no re-runnable contract yet; cases are stored as captured and are NOT REPRODUCIBLE",
+}
+# Source-backed: SCREENING / WORKSHEET follow the contract's own ``limits``; TRAINING AID / REFERENCE-ONLY /
+# NOT_SUPPORTED are the leaves without a contract (see NOT_SUPPORTED for the exact reasons).
+LEAF_CLASSES: Dict[str, str] = {
+    "Volume › Quick Calc": CLASS_CONTRACT,
+    "Bit Hydraulics › Bit Hydraulics": CLASS_CONTRACT,
+    "Bit Hydraulics › TFA Calculator": CLASS_CONTRACT,
+    "Well Control › HP  FP": CLASS_CONTRACT,
+    "Mud › OWR": CLASS_CONTRACT,
+    "Directional › Build/Turn Rate": CLASS_CONTRACT,
+    "Mud › Weight/Dilution/Mix": CLASS_CONTRACT,
+    "Mud › Mud Lab": CLASS_CONTRACT,
+    "CSG/CMT › Cement Volume": CLASS_WORKSHEET,
+    "CSG/CMT › Balanced Plug": CLASS_WORKSHEET,
+    "Mud › Volume Balance": CLASS_WORKSHEET,
+    "CSG/CMT › Buoyancy": CLASS_SCREENING,
+    "Well Control › Kick Tolerance": CLASS_SCREENING,
+    "Well Control › Pore Press  FG": CLASS_SCREENING,
+    "Stuck Pipe": CLASS_SCREENING,
+    "Fishing": CLASS_SCREENING,
+    "Mud › Rheology": CLASS_SCREENING,
+    "Bit Hydraulics › Nozzle Optimization": CLASS_SCREENING,
+    "Well Control › Kill Sheet": CLASS_TRAINING,
+    "DP Database": CLASS_REFERENCE,
+    "Volume › Well Volumes": CLASS_CONTRACT,          # M126
+    "Hydraulics": CLASS_SCREENING,                   # M126
+    "Weight": CLASS_NOT_SUPPORTED,
+    "CSG/CMT › Casing Strength": CLASS_NOT_SUPPORTED,
+    "Well Control › Choke Schedule": CLASS_NOT_SUPPORTED,
+    "Directional › Multi-Survey": CLASS_NOT_SUPPORTED,
+    "Directional › Anti-Collision": CLASS_NOT_SUPPORTED,
+}
+_CONTRACT_CLASSES = (CLASS_CONTRACT, CLASS_SCREENING, CLASS_WORKSHEET)
+
+
+def leaf_class(calculator: Optional[str]) -> Tuple[str, str]:
+    """(class, meaning) of a W13 leaf; ("UNKNOWN", ...) for a path that is not a classified leaf."""
+    cls = LEAF_CLASSES.get(str(calculator or ""))
+    if cls is None:
+        return "UNKNOWN", "not a classified W13 calculator"
+    return cls, LEAF_CLASS_MEANING[cls]
+
+
+def classification_violations() -> List[str]:
+    """Contradictions between the classification and the contract registry (empty when consistent)."""
+    out = []
+    for calculator, cls in LEAF_CLASSES.items():
+        contract = CONTRACTS.get(calculator)
+        if (cls in _CONTRACT_CLASSES) != (contract is not None):
+            out.append(f"{calculator}: {cls} but {'a' if contract else 'no'} contract")
+            continue
+        limits = (contract.limits if contract else "").upper()
+        if cls == CLASS_SCREENING and "SCREENING" not in limits:
+            out.append(f"{calculator}: SCREENING CONTRACT but its limits do not say SCREENING")
+        if cls == CLASS_WORKSHEET and "WORKSHEET" not in limits:
+            out.append(f"{calculator}: WORKSHEET but its limits do not say WORKSHEET")
+        if cls == CLASS_CONTRACT and ("SCREENING" in limits or "WORKSHEET" in limits):
+            out.append(f"{calculator}: CONTRACT but its limits say SCREENING/WORKSHEET")
+        if cls == CLASS_TRAINING and "TRAINING AID" not in NOT_SUPPORTED.get(calculator, ""):
+            out.append(f"{calculator}: TRAINING AID without that reason")
+    missing = (set(CONTRACTS) | set(NOT_SUPPORTED)) ^ set(LEAF_CLASSES)
+    out += [f"{calculator}: not classified or not a leaf" for calculator in sorted(missing)]
+    return out
 
 
 def calculator_status(calculator: Optional[str]) -> Tuple[str, str]:
@@ -1010,9 +1202,30 @@ def input_values(contract: Contract, inputs: Dict[str, Any]) -> Dict[str, Any]:
 def structured_results(contract: Contract, values: Dict[str, Any]) -> Dict[str, Any]:
     """The adapter's results at full precision as case entries (``source: contract``)."""
     current = contract.recalculate(values)
-    return {f"contract:{spec.field_id}": {"label": spec.label, "field_id": spec.field_id, "unit": spec.unit,
-                                          "value": current.get(spec.field_id), "source": "contract"}
-            for spec in contract.results}
+    out = {f"contract:{spec.field_id}": {"label": spec.label, "field_id": spec.field_id, "unit": spec.unit,
+                                         "value": current.get(spec.field_id), "source": "contract"}
+           for spec in contract.results}
+    if contract.components is not None:      # M126: the per-component rows behind the totals
+        out["contract:components"] = {"label": "Components", "field_id": "components", "unit": "rows",
+                                      "value": contract.components(values), "source": "contract"}
+    return out
+
+
+def _rows_differ(stored: Any, current: List[Dict[str, Any]]) -> str:
+    """'' when the stored component rows equal the re-run rows (texts exactly, numbers within 1e-9 relative)."""
+    if not isinstance(stored, list) or len(stored) != len(current):
+        return f"{len(stored) if isinstance(stored, list) else 'no'} stored row(s) vs {len(current)} re-run"
+    for n, (old, new) in enumerate(zip(stored, current), 1):
+        if not isinstance(old, dict) or set(old) != set(new):
+            return f"row {n}: different fields"
+        for key, value in new.items():
+            a, b = _number(old.get(key)), _number(value)
+            if a is not None and b is not None and not isinstance(value, str):
+                if abs(a - b) > max(STRUCTURED_REL_TOL * abs(a), 1e-12):
+                    return f"row {n} {key}: {a} stored vs {b} re-run"
+            elif old.get(key) != value:
+                return f"row {n} {key}: {old.get(key)!r} stored vs {value!r} re-run"
+    return ""
 
 
 def _field_values(entries: Dict[str, Any]) -> Dict[str, Any]:
@@ -1075,6 +1288,15 @@ def verify_case(method_id: str, method_version: str, inputs: Dict[str, Any],
         if new is None or old is None or abs(new - old) > tolerance:
             differences.append({"field_id": spec.field_id, "unit": spec.unit, "stored": old, "current": new,
                                 "tolerance": tolerance})
+    if contract.components is not None:      # M126
+        stored_rows = stored.get("components")
+        if stored_rows is None:
+            not_compared.append("components")
+        else:
+            why = _rows_differ(stored_rows, contract.components(values))
+            if why:
+                differences.append({"field_id": "components", "unit": "rows", "stored": None, "current": None,
+                                    "tolerance": STRUCTURED_REL_TOL, "detail": why})
     basis = "relative tolerance 1e-9" if contract.structured else "display rounding"
     return {"status": "DIFFERENT" if differences else "MATCH", "method_matches": True,
             "current_method": f"{contract.method_id} {contract.method_version}",

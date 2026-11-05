@@ -250,5 +250,11 @@ class TestW13HeadlessAcceptance:
         assert A.calc_lag_time(437.0, 630.0) == pytest.approx(437.0 / (630.0 / 42.0))
         assert A.calc_bottoms_up_strokes(437.0, 0.125) == pytest.approx(437.0 / 0.125)
         volume_section = self.source[self.source.index("def _vol_calculate"):self.source.index("def _wt_refresh_table")]
-        assert "A.calc_lag_time(total_annular, total_gpm)" in volume_section
-        assert "A.calc_bottoms_up_strokes(total_annular, total_output)" in volume_section
+        # M126: the page delegates to core.well_volumes, which uses the canonical relations (guarded: no flow
+        # gives UNKNOWN, not the 0.0 these functions return)
+        assert "well_volumes.assess(" in volume_section
+        method = (REPO / "core" / "well_volumes.py").read_text(encoding="utf-8")
+        for relation in ("engine.calc_lag_time(annular_volume, flow) if flow else None",
+                         "engine.calc_bottoms_up_strokes(annular_volume,", "engine.calc_annular_capacity_bbl_ft(",
+                         "engine.calc_pipe_capacity_bbl_ft("):
+            assert relation in method

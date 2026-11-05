@@ -9,7 +9,7 @@ value that appears only in a help text or comment shows 0 uses. Numbers inside f
 (`f"{depth * 3.28084:.1f}"`) are code and count. *Inventory v2 (M118):* v1 counted them only on Python ≥ 3.12,
 whose tokenizer splits f-strings, so the CI 3.12/3.13 legs disagreed with the committed 3.11 inventory. v2 extracts
 the fields on 3.11 too (cross-checked against the AST: 571 numbers in f-string fields, 0 files differing). Three
-uses were added: 0.052 in the W13 tab, 3.28084 in W12, 0.3048 in `dialogs/calculator_dialog.py`. **No value was changed in M113.**
+uses were added: 0.052 in the W13 tab, 3.28084 in W12, 0.3048 in `dialogs/calculator_dialog.py`. **No value was changed in M113.** *M126:* `core/well_volumes.py` and `core/w13_hydraulics.py` add one 42.0 each (6→8) and the W13 well-volume rewrite moves 3.28084 (54→53: two uses removed from the page, one in `core/well_volumes.py`); no value changed.
 
 ## Inconsistencies (same quantity, several literals)
 
@@ -26,10 +26,10 @@ in the M112 pack "7.48 vs 7.48052".
 
 | Quantity | Literal (uses) | Note |
 |---|---|---|
-| gal per bbl | 42.0 (6) | bare `42` is not counted (ambiguous) |
+| gal per bbl | 42.0 (8) | bare `42` is not counted (ambiguous) |
 | psi/ft per ppg | 0.052 (14) | exact 0.051948; the oilfield convention |
 | psi/ft per pcf | 144.0 (2) | in² per ft² |
-| ft per m | 3.28084 (54), 0.3048 (15, m per ft) | consistent: 1/0.3048 = 3.280840 |
+| ft per m | 3.28084 (53), 0.3048 (15, m per ft) | consistent: 1/0.3048 = 3.280840 |
 | bbl/ft capacity constant | 1029.4 (10) | (D² − d²)/1029.4 bbl/ft |
 | m per 100 ft (DLS conversion) | 30.48 (3) | |
 | °F per °C | 1.8 (4) | hydraulics engine and W15 |
@@ -43,7 +43,7 @@ No code literal: 25.4 mm/in, 14.5038 psi/bar, 6.894 kPa/psi, 0.006944 psi/ft per
 | Convention | Variant (uses, files) | Rule |
 |---|---|---|
 | Cost per length | per metre (15, 6) / per foot (18, 5) | every value carries its unit; cost per length is never compared across units without conversion |
-| Dog-leg severity | °/30 m (68, 21) / °/100 ft (19, 7) | survey revisions store the unit; 30.48 m = 100 ft converts (≈1.6 % difference, not interchangeable) |
+| Dog-leg severity | °/30 m (69, 21) / °/100 ft (19, 7) | survey revisions store the unit; 30.48 m = 100 ft converts (≈1.6 % difference, not interchangeable) |
 | Temperature | °C (18, 7) / °F (14, 2) | conversion via 1.8 and 32; no silent mixing |
 
 ## Versioning strategy (no global change)

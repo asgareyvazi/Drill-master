@@ -519,8 +519,8 @@ MUTANTS = [
            "well_id=entry.well_id,",
            T109, "a cement re-run is stored as a generic recalculation (plain numbers, not a worksheet case)"),
     Mutant("CH-cement-scope-unlabelled", CH,
-           "                            CEMENT_SCOPE if row.method in CEMENT_METHODS else \"W13 CALCULATOR\",",
-           "                            \"W13 CALCULATOR\",",
+           "                            CEMENT_SCOPE if row.method in CEMENT_METHODS else _w13_scope(row.calculator),",
+           "                            _w13_scope(row.calculator),",   # anchor follows M125 (W13 class)
            T109, "History shows a cement worksheet without the not-an-approval label"),
     Mutant("HT-recalculate-without-db", "tabs/calculation_history_tab.py",
            "        outcome = ch.recalculate_entry(chosen[0], db=self.db)",

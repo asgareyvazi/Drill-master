@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Tuple
 
 CATALOGUE_VERSION = "M92 method catalogue v1"
 STATUSES = ("IMPLEMENTED", "NOT SUPPORTED", "NOT IMPLEMENTED", "OWNER REVIEW REQUIRED")
-LABELS = ("SCREENING", "WORKSHEET", "TRAINING AID", "PLANNING AID")
+LABELS = ("SCREENING", "WORKSHEET", "TRAINING AID", "PLANNING AID", "REFERENCE-ONLY")
 NOT_APPROVED = "NOT APPROVED — OWNER REVIEW REQUIRED"
 OWN_CODE = "own code (product licence)"
 # method_id -> owner approval record. Changed only by the owner in the source, never by the application.
@@ -139,9 +139,10 @@ def _contracts() -> List[CatalogueEntry]:
             OWN_CODE, contract.limits or "see the contract fields and units", "",
             "core/calculator_contracts.py"))
     for calculator, reason in cc.NOT_SUPPORTED.items():
+        leaf, _meaning = cc.leaf_class(calculator)      # M125: TRAINING AID / REFERENCE-ONLY / NOT_SUPPORTED
         out.append(CatalogueEntry(
             "w13.unsupported." + calculator.lower().replace(" › ", ".").replace(" ", "_"), calculator,
-            "W13 calculator", "calculator without contract", "NOT SUPPORTED", _label(reason), "", "", OWN_CODE,
+            "W13 calculator", "calculator without contract", "NOT SUPPORTED", _label(leaf, reason), "", "", OWN_CODE,
             "Cases are stored as captured and are NOT REPRODUCIBLE", reason, "tabs/w13_Engineering_Calculator.py"))
     return out
 
