@@ -746,6 +746,13 @@ class TrajectoryCalculationManager:
 class TrajectoryWidget(DrillTabBase):
     """ویجت اصلی تراژکتوری"""
     
+    def cleanup(self):
+        """M132: app shutdown - cancel and join (bounded) the 3D layer reader; never deletes a running thread."""
+        viewer = getattr(self, "viewer_tab", None)
+        if viewer is not None:
+            viewer.shutdown(5000)
+        super().cleanup()
+
     def __init__(self, db_manager: DatabaseManager = None, parent=None):
         super().__init__("TrajectoryWidget", db_manager, parent)
         # M124 (D7): keep the well/section/report DrillTabBase read from the central selection.  Resetting

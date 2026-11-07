@@ -133,6 +133,16 @@ class TrajectoryViewerTab(QWidget):
         self.view3d = Trajectory3DView()
         self.view_tabs.addTab(self.view3d, "3D view")
         self.view3d.station_picked.connect(self.select_station)
+        from tabs.trajectory_layers_panel import TrajectoryLayersPanel
+        # M132. The unit getter is the combo's bound method, never a lambda over ``self``: a closure would tie the
+        # viewer and the panel into a reference cycle (M50: a disposed 3D view must leave no cyclic Qt garbage).
+        self.layers_panel = TrajectoryLayersPanel(self.db_manager, unit_getter=self.unit_combo.currentData)
+        self.view3d.add_layer_controls(self.layers_panel)
+        self.layers_panel.working_selected.connect(self._render_working_3d)
+        self.layers_panel.layers_ready.connect(self._render_layers_3d)
+        from core.selection_manager import SelectionManager
+        SelectionManager().wellbore_changed.connect(self._sync_layers)
+        SelectionManager().selection_cleared.connect(self._sync_layers)
         from tabs.trajectory_compare_panel import TrajectoryComparePanel
         self.compare_panel = TrajectoryComparePanel(self.db_manager)     # M52 screening comparison
         self.view_tabs.addTab(self.compare_panel, "Compare / clearance")
@@ -211,6 +221,29 @@ class TrajectoryViewerTab(QWidget):
         if well_changed:
             self.compare_panel.set_well(well_id)
         self.reload()
+        if well_changed:
+            self._sync_layers()
+
+    def _sync_layers(self, *_args):
+        """M132: the layer records follow the well and the explicitly selected wellbore (M124 identity)."""
+        from core.selection_manager import SelectionManager
+
+        wellbore = SelectionManager().wellbore_for(self.well_id) if self.well_id else None
+        if (self.well_id, wellbore) != (self.layers_panel.well_id, self.layers_panel.wellbore_id):
+            self.layers_panel.set_scope(self.well_id, wellbore)
+
+    def _render_working_3d(self):
+        t = self.trajectory
+        if t is None:
+            self.view3d.clear("Select a well to view its trajectory.")
+            return
+        self.view3d.render(scene_from_trajectory(t, self.unit), equal_scale=self.aspect_check.isChecked())
+
+    def _render_layers_3d(self, layer_set):
+        self.view3d.render_layers(layer_set, equal_scale=self.aspect_check.isChecked())
+
+    def shutdown(self, timeout_ms: int = 5000) -> bool:
+        return self.layers_panel.shutdown(timeout_ms)
 
     def select_well(self, well_id: Optional[int]):
         self.set_context(well_id, self.report_id)
@@ -312,8 +345,13 @@ class TrajectoryViewerTab(QWidget):
         self._fill_table()
         if t.drawable and self.plan_plot is not None:
             self._draw(t)
-        # The 3D view draws only a drawable trajectory; otherwise it states why.
-        self.view3d.render(scene_from_trajectory(t, self.unit), equal_scale=self.aspect_check.isChecked())
+        # The 3D view draws only a drawable trajectory; otherwise it states why. M132: with a revision base the
+        # layers are rebuilt instead (units / scale may have changed).
+        from tabs.trajectory_layers_panel import WORKING
+        if self.layers_panel.choices()["base"] == WORKING:
+            self.view3d.render(scene_from_trajectory(t, self.unit), equal_scale=self.aspect_check.isChecked())
+        else:
+            self.layers_panel.refresh()
         if self.selected_index is not None:       # keep the selection across unit/option changes
             self.select_station(self.selected_index)
 

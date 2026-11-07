@@ -5,6 +5,8 @@ P1/P2 Future: NavigationManager, TabRegistry, ContextManager, MenuManager, Expor
 """
 
 import logging
+import weakref
+
 from PySide6.QtCore import QTimer
 
 logger = logging.getLogger(__name__)
@@ -17,7 +19,10 @@ class StatusBarManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._main_window = None
-            cls._instance._widgets = {}
+            # M132 (D49): weak values. A strong registry kept every disposed tab's wrapper tree alive until a tab
+            # of the same name registered again or the interpreter exited, then an arbitrary garbage-collection
+            # pass freed its Qt / Matplotlib wrappers inside unrelated Qt work (native crash, the M50 hazard).
+            cls._instance._widgets = weakref.WeakValueDictionary()
         return cls._instance
 
     def register_main_window(self, main_window):
@@ -241,8 +246,14 @@ class ExportManager:
 
 class ShortcutManager:
     def __init__(self, main_window):
-        self.main_window = main_window
+        # M132 (D49): weak, so ``widget.shortcut_manager`` does not make a widget <-> manager reference cycle that
+        # only an arbitrary later garbage-collection pass would free (with the widget's Qt wrappers).
+        self._window = weakref.ref(main_window)
         self._shortcuts = {}
+
+    @property
+    def main_window(self):
+        return self._window()
 
     def setup_default_shortcuts(self):
         pass
@@ -250,7 +261,10 @@ class ShortcutManager:
     def add_shortcut_with_feedback(self, key, slot, desc):
         try:
             from PySide6.QtGui import QShortcut, QKeySequence
-            sc = QShortcut(QKeySequence(key), self.main_window)
+            window = self.main_window
+            if window is None:
+                return
+            sc = QShortcut(QKeySequence(key), window)
             sc.activated.connect(slot)
             self._shortcuts[key] = sc
         except Exception as e:

@@ -37,11 +37,21 @@ from typing import Optional
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from core import trajectory_layers as tl
 from core.trajectory_3d import AXIS_CONVENTION, Scene3D, axis_limits, nearest_station
 
 logger = logging.getLogger(__name__)
 
 # (label, elevation, azimuth) - Matplotlib's 3D camera angles in degrees.
+# M132 layer styles: colour, line style, line width, marker
+LAYER_STYLE = {
+    tl.SURVEY: ("#1f6fb2", "-", 2.0, "o"),
+    tl.COMPARE: ("#8e44ad", ":", 1.6, "o"),
+    tl.PLAN: ("#e67e22", "--", 2.0, "o"),
+    tl.TARGETS: ("#c0392b", "-", 1.0, "X"),
+    tl.ARCHITECTURE: ("#4a5560", "-", 5.0, "^"),
+}
+
 VIEW_PRESETS = (
     ("Isometric", 25.0, -60.0),
     ("Top (plan, north up)", 90.0, -90.0),
@@ -98,6 +108,7 @@ class Trajectory3DView(QWidget):
     def __init__(self, parent=None, canvas_loader=_load_canvas):
         super().__init__(parent)
         self.scene: Optional[Scene3D] = None
+        self.layer_set: Optional[tl.LayerSet] = None      # M132: revision-aware layers instead of a scene
         self.equal_scale = True
         self.highlighted: Optional[int] = None
         self._press = None
@@ -167,8 +178,12 @@ class Trajectory3DView(QWidget):
         self.clear("Select a well to view its trajectory.")
 
     # ---------------------------------------------------------------- state
+    def add_layer_controls(self, widget: QWidget) -> None:
+        """M132: the layer selection sits under the camera controls."""
+        self.layout().insertWidget(1, widget)
+
     def clear(self, message: str = ""):
-        self.scene, self.highlighted = None, None
+        self.scene, self.highlighted, self.layer_set = None, None, None
         if not self.interactive:
             self.message.setText("3D view unavailable — " + self.unavailable_reason)
             self.hint.setText("")
@@ -188,11 +203,65 @@ class Trajectory3DView(QWidget):
         if scene is None or not scene.drawable:
             self.clear(scene.message if scene is not None else "")
             return
-        self.scene, self.equal_scale, self.highlighted = scene, equal_scale, None
+        self.scene, self.equal_scale, self.highlighted, self.layer_set = scene, equal_scale, None, None
         self._zoom = 1.0
         self._redraw(keep_camera=False)
 
+    def render_layers(self, layer_set: Optional[tl.LayerSet], equal_scale: bool = True):
+        """M132: draw the layers that share the base frame; nothing drawn shows why."""
+        if not self.interactive:
+            self.clear()
+            return
+        if layer_set is None or not layer_set.drawable:
+            reasons = [] if layer_set is None else [f"{layer.label}: {layer.reason}" for layer in layer_set.layers
+                                                     if layer.status == tl.NOT_DRAWN]
+            self.clear("Nothing is drawn. " + ("; ".join(reasons) if reasons else "Select a survey or plan revision."))
+            return
+        self.scene, self.highlighted, self.layer_set, self.equal_scale = None, None, layer_set, equal_scale
+        self._zoom = 1.0
+        self._redraw(keep_camera=False)
+
+    def _redraw_layers(self, keep_camera: bool) -> None:
+        ax, layer_set, unit = self.axes, self.layer_set, self.layer_set.unit
+        elevation, azimuth = (ax.elev, ax.azim) if keep_camera else self.preset_combo.currentData()
+        ax.clear()
+        ax.set_axis_on()
+        ax.set_proj_type("ortho")
+        for layer in layer_set.layers:
+            if not layer.drawn:
+                continue
+            style = LAYER_STYLE[layer.key]
+            if layer.path is not None:
+                p = layer.path
+                ax.plot(p.east, p.north, p.tvd, color=style[0], linestyle=style[1], linewidth=style[2],
+                        label=layer.label)
+                if layer.key == tl.SURVEY and self.stations_check.isChecked():
+                    ax.scatter(p.east, p.north, p.tvd, color=style[0], s=10, depthshade=False)
+            for k, line in enumerate(layer.intervals):
+                ax.plot(line.east, line.north, line.tvd, color=style[0], linestyle=style[1], linewidth=style[2],
+                        alpha=0.55, label=layer.label + " (strings)" if k == 0 else None)
+            if layer.markers:
+                ax.scatter([m.east for m in layer.markers], [m.north for m in layer.markers],
+                           [m.tvd for m in layer.markers], marker=style[3], s=60, color=style[0],
+                           depthshade=False, label=layer.label + (" (points)" if layer.key == tl.ARCHITECTURE
+                                                                   else ""))
+                for m in layer.markers:
+                    ax.text(m.east, m.north, m.tvd, f"  {m.name}", color=style[0], fontsize=7)
+        ax.set_xlabel(f"East ({unit})")
+        ax.set_ylabel(f"North ({unit})")
+        ax.set_zlabel(f"TVD ({unit}, down)")
+        ax.legend(loc="upper left", fontsize=7)
+        self._apply_limits()
+        ax.view_init(elev=elevation, azim=azimuth)
+        self.message.setVisible(False)
+        scale = "equal scale on all axes" if self.equal_scale else "axes scaled independently (angles distorted)"
+        self.hint.setText(f"{layer_set.frame_label}; units {unit}; {scale}. {tl.LAYER_LABEL}.")
+        self._request_draw()
+
     def _redraw(self, *_args, keep_camera=True):
+        if self.layer_set is not None and self.interactive:
+            self._redraw_layers(keep_camera)
+            return
         if self.scene is None or not self.interactive:
             return
         ax, scene, unit = self.axes, self.scene, self.scene.unit
@@ -222,7 +291,10 @@ class Trajectory3DView(QWidget):
         self._request_draw()
 
     def _apply_limits(self):
-        (x0, x1), (y0, y1), (z0, z1) = axis_limits(self.scene, equal=self.equal_scale)
+        if self.layer_set is not None:
+            (x0, x1), (y0, y1), (z0, z1) = tl.layer_limits(self.layer_set, equal=self.equal_scale)
+        else:
+            (x0, x1), (y0, y1), (z0, z1) = axis_limits(self.scene, equal=self.equal_scale)
 
         def shrink(lo, hi):
             centre, half = (lo + hi) / 2.0, (hi - lo) / 2.0 / self._zoom
@@ -258,13 +330,13 @@ class Trajectory3DView(QWidget):
         return (self.axes.elev, self.axes.azim) if self.interactive else (None, None)
 
     def apply_preset(self, *_args):
-        if self.interactive and self.scene is not None:
+        if self.interactive and (self.scene is not None or self.layer_set is not None):
             elevation, azimuth = self.preset_combo.currentData()
             self.axes.view_init(elev=elevation, azim=azimuth)
             self._request_draw()
 
     def reset_view(self):
-        if not self.interactive or self.scene is None:
+        if not self.interactive or (self.scene is None and self.layer_set is None):
             return
         self._zoom = 1.0
         self.preset_combo.blockSignals(True)
@@ -273,7 +345,7 @@ class Trajectory3DView(QWidget):
         self._redraw(keep_camera=False)
 
     def zoom(self, factor: float):
-        if not self.interactive or self.scene is None:
+        if not self.interactive or (self.scene is None and self.layer_set is None):
             return
         self._zoom = min(max(self._zoom * factor, 0.2), 20.0)
         self._apply_limits()

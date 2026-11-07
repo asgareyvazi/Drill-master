@@ -43,11 +43,17 @@ T128 = ["tests/test_m128_dp_schedule.py"]
 T129 = ["tests/test_m129_surveys_anticollision.py"]
 T130 = ["tests/test_m130_bit_runs.py"]
 T131 = ["tests/test_m131_parameter_trends.py"]
+T132 = ["tests/test_m132_trajectory_layers.py"]
+TLC = "core/trajectory_layers.py"
 BRC = "core/bit_runs.py"
 PTC = "core/parameter_trends.py"
 TCMP = "core/trajectory_compare.py"
 TPNL = "tabs/trajectory_compare_panel.py"
 T122 = ["tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"]
+T50F = "tests/test_m122_assistant_worker_lifecycle.py"
+T50 = [f"{T50F}::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
+       f"{T50F}::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
+       f"{T50F}::test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one"]
 DPS = "core/dp_schedule.py"
 WW = "core/w13_weight.py"
 W13F = "tabs/w13_Engineering_Calculator.py"
@@ -548,6 +554,66 @@ MUTANTS = [
            '                                                  "wellbore": self.wellbore_id})',
            'self._show_result(0, pt.load(self.db, self.well_id, self.axis(), self.wellbore_id))',
            T131, "M51: the trends are read with SQL on the GUI thread"),
+    # M132 revision-aware 3D layers
+    Mutant("TL-unpinned-plan-drawn", TLC, "        if pinned is None:\n            problem = (\"the plan is not tied in",
+           "        if False:\n            problem = (\"the plan is not tied in", T132,
+           "a plan without a survey tie-in is overlaid on the survey"),
+    Mutant("TL-foreign-pin-drawn", TLC,
+           'elif pinned != base.get("id") or tie_in.get("survey_sha256") != base.get("stations_sha256"):',
+           "elif False:", T132, "a plan tied in to another survey revision is overlaid on the base"),
+    Mutant("TL-undeclared-reference-accepted", TLC,
+           '        if not b.get(key):\n            return False, f"{b_label} {name} NOT DECLARED',
+           '        if False:\n            return False, f"{b_label} {name} NOT DECLARED', T132,
+           "an undeclared reference is treated as compatible"),
+    Mutant("TL-different-reference-accepted", TLC, "        if a[key].lower() != b[key].lower():",
+           "        if False:", T132, "a grid revision is overlaid on a true-north base without transformation"),
+    Mutant("TL-origin-ignored", TLC,
+           'if any(abs(float(a[k]) - float(b[k])) > ORIGIN_TOLERANCE_M for k in ("md", "north", "east", "tvd")):',
+           "if False:", T132, "two revisions with different first stations are overlaid"),
+    Mutant("TL-survey-integrity-skipped", TLC, '            try:\n                sr.verify_for_use(survey, "the 3D view")',
+           "            try:\n                pass", T132, "a survey revision failing its hash check is drawn"),
+    Mutant("TL-plan-hash-skipped", TLC, "if problem is None and recorded and result_fingerprint(results) != recorded:",
+           "if False:", T132, "a tampered plan result is drawn"),
+    Mutant("TL-unpinned-architecture-placed", TLC,
+           "        if pinned is None:\n            problem = (\"the architecture revision is not pinned",
+           "        if False:\n            problem = (\"the architecture revision is not pinned", T132,
+           "an architecture not pinned to the base survey is placed on it"),
+    Mutant("TL-extrapolated", TLC, "        position = path.position(float(md))",
+           "        position = path.position(min(float(md), last))", T132,
+           "a point below the last survey station is drawn at the last station"),
+    Mutant("TL-wellbore-scope-ignored", TLC, "    if wellbore_id:\n        bore = record.get(\"wellbore_id\")",
+           "    if False:\n        bore = record.get(\"wellbore_id\")", T132,
+           "a wellbore view includes another wellbore's or unscoped revisions"),
+    Mutant("TL-units-not-converted", TLC, "    return to_display_units(value, unit)", "    return value", T132,
+           "feet are shown with metre values"),
+    Mutant("TL-panel-working-overlays", "tabs/trajectory_layers_panel.py",
+           'if self.well_id is None or self.db_manager is None or choice["base"] == WORKING:',
+           "if self.well_id is None or self.db_manager is None:", T132,
+           "records are overlaid on the working survey (no revision identity)"),
+    Mutant("TL-viewer-closure-cycle", "tabs/trajectory_viewer.py", "unit_getter=self.unit_combo.currentData)",
+           "unit_getter=lambda: self.unit)", ["tests/test_m50_trajectory_3d_disposal.py"],
+           "M50: a closure over the viewer leaves cyclic Qt garbage after disposal"),
+    Mutant("TL-w6-cleanup-missing", "tabs/w6_Trajectory_Widget.py", "            viewer.shutdown(5000)\n",
+           "            pass\n", T132, "W6 shutdown leaves the 3D layer reader running"),
+    Mutant("TL-unit-change-not-rebuilt", "tabs/trajectory_viewer.py", "        else:\n            self.layers_panel.refresh()\n",
+           "        else:\n            pass\n", T132, "a unit change keeps the layers in the old unit"),
+    # D49 (found while qualifying M132): global managers retained disposed tabs
+    Mutant("D49-status-registry-strong", "core/managers.py",
+           "            cls._instance._widgets = weakref.WeakValueDictionary()\n",
+           "            cls._instance._widgets = {}\n", T132,
+           "the status registry keeps every disposed tab alive until an arbitrary later gc"),
+    Mutant("D49-shortcut-cycle", "core/managers.py", "        self._window = weakref.ref(main_window)\n",
+           "        self._window = lambda: main_window\n", T132,
+           "the shortcut manager and its widget form a cycle only a later gc pass frees"),
+    # D50: the D46 child must leave evidence when it hangs (diagnostics in the test harness itself)
+    Mutant("D50-child-inherits-watchdog", T50F,
+           '    env = dict(parent_env, QT_QPA_PLATFORM="offscreen", DRILLMASTER_TEST_HANG_SECONDS=str(CHILD_DUMP_S))\n',
+           '    env = dict(parent_env, QT_QPA_PLATFORM="offscreen")\n', T50,
+           "the child keeps verify_release's 900 s watchdog, which fires after the 720 s kill: no dump"),
+    Mutant("D50-kill-without-dump", T50F,
+           "            proc.send_signal(signal.SIGABRT)       # -X faulthandler: every thread is dumped to stderr\n",
+           "            proc.kill()\n", T50,
+           "a child hung outside a test is killed silently - the 7b13a1c failure with empty output"),
 ]
 
 

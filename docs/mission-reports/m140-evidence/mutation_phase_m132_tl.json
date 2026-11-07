@@ -1,0 +1,214 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m132_trajectory_layers.py",
+      "tests/test_m50_trajectory_3d_disposal.py"
+    ],
+    "exit": 0,
+    "summary": "24 passed, 14 warnings in 22.19s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "TL-unpinned-plan-drawn",
+      "path": "core/trajectory_layers.py",
+      "note": "a plan without a survey tie-in is overlaid on the survey",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.68s"
+    },
+    {
+      "id": "TL-foreign-pin-drawn",
+      "path": "core/trajectory_layers.py",
+      "note": "a plan tied in to another survey revision is overlaid on the base",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.67s"
+    },
+    {
+      "id": "TL-undeclared-reference-accepted",
+      "path": "core/trajectory_layers.py",
+      "note": "an undeclared reference is treated as compatible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.81s"
+    },
+    {
+      "id": "TL-different-reference-accepted",
+      "path": "core/trajectory_layers.py",
+      "note": "a grid revision is overlaid on a true-north base without transformation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.67s"
+    },
+    {
+      "id": "TL-origin-ignored",
+      "path": "core/trajectory_layers.py",
+      "note": "two revisions with different first stations are overlaid",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.65s"
+    },
+    {
+      "id": "TL-survey-integrity-skipped",
+      "path": "core/trajectory_layers.py",
+      "note": "a survey revision failing its hash check is drawn",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 4.69s"
+    },
+    {
+      "id": "TL-plan-hash-skipped",
+      "path": "core/trajectory_layers.py",
+      "note": "a tampered plan result is drawn",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.55s"
+    },
+    {
+      "id": "TL-unpinned-architecture-placed",
+      "path": "core/trajectory_layers.py",
+      "note": "an architecture not pinned to the base survey is placed on it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 6.47s"
+    },
+    {
+      "id": "TL-extrapolated",
+      "path": "core/trajectory_layers.py",
+      "note": "a point below the last survey station is drawn at the last station",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.78s"
+    },
+    {
+      "id": "TL-wellbore-scope-ignored",
+      "path": "core/trajectory_layers.py",
+      "note": "a wellbore view includes another wellbore's or unscoped revisions",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.34s"
+    },
+    {
+      "id": "TL-units-not-converted",
+      "path": "core/trajectory_layers.py",
+      "note": "feet are shown with metre values",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 9.20s"
+    },
+    {
+      "id": "TL-panel-working-overlays",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "records are overlaid on the working survey (no revision identity)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 13.79s"
+    },
+    {
+      "id": "TL-viewer-closure-cycle",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "M50: a closure over the viewer leaves cyclic Qt garbage after disposal",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_trajectory_3d_disposal.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 1.49s"
+    },
+    {
+      "id": "TL-w6-cleanup-missing",
+      "path": "tabs/w6_Trajectory_Widget.py",
+      "note": "W6 shutdown leaves the 3D layer reader running",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed, 14 warnings in 17.61s"
+    },
+    {
+      "id": "TL-unit-change-not-rebuilt",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "a unit change keeps the layers in the old unit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 14 warnings in 11.42s"
+    }
+  ],
+  "killed": [
+    "TL-unpinned-plan-drawn",
+    "TL-foreign-pin-drawn",
+    "TL-undeclared-reference-accepted",
+    "TL-different-reference-accepted",
+    "TL-origin-ignored",
+    "TL-survey-integrity-skipped",
+    "TL-plan-hash-skipped",
+    "TL-unpinned-architecture-placed",
+    "TL-extrapolated",
+    "TL-wellbore-scope-ignored",
+    "TL-units-not-converted",
+    "TL-panel-working-overlays",
+    "TL-viewer-closure-cycle",
+    "TL-w6-cleanup-missing",
+    "TL-unit-change-not-rebuilt"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

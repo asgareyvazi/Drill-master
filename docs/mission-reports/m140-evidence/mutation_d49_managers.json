@@ -1,0 +1,44 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m132_trajectory_layers.py"
+    ],
+    "exit": 0,
+    "summary": "18 passed, 14 warnings in 18.95s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "D49-status-registry-strong",
+      "path": "core/managers.py",
+      "note": "the status registry keeps every disposed tab alive until an arbitrary later gc",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": -11,
+      "summary": "................"
+    },
+    {
+      "id": "D49-shortcut-cycle",
+      "path": "core/managers.py",
+      "note": "the shortcut manager and its widget form a cycle only a later gc pass frees",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed, 14 warnings in 19.32s"
+    }
+  ],
+  "killed": [
+    "D49-status-registry-strong",
+    "D49-shortcut-cycle"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

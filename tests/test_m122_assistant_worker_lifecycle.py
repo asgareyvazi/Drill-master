@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -295,10 +297,18 @@ def _cpu_load_body(app, world):
 # stopped at the 15 min watchdog inside one processEvents() of this test, with the main thread executing
 # dataclasses.asdict - code the assistant does not run, i.e. work of widgets left alive by the ~130 test
 # modules before it, slowed by coverage tracing and the four GIL burners. Same body, same assertions, same
-# bounds; only the other modules' objects are gone. The child dumps every thread after CHILD_DUMP_S and is
-# stopped at CHILD_TIMEOUT_S (both inside the 900 s job watchdog), and the dump is put in the failure.
-CHILD_DUMP_S = 600       # faulthandler dump in the child (pytest faulthandler_timeout)
-CHILD_TIMEOUT_S = 720    # the child is stopped here; its output so far is reported
+# bounds; only the other modules' objects are gone.
+# D46 reopened (CI 3.12 + 3.13 at 7b13a1c): the child ran past CHILD_TIMEOUT_S and the failure carried NO
+# output - the intended dump never happened. The child inherited DRILLMASTER_TEST_HANG_SECONDS=900 from
+# verify_release.py, and the conftest watchdog re-arms faulthandler's single timer at every test start,
+# replacing pytest's faulthandler_timeout=600 with 900 s - after the 720 s kill. The child's watchdog is now
+# set to CHILD_DUMP_S explicitly (dump every thread, then exit), and a child still alive at CHILD_TIMEOUT_S
+# (e.g. hung outside a test, where no per-test watchdog runs) gets SIGABRT first: it runs under
+# -X faulthandler, so it dumps every thread on its way out. The threads' innermost frames lead the failure
+# message, because CI annotations keep only its first 300 characters.
+CHILD_DUMP_S = 600       # the child's own watchdog: dump every thread and exit (conftest, faulthandler)
+CHILD_TIMEOUT_S = 720    # the child is stopped here (SIGABRT -> faulthandler dump, then kill)
+CHILD_DRAIN_S = 30       # time allowed for the child's dump after SIGABRT
 
 
 def _tail(text, lines=120):
@@ -307,24 +317,123 @@ def _tail(text, lines=120):
     return "\n".join((text or "").splitlines()[-lines:])
 
 
+_FAULTHANDLER_THREAD = re.compile(r"^(?:Current thread|Thread) 0x[0-9a-f]+", re.MULTILINE)
+_FAULTHANDLER_FRAME = re.compile(r'^\s+File "(?P<path>[^"]+)", line (?P<line>\d+) in (?P<name>\S+)', re.MULTILINE)
+
+
+def _thread_summary(text) -> str:
+    """The innermost frame of every thread in a faulthandler dump, the GIL burners left out.
+
+    One short line: ``name (file:line)`` per thread, so a CI annotation (first 300 characters of the
+    message) still says where the child was.  An empty string when the text holds no dump.
+    """
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
+    text = text or ""
+    starts = [m.start() for m in _FAULTHANDLER_THREAD.finditer(text)]
+    tops = []
+    for begin, end in zip(starts, starts[1:] + [len(text)]):
+        frames = list(_FAULTHANDLER_FRAME.finditer(text, begin, end))
+        if not frames or any(f.group("name") == "burn" for f in frames):
+            continue
+        top = frames[0]
+        tops.append(f"{top.group('name')} ({Path(top.group('path')).name}:{top.group('line')})")
+    return "; ".join(tops)
+
+
+def _run_child(command, *, cwd, env, timeout):
+    """Run the child; on timeout ask it for a faulthandler dump (SIGABRT) before it is killed.
+
+    Returns ``(returncode, stdout, stderr, timed_out)``.  Never retries and never extends the bound.
+    """
+    proc = subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return proc.returncode, out, err, False
+    except subprocess.TimeoutExpired:
+        if hasattr(signal, "SIGABRT") and os.name == "posix":
+            proc.send_signal(signal.SIGABRT)       # -X faulthandler: every thread is dumped to stderr
+        else:
+            proc.kill()
+        try:
+            out, err = proc.communicate(timeout=CHILD_DRAIN_S)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, err = proc.communicate()
+        return proc.returncode, out, err, True
+
+
+def _child_env(parent_env, tests_dir):
+    """The child's environment: the child's own watchdog bound replaces any inherited one (D46)."""
+    env = dict(parent_env, QT_QPA_PLATFORM="offscreen", DRILLMASTER_TEST_HANG_SECONDS=str(CHILD_DUMP_S))
+    env["PYTHONPATH"] = os.pathsep.join([str(tests_dir), str(tests_dir.parent)]
+                                        + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+    return env
+
+
 def test_cancel_under_cpu_load_releases_every_worker():
     tests_dir = Path(__file__).resolve().parent
     root = tests_dir.parent
-    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
-    env["PYTHONPATH"] = os.pathsep.join([str(tests_dir), str(root)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH")
-                                                                       else []))
+    env = _child_env(os.environ, tests_dir)
     command = [sys.executable, "-X", "faulthandler", "-m", "pytest", "-p", "no:cacheprovider", "-q", "-s",
-               "-W", "ignore", "-o", f"faulthandler_timeout={CHILD_DUMP_S}", str(tests_dir / "m122_cpu_load_child.py")]
-    try:
-        proc = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=CHILD_TIMEOUT_S)
-    except subprocess.TimeoutExpired as exc:
-        pytest.fail(f"the CPU-load cancel cycles did not finish within {CHILD_TIMEOUT_S} s\n"
-                    f"stdout:\n{_tail(exc.stdout)}\nstderr:\n{_tail(exc.stderr)}")
-    output = proc.stdout + proc.stderr
+               "-W", "ignore", str(tests_dir / "m122_cpu_load_child.py")]
+    returncode, out, err, timed_out = _run_child(command, cwd=root, env=env, timeout=CHILD_TIMEOUT_S)
+    output = (out or "") + (err or "")
+    if timed_out:
+        pytest.fail(f"the CPU-load cancel cycles did not finish within {CHILD_TIMEOUT_S} s; threads: "
+                    f"{_thread_summary(err) or 'no faulthandler dump'}\nstdout:\n{_tail(out)}\nstderr:\n{_tail(err)}")
     # the body prints its summary only after every lifecycle assertion held (the suite's -q prints no totals)
     summary = re.search(r"^M122 load: (\d+)/15 cancels hit a live worker.*$", output, re.MULTILINE)
-    assert proc.returncode == 0 and summary and int(summary.group(1)) > 0, _tail(output)
+    assert returncode == 0 and summary and int(summary.group(1)) > 0, (
+        f"child exit {returncode}; threads: {_thread_summary(err) or 'no faulthandler dump'}\n{_tail(output)}")
     print(summary.group(0))
+
+
+def test_a_hung_child_is_reported_with_its_threads_not_with_empty_output():
+    """D46 diagnostics: a child that never ends is stopped at the bound AND says where it was.
+
+    At 7b13a1c the failure read "stdout: stderr:" - nothing.  Here a child sleeps in a named function;
+    SIGABRT makes its faulthandler dump every thread, and the summary names that frame.
+    """
+    if os.name != "posix":
+        pytest.skip("SIGABRT faulthandler dump is POSIX; Windows kills the child (no dump to check)")
+    code = "import time\ndef stuck_here():\n    time.sleep(120)\nprint('child started', flush=True)\nstuck_here()\n"
+    started = time.monotonic()
+    returncode, out, err, timed_out = _run_child([sys.executable, "-X", "faulthandler", "-c", code],
+                                                 cwd=Path(__file__).resolve().parent, env=dict(os.environ), timeout=3)
+    assert timed_out and returncode != 0
+    assert time.monotonic() - started < 3 + CHILD_DRAIN_S
+    assert "child started" in out
+    assert "stuck_here (<string>:3)" in _thread_summary(err), err
+
+
+def test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped():
+    """D46: the inherited verify_release bound (900 s) fired after the 720 s kill; the child's own wins."""
+    env = _child_env({"DRILLMASTER_TEST_HANG_SECONDS": "900", "PYTHONPATH": "elsewhere"}, Path(__file__).resolve().parent)
+    assert int(env["DRILLMASTER_TEST_HANG_SECONDS"]) == CHILD_DUMP_S
+    assert CHILD_DUMP_S < CHILD_TIMEOUT_S
+    assert env["PYTHONPATH"].split(os.pathsep)[-1] == "elsewhere"
+
+
+def test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one(tmp_path):
+    """D46 root of the empty failure: the conftest watchdog re-arms faulthandler's ONE timer at each test
+    start, so a child inheriting DRILLMASTER_TEST_HANG_SECONDS=900 never produced pytest's 600 s dump
+    before the 720 s kill.  The value the child is given must be the one that fires (dump, then exit).
+    """
+    tests_dir = Path(__file__).resolve().parent
+    hung = tmp_path / "test_d46_hung_child.py"
+    hung.write_text("import time\n\ndef test_sleeps_in_a_named_place():\n    time.sleep(120)\n", encoding="utf-8")
+    shutil.copy(tests_dir / "conftest.py", tmp_path / "conftest.py")
+    env = dict(os.environ, DRILLMASTER_TEST_HANG_SECONDS="2")
+    env["PYTHONPATH"] = os.pathsep.join([str(tests_dir.parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH")
+                                                                   else []))
+    command = [sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q", "-s", "-o",
+               "faulthandler_timeout=60", str(hung)]
+    returncode, out, err, timed_out = _run_child(command, cwd=tmp_path, env=env, timeout=45)
+    assert not timed_out, "the 2 s child watchdog did not fire before the 45 s bound"
+    assert returncode != 0
+    assert "test_sleeps_in_a_named_place (test_d46_hung_child.py:4)" in _thread_summary(out + err), out + err
+
 
 def test_cancel_before_the_worker_reaches_the_model(app, world):
     """Cancel immediately after ask(): the worker may still be reading the corpus."""

@@ -1,0 +1,50 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m122_assistant_worker_lifecycle.py::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one"
+    ],
+    "exit": 0,
+    "summary": "3 passed in 6.06s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "D50-child-inherits-watchdog",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "the child keeps verify_release's 900 s watchdog, which fires after the 720 s kill: no dump",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.84s"
+    },
+    {
+      "id": "D50-kill-without-dump",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "a child hung outside a test is killed silently - the 7b13a1c failure with empty output",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.78s"
+    }
+  ],
+  "killed": [
+    "D50-child-inherits-watchdog",
+    "D50-kill-without-dump"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
