@@ -50,6 +50,10 @@ def synthetic(tmp_path_factory):
         ids["SYN-NODATUM"] = nodatum.id
         for md in (0.0, 500.0):
             session.add(SurveyPoint(well_id=nodatum.id, md=md, inc=0.0, azi=0.0))
+    from core import survey_revisions as sr      # M129: well-to-well screening needs declared survey revisions
+    for name in ("SYN-REF", "SYN-OFF"):
+        sr.save_revision(db, ids[name], [{"md": md, "inc": 0.0, "azi": 0.0} for md in (0.0, 300.0, 600.0, 900.0)],
+                         azimuth_reference="grid", depth_datum="RKB")
     yield db, ids
     db.engine.dispose()
 
@@ -68,6 +72,8 @@ def panel(app, synthetic):
 def _select_offset(panel, well_id):
     panel.mode_combo.setCurrentIndex(panel.mode_combo.findData("offset"))
     panel.offset_combo.setCurrentIndex(panel.offset_combo.findData(well_id))
+    if panel.actual_combo.count() > 1:               # M129: the selected well's newest survey revision
+        panel.actual_combo.setCurrentIndex(1)
 
 
 def test_offset_list_excludes_the_selected_well(panel, synthetic):

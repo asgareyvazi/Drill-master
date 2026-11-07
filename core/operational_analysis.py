@@ -404,43 +404,18 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
             query = query.filter(DrillingParameters.report_id.in_(report_ids or [-1]))
         else:
             query = query.filter(canonical_params_clause(DrillingParameters))
-        runs: Dict[Tuple[str, Any], Dict[str, Any]] = {}
-        for p in query.order_by(DrillingParameters.report_date, DrillingParameters.id).all():
-            if not _in_range(p.report_date, start, end) or not (p.bit_no or "").strip():
-                continue
-            run = runs.setdefault(((p.bit_no or "").strip(), p.bit_rerun), {
-                "size": p.bit_size, "type": p.bit_type or "", "in": [], "out": [], "drilled": [], "hours": [],
-                "reports": [], "rows": [], "details": []})
-            run["in"].append(_num(p.depth_in))
-            run["out"].append(_num(p.depth_out))
-            run["drilled"].append(_num(p.bit_drilled))
-            run["hours"].append(_num(p.hours_on_bottom))
-            run["reports"].append(p.report_id)
-            run["rows"].append(p.id)
-            run["details"].append({"date": p.report_date, "report": p.report_id, "row": p.id, "in": _num(p.depth_in),
-                                   "out": _num(p.depth_out), "drilled": _num(p.bit_drilled),
-                                   "hours": _num(p.hours_on_bottom)})
+        from core import bit_runs as br    # M130: one run aggregation for OA and the bit run workbench
+
+        params = [p for p in query.order_by(DrillingParameters.report_date, DrillingParameters.id).all()
+                  if _in_range(p.report_date, start, end) and (p.bit_no or "").strip()]
         bit_rows, bit_ids, detail_rows, detail_ids = [], [], [], []
         number_of = {r.id: r.report_number for r in reports}
-        for (bit_no, rerun), run in runs.items():
-            depth_in = min((v for v in run["in"] if v is not None), default=None)
-            depth_out = max((v for v in run["out"] if v is not None), default=None)
-            footage, basis = _sum(run["drilled"]), "sum of daily drilled"
-            if footage is None and depth_in is not None and depth_out is not None and depth_out >= depth_in:
-                footage, basis = depth_out - depth_in, "depth out - depth in"
-            elif footage is None and depth_in is not None and depth_out is not None:
-                basis = f"INVALID: depth out {depth_out:g} m is shallower than depth in {depth_in:g} m"
-            elif footage is None:
-                basis = "not assessed (drilled and depths incomplete)"
-            hours = _sum(run["hours"])
-            rop = footage / hours if footage is not None and hours else None
-            rop_basis = _rop_basis(footage, hours)
-            linked = [r for r in run["reports"] if r is not None]
-            bit_rows.append([bit_no, rerun, run["size"], run["type"], depth_in, depth_out, footage, hours, rop,
-                             basis, len(run["reports"]), rop_basis,
-                             "drilling_parameters #" + ", #".join(str(i) for i in run["rows"])])
+        for run in br.aggregate(params):
+            linked = [r for r in run.reports if r is not None]
+            bit_rows.append([run.bit_no, run.rerun, run.size, run.bit_type, run.depth_in, run.depth_out, run.footage,
+                             run.hours, run.rop, run.footage_basis, len(run.details), run.rop_basis, run.source()])
             bit_ids.append(linked[0] if linked else None)
-            for detail in run["details"]:
+            for detail in run.details:
                 d_in, d_out, drilled, d_hours = detail["in"], detail["out"], detail["drilled"], detail["hours"]
                 d_notes = []
                 if drilled is None:
@@ -450,8 +425,8 @@ def analyze(db, scope: ev.AnalysisScope, *, start: Optional[date] = None,
                 d_rop = drilled / d_hours if drilled is not None and d_hours else None
                 if drilled is not None and d_rop is None:
                     d_notes.append(_rop_basis(drilled, d_hours))
-                detail_rows.append([bit_no, rerun, detail["date"], number_of.get(detail["report"], ""), d_in, d_out,
-                                    drilled, d_hours, d_rop, "; ".join(d_notes),
+                detail_rows.append([run.bit_no, run.rerun, detail["date"], number_of.get(detail["report"], ""), d_in,
+                                    d_out, drilled, d_hours, d_rop, "; ".join(d_notes),
                                     f"drilling_parameters #{detail['row']}"])
                 detail_ids.append(detail["report"] if detail["report"] in allowed else None)
         tables["bit_runs"], drill["bit_runs"] = (COLUMNS["bit_runs"], bit_rows), bit_ids

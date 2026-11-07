@@ -16,6 +16,11 @@ from core import trajectory_compare as tc
 from core.well_trajectory import compose_well_trajectory
 
 
+# M129 (D44): well-to-well screening needs both surveys declared as revisions with grid north and RKB / RT / MSL
+GRID_RKB = {"reference": {"survey_revision_id": 1, "azimuth_reference": "grid", "depth_datum": "RKB"},
+            "offset": {"survey_revision_id": 2, "azimuth_reference": "grid", "depth_datum": "RKB"}}
+
+
 def traj(*stations):
     return compose_well_trajectory([{"md": md, "inc": inc, "azi": azi} for md, inc, azi in stations])
 
@@ -58,7 +63,7 @@ def test_closest_approach_between_skew_lines_is_found_between_stations():
     reference = traj((0, 0, 0), (300, 0, 0))                     # vertical at the origin
     offset = traj((0, 45, 180), (300, 45, 180))                  # heads south at 45 deg
     result = tc.compare_wells(reference, well("R"), offset, well("O", northing=100.0, easting=5.0),
-                              same_crs_confirmed=True, step=25.0)
+                              same_crs_confirmed=True, references=GRID_RKB, step=25.0)
     assert result.status == tc.ASSESSED and result.label == tc.LABEL
     assert result.closest["distance_m"] == pytest.approx(5.0, abs=0.01)
     assert result.closest["reference_md"] == pytest.approx(100.0, abs=0.01)
@@ -71,7 +76,7 @@ def test_closest_approach_between_skew_lines_is_found_between_stations():
 def test_parallel_verticals_are_separated_by_the_wellhead_offset():
     a, b = traj((0, 0, 0), (1000, 0, 0)), traj((0, 0, 0), (1000, 0, 0))
     result = tc.compare_wells(a, well("A", 1000.0, 2000.0), b, well("B", 1006.0, 2008.0),
-                              same_crs_confirmed=True, step=50.0)
+                              same_crs_confirmed=True, references=GRID_RKB, step=50.0)
     assert result.closest["distance_m"] == pytest.approx(10.0, abs=0.01)
     assert all(r["distance_m"] == pytest.approx(10.0, abs=0.01) for r in result.rows)
 
@@ -79,7 +84,7 @@ def test_parallel_verticals_are_separated_by_the_wellhead_offset():
 def test_rotary_table_elevations_put_both_wells_on_one_vertical_datum():
     a, b = traj((0, 0, 0), (1000, 0, 0)), traj((0, 0, 0), (1000, 0, 0))
     result = tc.compare_wells(a, well("A", rte_msl=10.0), b, well("B", easting=3.0, rte_msl=14.0),
-                              same_crs_confirmed=True, step=50.0)
+                              same_crs_confirmed=True, references=GRID_RKB, step=50.0)
     row = next(r for r in result.rows if r["reference_md"] == 500.0)
     assert row["offset_md"] == pytest.approx(504.0, abs=0.01)    # same depth below MSL, 4 m more MD
     assert row["distance_m"] == pytest.approx(3.0, abs=0.01)
@@ -190,6 +195,6 @@ def test_plan_csv_and_xlsx_files(tmp_path):
 def test_calculation_record_carries_label_contract_and_inputs():
     result = tc.compare_plan(traj((0, 0, 0), (300, 0, 0)), traj((0, 0, 0), (300, 0, 0)))
     record = tc.calculation_record(result, inputs={"actual_well_id": 1, "plan_rows": 2})
-    assert record["description"] == tc.LABEL and record["method"].startswith("M52")
+    assert record["description"] == tc.LABEL and record["method"].startswith("M129")
     assert record["results_json"]["contract"]["uncertainty"].startswith("none")
     assert record["parameters_json"]["inputs"] == {"actual_well_id": 1, "plan_rows": 2}

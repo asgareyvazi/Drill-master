@@ -118,14 +118,25 @@ class TrajectoryComparePanel(QWidget):
         actual_row.addWidget(self.actual_combo, 1)
         layout.addLayout(actual_row)
 
+        offset_box = QVBoxLayout()
+        offset_box.setContentsMargins(0, 0, 0, 0)
         offset_row = QHBoxLayout()
         self.offset_combo = QComboBox()
         self.crs_check = QCheckBox("Both wellheads (northing/easting) are in the same projected CRS, metres")
         offset_row.addWidget(QLabel("Offset well:"))
         offset_row.addWidget(self.offset_combo, 1)
         offset_row.addWidget(self.crs_check)
+        offset_box.addLayout(offset_row)
+        offset_rev_row = QHBoxLayout()            # M129: the offset survey is a declared survey revision
+        self.offset_rev_combo = QComboBox()
+        offset_rev_row.addWidget(QLabel("Offset survey:"))
+        offset_rev_row.addWidget(self.offset_rev_combo, 1)
+        offset_box.addLayout(offset_rev_row)
         self.offset_widget = QWidget()
-        self.offset_widget.setLayout(offset_row)
+        self.offset_widget.setLayout(offset_box)
+        self.offset_combo.currentIndexChanged.connect(self._refresh_offset_revisions)
+        self.offset_rev_combo.currentIndexChanged.connect(
+            lambda _i: self._clear_result("Offset survey changed; compare again."))
         layout.addWidget(self.offset_widget)
 
         self.status_label = QLabel("Select a well, then compare.")
@@ -195,7 +206,33 @@ class TrajectoryComparePanel(QWidget):
             except Exception as exc:                    # read error is a state, not an empty list
                 logger.warning("Offset well list could not be read: %s", type(exc).__name__)
                 self.offset_combo.addItem("(well list could not be read)", None)
+        self._refresh_offset_revisions()
         self._clear_result("Select a well, then compare." if not well_id else "Ready to compare.")
+
+    def _refresh_offset_revisions(self, *_args) -> None:
+        """M129: survey revisions of the offset well (newest first); live points declare no references."""
+        from core import survey_revisions as sr
+
+        self.offset_rev_combo.blockSignals(True)
+        try:
+            self.offset_rev_combo.clear()
+            offset_id = self.offset_combo.currentData()
+            if offset_id and callable(getattr(self.db_manager, "session_scope", None)):
+                try:
+                    for rev in sr.list_revisions(self.db_manager, int(offset_id)):
+                        self.offset_rev_combo.addItem(
+                            f"Survey revision {rev['revision']} ({rev['station_count']} stations, "
+                            f"{rev['azimuth_reference']} north, {rev['depth_datum']})", rev["id"])
+                except Exception as exc:                # read error is a state, not an empty list
+                    logger.warning("Offset survey revisions could not be read: %s", type(exc).__name__)
+                    self.offset_rev_combo.clear()
+                    self.offset_rev_combo.addItem("(survey revisions could not be read)", None)
+            if self.offset_rev_combo.count() == 0:
+                self.offset_rev_combo.addItem("Live survey points (not a revision: no declared azimuth reference "
+                                              "or datum)", None)
+        finally:
+            self.offset_rev_combo.blockSignals(False)
+        self._clear_result("Offset well changed; compare again.")
 
     # ------------------------------------------------------------ plan file
     def _choose_plan(self):
@@ -292,8 +329,31 @@ class TrajectoryComparePanel(QWidget):
                     self._clear_result("Select an offset well.")
                     return None
                 inputs["offset_well_id"] = int(offset_id)
-                inputs["offset_rows"] = [{"md": r["md"], "inc": r["inc"], "azi": r["azi"]}
-                                         for r in self.db_manager.load_survey_points(well_id=int(offset_id))]
+                offset_reference = {}
+                offset_revision_id = self.offset_rev_combo.currentData()
+                if offset_revision_id is not None:
+                    from core import survey_revisions as sr
+                    offset_revision = sr.get_revision(self.db_manager, offset_revision_id)
+                    if offset_revision is None or offset_revision["well_id"] != int(offset_id):
+                        self._clear_result("The selected offset survey revision is not available for that well.")
+                        return None
+                    try:
+                        sr.verify_for_use(offset_revision, "a trajectory comparison")
+                    except sr.SurveyRevisionError as exc:
+                        self._clear_result(f"Not compared: {exc}")
+                        return None
+                    inputs["offset_rows"] = [dict(st) for st in offset_revision["stations"]]
+                    inputs["offset_survey_revision_id"] = offset_revision["id"]
+                    inputs["offset_survey_sha256"] = offset_revision["stations_sha256"]
+                    offset_reference = {"survey_revision_id": offset_revision["id"],
+                                        **{k: offset_revision.get(k) for k in tc.REFERENCE_KEYS}}
+                else:                                   # legacy points: references undeclared -> NOT ASSESSED
+                    inputs["offset_rows"] = [{"md": r["md"], "inc": r["inc"], "azi": r["azi"]}
+                                             for r in self.db_manager.load_survey_points(well_id=int(offset_id))]
+                actual_id = inputs.get("actual_survey_revision_id")
+                inputs["references"] = {
+                    "reference": {"survey_revision_id": actual_id, **actual_reference} if actual_id else {},
+                    "offset": offset_reference}
                 inputs["reference_well"] = tc.well_reference(self.db_manager, self.well_id)
                 inputs["offset_well"] = tc.well_reference(self.db_manager, int(offset_id))
                 inputs["same_crs"] = bool(self.crs_check.isChecked())
@@ -426,6 +486,8 @@ class TrajectoryComparePanel(QWidget):
             inputs["plan_stations"] = len(self.last_inputs["plan_rows"])
         if "offset_rows" in self.last_inputs:
             inputs["offset_stations"] = len(self.last_inputs["offset_rows"])
+            inputs["offset_source"] = ("survey revision" if self.last_inputs.get("offset_survey_revision_id")
+                                       else "live survey points (not a revision)")
         from core.permissions import permissions
         user_id = getattr(permissions, "user_id", None)
         try:

@@ -181,7 +181,9 @@ def _workflow_methods() -> List[CatalogueEntry]:
         CatalogueEntry("directional.plan_vs_actual", "Plan vs actual and closest approach", "Directional",
                        "trajectory compare", "IMPLEMENTED", "SCREENING", trajectory_compare.METHOD_VERSION,
                        "Centre-to-centre distance between trajectories", OWN_CODE,
-                       "SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED",
+                       "SCREENING — NO ISCWSA UNCERTAINTY — NO SEPARATION FACTOR — NOT APPROVED; well-to-well needs "
+                       "pinned survey revisions on grid north with an RKB/RT/MSL datum, else NOT ASSESSED (M129); "
+                       "M52 records re-run under their own version",
                        "ISCWSA error model (see wellpath.iscwsa_error_model)", "core/trajectory_compare.py"),
         CatalogueEntry("survey.revision", "Immutable survey revisions", "Survey", "survey revisions", "IMPLEMENTED",
                        "", survey_revisions.SURVEY_REVISION_VERSION, "Station hash verified on read", OWN_CODE,

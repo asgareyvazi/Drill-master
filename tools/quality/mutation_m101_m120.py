@@ -210,9 +210,9 @@ MUTANTS = [
            "    if hours == 0:\n        return \"not assessed: no hours on bottom\"\n",
            "",
            T104, "a bit run with no hours on bottom claims a footage/hours ROP basis"),
-    Mutant("OA-bit-invalid-depths-unexplained", OA,
-           "                basis = f\"INVALID: depth out {depth_out:g} m is shallower than depth in {depth_in:g} m\"",
-           "                basis = \"not assessed (drilled and depths incomplete)\"",
+    Mutant("OA-bit-invalid-depths-unexplained", "core/bit_runs.py",     # M130: OA runs come from bit_runs
+           "            basis = f\"INVALID: depth out {depth_out:g} m is shallower than depth in {depth_in:g} m\"",
+           "            basis = \"not assessed (drilled and depths incomplete)\"",
            T104, "a bit run whose depth out is shallower than depth in is not flagged INVALID"),
     # ---- M103 background jobs bound to the selection context (D3) ------------------------------------
     Mutant("CJ-superseded-result-shown", CJ,
@@ -408,7 +408,7 @@ MUTANTS = [
            "    if False:",
            T108, "a legacy trajectory row is not reported as saved before M108"),
     Mutant("TC-other-version-accepted", TC,
-           "    if version != METHOD_VERSION:\n        return \"NOT REPRODUCIBLE\"",
+           "    if version not in SUPPORTED_VERSIONS:\n        return \"NOT REPRODUCIBLE\"",   # M129 anchor
            "    if False:\n        return \"NOT REPRODUCIBLE\"",
            T108, "a record of another method version is re-run with the current method"),
     Mutant("TC-missing-rows-accepted", TC,
@@ -519,8 +519,8 @@ MUTANTS = [
            "well_id=entry.well_id,",
            T109, "a cement re-run is stored as a generic recalculation (plain numbers, not a worksheet case)"),
     Mutant("CH-cement-scope-unlabelled", CH,
-           "                            CEMENT_SCOPE if row.method in CEMENT_METHODS else _w13_scope(row.calculator),",
-           "                            _w13_scope(row.calculator),",   # anchor follows M125 (W13 class)
+           "                            CEMENT_SCOPE if row.method in CEMENT_METHODS else\n",
+           "",   # anchor follows M125 (W13 class) and M130 (bit run scope on the next line)
            T109, "History shows a cement worksheet without the not-an-approval label"),
     Mutant("HT-recalculate-without-db", "tabs/calculation_history_tab.py",
            "        outcome = ch.recalculate_entry(chosen[0], db=self.db)",

@@ -149,7 +149,7 @@ def test_case_without_pump_output_stores_unknown_volume(w13):
 
 
 def test_registry_after_m128():
-    assert contracts.CONTRACT_REGISTRY_VERSION == "M128 calculator contracts v6"
+    # The registry version is pinned by the latest phase test (M129: v7); the M128 facts below still hold.
     assert len(contracts.CONTRACTS) == 23 and contracts.classification_violations() == []
     assert set(contracts.NOT_SUPPORTED) == {"Well Control › Kill Sheet", "Directional › Multi-Survey",
                                             "Directional › Anti-Collision", "DP Database"}

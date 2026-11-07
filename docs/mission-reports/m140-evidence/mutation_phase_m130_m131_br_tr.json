@@ -1,0 +1,384 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m130_bit_runs.py",
+      "tests/test_m131_parameter_trends.py"
+    ],
+    "exit": 0,
+    "summary": "29 passed in 27.47s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "BR-incomplete-sum-as-total",
+      "path": "core/bit_runs.py",
+      "note": "an incomplete daily-drilled sum is taken as the run footage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.01s"
+    },
+    {
+      "id": "BR-lifecycle-always-open",
+      "path": "core/bit_runs.py",
+      "note": "a run replaced by a later bit is shown as still open",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.03s"
+    },
+    {
+      "id": "BR-incomplete-costed",
+      "path": "core/bit_runs.py",
+      "note": "an incomplete run is costed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.79s"
+    },
+    {
+      "id": "BR-currency-not-required",
+      "path": "core/bit_runs.py",
+      "note": "a cost is computed without a stated currency",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.56s"
+    },
+    {
+      "id": "BR-ranked-across-sizes",
+      "path": "core/bit_runs.py",
+      "note": "runs of different hole sizes are ranked against each other",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.66s"
+    },
+    {
+      "id": "BR-ddr-change-ignored",
+      "path": "core/bit_runs.py",
+      "note": "a re-run hides that the DDR rows changed since saving",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 14.00s"
+    },
+    {
+      "id": "BR-other-version-run",
+      "path": "core/bit_runs.py",
+      "note": "a scenario of another method version is re-run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 14.73s"
+    },
+    {
+      "id": "BR-not-assessed-saved",
+      "path": "core/bit_runs.py",
+      "note": "a NOT ASSESSED scenario is stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.69s"
+    },
+    {
+      "id": "BR-wellbore-scope-ignored",
+      "path": "core/bit_runs.py",
+      "note": "a wellbore view includes another wellbore's DDRs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.05s"
+    },
+    {
+      "id": "BR-panel-seeded-currency",
+      "path": "tabs/bit_run_panel.py",
+      "note": "the scenario starts with a currency nobody entered",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 13.10s"
+    },
+    {
+      "id": "BR-history-not-routed",
+      "path": "core/calculation_history.py",
+      "note": "History re-runs a bit run scenario with the W13 contract verifier",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 14.03s"
+    },
+    {
+      "id": "BR-w12-wellbore-dropped",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the workbench ignores the selected wellbore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py",
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 18.81s"
+    },
+    {
+      "id": "TR-single-bound-filled",
+      "path": "core/parameter_trends.py",
+      "note": "a single recorded bound is drawn as a full range",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.06s"
+    },
+    {
+      "id": "TR-missing-placed",
+      "path": "core/parameter_trends.py",
+      "note": "a missing value is placed on the chart",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.03s"
+    },
+    {
+      "id": "TR-inverted-range-accepted",
+      "path": "core/parameter_trends.py",
+      "note": "an inverted min/max range is drawn",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.04s"
+    },
+    {
+      "id": "TR-depth-guessed",
+      "path": "core/parameter_trends.py",
+      "note": "a row without depth out is put at 0 m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.87s"
+    },
+    {
+      "id": "TR-mse-save-time-as-drilling-time",
+      "path": "core/parameter_trends.py",
+      "note": "an MSE run is placed at its save time",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.99s"
+    },
+    {
+      "id": "TR-mse-without-md-placed",
+      "path": "core/parameter_trends.py",
+      "note": "an MSE run without MD is put at 0 m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.94s"
+    },
+    {
+      "id": "TR-mse-scope-ignored",
+      "path": "core/parameter_trends.py",
+      "note": "a wellbore view shows another wellbore's MSE runs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.75s"
+    },
+    {
+      "id": "TR-legacy-label-lost",
+      "path": "core/parameter_trends.py",
+      "note": "a legacy MSE run is not labelled LEGACY",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.78s"
+    },
+    {
+      "id": "TR-panel-ranges-joined",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "the range bars are joined into one line across records",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.06s"
+    },
+    {
+      "id": "TR-panel-markers-joined",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "the markers are joined by a line",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.14s"
+    },
+    {
+      "id": "TR-w12-performance-line",
+      "path": "tabs/w12_Analysis.py",
+      "note": "D48: the W12 performance chart joins records across days without a DDR",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.63s"
+    },
+    {
+      "id": "TR-w12-dexponent-line",
+      "path": "tabs/w12_Analysis.py",
+      "note": "D47: the W12 d-exponent chart joins daily records with a line",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.59s"
+    },
+    {
+      "id": "TR-w12-dexponent-bit-run-label",
+      "path": "tabs/w12_Analysis.py",
+      "note": "D47: daily d-exponent points are labelled as bit runs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.69s"
+    },
+    {
+      "id": "BR-panel-gui-thread-read",
+      "path": "tabs/bit_run_panel.py",
+      "note": "M51: the bit runs are read with SQL on the GUI thread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 29.46s"
+    },
+    {
+      "id": "BR-panel-late-result-shown",
+      "path": "tabs/bit_run_panel.py",
+      "note": "a bit run read that finishes after the scope was cleared is shown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 19.74s"
+    },
+    {
+      "id": "TR-panel-gui-thread-read",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "M51: the trends are read with SQL on the GUI thread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 19.44s"
+    }
+  ],
+  "killed": [
+    "BR-incomplete-sum-as-total",
+    "BR-lifecycle-always-open",
+    "BR-incomplete-costed",
+    "BR-currency-not-required",
+    "BR-ranked-across-sizes",
+    "BR-ddr-change-ignored",
+    "BR-other-version-run",
+    "BR-not-assessed-saved",
+    "BR-wellbore-scope-ignored",
+    "BR-panel-seeded-currency",
+    "BR-history-not-routed",
+    "BR-w12-wellbore-dropped",
+    "TR-single-bound-filled",
+    "TR-missing-placed",
+    "TR-inverted-range-accepted",
+    "TR-depth-guessed",
+    "TR-mse-save-time-as-drilling-time",
+    "TR-mse-without-md-placed",
+    "TR-mse-scope-ignored",
+    "TR-legacy-label-lost",
+    "TR-panel-ranges-joined",
+    "TR-panel-markers-joined",
+    "TR-w12-performance-line",
+    "TR-w12-dexponent-line",
+    "TR-w12-dexponent-bit-run-label",
+    "BR-panel-gui-thread-read",
+    "BR-panel-late-result-shown",
+    "TR-panel-gui-thread-read"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

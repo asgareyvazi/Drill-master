@@ -43,8 +43,14 @@ from typing import Iterable, Optional, Sequence
 
 from core.well_trajectory import compose_well_trajectory
 
-METHOD_VERSION = "M52 centre-to-centre screening v1"
-LABEL = "SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre)"
+METHOD_VERSION = "M129 centre-to-centre screening v2"
+LABEL = "SCREENING — NO ISCWSA UNCERTAINTY — NO SEPARATION FACTOR — NOT APPROVED (centre-to-centre)"
+# M129: records saved under M52 keep their version and re-run with the M52 rules (no declared-reference check)
+METHOD_VERSION_V1 = "M52 centre-to-centre screening v1"
+LABEL_V1 = "SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED (centre-to-centre)"
+SUPPORTED_VERSIONS = (METHOD_VERSION, METHOD_VERSION_V1)
+ROTARY_DATUMS = ("RKB", "RT")      # depth below the rotary table: put on MSL with the well's rte_msl
+MSL_DATUM = "MSL"                  # depth below MSL: already on the common vertical datum
 ASSESSED = "ASSESSED"
 NOT_ASSESSED = "NOT ASSESSED"
 DEFAULT_STEP_M = 10.0
@@ -64,6 +70,9 @@ CONTRACT = {
     "interpolation": "exact minimum-curvature circular arc",
     "closest_approach": "sampled then golden-section refined on both paths",
     "uncertainty": "none - centre-to-centre only; no ISCWSA, no separation factor",
+    "references": "well-to-well (v2): both surveys are survey revisions declaring grid north (true north would "
+                  "need the grid convergence, magnetic the declination of each survey) and an RKB / RT datum "
+                  "(placed with rte_msl) or MSL; anything else is NOT ASSESSED",
     "validity": "stations with MD, inclination 0-180 and azimuth; paths compared only inside their MD ranges",
     "precision": "refinement tolerance 1e-6 m in MD; results reported to 0.01 m",
 }
@@ -311,17 +320,59 @@ def _missing(value) -> bool:
         return True
 
 
+def _datum(reference) -> str:
+    return str((reference or {}).get("depth_datum") or "").strip().upper()
+
+
+def reference_reasons(references) -> list:
+    """M129 (D44): why two surveys cannot be put in one frame - each must be a survey revision declaring grid
+    north (like the projected wellhead coordinates) and an RKB / RT or MSL depth datum."""
+    refs = references if isinstance(references, dict) else {}
+    reasons = []
+    for label in ("reference", "offset"):
+        ref = refs.get(label) if isinstance(refs.get(label), dict) else {}
+        if not ref.get("survey_revision_id"):
+            reasons.append(f"{label} well: the survey is not a survey revision, so its azimuth reference and "
+                           f"depth datum are not declared")
+            continue
+        azimuth = str(ref.get("azimuth_reference") or "").strip().lower()
+        if azimuth != "grid":
+            reasons.append(f"{label} well: azimuth reference is {azimuth or 'not declared'}; well-to-well needs "
+                           f"grid north for both surveys, like the wellhead coordinates (true north needs the grid "
+                           f"convergence, magnetic the declination of each survey - transform the revision first)")
+        datum = _datum(ref)
+        if datum not in ROTARY_DATUMS + (MSL_DATUM,):
+            reasons.append(f"{label} well: depth datum is {datum or 'not declared'}; only RKB / RT (placed with "
+                           f"rte_msl) or MSL can be put on one vertical datum")
+    return reasons
+
+
+def _stamp(result: "Comparison", version: str) -> "Comparison":
+    if version == METHOD_VERSION_V1:
+        result.label, result.method = LABEL_V1, METHOD_VERSION_V1
+    return result
+
+
 def compare_wells(reference_traj, reference_well: dict, offset_traj, offset_well: dict, *,
-                  same_crs_confirmed: bool, step: float = DEFAULT_STEP_M) -> Comparison:
+                  same_crs_confirmed: bool, step: float = DEFAULT_STEP_M, references: Optional[dict] = None,
+                  version: str = METHOD_VERSION) -> Comparison:
     """Well-to-well screening in one frame, or NOT ASSESSED with every reason listed.
 
-    ``*_well`` mappings carry ``name``, ``northing``, ``easting`` and ``rte_msl`` (metres).
+    ``*_well`` mappings carry ``name``, ``northing``, ``easting`` and ``rte_msl`` (metres). M129 (v2):
+    ``references`` = {"reference": {...}, "offset": {...}} with ``survey_revision_id``, ``azimuth_reference``
+    and ``depth_datum`` of each survey; v1 (records saved under M52) re-runs without that check.
     """
+    v1 = version == METHOD_VERSION_V1
+    refs = references if isinstance(references, dict) else {}
     reasons = []
     if not same_crs_confirmed:
         reasons.append("Wellhead coordinates are not confirmed to share one projected CRS in metres")
+    if not v1:
+        reasons.extend(reference_reasons(refs))
+    datums = {label: ("RKB" if v1 else _datum(refs.get(label))) for label in ("reference", "offset")}
     for label, well in (("reference", reference_well), ("offset", offset_well)):
-        for key in ("northing", "easting", "rte_msl"):
+        keys = ("northing", "easting") if datums[label] == MSL_DATUM else ("northing", "easting", "rte_msl")
+        for key in keys:
             if _missing(well.get(key)):
                 reasons.append(f"{label} well: {key} is missing")
     ref_path = path_from_trajectory(reference_traj, name=str(reference_well.get("name") or "reference"))
@@ -332,18 +383,21 @@ def compare_wells(reference_traj, reference_well: dict, offset_traj, offset_well
         reasons.append("offset well: fewer than two usable survey stations")
     reasons.extend(_degenerate_reasons(ref_path, "reference well") + _degenerate_reasons(off_path, "offset well"))
     if reasons:
-        return Comparison(status=NOT_ASSESSED, reasons=reasons, kind="well_to_well")
+        return _stamp(Comparison(status=NOT_ASSESSED, reasons=reasons, kind="well_to_well"), version)
+
+    def down0(label, well):
+        return 0.0 if datums[label] == MSL_DATUM else -float(well["rte_msl"])
+
     n0, e0 = float(reference_well["northing"]), float(reference_well["easting"])
-    ref_path = path_from_trajectory(reference_traj, name=ref_path.name,
-                                    down0=-float(reference_well["rte_msl"]))
+    ref_path = path_from_trajectory(reference_traj, name=ref_path.name, down0=down0("reference", reference_well))
     off_path = path_from_trajectory(offset_traj, name=off_path.name,
                                     north0=float(offset_well["northing"]) - n0,
                                     east0=float(offset_well["easting"]) - e0,
-                                    down0=-float(offset_well["rte_msl"]))
+                                    down0=down0("offset", offset_well))
     result = separation_profile(ref_path, off_path, step=step)
     result.warnings.extend(_trajectory_warnings(reference_traj, "reference") +
                            _trajectory_warnings(offset_traj, "offset"))
-    return result
+    return _stamp(result, version)
 
 
 def compare_plan(actual_traj, plan_traj, *, step: float = DEFAULT_STEP_M) -> Comparison:
@@ -607,18 +661,23 @@ def target_checks(actual, targets, *, step: float) -> list:
     return out
 
 
-def run_comparison(inputs: dict) -> Comparison:
-    """The comparison from plain inputs (worker body of the panel and the re-run of a stored record)."""
+def run_comparison(inputs: dict, version: str = METHOD_VERSION) -> Comparison:
+    """The comparison from plain inputs (worker body of the panel and the re-run of a stored record).
+
+    M129: ``version`` is the record's own method version (v1 re-runs M52 records with the M52 rules)."""
+    if version not in SUPPORTED_VERSIONS:
+        raise ValueError(f"method version {version!r} is not available in this build")
     actual = compose_well_trajectory(inputs["actual_rows"])
     if inputs["mode"] == "plan":
         result = compare_plan(actual, compose_plan(inputs["plan_rows"]), step=inputs["step"])
         result.target_checks = target_checks(actual, inputs.get("targets") or (), step=inputs["step"])
         if inputs.get("reference_check"):
             result.warnings.append(inputs["reference_check"])     # M105: declared references, or why unverified
-        return result
+        return _stamp(result, version)
     offset = compose_well_trajectory(inputs["offset_rows"])
     return compare_wells(actual, inputs["reference_well"], offset, inputs["offset_well"],
-                         same_crs_confirmed=inputs["same_crs"], step=inputs["step"])
+                         same_crs_confirmed=inputs["same_crs"], step=inputs["step"],
+                         references=inputs.get("references"), version=version)
 
 
 def inputs_sha256(inputs: dict) -> str:
@@ -641,7 +700,7 @@ def record_reproducibility(parameters: dict, version: str) -> tuple:
     if not version or version.startswith("unversioned"):
         return "NOT REPRODUCIBLE", ("saved before M108: no method version was recorded and the input stations "
                                     "were not stored")
-    if version != METHOD_VERSION:
+    if version not in SUPPORTED_VERSIONS:
         return "NOT REPRODUCIBLE", f"method version {version!r} is not available in this build"
     inputs = parameters.get("inputs")
     if parameters.get("record_schema") != RECORD_SCHEMA or not isinstance(inputs, dict):
@@ -668,7 +727,7 @@ def verify_record(parameters: dict, results: dict, version: str) -> dict:
         return {**blank, "status": "UNREADABLE",
                 "detail": "the stored inputs do not match their SHA-256; nothing was recomputed"}
     try:
-        current = run_comparison(inputs)
+        current = run_comparison(inputs, version=version)     # M129: a record re-runs under its own version
     except (KeyError, TypeError, ValueError) as exc:
         return {**blank, "status": "UNREADABLE", "detail": f"stored inputs could not be re-run: {exc}"}
     fresh = current.to_json()

@@ -21,6 +21,8 @@ the query).  No timeout was raised; no retry was added.
 from __future__ import annotations
 
 import os
+import re
+import subprocess
 import sys
 import threading
 import time
@@ -224,7 +226,7 @@ def test_repeated_cancel_cycles_measured_and_bounded(app, world):
           f"release max {max(releases) * 1000:.1f} ms; median {sorted(releases)[15] * 1000:.1f} ms")
 
 
-def test_cancel_under_cpu_load_releases_every_worker(app, world):
+def _cpu_load_body(app, world):
     """The full-suite failure happened under load: four CPU-bound Python threads compete
     for the GIL while 15 cancel cycles run; every retired worker is still released.
 
@@ -287,6 +289,42 @@ def test_cancel_under_cpu_load_releases_every_worker(app, world):
           f"{sum(c['stage_seen'] for c in cycles)}/15 had reached retrieval; "
           f"release max {max(c['release_s'] for c in cycles):.2f} s")
 
+
+
+# D46: the load case runs in a fresh interpreter. CI 3.12 (the coverage leg) at 82071b2, job 127593402948,
+# stopped at the 15 min watchdog inside one processEvents() of this test, with the main thread executing
+# dataclasses.asdict - code the assistant does not run, i.e. work of widgets left alive by the ~130 test
+# modules before it, slowed by coverage tracing and the four GIL burners. Same body, same assertions, same
+# bounds; only the other modules' objects are gone. The child dumps every thread after CHILD_DUMP_S and is
+# stopped at CHILD_TIMEOUT_S (both inside the 900 s job watchdog), and the dump is put in the failure.
+CHILD_DUMP_S = 600       # faulthandler dump in the child (pytest faulthandler_timeout)
+CHILD_TIMEOUT_S = 720    # the child is stopped here; its output so far is reported
+
+
+def _tail(text, lines=120):
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
+    return "\n".join((text or "").splitlines()[-lines:])
+
+
+def test_cancel_under_cpu_load_releases_every_worker():
+    tests_dir = Path(__file__).resolve().parent
+    root = tests_dir.parent
+    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+    env["PYTHONPATH"] = os.pathsep.join([str(tests_dir), str(root)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH")
+                                                                       else []))
+    command = [sys.executable, "-X", "faulthandler", "-m", "pytest", "-p", "no:cacheprovider", "-q", "-s",
+               "-W", "ignore", "-o", f"faulthandler_timeout={CHILD_DUMP_S}", str(tests_dir / "m122_cpu_load_child.py")]
+    try:
+        proc = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True, timeout=CHILD_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        pytest.fail(f"the CPU-load cancel cycles did not finish within {CHILD_TIMEOUT_S} s\n"
+                    f"stdout:\n{_tail(exc.stdout)}\nstderr:\n{_tail(exc.stderr)}")
+    output = proc.stdout + proc.stderr
+    # the body prints its summary only after every lifecycle assertion held (the suite's -q prints no totals)
+    summary = re.search(r"^M122 load: (\d+)/15 cancels hit a live worker.*$", output, re.MULTILINE)
+    assert proc.returncode == 0 and summary and int(summary.group(1)) > 0, _tail(output)
+    print(summary.group(0))
 
 def test_cancel_before_the_worker_reaches_the_model(app, world):
     """Cancel immediately after ask(): the worker may still be reading the corpus."""

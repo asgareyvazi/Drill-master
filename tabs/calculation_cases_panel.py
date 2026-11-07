@@ -234,7 +234,8 @@ class CaseBar(QWidget):
 
         leaf, meaning = contracts.leaf_class(self.calculator()) if self.calculator() else ("", "")
         # M125: a reference catalogue computes nothing, so there is no case to save
-        self.save_btn.setEnabled(enabled and leaf != contracts.CLASS_REFERENCE)
+        self.save_btn.setEnabled(enabled and leaf != contracts.CLASS_REFERENCE
+                                 and self.calculator() not in contracts.RECORDED_ELSEWHERE)   # M129
         status, text = contracts.calculator_status(self.calculator()) if self.calculator() else ("", "")
         self.contract_label.setText(f"Class: {leaf} — {meaning}. Contract status: {status} — {text}." if status else "")
 
@@ -246,6 +247,10 @@ class CaseBar(QWidget):
         from core import calculator_contracts as leaf_contracts
         if leaf_contracts.leaf_class(self.calculator())[0] == leaf_contracts.CLASS_REFERENCE:
             self.status.setText(f"{self.calculator()} is REFERENCE-ONLY: nothing is computed, so no case is saved.")
+            return None
+        elsewhere = leaf_contracts.RECORDED_ELSEWHERE.get(self.calculator())
+        if elsewhere:                                     # M129: never a duplicate, non-reproducible W13 case
+            self.status.setText(f"{self.calculator()} is saved as {elsewhere}, not as a W13 case.")
             return None
         inputs, results = capture_page(page)
         if not results:

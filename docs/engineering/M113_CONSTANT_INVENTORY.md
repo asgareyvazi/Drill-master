@@ -29,7 +29,7 @@ in the M112 pack "7.48 vs 7.48052".
 | gal per bbl | 42.0 (8) | bare `42` is not counted (ambiguous) |
 | psi/ft per ppg | 0.052 (14) | exact 0.051948; the oilfield convention |
 | psi/ft per pcf | 144.0 (2) | in² per ft² |
-| ft per m | 3.28084 (53), 0.3048 (15, m per ft) | consistent: 1/0.3048 = 3.280840 |
+| ft per m | 3.28084 (51; M130 removed the W12 per-row cost code), 0.3048 (15, m per ft) | consistent: 1/0.3048 = 3.280840 |
 | bbl/ft capacity constant | 1029.4 (10) | (D² − d²)/1029.4 bbl/ft |
 | m per 100 ft (DLS conversion) | 30.48 (3) | |
 | °F per °C | 1.8 (4) | hydraulics engine and W15 |
@@ -42,7 +42,7 @@ No code literal: 25.4 mm/in, 14.5038 psi/bar, 6.894 kPa/psi, 0.006944 psi/ft per
 
 | Convention | Variant (uses, files) | Rule |
 |---|---|---|
-| Cost per length | per metre (15, 6) / per foot (18, 5) | every value carries its unit; cost per length is never compared across units without conversion |
+| Cost per length | per metre (34, 8) / per foot (20, 5) | every value carries its unit; cost per length is never compared across units without conversion |
 | Dog-leg severity | °/30 m (69, 21) / °/100 ft (19, 7) | survey revisions store the unit; 30.48 m = 100 ft converts (≈1.6 % difference, not interchangeable) |
 | Temperature | °C (18, 7) / °F (14, 2) | conversion via 1.8 and 32; no silent mixing |
 

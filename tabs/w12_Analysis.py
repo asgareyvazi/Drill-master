@@ -25,7 +25,7 @@ import types
 from PySide6.QtCore import QDate, QDateTime, QThread, QTime, QTimer, Qt, Signal
 from PySide6.QtGui import QColor, QTextDocument
 from PySide6.QtWidgets import (
-    QAbstractItemView, QApplication, QCheckBox, QComboBox, QDateEdit, QDoubleSpinBox, QFileDialog,
+    QAbstractItemView, QApplication, QCheckBox, QComboBox, QDateEdit, QFileDialog,
     QFrame, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton,
     QScrollArea, QTabWidget, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
 )
@@ -911,6 +911,9 @@ class AnalysisWidget(DrillTabBase):
         self.analysis_tabs.addTab(self.time_depth_tab, "📈 Time vs Depth")
         self.analysis_tabs.addTab(self.npt_tab, "⏱️ NPT Analysis")
         self.analysis_tabs.addTab(self.performance_tab, "⚡ Performance")
+        from tabs.parameter_trend_panel import ParameterTrendPanel     # M131
+        self.trend_panel = ParameterTrendPanel(self.db)
+        self.analysis_tabs.addTab(self.trend_panel, "📉 Parameter trends")
         self.analysis_tabs.addTab(self.daily_tab, "📅 Daily Monitor")
         self.analysis_tabs.addTab(self.analytics_tab, "📊 Advanced Analytics")
         self.analysis_tabs.addTab(self.evidence_tab, "🔎 Evidence")
@@ -1352,7 +1355,7 @@ class AnalysisWidget(DrillTabBase):
         table_layout.addWidget(self.performance_table)
         main_layout.addWidget(table_widget)
 
-        # ===== d-Exponent Trend (pore-pressure detection from stored bit runs) =====
+        # ===== d-Exponent Trend (pore-pressure detection from stored DDR drilling-parameter records) =====
         de_widget = QWidget()
         de_widget.setStyleSheet("background: #1e1e1e; border-radius: 8px;")
         de_layout = QVBoxLayout(de_widget)
@@ -1394,68 +1397,11 @@ class AnalysisWidget(DrillTabBase):
         de_layout.addWidget(self.dexponent_table)
         main_layout.addWidget(de_widget)
 
-        # ===== Bit Run Cost Comparison (cost/ft from stored runs) =====
-        cost_widget = QWidget()
-        cost_widget.setStyleSheet("background: #2c3e50; border-radius: 8px; padding: 8px;")
-        cost_layout = QVBoxLayout(cost_widget)
-
-        cost_header = QHBoxLayout()
-        cost_header.addWidget(QLabel("💰 Bit Run Cost Comparison (cost/ft) — SCENARIO"))
-        cost_header.addStretch()
-        cost_layout.addLayout(cost_header)
-        scenario_note = QLabel(
-            "Scenario only: rig rate, trip time and bit cost are user-entered assumptions in "
-            "one currency of your choice, not recorded cost. Recorded cost is in Advanced "
-            "Analytics > Cost Analysis.")
-        scenario_note.setWordWrap(True)
-        scenario_note.setStyleSheet("color: #f1c40f; font-size: 11px;")
-        cost_layout.addWidget(scenario_note)
-
-        cost_inputs = QHBoxLayout()
-        self.cost_rig_rate = QDoubleSpinBox()
-        self.cost_rig_rate.setRange(0, 1000000)
-        self.cost_rig_rate.setValue(40000)
-        self.cost_rig_rate.setSuffix(" /day (assumed)")
-        self.cost_trip_h = QDoubleSpinBox()
-        self.cost_trip_h.setRange(0, 100)
-        self.cost_trip_h.setValue(6)
-        self.cost_trip_h.setSuffix(" hr")
-        self.cost_bit_cost = QDoubleSpinBox()
-        self.cost_bit_cost.setRange(0, 100000)
-        self.cost_bit_cost.setValue(2000)
-        self.cost_bit_cost.setSuffix(" (assumed)")
-        cost_inputs.addWidget(QLabel("Rig rate:"))
-        cost_inputs.addWidget(self.cost_rig_rate)
-        cost_inputs.addWidget(QLabel("Trip:"))
-        cost_inputs.addWidget(self.cost_trip_h)
-        cost_inputs.addWidget(QLabel("Bit cost:"))
-        cost_inputs.addWidget(self.cost_bit_cost)
-        cost_inputs.addStretch()
-        cost_calc_btn = QPushButton("🔄 Compare Runs")
-        cost_calc_btn.setStyleSheet("""
-            QPushButton {
-                background: #27ae60;
-                color: white;
-                border: none;
-                padding: 6px 12px;
-                border-radius: 4px;
-                font-size: 11px;
-            }
-            QPushButton:hover { background: #229954; }
-        """)
-        cost_calc_btn.clicked.connect(self._update_cost_comparison)
-        cost_inputs.addWidget(cost_calc_btn)
-        cost_layout.addLayout(cost_inputs)
-
-        self.cost_table = QTableWidget()
-        self.cost_table.setColumnCount(6)
-        self.cost_table.setHorizontalHeaderLabels(
-            ["Bit Run", "Footage (m)", "Hours", "Scenario Rig+Bit Cost",
-             "Scenario Cost/ft", "vs Best"])
-        self.cost_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.cost_table.setMaximumHeight(200)
-        cost_layout.addWidget(self.cost_table)
-        main_layout.addWidget(cost_widget)
+        # ===== M130 (D47): bit run workbench - runs, their DDR rows, SCENARIO cost per metre =====
+        from tabs.bit_run_panel import BitRunWorkbench
+        self.bit_runs_panel = BitRunWorkbench(self.db, owner=self)
+        self.bit_runs_panel.setMinimumHeight(520)
+        main_layout.addWidget(self.bit_runs_panel)
 
         main_layout.addStretch()
         scroll.setWidget(content)
@@ -2904,7 +2850,6 @@ class AnalysisWidget(DrillTabBase):
             self._set_productive_card()
             self.chart_data['performance'] = None
             self.update_dexponent_data([])
-            self._update_cost_comparison()
             return
 
         rop = ev.summarize_rop(d['rop'] for d in data)
@@ -2933,7 +2878,8 @@ class AnalysisWidget(DrillTabBase):
         dated = [d for d in data if d['date'] is not None]
         if len(dated) > 1:
             # x = calendar day since the first record (same-date rows share x);
-            # a missing/invalid value is a gap (NaN), never a fabricated 0.
+            # a missing/invalid value is a gap (NaN), never a fabricated 0. M131 (D48): markers only - a
+            # line joined records across days without a DDR row, i.e. it drew values nobody recorded.
             first = dated[0]['date']
             days = [(d['date'] - first).days + 1 for d in dated]
 
@@ -2952,13 +2898,11 @@ class AnalysisWidget(DrillTabBase):
 
             self.performance_plot.plot(
                 days, _norm(rops_all, max_rop),
-                pen=pg.mkPen('#1abc9c', width=3), name="ROP (% of max)",
-                connect="finite",
+                pen=None, symbol='o', symbolSize=7, symbolBrush='#1abc9c', name="ROP (% of max)",
             )
             self.performance_plot.plot(
                 days, _norm(wob_all, max_wob),
-                pen=pg.mkPen('#3498db', width=3), name="WOB (% of max)",
-                connect="finite",
+                pen=None, symbol='o', symbolSize=7, symbolBrush='#3498db', name="WOB (% of max)",
             )
 
         def _cell(v, digits):
@@ -2977,10 +2921,9 @@ class AnalysisWidget(DrillTabBase):
 
         self.chart_data['performance'] = data
         self.update_dexponent_data(data)
-        self._update_cost_comparison()
 
     def update_dexponent_data(self, data):
-        """d-exponent per bit run from stored DrillingParameters.
+        """d-exponent per stored DDR drilling-parameter record (one point per daily record, not per bit run).
 
         ROP stored in m/hr → ft/hr (×3.28084); WOB in klb → lbf (×1000).
         Canonical formula: BitPerformanceEngine.d_exponent (Jorden & Shirley).
@@ -3025,83 +2968,18 @@ class AnalysisWidget(DrillTabBase):
             self.dexponent_table.setItem(i, 7, item)
 
         if len(depths) >= 2:
+            # M130 (D47): markers only - each point is one daily record; a line between two
+            # records would show values nobody recorded (same rule as D48).
             self.dexponent_plot.plot(
-                depths, dvals, pen=pg.mkPen('#e74c3c', width=3),
+                depths, dvals, pen=None,
                 symbol='o', symbolSize=8, symbolBrush='#e74c3c',
                 name="d-exponent")
             self.dexponent_plot.setTitle(
-                "d-Exponent vs Depth (stored bit runs)", color="#ffffff", size="12pt")
+                "d-Exponent vs Depth (DDR records, markers only)", color="#ffffff", size="12pt")
         else:
             self.dexponent_plot.setTitle(
-                "Need ≥ 2 bit runs with ROP/WOB/RPM/bit-size to plot the trend",
+                "Need ≥ 2 DDR records with ROP/WOB/RPM/bit size and depth to plot the trend",
                 color="#95a5a6")
-
-    def _update_cost_comparison(self):
-        """SCENARIO cost/ft per stored bit run (Bourgoyne) from user-entered inputs.
-
-        Footage = depth_out − depth_in (m → ft); rotating time = hours_on_bottom.
-        The rig rate, trip time and bit cost are assumptions typed by the user
-        in one currency of their choice; no currency is invented and nothing
-        here is recorded cost.
-        """
-        from core.engineering.engines.bit_performance import BitPerformanceEngine
-        if not self.current_well_id:
-            # Drop the previous well's comparison instead of leaving it on screen.
-            self.cost_table.setRowCount(1)
-            self.cost_table.setItem(0, 0, QTableWidgetItem("NOT ASSESSED: select a well"))
-            return
-        data = self._fetch_cached("perf", self.get_performance_data)
-        if data is _STALE:
-            return
-        if isinstance(data, _LoadError):
-            self.cost_table.setRowCount(1)
-            self.cost_table.setItem(0, 0, QTableWidgetItem(data.text()))
-            return
-        rig_rate = self.cost_rig_rate.value()
-        trip_h = self.cost_trip_h.value()
-        bit_cost = self.cost_bit_cost.value()
-
-        results = []
-        for d in data:
-            # Footage/rotating-time need real depths and hours. A missing input
-            # (None) means the run cannot be costed — it is skipped, never
-            # costed against a fabricated 0.
-            if d['depth'] is None or d['depth_in'] is None or d['hours_on_bottom'] is None:
-                continue
-            footage_ft = (d['depth'] - d['depth_in']) * 3.28084
-            if footage_ft <= 0:
-                continue
-            r = BitPerformanceEngine.cost_per_foot(
-                rig_cost_per_day=rig_rate,
-                trip_hours=trip_h,
-                bit_cost=bit_cost,
-                footage=footage_ft,
-                rotating_hours=d['hours_on_bottom'],
-            )
-            if r.success:
-                results.append((d['bit_run'], footage_ft, d['hours_on_bottom'],
-                                r.values['total_cost'], r.values['cost_per_ft']))
-
-        if not results:
-            self.cost_table.setRowCount(1)
-            self.cost_table.setItem(0, 0, QTableWidgetItem(
-                "NOT ASSESSED: no bit run with depth in/out and on-bottom hours"))
-            return
-        self.cost_table.setRowCount(len(results))
-        best = min((x[4] for x in results), default=None)
-        for i, (name, footage, hrs, total, cft) in enumerate(results):
-            self.cost_table.setItem(i, 0, QTableWidgetItem(name))
-            self.cost_table.setItem(i, 1, QTableWidgetItem(f"{footage / 3.28084:.0f}"))
-            self.cost_table.setItem(i, 2, QTableWidgetItem(f"{hrs:.1f}"))
-            self.cost_table.setItem(i, 3, QTableWidgetItem(f"{total:,.0f}"))
-            ci = QTableWidgetItem(f"{cft:.2f}")
-            ci.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            if best is not None and abs(cft - best) < 1e-9:
-                ci.setForeground(QColor("#2ecc71"))
-                ci.setToolTip("Cheapest run under the entered scenario")
-            self.cost_table.setItem(i, 4, ci)
-            self.cost_table.setItem(i, 5, QTableWidgetItem(
-                "✅ best" if best is not None and abs(cft - best) < 1e-9 else ""))
 
     def _recent_reports(self, session):
         rows = []
@@ -3565,12 +3443,21 @@ class AnalysisWidget(DrillTabBase):
         self.set_current_well(well_id, (well_data or {}).get('name', str(well_id)))
         if hasattr(self, "operational_panel"):
             self.operational_panel.selection_changed()
+        self._sync_bit_runs()
+
+    def _sync_bit_runs(self):
+        """M130/M131: the bit run workbench and the parameter trends follow the selected well and the
+        explicitly selected wellbore."""
+        for name in ("bit_runs_panel", "trend_panel"):
+            if hasattr(self, name):
+                getattr(self, name).set_scope(self.current_well_id, self.current_wellbore_id)
 
     def on_selection_cleared(self):
         """SelectionManager.clear(): nothing of the previous well may stay on screen."""
         self._show_no_selection()
         if hasattr(self, "operational_panel"):
             self.operational_panel.invalidate("Select a well first.")
+        self._sync_bit_runs()
 
     def on_wellbore_changed(self, wellbore_id, wellbore_data):
         """Re-scope analytics to the selected wellbore (bore) and refresh.
@@ -3588,6 +3475,7 @@ class AnalysisWidget(DrillTabBase):
             (wellbore_data or {}).get("name") if wellbore_data else None)
         if hasattr(self, "operational_panel"):
             self.operational_panel.selection_changed()
+        self._sync_bit_runs()
         self._generation += 1
         self.clear_cache()
         self.update_scope_indicator()
@@ -3844,7 +3732,7 @@ class AnalysisWidget(DrillTabBase):
         self._replace_npt_pie(None, "No well selected")
         self.npt_table.clear_rows()
         for table in (self.time_depth_table, self.performance_table,
-                      self.dexponent_table, self.recent_reports_table, self.cost_table,
+                      self.dexponent_table, self.recent_reports_table,
                       self.evidence_table):
             table.setRowCount(0)
         for indicator in self.today_indicators.values():
@@ -3882,6 +3770,9 @@ class AnalysisWidget(DrillTabBase):
         self._cancel_revision(wait_ms=5000)
         if hasattr(self, "operational_panel"):          # M103: cancel and join its background job (bounded)
             self.operational_panel.shutdown(5000)
+        for name in ("bit_runs_panel", "trend_panel"):        # M130/M131 background reads (M103 runner)
+            if hasattr(self, name):
+                getattr(self, name).shutdown(5000)
         for view in (getattr(self, "_npt_pie_view", None), getattr(self, "_milestones_view", None)):
             if view is not None:
                 view.cleanup()

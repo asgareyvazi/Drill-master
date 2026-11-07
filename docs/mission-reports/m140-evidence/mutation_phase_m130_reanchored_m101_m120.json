@@ -1,0 +1,59 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m104_operational_kpis.py",
+      "tests/test_m108_history_coverage.py",
+      "tests/test_m109_cement_worksheet.py"
+    ],
+    "exit": 0,
+    "summary": "32 passed, 3 warnings in 21.51s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "OA-bit-invalid-depths-unexplained",
+      "path": "core/bit_runs.py",
+      "note": "a bit run whose depth out is shallower than depth in is not flagged INVALID",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m104_operational_kpis.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.27s"
+    },
+    {
+      "id": "TC-other-version-accepted",
+      "path": "core/trajectory_compare.py",
+      "note": "a record of another method version is re-run with the current method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m108_history_coverage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed, 3 warnings in 2.15s"
+    },
+    {
+      "id": "CH-cement-scope-unlabelled",
+      "path": "core/calculation_history.py",
+      "note": "History shows a cement worksheet without the not-an-approval label",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m109_cement_worksheet.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.04s"
+    }
+  ],
+  "killed": [
+    "OA-bit-invalid-depths-unexplained",
+    "TC-other-version-accepted",
+    "CH-cement-scope-unlabelled"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

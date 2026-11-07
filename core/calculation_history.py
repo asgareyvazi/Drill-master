@@ -41,6 +41,8 @@ HISTORY_VERSION = 1
 # M109: cement worksheets are labelled as such wherever History shows them
 CEMENT_SCOPE = "WORKSHEET — NOT A CEMENT DESIGN APPROVAL"
 CEMENT_METHODS = ("m89.cement_annulus", "w13.cement.job_volumes")
+BIT_RUN_SCOPE = "SCENARIO — BIT RUN COST PER LENGTH (user-entered costs, not recorded cost)"   # M130
+BIT_RUN_METHOD = "m130.bit_run_cost"     # = core.bit_runs.COST_METHOD (guarded by test_m130)
 REPORT_TEMPLATE_VERSION = 1
 
 # table -> (display source, scope statement)
@@ -134,7 +136,8 @@ def _adapters():
     def case(row):
         return HistoryEntry("Calculation case", "calculation_cases", row.id, row.well_id, row.name,
                             row.method, row.method_version, row.created_at,
-                            CEMENT_SCOPE if row.method in CEMENT_METHODS else _w13_scope(row.calculator),
+                            CEMENT_SCOPE if row.method in CEMENT_METHODS else
+                            BIT_RUN_SCOPE if row.method == BIT_RUN_METHOD else _w13_scope(row.calculator),
                             row.inputs or {}, row.results or {}, f"case #{row.parent_id}" if row.parent_id else "",
                             wellbore_id=row.wellbore_id)
 
@@ -518,6 +521,10 @@ def _recalculate_entry(entry: HistoryEntry, db=None) -> Dict[str, Any]:
         from core import well_architecture as wa
 
         return wa.verify_cement_case(db, entry.inputs, entry.results, entry.version)
+    if entry.table == "calculation_cases" and entry.method == BIT_RUN_METHOD:
+        from core import bit_runs as br               # M130: frozen run figures; DDR changes are reported
+
+        return br.verify_case(db, entry.inputs, entry.results, entry.version)
     if entry.table == "calculation_cases":
         from core import calculator_contracts as contracts
 
@@ -717,6 +724,11 @@ def save_recalculation(db, entry: HistoryEntry, outcome: Dict[str, Any]) -> Dict
 
         return wa.save_cement_rerun(db, entry.record_id, entry.inputs, outcome, well_id=entry.well_id,
                                     wellbore_id=entry.wellbore_id, name=entry.name)
+    if entry.table == "calculation_cases" and entry.method == BIT_RUN_METHOD:
+        from core import bit_runs as br               # M130: same scenario payload and method, linked rerun_of
+
+        return br.save_rerun(db, entry.record_id, entry.inputs, outcome, well_id=entry.well_id,
+                             wellbore_id=entry.wellbore_id, name=entry.name)
     if not outcome.get("values"):
         raise ValueError(f"Nothing to store: recalculation status {outcome.get('status')}.")
     method_changed = outcome.get("method_matches") is False

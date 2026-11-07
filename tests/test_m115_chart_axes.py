@@ -29,6 +29,7 @@ DYNAMIC = {
     ("tabs/w10_Planning_Widget.py", "group_data['ylabel']"): "each group's ylabel names its units",
     ("tabs/w10_Planning_Widget.py", "label"): "the mud parameter map; checked below",
     ("tabs/w12_Analysis.py", "unit"): "the projection's unit from the caller",
+    ("tabs/parameter_trend_panel.py", "self.result.axis_label"): "parameter_trends.AXIS_LABELS; checked below",
 }
 
 
@@ -68,6 +69,12 @@ def test_every_axis_states_its_unit_or_is_a_reviewed_category():
             missing.append(f"{rel}:{line} {text!r}")
     assert missing == []
     assert dynamic == set(DYNAMIC)                                  # a new computed label must be reviewed
+
+
+def test_the_trend_axis_labels_say_what_is_plotted():
+    from core.parameter_trends import AXIS_LABELS     # M131: the computed bottom label of the trend panel
+
+    assert AXIS_LABELS == {"time": "Report date (DDR)", "depth": "Depth out (m MD, DDR)"}
 
 
 def test_the_mud_parameter_axis_labels_carry_their_units():

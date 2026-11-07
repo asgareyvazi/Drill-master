@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-CONTRACT_REGISTRY_VERSION = "M128 calculator contracts v6"
+CONTRACT_REGISTRY_VERSION = "M129 calculator contracts v7"
 OBJECT_PREFIX = "w13:"
 STRUCTURED_REL_TOL = 1e-9
 
@@ -1135,15 +1135,16 @@ LEGACY_CONTRACTS: Tuple[Contract, ...] = (QUICK_CALC_V1,)
 AVAILABLE_METHODS: Dict[str, Tuple[str, ...]] = {c.method_id: (c.method_version,) for c in CONTRACTS.values()}
 AVAILABLE_METHODS[QUICK_CALC_V1.method_id] = (QUICK_CALC_V1.method_version,)
 
-_CAPTURE = "the case capture records form fields and result labels only"
 # Every W13 leaf calculator (finder path) without a re-runnable contract, with the exact reason (M107).
 NOT_SUPPORTED: Dict[str, str] = {
     "Well Control › Kill Sheet": "TRAINING AID (owner decision pending) and the drill-string geometry table (wc_pipes) "
                                  "is not captured; kill-sheet runs are saved in Calc History as TRAINING AID",
-    "Directional › Multi-Survey": f"the survey table (dd_surveys) is not captured ({_CAPTURE}); use Survey revisions "
-                                  f"(immutable, verified, method-versioned)",
-    "Directional › Anti-Collision": f"the reference and offset survey tables are not captured ({_CAPTURE}); "
-                                    f"SCREENING only, no ISCWSA uncertainty",
+    "Directional › Multi-Survey": "no W13 case: the table is a draft that no other page reads; it is kept by "
+                                  "saving it as a survey revision (immutable, verified, method-versioned, "
+                                  "declared azimuth reference and datum)",
+    "Directional › Anti-Collision": "no W13 case: each run is saved as a trajectory comparison record (survey "
+                                    "revisions of both wells, re-run in History); SCREENING - NO ISCWSA "
+                                    "UNCERTAINTY - NO SEPARATION FACTOR - NOT APPROVED",
     "DP Database": "reference catalogue, not a calculator: nothing is computed, so there is nothing to re-run",
 }
 
@@ -1156,6 +1157,13 @@ CLASS_WORKSHEET = "WORKSHEET"
 CLASS_TRAINING = "TRAINING AID"
 CLASS_REFERENCE = "REFERENCE-ONLY"
 CLASS_NOT_SUPPORTED = "NOT_SUPPORTED"
+# M129: leaves whose work is kept as another immutable record - a W13 case would only duplicate it, so none
+# is saved (the case bar names the record instead)
+RECORDED_ELSEWHERE: Dict[str, str] = {
+    "Directional › Multi-Survey": "a survey revision (Save as survey revision on this page)",
+    "Directional › Anti-Collision": "a trajectory comparison record (Save on this page; re-run in History)",
+}
+
 LEAF_CLASS_MEANING: Dict[str, str] = {
     CLASS_CONTRACT: "a documented calculation with captured inputs, units and method version; cases are re-run and "
                     "verified",

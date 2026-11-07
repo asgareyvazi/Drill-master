@@ -147,7 +147,7 @@ def test_inclination_limit_applies_along_the_arc_not_only_at_the_end():
 
 
 def test_screening_label_wording():
-    assert tc.LABEL.startswith("SCREENING — NO ISCWSA UNCERTAINTY — NOT APPROVED")
+    assert tc.LABEL.startswith("SCREENING — NO ISCWSA UNCERTAINTY — NO SEPARATION FACTOR — NOT APPROVED")  # M129
 
 
 def test_designer_panel_solves_from_an_inclined_survey_tie_in(tmp_path, monkeypatch):

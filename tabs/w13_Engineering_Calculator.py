@@ -15,7 +15,8 @@ from PySide6.QtCore import QAbstractTableModel, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGridLayout,
-    QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QMessageBox, QPushButton, QRadioButton,
+    QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox, QPushButton,
+    QRadioButton,
     QScrollArea, QSpinBox, QSplitter, QTabWidget, QTableView, QTableWidget, QTableWidgetItem,
     QTextEdit, QVBoxLayout, QWidget,
 )
@@ -5612,8 +5613,38 @@ class EngineeringCalculatorTab(DrillTabBase):
         g1_lay.addWidget(self.dd_summary)
 
         sv_layout.addWidget(g1)
+
+        # M129: the table is a draft; other pages use a survey only as an immutable, verified survey revision
+        self.dd_draft_well = None
+        self.dd_loaded_revision = None
+        self.dd_dirty = False
+        g_rev = QGroupBox("🗂️ Survey revision (immutable, verified)")
+        rev_form = QFormLayout(g_rev)
+        self.dd_source_label = QLabel("")
+        self.dd_source_label.setWordWrap(True)
+        rev_form.addRow(self.dd_source_label)
+        self.dd_azimuth_ref = QComboBox()
+        self.dd_azimuth_ref.addItem("Not declared", "")
+        for reference in ("true", "grid", "magnetic"):
+            self.dd_azimuth_ref.addItem(f"{reference} north", reference)
+        self.dd_depth_datum = QLineEdit()
+        self.dd_depth_datum.setPlaceholderText("Not declared (for example RKB or MSL)")
+        rev_form.addRow("Azimuth reference:", self.dd_azimuth_ref)
+        rev_form.addRow("Depth datum:", self.dd_depth_datum)
+        save_rev = QPushButton("💾 Save as survey revision")
+        save_rev.clicked.connect(self._dd_save_revision)
+        rev_form.addRow(save_rev)
+        load_row = QHBoxLayout()
+        self.dd_rev_combo = QComboBox()
+        load_rev = QPushButton("📂 Load into the table")
+        load_rev.clicked.connect(self._dd_load_revision)
+        load_row.addWidget(self.dd_rev_combo, 1)
+        load_row.addWidget(load_rev)
+        rev_form.addRow("Revision:", load_row)
+        sv_layout.addWidget(g_rev)
         sv_layout.addStretch()
         inner_tabs.addTab(sv_tab, "📐 Multi-Survey")
+        self._dd_show_source()
 
         # ===== Build/Turn Rate =====
         br_tab = QWidget()
@@ -5649,260 +5680,27 @@ class EngineeringCalculatorTab(DrillTabBase):
 
         return tab
 
-    # ========== Anti-Collision (canonical: AntiCollisionEngine) ==========
+    # ========== Anti-Collision (M129: core.trajectory_compare on survey revisions) ==========
 
     def _create_anti_collision_tab(self) -> QWidget:
-        """Well-to-well separation screening.
+        """Well-to-well centre-to-centre SCREENING between survey revisions of two wells (M129, D45).
 
-        The reference well is the trajectory entered on the "Multi-Survey"
-        tab above (self.dd_surveys). The offset well is entered here. Both
-        use minimum-curvature positions in metres and are screened by the
-        canonical AntiCollisionEngine via CalculatorBridge — no engineering
-        logic lives in the UI. This is a SCREENING tool (no ISCWSA error
-        model); results are transient by design and not persisted.
+        The page is the trajectory comparison panel (``core.trajectory_compare``, also in the Trajectory
+        viewer) locked to offset-well mode: the reference is a survey revision of the selected well, the offset
+        a survey revision of another well. The wellhead CRS confirmation, both azimuth references and both
+        depth datums are checked; anything undeclared or mismatched is NOT ASSESSED. No separation factor (no
+        uncertainty model). Runs are saved as trajectory comparison records (re-run in History), not W13 cases.
         """
-        self.ac_offset_surveys = []
+        from tabs.trajectory_compare_panel import TrajectoryComparePanel
 
         tab, container, layout = self._make_scroll_tab()
-
-        banner = QLabel(
-            "🚧 SCREENING ONLY — linear-interpolated 3D centreline separation. "
-            "No ISCWSA error model, covariance or tool-error model is applied. "
-            "Reference well = the Multi-Survey trajectory above (metres)."
-        )
-        banner.setWordWrap(True)
-        banner.setStyleSheet(
-            "color: #7f4f00; background: #fff3cd; border: 1px solid #e0a800; "
-            "border-radius: 3px; padding: 6px; font-size: 11px;"
-        )
-        layout.addWidget(banner)
-
-        # ----- Offset well survey -----
-        g1 = QGroupBox("🛢️ Offset Well Survey (Minimum Curvature, metres)")
-        g1_lay = QVBoxLayout(g1)
-        ac_btns = QHBoxLayout()
-        add_off = QPushButton("➕ Add Offset Point")
-        add_off.setStyleSheet(
-            "background: #27ae60; color: white; padding: 4px 10px; "
-            "border-radius: 3px; border: none;"
-        )
-        add_off.clicked.connect(self._ac_add_survey)
-        edit_off = QPushButton("✏️ Edit")
-        edit_off.clicked.connect(self._ac_edit_survey)
-        rem_off = QPushButton("🗑️")
-        rem_off.setFixedWidth(30)
-        rem_off.clicked.connect(self._ac_rem_survey)
-        clear_off = QPushButton("🧹 Clear")
-        clear_off.clicked.connect(self._ac_clear_surveys)
-        for b in (add_off, edit_off, rem_off, clear_off):
-            ac_btns.addWidget(b)
-        ac_btns.addStretch()
-        g1_lay.addLayout(ac_btns)
-
-        self.ac_table = QTableWidget(0, 5)
-        self.ac_table.setHorizontalHeaderLabels(
-            ["#", "MD (m)", "TVD (m)", "North (m)", "East (m)"]
-        )
-        self.ac_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.ac_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.ac_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.ac_table.doubleClicked.connect(self._ac_edit_survey)
-        g1_lay.addWidget(self.ac_table)
-        layout.addWidget(g1)
-
-        # ----- Screening parameters -----
-        g2 = QGroupBox("⚙️ Screening Parameters")
-        f2 = QFormLayout(g2)
-        self.ac_ref_radius = self._make_dspin(0.0, 0, 100, 3, " m")
-        self.ac_off_radius = self._make_dspin(0.0, 0, 100, 3, " m")
-        self.ac_threshold = self._make_dspin(0.0, 0, 100000, 3, " m")
-        f2.addRow("Reference wellbore radius (0 = omit):", self.ac_ref_radius)
-        f2.addRow("Offset wellbore radius (0 = omit):", self.ac_off_radius)
-        f2.addRow("Collision threshold (0 = no scan):", self.ac_threshold)
-        run_btn = QPushButton("🚦 Screen Clearance")
-        run_btn.setStyleSheet(
-            "background: #c0392b; color: white; padding: 6px 14px; "
-            "border-radius: 3px; border: none; font-weight: bold;"
-        )
-        run_btn.clicked.connect(self._ac_screen)
-        f2.addRow(run_btn)
-        layout.addWidget(g2)
-
-        # ----- Results -----
-        g3 = QGroupBox("📋 Screening Result")
-        g3_lay = QVBoxLayout(g3)
-        self.ac_summary = self._result_label("#c0392b")
-        self.ac_summary.setWordWrap(True)
-        g3_lay.addWidget(self.ac_summary)
-        self.ac_result_table = QTableWidget(0, 5)
-        self.ac_result_table.setHorizontalHeaderLabels(
-            ["MD (m)", "Distance (m)", "Clearance (m)", "Sep. Factor", "Trend"]
-        )
-        self.ac_result_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.ac_result_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        g3_lay.addWidget(self.ac_result_table)
-        layout.addWidget(g3)
-        layout.addStretch()
-
+        self.ac_panel = TrajectoryComparePanel(self.db)
+        self.ac_panel.mode_combo.setCurrentIndex(self.ac_panel.mode_combo.findData("offset"))
+        self.ac_panel.mode_combo.setEnabled(False)
+        self.ac_panel.mode_combo.setToolTip("Anti-Collision compares two wells; plan vs actual is in the "
+                                            "Trajectory viewer.")
+        layout.addWidget(self.ac_panel)
         return tab
-
-    def _ac_add_survey(self):
-        from dialogs.engineering_dialogs import AddSurveyDialog
-        prev = self.ac_offset_surveys[-1] if self.ac_offset_surveys else None
-        dlg = AddSurveyDialog(self, prev_survey=prev)
-        if dlg.exec():
-            data = dlg.get_result()
-            if data:
-                self.ac_offset_surveys.append(data)
-                self._ac_recalculate()
-                self._ac_refresh_table()
-
-    def _ac_edit_survey(self):
-        row = self.ac_table.currentRow()
-        if 0 <= row < len(self.ac_offset_surveys):
-            from dialogs.engineering_dialogs import AddSurveyDialog
-            prev = self.ac_offset_surveys[row - 1] if row > 0 else None
-            dlg = AddSurveyDialog(
-                self, edit_data=self.ac_offset_surveys[row], prev_survey=prev
-            )
-            if dlg.exec():
-                data = dlg.get_result()
-                if data:
-                    self.ac_offset_surveys[row] = data
-                    self._ac_recalculate()
-                    self._ac_refresh_table()
-
-    def _ac_rem_survey(self):
-        row = self.ac_table.currentRow()
-        if 0 <= row < len(self.ac_offset_surveys):
-            self.ac_offset_surveys.pop(row)
-            self._ac_recalculate()
-            self._ac_refresh_table()
-
-    def _ac_clear_surveys(self):
-        self.ac_offset_surveys.clear()
-        self._ac_refresh_table()
-
-    def _ac_recalculate(self):
-        """Recompute offset-well positions with canonical Minimum Curvature."""
-        from core.engineering.core import TrajectoryEngine
-        surveys = [
-            {"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")}
-            for s in self.ac_offset_surveys
-        ]
-        if not surveys:
-            return
-        try:
-            pts = TrajectoryEngine.calculate(surveys)
-        except Exception as exc:
-            logger.warning("Offset-well trajectory not computed: %s", type(exc).__name__)
-            return
-        for i, p in enumerate(pts):
-            if i < len(self.ac_offset_surveys):
-                self.ac_offset_surveys[i]["tvd"] = p.tvd
-                self.ac_offset_surveys[i]["north"] = p.north
-                self.ac_offset_surveys[i]["east"] = p.east
-
-    def _ac_refresh_table(self):
-        self.ac_table.setRowCount(0)
-        for i, s in enumerate(self.ac_offset_surveys):
-            row = self.ac_table.rowCount()
-            self.ac_table.insertRow(row)
-            self.ac_table.setItem(row, 0, QTableWidgetItem(str(i + 1)))
-            for col, key in [(1, "md"), (2, "tvd"), (3, "north"), (4, "east")]:
-                self.ac_table.setItem(
-                    row, col, QTableWidgetItem(f"{s.get(key, 0):.2f}")
-                )
-
-    def _ac_screen(self):
-        """Screen reference (Multi-Survey) vs offset well via canonical engine."""
-        ref_pts = [
-            {"md": s.get("md"), "tvd": s.get("tvd"),
-             "north": s.get("north"), "east": s.get("east")}
-            for s in getattr(self, "dd_surveys", [])
-            if s.get("tvd") is not None
-        ]
-        off_pts = [
-            {"md": s.get("md"), "tvd": s.get("tvd"),
-             "north": s.get("north"), "east": s.get("east")}
-            for s in self.ac_offset_surveys
-            if s.get("tvd") is not None
-        ]
-        if len(ref_pts) < 2:
-            self.ac_summary.setText(
-                "❌ MISSING_INPUT: reference well needs ≥2 survey points "
-                "(enter them on the Multi-Survey tab)."
-            )
-            self.ac_result_table.setRowCount(0)
-            return
-        if len(off_pts) < 2:
-            self.ac_summary.setText(
-                "❌ MISSING_INPUT: offset well needs ≥2 survey points."
-            )
-            self.ac_result_table.setRowCount(0)
-            return
-
-        ref_r = self.ac_ref_radius.value()
-        off_r = self.ac_off_radius.value()
-        if ref_r > 0 and off_r > 0:
-            for p in ref_pts:
-                p["wellbore_radius"] = ref_r
-            for p in off_pts:
-                p["wellbore_radius"] = off_r
-
-        threshold = self.ac_threshold.value() or None
-
-        from core.engineering.bridge import CalculatorBridge
-        res = CalculatorBridge.anti_collision(
-            ref_pts, off_pts,
-            collision_threshold=threshold,
-            coordinates_unit="m",
-        )
-        if not res.success:
-            self.ac_summary.setText(f"❌ ENGINE_FAILED: {res.error}")
-            self.ac_result_table.setRowCount(0)
-            return
-
-        v = res.values
-        closest = v.get("closest_approach", {})
-        lines = [
-            f"✅ Closest approach: {closest.get('distance', 0):.2f} m "
-            f"@ MD ref {closest.get('ref_md', 0):.1f} m / "
-            f"offset {closest.get('offset_md', 0):.1f} m"
-        ]
-        if closest.get("clearance") is not None:
-            lines.append(f"   Clearance (centre − radii): {closest['clearance']:.2f} m")
-        if closest.get("separation_factor") is not None:
-            lines.append(f"   Separation factor (supplied σ RSS): {closest['separation_factor']:.2f}")
-        scan = v.get("collision_scan", {})
-        if scan.get("performed"):
-            status = scan.get("status", "?")
-            icon = "🔴" if status == "alert" else "🟢"
-            lines.append(
-                f"{icon} Collision scan @ {scan.get('threshold')} m: {status.upper()} "
-                f"({len(scan.get('events', []))} point(s) below threshold, "
-                f"min margin {scan.get('minimum_margin')})"
-            )
-        for w in res.warnings:
-            lines.append(f"⚠️ {w}")
-        self.ac_summary.setText("\n".join(lines))
-
-        rows = v.get("separation_vs_md", [])
-        self.ac_result_table.setRowCount(0)
-        for r in rows:
-            i = self.ac_result_table.rowCount()
-            self.ac_result_table.insertRow(i)
-            clr = r.get("clearance")
-            sf = r.get("separation_factor")
-            cells = [
-                f"{r.get('md', 0):.1f}",
-                f"{r.get('distance', 0):.2f}",
-                "--" if clr is None else f"{clr:.2f}",
-                "--" if sf is None else f"{sf:.2f}",
-                r.get("convergence", ""),
-            ]
-            for col, text in enumerate(cells):
-                self.ac_result_table.setItem(i, col, QTableWidgetItem(text))
 
     # ========== Directional Methods ==========
 
@@ -5921,6 +5719,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             if data:
                 self.dd_surveys.append(data)
                 self._dd_refresh_table()
+                self._dd_touch()
 
     def _dd_edit_survey(self):
         row = self.dd_table.currentRow()
@@ -5935,6 +5734,7 @@ class EngineeringCalculatorTab(DrillTabBase):
                     # Recalculate all subsequent points
                     self._dd_recalculate_from(row)
                     self._dd_refresh_table()
+                    self._dd_touch()
 
     def _dd_rem_survey(self):
         row = self.dd_table.currentRow()
@@ -5943,10 +5743,142 @@ class EngineeringCalculatorTab(DrillTabBase):
             if row > 0:
                 self._dd_recalculate_from(row)
             self._dd_refresh_table()
+            self._dd_touch()
 
     def _dd_clear_surveys(self):
         self.dd_surveys.clear()
         self._dd_refresh_table()
+        self._dd_touch()
+
+    # ========== M129: Multi-Survey draft <-> survey revisions ==========
+
+    def _dd_touch(self):
+        """An edit makes the table an unsaved draft of the well it was started for (never of another well)."""
+        if not self.dd_surveys:
+            self.dd_draft_well, self.dd_loaded_revision = None, None
+        elif self.dd_draft_well is None:
+            self.dd_draft_well = getattr(self, "current_well_id", None)
+        self.dd_dirty = bool(self.dd_surveys)
+        self._dd_show_source()
+
+    def _dd_show_source(self):
+        label = getattr(self, "dd_source_label", None)
+        if label is None:
+            return
+        well = getattr(self, "current_well_id", None)
+        revision = self.dd_loaded_revision
+        if not self.dd_surveys:
+            text = "Empty. Stations typed here are used by no other page until they are saved as a survey revision."
+        elif self.dd_draft_well is not None and self.dd_draft_well != well:
+            text = (f"UNSAVED DRAFT entered for well #{self.dd_draft_well}, not the selected well: it cannot be "
+                    f"saved here. Clear it to start a survey for this well.")
+        elif revision is not None and not self.dd_dirty:
+            text = (f"Survey revision {revision['revision']} loaded, unchanged ({revision['azimuth_reference']} "
+                    f"north, {revision['depth_datum']}).")
+        elif revision is not None:
+            text = (f"UNSAVED DRAFT edited from survey revision {revision['revision']}: saving creates a new "
+                    f"revision (replace); the original is never changed.")
+        else:
+            text = "UNSAVED DRAFT: used by no other page until it is saved as a survey revision."
+        label.setText(text)
+
+    def _dd_reload_revisions(self):
+        combo = getattr(self, "dd_rev_combo", None)
+        if combo is None:
+            return
+        from core import survey_revisions as sr
+
+        combo.clear()
+        well = getattr(self, "current_well_id", None)
+        if well and self.db is not None:
+            try:
+                for rev in sr.list_revisions(self.db, well):
+                    combo.addItem(f"Revision {rev['revision']}: {rev['station_count']} stations, "
+                                  f"{rev['azimuth_reference']} north, {rev['depth_datum']}, stations "
+                                  f"{rev['integrity']}", rev["id"])
+            except Exception as exc:  # a read error is shown as a state; logged, never an empty list
+                logger.warning("Survey revisions could not be read: %s", type(exc).__name__)
+                combo.clear()
+                combo.addItem("(survey revisions could not be read)", None)
+        if combo.count() == 0:
+            combo.addItem("No survey revision for the selected well", None)
+        self._dd_show_source()
+
+    def _dd_load_revision(self):
+        """Copy a verified survey revision of the selected well into the table (the revision is unchanged)."""
+        from core import survey_revisions as sr
+
+        revision_id = self.dd_rev_combo.currentData()
+        well = getattr(self, "current_well_id", None)
+        if revision_id is None or not well:
+            return False
+        revision = sr.get_revision(self.db, revision_id)
+        if revision is None or revision["well_id"] != well:
+            self.dd_source_label.setText("Not loaded: that survey revision is not available for the selected well.")
+            return False
+        try:
+            sr.verify_for_use(revision, "loading into the Multi-Survey table")
+        except sr.SurveyRevisionError as exc:
+            self.dd_source_label.setText(f"Not loaded: {exc}")
+            return False
+        self.dd_surveys = [{"md": s["md"], "inc": s["inc"], "azi": s["azi"]} for s in revision["stations"]]
+        self._dd_recalculate_from(0)
+        self._dd_refresh_table()
+        self.dd_loaded_revision = {k: revision[k] for k in ("id", "revision", "azimuth_reference", "depth_datum",
+                                                             "stations_sha256")}
+        self.dd_draft_well, self.dd_dirty = well, False
+        self.dd_azimuth_ref.setCurrentIndex(max(self.dd_azimuth_ref.findData(revision["azimuth_reference"]), 0))
+        self.dd_depth_datum.setText(revision["depth_datum"])
+        self._dd_show_source()
+        return True
+
+    def _dd_save_revision(self):
+        """Save the table as a NEW survey revision of the selected well (declared references, never assumed)."""
+        from core import survey_revisions as sr
+        from core.permissions import permissions
+        from core.selection_manager import SelectionManager
+
+        well = getattr(self, "current_well_id", None)
+
+        def refuse(reason):
+            self.dd_source_label.setText(f"Not saved: {reason}")
+            return None
+
+        if not well or self.db is None:
+            return refuse("select a well first.")
+        if self.dd_draft_well not in (None, well):
+            return refuse(f"this draft was entered for well #{self.dd_draft_well}; clear it first.")
+        if len(self.dd_surveys) < 2:
+            return refuse("enter at least two stations.")
+        loaded = self.dd_loaded_revision
+        if loaded is not None and not self.dd_dirty:
+            return refuse(f"the table is survey revision {loaded['revision']} unchanged; nothing to save.")
+        mode, parent = ("replace", loaded["id"]) if loaded is not None else ("initial", None)
+        rows = [{"md": s.get("md"), "inc": s.get("inc"), "azi": s.get("azi")} for s in self.dd_surveys]
+        try:
+            saved = sr.save_revision(
+                self.db, well, rows, mode=mode, parent_id=parent,
+                wellbore_id=SelectionManager().wellbore_for(well, db=self.db), source_unit="m",
+                azimuth_reference=self.dd_azimuth_ref.currentData() or "",
+                depth_datum=self.dd_depth_datum.text().strip(), source_type="manual",
+                source_ref="W13 Multi-Survey", user_id=getattr(permissions, "user_id", None))
+        except sr.SurveyRevisionError as exc:
+            return refuse(str(exc))
+        except PermissionError:
+            return refuse("your role may not write survey revisions.")
+        self.dd_loaded_revision = {k: saved[k] for k in ("id", "revision", "azimuth_reference", "depth_datum",
+                                                          "stations_sha256")}
+        self.dd_draft_well, self.dd_dirty = well, False
+        self._dd_reload_revisions()
+        self._wt_reload_survey_revisions()
+        panel = getattr(self, "ac_panel", None)
+        if panel is not None:
+            panel.refresh_actual_sources()
+            panel._refresh_offset_revisions()
+        self.dd_source_label.setText(f"Saved as survey revision {saved['revision']} ({mode}; "
+                                     f"{saved['azimuth_reference']} north, {saved['depth_datum']}); it is "
+                                     f"immutable and can now be used by Weight / T&D and Anti-Collision.")
+        return saved
 
     def _dd_recalculate_from(self, start_row):
         """Recompute the whole survey with canonical Minimum Curvature."""
@@ -6168,6 +6100,17 @@ class EngineeringCalculatorTab(DrillTabBase):
         if origin is not None and origin.get("well_id") not in (None, well_id):
             self._csg_reset_origin()
         self._wt_reload_survey_revisions()       # M127: a pin of another well is dropped
+        self._dd_reload_revisions()              # M129: a draft of another well cannot be saved here
+        panel = getattr(self, "ac_panel", None)
+        if panel is not None:
+            panel.set_well(well_id)
+
+    def cleanup(self):
+        """M129: wait for a running anti-collision comparison (never terminated)."""
+        panel = getattr(self, "ac_panel", None)
+        if panel is not None:
+            panel.cleanup()
+        super().cleanup()
 
     def on_selection_cleared(self):
         """M83: the selected record no longer exists; show the empty state."""

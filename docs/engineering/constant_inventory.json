@@ -3,24 +3,26 @@
   "cost per length": {
    "per foot": {
     "files": {
+     "core/bit_runs.py": 4,
      "core/calculator_contracts.py": 7,
      "core/engineering/engines/bit_performance.py": 2,
      "core/report_engine.py": 3,
-     "tabs/w12_Analysis.py": 2,
      "tabs/w13_Engineering_Calculator.py": 4
     },
-    "uses": 18
+    "uses": 20
    },
    "per metre": {
     "files": {
+     "core/bit_runs.py": 17,
      "core/operations_dashboard.py": 4,
      "core/operations_intelligence.py": 4,
      "core/report_engine.py": 4,
+     "tabs/bit_run_panel.py": 2,
      "tabs/home_tab.py": 1,
      "tabs/w12_Analysis.py": 1,
      "tabs/w16_Cost_Management.py": 1
     },
-    "uses": 15
+    "uses": 34
    }
   },
   "dog-leg severity unit": {
@@ -155,11 +157,11 @@
       "core/well_volumes.py": 1,
       "dialogs/calculator_dialog.py": 6,
       "dialogs/engineering_dialogs.py": 4,
-      "tabs/w12_Analysis.py": 3,
+      "tabs/w12_Analysis.py": 1,
       "tabs/w13_Engineering_Calculator.py": 7,
       "tabs/w3c_section_data.py": 1
      },
-     "uses": 53,
+     "uses": 51,
      "value": 3.28084
     }
    }
