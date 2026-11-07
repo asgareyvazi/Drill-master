@@ -46,6 +46,9 @@ T131 = ["tests/test_m131_parameter_trends.py"]
 T132 = ["tests/test_m132_trajectory_layers.py"]
 T133 = ["tests/test_m133_mud_engineering.py"]
 T134 = ["tests/test_m134_npt_reconciliation.py"]
+T135 = ["tests/test_m135_well_package.py"]
+WPKC = "core/well_package.py"
+WPKP = "tabs/well_package_panel.py"
 NPTC = "core/npt_reconciliation.py"
 MUDC = "core/mud_engineering.py"
 TLC = "core/trajectory_layers.py"
@@ -709,6 +712,47 @@ MUTANTS = [
            "            proc.send_signal(signal.SIGABRT)       # -X faulthandler: every thread is dumped to stderr\n",
            "            proc.kill()\n", T50,
            "a child hung outside a test is killed silently - the 7b13a1c failure with empty output"),
+    # M135 end-of-well package
+    Mutant("WPK-overwrites", WPKC, "    if os.path.exists(final_dir) or os.path.exists(partial):\n", "    if False:\n", T135,
+           "an existing folder (or a half-written one) is written into"),
+    Mutant("WPK-no-audit", WPKC,
+           "        db._add_mandatory_audit(session, AUDIT_ACTION, \"well\", scope[\"well_id\"], scope[\"well\"], details)\n",
+           "        pass\n", T135, "a package gets its final name without an audit record"),
+    Mutant("WPK-manifest-not-rechecked", WPKC,
+           "    if file_sha256(os.path.join(result.partial_dir, MANIFEST)) != result.manifest_sha256:\n",
+           "    if False:\n", T135, "a manifest changed after writing is audited as if it were the written one"),
+    Mutant("WPK-part-not-hashed", WPKC, "                part.sha256, part.bytes = file_sha256(path), os.path.getsize(path)\n",
+           "                part.bytes = os.path.getsize(path)\n", T135, "files are listed without their SHA-256"),
+    Mutant("WPK-verify-no-rehash", WPKC, "        if file_sha256(path) != part[\"sha256\"]:\n", "        if False:\n", T135,
+           "an edited file verifies"),
+    Mutant("WPK-unlisted-ignored", WPKC, "        if name not in listed:\n", "        if False:\n", T135,
+           "a file added to the package verifies"),
+    Mutant("WPK-audit-not-required", WPKC, "            problems.append(\"no matching audit record\")\n",
+           "            pass\n", T135, "a forged manifest without an audit record verifies"),
+    Mutant("WPK-typed-name-as-approval", WPKC,
+           "                         proc.status or \"\", \"none (procedures have no approval workflow in DrillMaster)\",\n",
+           "                         proc.status or \"\", proc.approved_by or \"none\",\n", T135,
+           "a typed 'Approved by' name is shown as the approval record"),
+    Mutant("WPK-foreign-wellbore", WPKC, "        if wellbore_id and (bore is None or bore.well_id != well_id):\n",
+           "        if wellbore_id and bore is None:\n", T135, "another well's wellbore is accepted as the scope"),
+    Mutant("WPK-approvals-unscoped", WPKC, "            reports = reports.filter(DailyReport.wellbore_id == request.wellbore_id)\n",
+           "            pass\n", T135, "other wellbores' reports appear in a wellbore package"),
+    Mutant("WPK-error-message-leak", WPKC,
+           "                part = Part(key, \"\", key, status=FAILED, note=f\"{type(exc).__name__} while writing this part\")\n",
+           "                part = Part(key, \"\", key, status=FAILED, note=f\"{type(exc).__name__}: {exc}\")\n", T135,
+           "an exception message (may quote report data) is written into the manifest"),
+    Mutant("WPK-cancel-leaves-partial", WPKC,
+           "            shutil.rmtree(partial, ignore_errors=True)\n", "            pass\n", T135,
+           "a cancelled or failed build leaves a half-written folder"),
+    Mutant("WPK-incomplete-hidden", WPKC,
+           "        \"status\": INCOMPLETE if any(p.status == FAILED for p in parts) else COMPLETE,\n",
+           "        \"status\": COMPLETE,\n", T135, "a package with a FAILED part is called COMPLETE"),
+    Mutant("WPK-selection-bound", WPKP,
+           "        self.jobs = ContextJobRunner(None, \"end-of-well package\", selection=_FixedScope(), parent=self)\n",
+           "        self.jobs = ContextJobRunner(None, \"end-of-well package\", parent=self)\n", T135,
+           "navigating during a build discards the finished folder (unaudited orphan)"),
+    Mutant("WPK-pdf-always-skipped", WPKC, "    if fmt == \"pdf\" and not request.include_pdf:\n",
+           "    if fmt == \"pdf\":\n", T135, "the requested PDF is silently not written"),
     # D51 / D46 (M134): hang diagnostics of the release gate and the child summary
     Mutant("D51-quoted-child-dump-is-a-hang", "verify_release.py",
            "        if _PROGRESS_MARKS.fullmatch(text[line_start:match.start()]):\n",

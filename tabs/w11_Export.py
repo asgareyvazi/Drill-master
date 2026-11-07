@@ -50,6 +50,7 @@ class ExportWidget(DrillTabBase):
         self.tab_widget.addTab(self._create_cost_tab(), "💰 Cost Report")
         self.tab_widget.addTab(self._create_plan_tab(), "📋 Drilling Plan")
         self.tab_widget.addTab(self._create_batch_tab(), "📦 Batch Export")
+        self.tab_widget.addTab(self._create_package_tab(), "🗂️ End-of-well package")   # M135
 
         # M93: every report carries scope, sources, revisions, methods and the UNSIGNED label;
         # the document text direction is chosen here for all report kinds.
@@ -709,6 +710,9 @@ class ExportWidget(DrillTabBase):
     def cleanup(self):
         """Shutdown: cancel, then wait for the file being written to finish."""
         worker = self._export_worker
+        panel = getattr(self, "package_panel", None)
+        if panel is not None:
+            panel.shutdown()                    # M135: bounded; a running build is left to finish, never killed
         if worker is None:
             return
         worker.cancel()
@@ -716,16 +720,37 @@ class ExportWidget(DrillTabBase):
             logger.warning("Export still writing a file at shutdown; waiting for it to finish")
             worker.wait()
 
+    # ==================== M135 End-of-well package ====================
+    def _create_package_tab(self):
+        from tabs.well_package_panel import WellPackagePanel
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        header, self.package_well = self._well_header("🗂️ End-of-well package", "#6c3483")
+        layout.addWidget(header)
+        self.package_panel = WellPackagePanel(self.db, parent=tab)
+        layout.addWidget(self.package_panel)
+        self.package_well.currentIndexChanged.connect(self._sync_package_panel)
+        self._sync_package_panel()
+        return tab
+
+    def _sync_package_panel(self, *_args):
+        panel = getattr(self, "package_panel", None)
+        if panel is None:
+            return
+        text = self.package_well.currentText()
+        panel.set_well(self.package_well.currentData(), text.rsplit(" (", 1)[0] if text else "")
+
     # ==================== DrillTabBase ====================
     def on_well_changed(self, well_id, well_data):
         self._current_well_id = well_id
         # Sync all combos
         for combo in [self.ddr_well, self.eowr_well, self.npt_well,
-                       self.cost_well, self.plan_well, self.batch_well]:
+                       self.cost_well, self.plan_well, self.batch_well, self.package_well]:
             combo.blockSignals(True)
             index = next((i for i in range(combo.count()) if combo.itemData(i) == well_id), -1)
             combo.setCurrentIndex(index)       # M102: never stay on the previous well
             combo.blockSignals(False)
+        self._sync_package_panel()
         # Load DDR reports
         self._load_ddr_reports()
 
@@ -743,7 +768,8 @@ class ExportWidget(DrillTabBase):
         """M83: the selected well no longer exists; no export picker keeps it."""
         self._current_well_id = None
         self.reset_context_view(pickers=(self.ddr_well, self.eowr_well, self.npt_well, self.cost_well,
-                                         self.plan_well, self.batch_well))
+                                         self.plan_well, self.batch_well, self.package_well))
+        self._sync_package_panel()
         self._load_ddr_reports()                # M102: empties the report list and the preview
 
     def set_current_well(self, well_id, well_data=None):
@@ -753,7 +779,7 @@ class ExportWidget(DrillTabBase):
         # ✅ Sync تمام well combo ها
         combos = [
             self.ddr_well, self.eowr_well, self.npt_well,
-            self.cost_well, self.plan_well, self.batch_well
+            self.cost_well, self.plan_well, self.batch_well, self.package_well
         ]
         for combo in combos:
             combo.blockSignals(True)
@@ -775,6 +801,7 @@ class ExportWidget(DrillTabBase):
                         break
 
             combo.blockSignals(False)
+        self._sync_package_panel()
 
         # Load DDR reports
         self._load_ddr_reports()
@@ -784,5 +811,5 @@ class ExportWidget(DrillTabBase):
 
     def refresh(self):
         for combo in [self.ddr_well, self.eowr_well, self.npt_well,
-                       self.cost_well, self.plan_well, self.batch_well]:
+                       self.cost_well, self.plan_well, self.batch_well, self.package_well]:
             self._load_wells_into(combo)

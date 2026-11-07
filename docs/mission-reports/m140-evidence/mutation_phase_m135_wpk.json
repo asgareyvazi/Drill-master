@@ -1,0 +1,213 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m135_well_package.py"
+    ],
+    "exit": 0,
+    "summary": "13 passed in 14.32s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "WPK-overwrites",
+      "path": "core/well_package.py",
+      "note": "an existing folder (or a half-written one) is written into",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 5.81s"
+    },
+    {
+      "id": "WPK-no-audit",
+      "path": "core/well_package.py",
+      "note": "a package gets its final name without an audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.51s"
+    },
+    {
+      "id": "WPK-manifest-not-rechecked",
+      "path": "core/well_package.py",
+      "note": "a manifest changed after writing is audited as if it were the written one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.95s"
+    },
+    {
+      "id": "WPK-part-not-hashed",
+      "path": "core/well_package.py",
+      "note": "files are listed without their SHA-256",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.53s"
+    },
+    {
+      "id": "WPK-verify-no-rehash",
+      "path": "core/well_package.py",
+      "note": "an edited file verifies",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.57s"
+    },
+    {
+      "id": "WPK-unlisted-ignored",
+      "path": "core/well_package.py",
+      "note": "a file added to the package verifies",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 7.79s"
+    },
+    {
+      "id": "WPK-audit-not-required",
+      "path": "core/well_package.py",
+      "note": "a forged manifest without an audit record verifies",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.73s"
+    },
+    {
+      "id": "WPK-typed-name-as-approval",
+      "path": "core/well_package.py",
+      "note": "a typed 'Approved by' name is shown as the approval record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.89s"
+    },
+    {
+      "id": "WPK-foreign-wellbore",
+      "path": "core/well_package.py",
+      "note": "another well's wellbore is accepted as the scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.50s"
+    },
+    {
+      "id": "WPK-approvals-unscoped",
+      "path": "core/well_package.py",
+      "note": "other wellbores' reports appear in a wellbore package",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.48s"
+    },
+    {
+      "id": "WPK-error-message-leak",
+      "path": "core/well_package.py",
+      "note": "an exception message (may quote report data) is written into the manifest",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.77s"
+    },
+    {
+      "id": "WPK-cancel-leaves-partial",
+      "path": "core/well_package.py",
+      "note": "a cancelled or failed build leaves a half-written folder",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.54s"
+    },
+    {
+      "id": "WPK-incomplete-hidden",
+      "path": "core/well_package.py",
+      "note": "a package with a FAILED part is called COMPLETE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.36s"
+    },
+    {
+      "id": "WPK-selection-bound",
+      "path": "tabs/well_package_panel.py",
+      "note": "navigating during a build discards the finished folder (unaudited orphan)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 14.26s"
+    },
+    {
+      "id": "WPK-pdf-always-skipped",
+      "path": "core/well_package.py",
+      "note": "the requested PDF is silently not written",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 10.65s"
+    }
+  ],
+  "killed": [
+    "WPK-overwrites",
+    "WPK-no-audit",
+    "WPK-manifest-not-rechecked",
+    "WPK-part-not-hashed",
+    "WPK-verify-no-rehash",
+    "WPK-unlisted-ignored",
+    "WPK-audit-not-required",
+    "WPK-typed-name-as-approval",
+    "WPK-foreign-wellbore",
+    "WPK-approvals-unscoped",
+    "WPK-error-message-leak",
+    "WPK-cancel-leaves-partial",
+    "WPK-incomplete-hidden",
+    "WPK-selection-bound",
+    "WPK-pdf-always-skipped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
