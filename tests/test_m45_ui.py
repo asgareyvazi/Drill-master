@@ -382,3 +382,33 @@ def test_report_page_lists_its_documents_and_follows_link_changes(window):
         "syn_fa_arabic.txt", "syn_unrelated.txt"]
     win.daily_report_tab.new_report()
     assert panel.table.rowCount() == 0
+
+
+def test_m136_lock_session_and_security_status_are_real_main_window_actions(window, monkeypatch):
+    """File › Lock Session covers the real window until the admin password; Tools › Security Status reports."""
+    win, _db, _ids = window
+    assert win.lock_session_action.shortcut().toString() == "Ctrl+Shift+L"
+    win.lock_session_action.trigger()
+    _pump(0.1)
+    lock = win.session_lock
+    try:
+        assert lock.locked and lock.overlay.isVisible() and lock.overlay.geometry() == win.rect()
+        lock.dialog.password.setText("not the password")
+        lock.dialog.unlock_btn.click()
+        assert lock.locked
+    finally:
+        lock.dialog.password.setText("Synthetic-Admin-1!")
+        lock.dialog.unlock_btn.click()
+        _pump(0.1)
+    assert not lock.locked and not lock.overlay.isVisible()
+
+    from dialogs.security_status_dialog import SecurityStatusDialog
+    shown = []
+    monkeypatch.setattr(SecurityStatusDialog, "exec", lambda self: shown.append(self.rows) or 0)
+    actions = [a for menu in win.menuBar().actions() if menu.menu() for a in menu.menu().actions()]
+    import shiboken6
+    (status_action,) = [a for a in actions if shiboken6.isValid(a) and "Security Status" in a.text()]
+    status_action.trigger()
+    rows = {area: (status, detail) for area, status, detail in shown[0]}
+    assert rows["Authorization in the data layer"] == ("PROVIDED", "every write is checked for 'admin'")
+    assert rows["Encryption at rest"][0] == "NOT PROVIDED"

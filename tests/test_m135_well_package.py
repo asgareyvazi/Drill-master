@@ -118,6 +118,8 @@ def test_a_whole_well_package_has_every_part_hashed_and_is_audited_before_it_is_
 
     final = wp.finalize_package(env["manager"], result)
     assert final == result.final_dir and os.path.isdir(final) and not os.path.exists(result.partial_dir)
+    if os.name == "posix":                                   # M136: the package folder is owner-only
+        assert os.stat(final).st_mode & 0o077 == 0
     (details,), = _audits(env)
     assert json.loads(details)["manifest_sha256"] == result.manifest_sha256
 

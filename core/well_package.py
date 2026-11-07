@@ -327,7 +327,7 @@ def build_package(db, request: PackageRequest, cancel_event=None) -> PackageResu
     if request.direction not in report_provenance.DIRECTIONS:
         raise PackageError(f"unknown text direction {request.direction!r}")
     scope = _scope(db, request.well_id, request.wellbore_id)
-    os.makedirs(partial)
+    os.makedirs(partial, mode=0o700)       # M136: owner-only folder on POSIX (ignored on Windows)
     parts: List[Part] = []
     written = False
     try:

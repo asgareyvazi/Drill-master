@@ -1,0 +1,359 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m135_well_package.py",
+      "tests/test_m136_security_hardening.py",
+      "tests/test_m45_ui.py"
+    ],
+    "exit": 0,
+    "summary": "51 passed, 14 warnings in 44.89s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "SEC-audit-update-allowed",
+      "path": "core/storage_guards.py",
+      "note": "an audit record can be rewritten by raw SQL or a system-scope session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.38s"
+    },
+    {
+      "id": "SEC-audit-delete-allowed",
+      "path": "core/storage_guards.py",
+      "note": "an audit record can be deleted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.45s"
+    },
+    {
+      "id": "SEC-audit-guards-not-installed",
+      "path": "core/storage_guards.py",
+      "note": "no database gets the audit guards",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.19s"
+    },
+    {
+      "id": "SEC-db-not-protected",
+      "path": "core/database.py",
+      "note": "the live database stays readable by group/others",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 6.28s"
+    },
+    {
+      "id": "SEC-other-owner-changed",
+      "path": "core/file_protection.py",
+      "note": "another user's (shared) database has its permissions changed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.28s"
+    },
+    {
+      "id": "SEC-windows-described-as-posix",
+      "path": "core/file_protection.py",
+      "note": "Windows files are described by POSIX bits that do not govern access there",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.43s"
+    },
+    {
+      "id": "SEC-chmod-failure-fatal",
+      "path": "core/file_protection.py",
+      "note": "a file system refusing chmod stops the database from opening",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.65s"
+    },
+    {
+      "id": "SEC-package-folder-default-mode",
+      "path": "core/well_package.py",
+      "note": "an end-of-well package folder is readable by group/others",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.11s"
+    },
+    {
+      "id": "SEC-empty-password-unlocks",
+      "path": "core/session_lock.py",
+      "note": "an empty password unlocks the session",
+      "equivalent": "object() has no id, so the same-account check (account_id != self.user_id) still refuses; without the guard authenticate_user returns None for an empty password before counting a failure - an empty password is refused by three independent layers (killed variants below)",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "23 passed in 17.54s"
+    },
+    {
+      "id": "SEC-wrong-password-unlocks",
+      "path": "core/session_lock.py",
+      "note": "a wrong password unlocks the session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 7.23s"
+    },
+    {
+      "id": "SEC-unlock-ignores-account-id",
+      "path": "core/session_lock.py",
+      "note": "a recreated account with the signed-in user's name unlocks the old session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 9.23s"
+    },
+    {
+      "id": "SEC-unlock-not-audited",
+      "path": "core/session_lock.py",
+      "note": "an unlock leaves no audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 7.67s"
+    },
+    {
+      "id": "SEC-lock-not-idempotent",
+      "path": "core/session_lock.py",
+      "note": "locking twice writes two audit records and resets the failure count",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 7.02s"
+    },
+    {
+      "id": "SEC-idle-default-on",
+      "path": "core/session_lock.py",
+      "note": "the build chooses an idle limit that is an owner policy",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 6.33s"
+    },
+    {
+      "id": "SEC-idle-range-unbounded",
+      "path": "core/session_lock.py",
+      "note": "a limit beyond a day is accepted as an idle lock",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 5.98s"
+    },
+    {
+      "id": "SEC-overlay-not-shown",
+      "path": "tabs/session_lock_ui.py",
+      "note": "the work stays readable behind the unlock dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 12.07s"
+    },
+    {
+      "id": "SEC-dialog-only-window-modal",
+      "path": "tabs/session_lock_ui.py",
+      "note": "QDialog.open() makes the unlock dialog window-modal: other windows stay usable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 12.01s"
+    },
+    {
+      "id": "SEC-other-windows-stay-visible",
+      "path": "tabs/session_lock_ui.py",
+      "note": "a floating panel or tool window stays readable while the session is locked",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 12.11s"
+    },
+    {
+      "id": "SEC-escape-unlocks",
+      "path": "tabs/session_lock_ui.py",
+      "note": "Escape closes the unlock dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 12.08s"
+    },
+    {
+      "id": "SEC-refused-exit-strands",
+      "path": "tabs/session_lock_ui.py",
+      "note": "a refused exit leaves a locked window without an unlock dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 14.39s"
+    },
+    {
+      "id": "SEC-input-does-not-restart",
+      "path": "tabs/session_lock_ui.py",
+      "note": "the idle lock fires while the user is working",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 14.98s"
+    },
+    {
+      "id": "SEC-watcher-runs-while-locked",
+      "path": "tabs/session_lock_ui.py",
+      "note": "input on the locked window restarts the idle timer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 15.26s"
+    },
+    {
+      "id": "SEC-password-kept-in-field",
+      "path": "tabs/session_lock_ui.py",
+      "note": "a typed password stays in the dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 12.40s"
+    },
+    {
+      "id": "SEC-status-claims-missing-guards",
+      "path": "core/security_posture.py",
+      "note": "the security status claims guards that are not installed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 17.46s"
+    },
+    {
+      "id": "SEC-status-drops-limits",
+      "path": "core/security_posture.py",
+      "note": "the security status omits what this build does not provide",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 16.66s"
+    },
+    {
+      "id": "SEC-lock-action-not-wired",
+      "path": "main_window.py",
+      "note": "File > Lock Session does nothing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m45_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed, 14 warnings in 11.64s"
+    }
+  ],
+  "killed": [
+    "SEC-audit-update-allowed",
+    "SEC-audit-delete-allowed",
+    "SEC-audit-guards-not-installed",
+    "SEC-db-not-protected",
+    "SEC-other-owner-changed",
+    "SEC-windows-described-as-posix",
+    "SEC-chmod-failure-fatal",
+    "SEC-package-folder-default-mode",
+    "SEC-wrong-password-unlocks",
+    "SEC-unlock-ignores-account-id",
+    "SEC-unlock-not-audited",
+    "SEC-lock-not-idempotent",
+    "SEC-idle-default-on",
+    "SEC-idle-range-unbounded",
+    "SEC-overlay-not-shown",
+    "SEC-dialog-only-window-modal",
+    "SEC-other-windows-stay-visible",
+    "SEC-escape-unlocks",
+    "SEC-refused-exit-strands",
+    "SEC-input-does-not-restart",
+    "SEC-watcher-runs-while-locked",
+    "SEC-password-kept-in-field",
+    "SEC-status-claims-missing-guards",
+    "SEC-status-drops-limits",
+    "SEC-lock-action-not-wired"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [
+    "SEC-empty-password-unlocks"
+  ],
+  "invalid": []
+}

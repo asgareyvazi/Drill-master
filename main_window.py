@@ -179,6 +179,9 @@ class MainWindow(QMainWindow):
 
         self._loading_dialog = None
         self._maintenance_worker = None  # manual backup or restore in progress
+        # M136: session lock (manual, and after DRILLMASTER_SESSION_IDLE_MINUTES of no input when set).
+        from tabs.session_lock_ui import SessionLockController
+        self.session_lock = SessionLockController(self, self.db_manager, self.user)
 
 
         self._hierarchy_worker = None
@@ -511,6 +514,19 @@ class MainWindow(QMainWindow):
 
     # ==================== اضافه کردن به closeEvent ====================
 
+    def lock_session(self):
+        """File › Lock Session (M136)."""
+        if getattr(self, "session_lock", None) is None:
+            from tabs.session_lock_ui import SessionLockController
+            self.session_lock = SessionLockController(self, self.db_manager, self.user)
+        self.session_lock.lock("manual")
+
+    def show_security_status(self):
+        """Tools › Security Status (M136): what this session protects, and what it does not."""
+        from dialogs.security_status_dialog import SecurityStatusDialog
+        dialog = SecurityStatusDialog(self.db_manager, self)
+        dialog.exec()
+
     def closeEvent(self, event):
         if self._maintenance_worker is not None:
             QMessageBox.information(self, "Database Maintenance",
@@ -544,6 +560,8 @@ class MainWindow(QMainWindow):
             return
 
         self._stop_backup_scheduler()
+        if getattr(self, "session_lock", None) is not None:
+            self.session_lock.shutdown()        # removes the application-wide idle filter
         if hasattr(self, 'time_timer') and self.time_timer.isActive():
             self.time_timer.stop()
 
@@ -680,6 +698,11 @@ class MainWindow(QMainWindow):
             file_menu.addAction(act)
 
         file_menu.addSeparator()
+        # M136: hide the work until the same user re-enters the password (core.session_lock).
+        self.lock_session_action = QAction("🔒 Lock Session", self)
+        self.lock_session_action.setShortcut("Ctrl+Shift+L")
+        self.lock_session_action.triggered.connect(self.lock_session)
+        file_menu.addAction(self.lock_session_action)
         exit_act = QAction("🚪 Exit", self)
         exit_act.setShortcut("Ctrl+Q")
         exit_act.triggered.connect(self.close)
@@ -727,6 +750,7 @@ class MainWindow(QMainWindow):
             ("🧮 Calculator", self.open_calculator),
             ("📊 Import from Excel", self.open_excel_import),
             ("⚙️ Settings", self.show_settings),
+            ("🛡️ Security Status", self.show_security_status),
         ]:
             act = QAction(text, self)
             act.triggered.connect(slot)

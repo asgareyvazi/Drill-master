@@ -49,6 +49,12 @@ T134 = ["tests/test_m134_npt_reconciliation.py"]
 T135 = ["tests/test_m135_well_package.py"]
 WPKC = "core/well_package.py"
 WPKP = "tabs/well_package_panel.py"
+T136 = ["tests/test_m136_security_hardening.py"]
+SECG = "core/storage_guards.py"
+SECF = "core/file_protection.py"
+SECL = "core/session_lock.py"
+SECU = "tabs/session_lock_ui.py"
+SECP = "core/security_posture.py"
 NPTC = "core/npt_reconciliation.py"
 MUDC = "core/mud_engineering.py"
 TLC = "core/trajectory_layers.py"
@@ -753,6 +759,79 @@ MUTANTS = [
            "navigating during a build discards the finished folder (unaudited orphan)"),
     Mutant("WPK-pdf-always-skipped", WPKC, "    if fmt == \"pdf\" and not request.include_pdf:\n",
            "    if fmt == \"pdf\":\n", T135, "the requested PDF is silently not written"),
+    # M136 security hardening
+    Mutant("SEC-audit-update-allowed", SECG,
+           '            f"CREATE TRIGGER trg_audit_log_append_only_v{AUDIT_GUARD_VERSION} BEFORE UPDATE ON audit_logs "\n',
+           '            f"CREATE TRIGGER trg_audit_log_append_only_v{AUDIT_GUARD_VERSION} BEFORE UPDATE ON audit_logs WHEN 0 "\n',
+           T136, "an audit record can be rewritten by raw SQL or a system-scope session"),
+    Mutant("SEC-audit-delete-allowed", SECG, '    "trg_audit_log": ("audit_logs", (), "0"),\n',
+           '    "trg_audit_log": ("audit_logs", (), "1"),\n', T136, "an audit record can be deleted"),
+    Mutant("SEC-audit-guards-not-installed", SECG, '             "trg_audit_log": "audit_logs"}\n',
+           '             "trg_audit_log": "audit_logs_absent"}\n', T136, "no database gets the audit guards"),
+    Mutant("SEC-db-not-protected", "core/database.py",
+           "                self.file_protection = file_protection.protect_database_files(str(Path(self.db_path).expanduser()))\n",
+           "                self.file_protection = {}\n", T136, "the live database stays readable by group/others"),
+    Mutant("SEC-other-owner-changed", SECF, "    if info.st_uid != os.getuid():\n", "    if False:\n", T136,
+           "another user's (shared) database has its permissions changed"),
+    Mutant("SEC-windows-described-as-posix", SECF,
+           "    if not is_posix():\n        return WINDOWS_NOTE\n    mode = stat", "    mode = stat", T136,
+           "Windows files are described by POSIX bits that do not govern access there"),
+    Mutant("SEC-chmod-failure-fatal", SECF, "        except OSError as exc:", "        except FileNotFoundError as exc:",
+           T136, "a file system refusing chmod stops the database from opening"),
+    Mutant("SEC-package-folder-default-mode", "core/well_package.py", "    os.makedirs(partial, mode=0o700)",
+           "    os.makedirs(partial)", T135, "an end-of-well package folder is readable by group/others"),
+    Mutant("SEC-empty-password-unlocks", SECL,
+           "        account = self.db.authenticate_user(self.username, password) if password else None\n",
+           "        account = self.db.authenticate_user(self.username, password) if password else object()\n", T136,
+           "an empty password unlocks the session",
+           equivalent="object() has no id, so the same-account check (account_id != self.user_id) still refuses; "
+                      "without the guard authenticate_user returns None for an empty password before counting a "
+                      "failure - an empty password is refused by three independent layers (killed variants below)"),
+    Mutant("SEC-wrong-password-unlocks", SECL,
+           "        if account is None or (self.user_id is not None and account_id != self.user_id):\n",
+           "        if False:\n", T136, "a wrong password unlocks the session"),
+    Mutant("SEC-unlock-ignores-account-id", SECL,
+           "account is None or (self.user_id is not None and account_id != self.user_id)", "account is None", T136,
+           "a recreated account with the signed-in user's name unlocks the old session"),
+    Mutant("SEC-unlock-not-audited", SECL,
+           '        self._audit("session_unlocked", f"{LOCK_VERSION}: after {self.failures} failed attempt(s)")\n',
+           "        pass\n", T136, "an unlock leaves no audit record"),
+    Mutant("SEC-lock-not-idempotent", SECL, "        if self.locked:\n            return False\n", "", T136,
+           "locking twice writes two audit records and resets the failure count"),
+    Mutant("SEC-idle-default-on", SECL, '        return 0, f"idle lock off ({IDLE_ENV} not set',
+           '        return 15, f"idle lock off ({IDLE_ENV} not set', T136,
+           "the build chooses an idle limit that is an owner policy"),
+    Mutant("SEC-idle-range-unbounded", SECL, "not 1 <= int(raw) <= IDLE_MAX_MINUTES", "not 0 <= int(raw)", T136,
+           "a limit beyond a day is accepted as an idle lock"),
+    Mutant("SEC-overlay-not-shown", SECU, "        self.overlay.cover()\n", "        pass\n", T136,
+           "the work stays readable behind the unlock dialog"),
+    Mutant("SEC-dialog-only-window-modal", SECU, "        self._hide_other_windows()\n        self.dialog.show()\n",
+           "        self._hide_other_windows()\n        self.dialog.open()\n", T136,
+           "QDialog.open() makes the unlock dialog window-modal: other windows stay usable"),
+    Mutant("SEC-other-windows-stay-visible", SECU, "            window.hide()\n", "            pass\n", T136,
+           "a floating panel or tool window stays readable while the session is locked"),
+    Mutant("SEC-escape-unlocks", SECU,
+           '        self.message.setText("The session stays locked until the password is entered.")\n',
+           "        super().reject()\n", T136, "Escape closes the unlock dialog"),
+    Mutant("SEC-refused-exit-strands", SECU,
+           "        if not self.parent().close() and self.state.locked and self.dialog is not None:\n"
+           "            self.dialog.show()\n", "        self.parent().close()\n", T136,
+           "a refused exit leaves a locked window without an unlock dialog"),
+    Mutant("SEC-input-does-not-restart", SECU,
+           "            self.timer.start()                  # restart: input resets the idle time\n",
+           "            pass\n", T136, "the idle lock fires while the user is working"),
+    Mutant("SEC-watcher-runs-while-locked", SECU, "        if not self.paused and event.type() in INPUT_EVENTS:",
+           "        if event.type() in INPUT_EVENTS:", T136, "input on the locked window restarts the idle timer"),
+    Mutant("SEC-password-kept-in-field", SECU,
+           "        self.password.clear()                   # the typed password does not stay in the widget\n",
+           "        pass\n", T136, "a typed password stays in the dialog"),
+    Mutant("SEC-status-claims-missing-guards", SECP, "PROVIDED if len(guards) >= 3 else PARTIAL", "PROVIDED", T136,
+           "the security status claims guards that are not installed"),
+    Mutant("SEC-status-drops-limits", SECP, "    rows.extend(NON_CLAIMS)\n", "    pass\n", T136,
+           "the security status omits what this build does not provide"),
+    Mutant("SEC-lock-action-not-wired", "main_window.py",
+           "        self.lock_session_action.triggered.connect(self.lock_session)\n", "", ["tests/test_m45_ui.py"],
+           "File > Lock Session does nothing"),
     # D51 / D46 (M134): hang diagnostics of the release gate and the child summary
     Mutant("D51-quoted-child-dump-is-a-hang", "verify_release.py",
            "        if _PROGRESS_MARKS.fullmatch(text[line_start:match.start()]):\n",

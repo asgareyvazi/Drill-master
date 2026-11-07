@@ -25,6 +25,11 @@ M96 closed two paths that bypassed the UPDATE guards (found by the persistence a
   parent row is removed (none of these tables has an ORM cascade).  Well-less (global) calculation cases can
   therefore never be deleted.
 
+M136 made ``audit_logs`` append-only for every writer (the ORM policy already refused UPDATE/DELETE in enforced
+sessions only): ``BEFORE UPDATE`` and ``BEFORE DELETE`` always abort, and ``INSERT OR REPLACE`` on an existing id
+is rejected. No application path updates or deletes an audit record. Limit: anyone who can write the database
+file can drop the triggers — tamper evidence against file access needs an external key (owner gate).
+
 Trigger names carry a version suffix; changing a rule means a new name (old
 databases get the new trigger on their next start, and the old one is dropped).
 Installed on every start inside the atomic schema migration
@@ -38,6 +43,7 @@ GUARD_VERSION = 1
 #: results could be rewritten together with tampered results. Version 2 freezes it; older databases get the v2
 #: trigger on their next start and the v1 trigger is dropped (``install``).
 SURVEY_GUARD_VERSION = 2
+AUDIT_GUARD_VERSION = 1
 PLAN_STATUS_TRANSITIONS = {
     "draft": ("draft", "approved", "archived"),
     "approved": ("approved", "archived"),
@@ -158,6 +164,9 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_npt_event_decision_immutable_v{v} BEFORE UPDATE ON npt_event_decisions "
             f"WHEN {_frozen(_NPT_DECISION_FROZEN)} BEGIN SELECT RAISE(ABORT, "
             "'npt_event_decisions: an audited decision is immutable'); END"),
+        f"trg_audit_log_append_only_v{AUDIT_GUARD_VERSION}": (
+            f"CREATE TRIGGER trg_audit_log_append_only_v{AUDIT_GUARD_VERSION} BEFORE UPDATE ON audit_logs "
+            "BEGIN SELECT RAISE(ABORT, 'audit_logs: an audit record is append-only'); END"),
     }
     guards.update(_insert_and_delete_guards())
     return guards
@@ -183,6 +192,8 @@ _OWNED = {
                                "NOT EXISTS (SELECT 1 FROM mse_calculations WHERE id = OLD.mse_calculation_id) OR "
                                "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
     "trg_npt_event_decision": ("npt_event_decisions", (), "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    # M136: an audit record has no owner whose deletion may take it along - never deleted ("0" = never).
+    "trg_audit_log": ("audit_logs", (), "0"),
 }
 INSERT_GUARD_VERSION = 1
 DELETE_GUARD_VERSION = 1
@@ -213,7 +224,8 @@ def _insert_and_delete_guards() -> dict[str, str]:
 _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation_case": "calculation_cases",
              "trg_calculation_source_link": "calculation_source_links", "trg_survey_revision": "survey_revisions",
              "trg_well_architecture": "well_architecture_revisions",
-             "trg_mse_lineage_repair": "mse_lineage_repairs", "trg_npt_event_decision": "npt_event_decisions"}
+             "trg_mse_lineage_repair": "mse_lineage_repairs", "trg_npt_event_decision": "npt_event_decisions",
+             "trg_audit_log": "audit_logs"}
 
 
 def install(raw) -> list[str]:

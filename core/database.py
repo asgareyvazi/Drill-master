@@ -3003,6 +3003,10 @@ class DatabaseManager:
             self._reject_future_schema()
             self._apply_safe_schema_upgrades()
             self._verify_import_schema()
+            if self.db_path != ":memory:":
+                # M136: owner-only (0600) on POSIX; reported, never fatal (core.file_protection).
+                from core import file_protection
+                self.file_protection = file_protection.protect_database_files(str(Path(self.db_path).expanduser()))
             from core.authorization import system_scope
             with system_scope():
                 self.create_default_data()

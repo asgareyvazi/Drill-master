@@ -1673,6 +1673,15 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/security_status_dialog.py",
+   "guarded": false,
+   "lines": [
+    4,
+    5
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/settings_dialog.py",
    "guarded": false,
    "lines": [
@@ -1735,7 +1744,7 @@
     23,
     24,
     25,
-    2755
+    2779
    ],
    "module": "PySide6"
   },
@@ -1879,6 +1888,15 @@
    "lines": [
     13,
     14
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/session_lock_ui.py",
+   "guarded": false,
+   "lines": [
+    18,
+    19
    ],
    "module": "PySide6"
   },
@@ -2597,8 +2615,8 @@
    "file": "main_window.py",
    "guarded": true,
    "lines": [
-    854,
-    865
+    878,
+    889
    ],
    "module": "qtribbon"
   },
@@ -2674,18 +2692,18 @@
     44,
     628,
     671,
-    3049,
-    3050,
-    3785,
-    4298,
-    4912,
-    3630,
-    3091,
-    5502,
-    7750,
-    6115,
-    6162,
-    6344
+    3053,
+    3054,
+    3789,
+    4302,
+    4916,
+    3634,
+    3095,
+    5506,
+    7754,
+    6119,
+    6166,
+    6348
    ],
    "module": "sqlalchemy"
   },
@@ -2793,6 +2811,14 @@
    "guarded": false,
    "lines": [
     35
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/security_posture.py",
+   "guarded": false,
+   "lines": [
+    33
    ],
    "module": "sqlalchemy"
   },
