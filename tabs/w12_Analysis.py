@@ -914,6 +914,9 @@ class AnalysisWidget(DrillTabBase):
         from tabs.parameter_trend_panel import ParameterTrendPanel     # M131
         self.trend_panel = ParameterTrendPanel(self.db)
         self.analysis_tabs.addTab(self.trend_panel, "📉 Parameter trends")
+        from tabs.mud_engineering_panel import MudEvaluationPanel     # M133: mud reports, classes, History
+        self.mud_panel = MudEvaluationPanel(self.db, owner=self)
+        self.analysis_tabs.addTab(self.mud_panel, "🧪 Mud evaluation")
         self.analysis_tabs.addTab(self.daily_tab, "📅 Daily Monitor")
         self.analysis_tabs.addTab(self.analytics_tab, "📊 Advanced Analytics")
         self.analysis_tabs.addTab(self.evidence_tab, "🔎 Evidence")
@@ -1509,7 +1512,12 @@ class AnalysisWidget(DrillTabBase):
         """)
         table_layout.addWidget(self.npt_table)
         main_layout.addWidget(table_widget)
-        
+
+        # ===== M134: register vs DDR time-log NPT, each event counted once; UNCERTAIN decided with evidence =====
+        from tabs.npt_reconciliation_panel import NptReconciliationPanel
+        self.npt_reconciliation_panel = NptReconciliationPanel(self.db, owner=self)
+        main_layout.addWidget(self.npt_reconciliation_panel)
+
         main_layout.addStretch()
         scroll.setWidget(content)
         return scroll
@@ -3446,9 +3454,9 @@ class AnalysisWidget(DrillTabBase):
         self._sync_bit_runs()
 
     def _sync_bit_runs(self):
-        """M130/M131: the bit run workbench and the parameter trends follow the selected well and the
-        explicitly selected wellbore."""
-        for name in ("bit_runs_panel", "trend_panel"):
+        """M130/M131/M133: the bit run workbench, the parameter trends and the mud evaluation follow the
+        selected well and the explicitly selected wellbore."""
+        for name in ("bit_runs_panel", "trend_panel", "mud_panel", "npt_reconciliation_panel"):
             if hasattr(self, name):
                 getattr(self, name).set_scope(self.current_well_id, self.current_wellbore_id)
 
@@ -3770,7 +3778,8 @@ class AnalysisWidget(DrillTabBase):
         self._cancel_revision(wait_ms=5000)
         if hasattr(self, "operational_panel"):          # M103: cancel and join its background job (bounded)
             self.operational_panel.shutdown(5000)
-        for name in ("bit_runs_panel", "trend_panel"):        # M130/M131 background reads (M103 runner)
+        # M130/M131/M133/M134 panels: background reads through the M103 runner
+        for name in ("bit_runs_panel", "trend_panel", "mud_panel", "npt_reconciliation_panel"):
             if hasattr(self, name):
                 getattr(self, name).shutdown(5000)
         for view in (getattr(self, "_npt_pie_view", None), getattr(self, "_milestones_view", None)):

@@ -1,0 +1,58 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_summary_counts_threads_without_a_python_frame",
+      "tests/test_release_gate_annotations.py"
+    ],
+    "exit": 0,
+    "summary": "13 passed in 6.50s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "D51-quoted-child-dump-is-a-hang",
+      "path": "verify_release.py",
+      "note": "a child's dump quoted in a failure message is annotated as a hang of the whole run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.08s"
+    },
+    {
+      "id": "D51-no-thread-annotation",
+      "path": "verify_release.py",
+      "note": "a hang names only the test's own thread; the lock or GIL holder stays invisible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 5.42s"
+    },
+    {
+      "id": "D46-native-threads-dropped",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "threads in native code only vanish from the child failure summary",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_summary_counts_threads_without_a_python_frame"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.82s"
+    }
+  ],
+  "killed": [
+    "D51-quoted-child-dump-is-a-hang",
+    "D51-no-thread-annotation",
+    "D46-native-threads-dropped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

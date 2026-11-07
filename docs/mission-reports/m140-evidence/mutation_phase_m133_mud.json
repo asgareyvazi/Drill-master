@@ -1,0 +1,200 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m133_mud_engineering.py"
+    ],
+    "exit": 0,
+    "summary": "15 passed in 15.70s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "MUD-assumed-as-derived",
+      "path": "core/mud_engineering.py",
+      "note": "a result computed from an assumed reading is shown as plain DERIVED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.83s"
+    },
+    {
+      "id": "MUD-lab-without-reference",
+      "path": "core/mud_engineering.py",
+      "note": "a typed reading is accepted as LAB with no lab reference behind it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.57s"
+    },
+    {
+      "id": "MUD-unknown-mw-as-zero",
+      "path": "core/mud_engineering.py",
+      "note": "an unrecorded mud weight becomes 0 ppg",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.71s"
+    },
+    {
+      "id": "MUD-mw-7.48",
+      "path": "core/mud_engineering.py",
+      "note": "the 7.48 shortcut replaces the central 7.48052 conversion (owner gate)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.87s"
+    },
+    {
+      "id": "MUD-implied-t600",
+      "path": "core/mud_engineering.py",
+      "note": "the dial values implied by PV / YP use the wrong identity",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.87s"
+    },
+    {
+      "id": "MUD-lsryp-formula",
+      "path": "core/mud_engineering.py",
+      "note": "LSRYP computed as 2θ6 − θ3",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.70s"
+    },
+    {
+      "id": "MUD-gel-ratio-inverted",
+      "path": "core/mud_engineering.py",
+      "note": "the gel ratio is inverted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.82s"
+    },
+    {
+      "id": "MUD-hb-claimed",
+      "path": "core/mud_engineering.py",
+      "note": "Herschel-Bulkley reported as a derived result although no HB fit exists",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.02s"
+    },
+    {
+      "id": "MUD-other-well",
+      "path": "core/mud_engineering.py",
+      "note": "a mud report of another well is saved under the selected well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.04s"
+    },
+    {
+      "id": "MUD-wellbore-attributed",
+      "path": "core/mud_engineering.py",
+      "note": "a mud report outside the selected wellbore is attributed to it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.27s"
+    },
+    {
+      "id": "MUD-source-change-silent",
+      "path": "core/mud_engineering.py",
+      "note": "an edited DDR mud report is reported as unchanged",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.20s"
+    },
+    {
+      "id": "MUD-version-accepted",
+      "path": "core/mud_engineering.py",
+      "note": "a case of another method version is re-run with the current method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 11.00s"
+    },
+    {
+      "id": "MUD-negative-dial",
+      "path": "core/mud_engineering.py",
+      "note": "a negative dial reading is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.26s"
+    },
+    {
+      "id": "MUD-history-scope-lost",
+      "path": "core/calculation_history.py",
+      "note": "History shows a mud evaluation without its SCREENING scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.16s"
+    }
+  ],
+  "killed": [
+    "MUD-assumed-as-derived",
+    "MUD-lab-without-reference",
+    "MUD-unknown-mw-as-zero",
+    "MUD-mw-7.48",
+    "MUD-implied-t600",
+    "MUD-lsryp-formula",
+    "MUD-gel-ratio-inverted",
+    "MUD-hb-claimed",
+    "MUD-other-well",
+    "MUD-wellbore-attributed",
+    "MUD-source-change-silent",
+    "MUD-version-accepted",
+    "MUD-negative-dial",
+    "MUD-history-scope-lost"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

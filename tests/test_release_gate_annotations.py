@@ -71,6 +71,26 @@ def test_a_watchdog_dump_names_the_test_function_frame():
     assert verify_release.describe_hang("12 passed in 3.0s") is None
 
 
+def test_the_hang_threads_line_lists_every_thread_innermost_first():
+    """D51: the hung test's thread is often not the cause, so every thread is listed (job logs are lost)."""
+    assert verify_release.describe_hang_threads(DUMP) == (
+        "2 thread(s): T1: threading.py:359 wait < core/async_workers.py:88 join | "
+        "T2 (test): time.py:1 sleep < tests/helpers.py:12 _wait < tests/test_slow.py:40 test_waits_for_ever")
+    assert verify_release.describe_hang_threads(DUMP, frames_per_thread=1).endswith("T2 (test): time.py:1 sleep")
+    native = "Timeout (0:00:02)!\nThread 0x2 (most recent call first):\n  <no Python frame>\n" + DUMP.split("!\n", 1)[1]
+    assert verify_release.describe_hang_threads(native).startswith("3 thread(s): T1: no Python frame | T2: ")
+    assert verify_release.describe_hang_threads("12 passed in 3.0s") is None
+
+
+def test_a_child_dump_quoted_in_a_failure_is_not_a_hang_of_this_run():
+    """M134: a D46 child's dump inside the test's assertion text was annotated as "pytest hang ... process ended"."""
+    quoted = "F\n" + "\n".join("E       " + line for line in DUMP.replace("....", "", 1).splitlines()) + \
+             "\n1 failed, 4876 passed in 2000.0s\n"
+    assert verify_release.describe_hang(quoted) is None
+    assert verify_release.describe_hang_threads(quoted) is None
+    assert verify_release.describe_hang(quoted + DUMP) is not None          # a real dump after it still counts
+
+
 def test_a_hang_in_a_fixture_falls_back_to_the_first_test_frame():
     fixture_dump = "Timeout (0:00:02)!\nThread 0x1 (most recent call first):\n" \
                    '  File "/r/tests/conftest.py", line 9 in slow_fixture\n' \
@@ -143,3 +163,4 @@ def test_the_gate_arms_the_watchdog_and_annotates_a_hang(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "::error title=pytest hang::a test did not finish within 0:15:00" in out
     assert "tests/test_slow.py:40 in test_waits_for_ever" in out
+    assert "::error title=pytest hang threads::2 thread(s): T1: threading.py:359 wait" in out      # D51

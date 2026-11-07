@@ -23,7 +23,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 30,
     "licence": "own code (product licence)",
     "method_id": "engine.mse",
     "status": "IMPLEMENTED",
@@ -40,6 +40,7 @@
      "test_m123_mse_lineage.py",
      "test_m124_central_identity.py",
      "test_m131_parameter_trends.py",
+     "test_m134_npt_reconciliation.py",
      "test_m30_semantic_regressions.py",
      "test_m53_dashboard.py",
      "test_m67_calculation_history.py",
@@ -1836,6 +1837,24 @@
    "module": "PySide6"
   },
   {
+   "file": "tabs/mud_engineering_panel.py",
+   "guarded": false,
+   "lines": [
+    14,
+    15
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "tabs/npt_reconciliation_panel.py",
+   "guarded": false,
+   "lines": [
+    14,
+    15
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "tabs/operational_analysis_panel.py",
    "guarded": false,
    "lines": [
@@ -1941,9 +1960,9 @@
     26,
     27,
     32,
-    4041,
-    4212,
-    4213
+    4050,
+    4221,
+    4222
    ],
    "module": "PySide6"
   },
@@ -2584,9 +2603,9 @@
    "file": "tabs/w12_Analysis.py",
    "guarded": true,
    "lines": [
-    4096,
-    4097,
-    4098
+    4105,
+    4106,
+    4107
    ],
    "module": "reportlab"
   },
@@ -2614,8 +2633,8 @@
    "file": "core/authorization.py",
    "guarded": false,
    "lines": [
-    261,
-    339
+    263,
+    341
    ],
    "module": "sqlalchemy"
   },
@@ -2623,7 +2642,7 @@
    "file": "core/calculation_history.py",
    "guarded": false,
    "lines": [
-    219
+    222
    ],
    "module": "sqlalchemy"
   },
@@ -2644,18 +2663,18 @@
     44,
     628,
     671,
-    3025,
-    3026,
-    3761,
-    4274,
-    4888,
-    3606,
-    3067,
-    5478,
-    7726,
-    6091,
-    6138,
-    6320
+    3049,
+    3050,
+    3785,
+    4298,
+    4912,
+    3630,
+    3091,
+    5502,
+    7750,
+    6115,
+    6162,
+    6344
    ],
    "module": "sqlalchemy"
   },

@@ -97,6 +97,7 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("mse_lineage_repairs", ('wellbore_id',), HIERARCHY),
     ("mud_reports", ('report_id',), REPORT_CHILD),
     ("mud_reports", ('well_id', 'report_date'), WELL_DATED),
+    ("npt_event_decisions", ('well_id',), WELL_SCOPE),
     ("npt_reports", ('report_id',), REPORT_CHILD),
     ("npt_reports", ('well_id',), WELL_SCOPE),
     ("operational_procedures", ('well_id',), WELL_SCOPE),

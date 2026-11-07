@@ -2725,6 +2725,30 @@ class MSELineageRepair(Base):
     method_version = Column(String(60), nullable=False)
 
 
+class NPTEventDecision(Base):
+    """M134: one audited user decision for an UNCERTAIN NPT group (register events ↔ DDR time-log NPT rows).
+
+    Append-only (storage guard ``trg_npt_event_decision_*``; insert-only policy). The row ids are frozen evidence,
+    not foreign keys: a later edit or delete of a register event, a time-log row or a report never rewrites the
+    decision; ``rows_sha256`` (the rows' times, durations and reports at decision time) makes it STALE instead.
+    The confirming user is the session's identified actor; a mandatory audit record is written with it.
+    """
+    __tablename__ = "npt_event_decisions"
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    register_ids_json = Column(Text, nullable=False)
+    time_log_ids_json = Column(Text, nullable=False)
+    rows_sha256 = Column(String(64), nullable=False)
+    decision = Column(String(20), nullable=False)          # 'SAME_EVENT' | 'DIFFERENT_EVENTS'
+    group_label = Column(String(300), nullable=False)
+    evidence = Column(Text, nullable=False)
+    reason = Column(Text, nullable=False)
+    confirmed_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    confirmed_at = Column(DateTime, nullable=False, default=_now_utc)
+    method_version = Column(String(60), nullable=False)
+
+
 class MudVolumeCalculationRecord(Base):
     """A persisted, reproducible Mud Volume balance calculation run (history).
 

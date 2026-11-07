@@ -1,0 +1,213 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m134_npt_reconciliation.py"
+    ],
+    "exit": 0,
+    "summary": "13 passed in 14.32s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "NPT-uncertain-counted",
+      "path": "core/npt_reconciliation.py",
+      "note": "an UNCERTAIN group is added to the certain hours",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.20s"
+    },
+    {
+      "id": "NPT-matched-double-counted",
+      "path": "core/npt_reconciliation.py",
+      "note": "a matched event is counted from both the register and the time log",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.20s"
+    },
+    {
+      "id": "NPT-different-counted-once",
+      "path": "core/npt_reconciliation.py",
+      "note": "two events confirmed different are counted as one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.87s"
+    },
+    {
+      "id": "NPT-range-in-certain",
+      "path": "core/npt_reconciliation.py",
+      "note": "the low end of an UNCERTAIN range is added to the certain total",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.10s"
+    },
+    {
+      "id": "NPT-missing-as-zero",
+      "path": "core/npt_reconciliation.py",
+      "note": "a missing or invalid duration is counted as 0 h",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.82s"
+    },
+    {
+      "id": "NPT-midnight-ignored",
+      "path": "core/npt_reconciliation.py",
+      "note": "a row ending at or before its start is not read as crossing midnight",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.03s"
+    },
+    {
+      "id": "NPT-matched-without-report",
+      "path": "core/npt_reconciliation.py",
+      "note": "a register event with no daily report link is MATCHED by date alone",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 12.39s"
+    },
+    {
+      "id": "NPT-stale-ignored",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision on rows that changed still governs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.76s"
+    },
+    {
+      "id": "NPT-first-decision-governs",
+      "path": "core/npt_reconciliation.py",
+      "note": "the first decision governs instead of the latest",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.76s"
+    },
+    {
+      "id": "NPT-unlinked-attributed",
+      "path": "core/npt_reconciliation.py",
+      "note": "a register event without a report link is attributed to the selected wellbore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.05s"
+    },
+    {
+      "id": "NPT-no-evidence",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision is recorded without evidence",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.75s"
+    },
+    {
+      "id": "NPT-anonymous-confirmer",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision is recorded without an identified user",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 13.37s"
+    },
+    {
+      "id": "NPT-decide-certain",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision can overrule a certain (MATCHED) group",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.86s"
+    },
+    {
+      "id": "NPT-audit-missing",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision is recorded without its mandatory audit entry",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.77s"
+    },
+    {
+      "id": "NPT-decision-mutable",
+      "path": "core/storage_guards.py",
+      "note": "an audited decision can be edited in place",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.79s"
+    }
+  ],
+  "killed": [
+    "NPT-uncertain-counted",
+    "NPT-matched-double-counted",
+    "NPT-different-counted-once",
+    "NPT-range-in-certain",
+    "NPT-missing-as-zero",
+    "NPT-midnight-ignored",
+    "NPT-matched-without-report",
+    "NPT-stale-ignored",
+    "NPT-first-decision-governs",
+    "NPT-unlinked-attributed",
+    "NPT-no-evidence",
+    "NPT-anonymous-confirmer",
+    "NPT-decide-certain",
+    "NPT-audit-missing",
+    "NPT-decision-mutable"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

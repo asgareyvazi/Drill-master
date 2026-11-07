@@ -128,6 +128,8 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     # M123 (D6): audited MSE lineage repairs are insert-only; they leave only with their MSE run or well
     # (report/wellbore deletes only unlink the reference, REPORT_DELETE_UNLINK / FK SET NULL).
     "mse_lineage_repairs": TablePolicy(write=(NOBODY,), delete=(DELETE_REPORTS, DELETE_WELL), insert=(EDIT,)),
+    # M134: audited NPT reconciliation decisions are insert-only; they leave only with their well.
+    "npt_event_decisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # Login throttling state is system bookkeeping only.
     "login_throttle": TablePolicy(write=(NOBODY,), delete=(NOBODY,)),
 }

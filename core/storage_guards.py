@@ -79,6 +79,9 @@ _LINK_FROZEN = ("id", "case_id", "source_table", "source_id", "source_well_id", 
 _MSE_REPAIR_FROZEN = ("id", "mse_calculation_id", "well_id", "field", "md_m", "md_entered_value", "md_entered_unit",
                       "value_label", "before_value", "evidence", "reason", "confirmed_by", "confirmed_at",
                       "method_version")
+#: M134: an audited NPT reconciliation decision; every column is frozen (the row ids are evidence, not references).
+_NPT_DECISION_FROZEN = ("id", "well_id", "register_ids_json", "time_log_ids_json", "rows_sha256", "decision",
+                        "group_label", "evidence", "reason", "confirmed_by", "confirmed_at", "method_version")
 _SURVEY_FROZEN = ("id", "well_id", "revision", "mode", "source_type", "source_ref", "source_unit",
                   "azimuth_reference", "depth_datum", "stations_json", "station_count", "stations_sha256",
                   "results_json", "results_sha256", "warnings_json", "method", "method_version", "note",
@@ -151,6 +154,10 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_mse_lineage_repair_immutable_v{v} BEFORE UPDATE ON mse_lineage_repairs "
             f"WHEN {repair_change} BEGIN SELECT RAISE(ABORT, "
             "'mse_lineage_repairs: an audited lineage repair is immutable'); END"),
+        f"trg_npt_event_decision_immutable_v{v}": (
+            f"CREATE TRIGGER trg_npt_event_decision_immutable_v{v} BEFORE UPDATE ON npt_event_decisions "
+            f"WHEN {_frozen(_NPT_DECISION_FROZEN)} BEGIN SELECT RAISE(ABORT, "
+            "'npt_event_decisions: an audited decision is immutable'); END"),
     }
     guards.update(_insert_and_delete_guards())
     return guards
@@ -175,6 +182,7 @@ _OWNED = {
     "trg_mse_lineage_repair": ("mse_lineage_repairs", (),
                                "NOT EXISTS (SELECT 1 FROM mse_calculations WHERE id = OLD.mse_calculation_id) OR "
                                "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_npt_event_decision": ("npt_event_decisions", (), "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
 }
 INSERT_GUARD_VERSION = 1
 DELETE_GUARD_VERSION = 1
@@ -205,7 +213,7 @@ def _insert_and_delete_guards() -> dict[str, str]:
 _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation_case": "calculation_cases",
              "trg_calculation_source_link": "calculation_source_links", "trg_survey_revision": "survey_revisions",
              "trg_well_architecture": "well_architecture_revisions",
-             "trg_mse_lineage_repair": "mse_lineage_repairs"}
+             "trg_mse_lineage_repair": "mse_lineage_repairs", "trg_npt_event_decision": "npt_event_decisions"}
 
 
 def install(raw) -> list[str]:

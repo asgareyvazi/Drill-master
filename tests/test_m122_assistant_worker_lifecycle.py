@@ -331,13 +331,18 @@ def _thread_summary(text) -> str:
         text = text.decode("utf-8", "replace")
     text = text or ""
     starts = [m.start() for m in _FAULTHANDLER_THREAD.finditer(text)]
-    tops = []
+    tops, native = [], 0
     for begin, end in zip(starts, starts[1:] + [len(text)]):
         frames = list(_FAULTHANDLER_FRAME.finditer(text, begin, end))
-        if not frames or any(f.group("name") == "burn" for f in frames):
+        if not frames:
+            native += 1          # M134 (D46): a thread in native code only is a possible lock holder
+            continue
+        if any(f.group("name") == "burn" for f in frames):
             continue
         top = frames[0]
         tops.append(f"{top.group('name')} ({Path(top.group('path')).name}:{top.group('line')})")
+    if native:
+        tops.append(f"{native} thread(s) without a Python frame")
     return "; ".join(tops)
 
 
@@ -405,6 +410,19 @@ def test_a_hung_child_is_reported_with_its_threads_not_with_empty_output():
     assert time.monotonic() - started < 3 + CHILD_DRAIN_S
     assert "child started" in out
     assert "stuck_here (<string>:3)" in _thread_summary(err), err
+
+
+def test_the_child_summary_counts_threads_without_a_python_frame():
+    """D46 (M134): a thread in native code only (a Qt thread finishing, a lock holder) has no frame line;
+    it is counted instead of silently dropped.  The GIL burners stay out of the summary."""
+    dump = ("Timeout (0:10:00)!\nThread 0x00007f01 (most recent call first):\n  <no Python frame>\n\n"
+            "Thread 0x00007f02 (most recent call first):\n"
+            '  File "/r/tests/test_m122_assistant_worker_lifecycle.py", line 254 in burn\n\n'
+            "Current thread 0x00007f03 (most recent call first):\n"
+            '  File "/r/core/knowledge_retrieval.py", line 905 in _lexical\n'
+            '  File "/r/core/knowledge_retrieval.py", line 990 in retrieve\n')
+    assert _thread_summary(dump) == "_lexical (knowledge_retrieval.py:905); 1 thread(s) without a Python frame"
+    assert _thread_summary("no dump here") == ""
 
 
 def test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped():

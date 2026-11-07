@@ -111,8 +111,12 @@ OPTIONAL_ACCEPTANCE_SKIPS = {
 # + 10 s + 20 s); 900 s leaves room for slow CI runners and coverage tracing and still ends a hang before
 # the job timeout, which would cancel the job and lose all captured output.
 TEST_HANG_SECONDS = 900
-# Not anchored: pytest's progress marks share the line the dump starts on (".Timeout (0:15:00)!").
+# Not anchored: pytest's progress marks share the line the dump starts on (".Timeout (0:15:00)!").  Only
+# progress marks may precede it: a child process's dump quoted in a failure message ("E   ... Timeout (")
+# belongs to that test's own failure, not to a hang of this pytest process (M134: a D46 child dump was
+# reported as "pytest hang ... process ended").
 _HANG_HEADER = re.compile(r"Timeout \((?P<after>[0-9:.]+)\)!")
+_PROGRESS_MARKS = re.compile(r"[.sFEfxXR]*")
 _HANG_FRAME = re.compile(r'File "(?P<path>[^"]+)", line (?P<line>\d+) in (?P<name>\S+)')
 
 
@@ -125,18 +129,23 @@ def _short_path(path: str) -> str:
     return normal.rsplit("/", 1)[-1]
 
 
-def describe_hang(output: str) -> Optional[str]:
-    """One line naming the hung test from a faulthandler watchdog dump, or None when there is none.
+def _dump_threads(output: str):
+    """(header match, [frames per thread]) of this process's watchdog dump, or (None, []).
 
-    The dump lists every thread, most recent call first.  The test function's frame is the one directly
-    above pytest's ``pytest_pyfunc_call``; the innermost frame reported is the top of THAT thread (where
-    the test is blocked).  A hang in a fixture falls back to the first frame under tests/.
+    Threads are in dump order, frames most recent call first; a thread without a Python frame (a Qt or
+    other native thread, or one in native code only) is kept as an empty list.
     """
-    header = _HANG_HEADER.search(output or "")
+    text = output or ""
+    header = None
+    for match in _HANG_HEADER.finditer(text):
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        if _PROGRESS_MARKS.fullmatch(text[line_start:match.start()]):
+            header = match
+            break
     if header is None:
-        return None
+        return None, []
     threads, current = [], None
-    for line in output[header.end():].splitlines():
+    for line in text[header.end():].splitlines():
         if line.startswith(("Thread 0x", "Current thread 0x")):
             current = []
             threads.append(current)
@@ -144,6 +153,19 @@ def describe_hang(output: str) -> Optional[str]:
         frame = _HANG_FRAME.search(line)
         if frame and current is not None:
             current.append(frame)
+    return header, threads
+
+
+def describe_hang(output: str) -> Optional[str]:
+    """One line naming the hung test from a faulthandler watchdog dump, or None when there is none.
+
+    The dump lists every thread, most recent call first.  The test function's frame is the one directly
+    above pytest's ``pytest_pyfunc_call``; the innermost frame reported is the top of THAT thread (where
+    the test is blocked).  A hang in a fixture falls back to the first frame under tests/.
+    """
+    header, threads = _dump_threads(output)
+    if header is None:
+        return None
     test, blocked = None, None
     for frames in threads:
         for index, frame in enumerate(frames):
@@ -163,6 +185,24 @@ def describe_hang(output: str) -> Optional[str]:
         return f"{_short_path(frame['path'])}:{frame['line']} in {frame['name']}" if frame else "not found"
     return (f"a test did not finish within {header['after']} (faulthandler watchdog, process ended); "
             f"test frame: {where(test)}; blocked in: {where(blocked)}")
+
+
+def describe_hang_threads(output: str, frames_per_thread: int = 3) -> Optional[str]:
+    """Every thread of the watchdog dump on one line, or None when there is no dump (M134, D51).
+
+    ``describe_hang`` names the hung test; a hang is often caused by ANOTHER thread (a lock or GIL
+    holder), so this lists each thread's innermost frames, innermost first and joined by " < ".  The
+    thread running the test is marked "(test)"; a thread with no Python frame is reported as such.
+    """
+    header, threads = _dump_threads(output)
+    if header is None:
+        return None
+    parts = []
+    for number, frames in enumerate(threads, 1):
+        is_test = any(f["name"] == "pytest_pyfunc_call" for f in frames)
+        chain = " < ".join(f"{_short_path(f['path'])}:{f['line']} {f['name']}" for f in frames[:frames_per_thread])
+        parts.append(f"T{number}{' (test)' if is_test else ''}: {chain or 'no Python frame'}")
+    return f"{len(threads)} thread(s): " + " | ".join(parts)
 
 
 def validate_pytest_report(path, collected, counts):
@@ -310,10 +350,10 @@ def report_warnings(output: str, environ=None, limit: int = 8) -> int:
     return total
 
 
-def _ci_error(title, text) -> None:
+def _ci_error(title, text, limit: int = 300) -> None:
     """Also surface a gate failure reason as a CI annotation (diagnostics only)."""
     if os.environ.get("GITHUB_ACTIONS") == "true":
-        print(f"::error title={_annotation_text(title, 60)}::{_annotation_text(text)}")
+        print(f"::error title={_annotation_text(title, 60)}::{_annotation_text(text, limit)}")
 
 
 def run_pytest(coverage_data: Path | None = None) -> bool:
@@ -345,6 +385,8 @@ def run_pytest(coverage_data: Path | None = None) -> bool:
         if hang:
             print(f"Release verification failed: {hang}")
             _ci_error("pytest hang", hang)
+            # D51: the job log is not retrievable, so every thread's innermost frames go into an annotation.
+            _ci_error("pytest hang threads", describe_hang_threads(output), limit=2000)
         report_valid = validate_pytest_report(report, collected, _pytest_counts(output))
         annotate_failures(report)
     output = (result.stdout or "") + (result.stderr or "")
