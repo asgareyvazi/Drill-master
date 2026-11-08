@@ -1,6 +1,7 @@
 # Addendum to the M121–M140 completion report — post-M140 technical residuals
 
-Base: final M140 report commit `74c81d6` (final code `456a5b9`). Code of this addendum: **`5c0c0c8`**.
+Base: final M140 report commit `74c81d6` (final code `456a5b9`). Code of this addendum: **`5c0c0c8`** (round 1)
+and **`20dfe56`** (round 2, § F).
 Branch `arena/72010272-drill-master`. Main report: `docs/mission-reports/M121_M140_PRODUCT_COMPLETION_REPORT.md`
 (unchanged). Live register: `docs/engineering/PRODUCT_CAPABILITY_MATRIX.md` (D59 row, D51 row, M135 rows, section
 "Post-M140 residuals").
@@ -73,6 +74,54 @@ The CI of this addendum's own commit cannot be recorded inside it; it is reporte
 Unchanged from the main report: integrated drilling engineering product candidate — implemented and qualified within
 the documented technical scope; Windows desktop acceptance, field acceptance, legal approvals and release
 authorization remain open (owner gates). The residual work fixed one real data-integrity defect (D59), removed the
-dominant repository warning (R1) and left D51 OPEN with its bound.
+dominant repository warning (R1) and left D51 OPEN with its bound. Round 2 (§ F) fixed a second honesty defect (D60) and
+brought the lint debt to zero.
+
+**UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.**
+
+## F. Round 2 — lint debt to zero, D60, legacy `Query.get` (code `20dfe56`, base `2b4e0d6`)
+
+### Git
+
+| Item | Value |
+|---|---|
+| Code commit | `20dfe564210acf0d75b27b174b9450fa22b64d8e`, pushed, `ls-remote` = local HEAD |
+| Files | 67 (2 added: `tests/test_d60_material_request_status.py`, `tests/test_legacy_survey_angles_import.py`) |
+
+### D60 (P2, honesty) — RESOLVED
+
+W9 › Material Handling › "Update Status" showed "Status updated to X" and saved nothing; the picker also always
+opened at "Pending". Found through an unused local (`request_data`, F841) in the lint review and reproduced through
+the real tab. `MaterialHandlingTab.update_material_request_status` now writes through the existing
+`save_material_request` update path, only for a request of the selected well (a stale or foreign id is refused and
+reported "NOT updated", never re-scoped), reports success only when the row was saved and reloads the table; the
+picker opens at the stored status. Tests 5 (3 fail on the old code); `D60-*` 7/7 KILLED.
+
+### Lint debt 726 → 0 (ceiling 727 → 0)
+
+| Rule | Count | Treatment |
+|---|---|---|
+| E702 / E701 | 531 / 103 | tokenize-based splitter; a file is written only if its AST and mutation-anchor counts are unchanged; independently re-checked: all 29 files AST-identical to `2b4e0d6` |
+| F841 | 32 | reviewed one by one; D60 found; calls that can raise or act are kept as statements; pure dead code removed. The unused survey-schema probe in the atomic import: **not a defect** — `initialize()` relaxes historical NOT NULL angles (`_migrate_nullable_contracts`); stale comments corrected; pinned by `tests/test_legacy_survey_angles_import.py` |
+| E741 / F402 | 18 / 1 | renamed per function with an AST-equivalence proof (new name absent, no keyword use, f-string fields included) |
+| F541 / E703 | 16 / 1 | ruff safe fixes |
+| F401 | 17 | 8 unused imports removed; 9 names on 4 availability-probe lines kept with a reasoned `noqa` |
+| E712 / E711 | 6 / 1 | SQLAlchemy filters kept with a reasoned `noqa` (`.is_(True)` changes the emitted SQL) |
+
+### Quality and CI
+
+| Gate | Result |
+|---|---|
+| Full suite (local, 3.11.2, offscreen, `20dfe56` tree) | 5056 passed, 4 skipped (opt-in), 0 failed, 0 errors, 1951 s (+6) |
+| Complete mutation `mutation_m121_m140.py` on `20dfe56` | 330: 329 KILLED, 1 declared EQUIVALENT (`SEC-empty-password-unlocks`), 0 SURVIVED, 0 INVALID, complete, 2505 s — `m140-evidence/mutation_m121_m140_complete_20dfe56.json` |
+| Mutation anchors (all suites) | 900 valid, 0 invalid |
+| Lint | 0 ≤ 0; E722/F821 0 |
+| Exception ratchet / privacy / schema | 0 unexplained silent handlers / 1446 files, 0 findings / 26/26 |
+| Inventories | constant, engine, journey `--check` rc 0; dependency audit regenerated, 0 findings |
+| CI Source on `20dfe56` | ✅ run 42514404748 — 3.11 job 128834168345, 3.12 job 128834168502, 3.13 job 128834168486; coverage 70.01 % (71817/102585, 3.12 leg) |
+| CI Windows on `20dfe56` | ✅ run 42514404705 — job 128834168328 |
+| Warnings (CI) | 36 occurrences / 9 groups on 3.11, 3.12 and 3.13 (repository 1: the intentional `tests/test_release.py:179` large-file notice; third-party 35), down from 39 / 12 |
+
+Owner gates are unchanged (main report § G). The CI of this section's own commit is reported in the hand-off message.
 
 **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.**
