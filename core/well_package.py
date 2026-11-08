@@ -19,6 +19,17 @@ with the manifest SHA-256 and only then renames it to its final name — a packa
 discarded (``discard_package``). ``verify_package`` re-hashes every file, reports changed, missing and
 unlisted files, and looks the manifest hash up in the audit log.
 
+Residual R2 (D59): the audit record is committed BEFORE the rename. A rename that fails after it (a folder held
+open on Windows, a name that appeared meanwhile) raises ``PackageAuditedNotRenamed`` and the folder is KEPT -
+it is an audited package that only lacks its final name; ``discard_package`` refuses any folder whose manifest
+has an audit record. A ``.partial`` folder can also outlive a process that is killed while writing (no
+``finally`` runs) or between the audit commit and the rename. ``inspect_stale_folder`` classifies such a folder
+from the audit log only, never from its name or age: AUDITED (its manifest hash has the audit record: it may
+only be given its final name, ``recover_stale_folder``, after every file still matches), UNAUDITED (no audit
+record matches its manifest or its package name: an interrupted build, ``remove_stale_folder`` may delete it)
+or REFUSED (anything else - a link, a folder that holds more than plain files, an audit record that names the
+package while the manifest differs, no database). Both actions write a mandatory audit record.
+
 Nothing here approves anything: a typed name is not an approval, a workflow "approve" action is a status in
 DrillMaster (not a signature), and the package itself is not an approval.
 """
@@ -52,6 +63,19 @@ _CHUNK = 1 << 16
 
 class PackageError(ValueError):
     """The package cannot be built or finalized as requested (nothing is overwritten)."""
+
+
+class PackageAuditedNotRenamed(PackageError):
+    """The audit record was committed but the rename failed: the ``.partial`` folder IS an audited package.
+
+    It must never be discarded; ``recover_stale_folder`` gives it its final name later.
+    """
+
+    def __init__(self, partial_dir: str, final_dir: str, manifest_sha256: str, cause: OSError):
+        self.partial_dir, self.final_dir, self.manifest_sha256 = partial_dir, final_dir, manifest_sha256
+        super().__init__(f"The audit record for manifest {manifest_sha256[:16]}… was written, but the folder could "
+                         f"not be renamed ({type(cause).__name__}). The audited package was kept at {partial_dir}; "
+                         "use 'Stale folders…' to give it its final name.")
 
 
 @dataclass(frozen=True)
@@ -368,14 +392,23 @@ def finalize_package(db, result: PackageResult) -> str:
                           "files": sum(1 for p in result.parts if p.sha256)}, sort_keys=True)
     with db.session_scope() as session:
         db._add_mandatory_audit(session, AUDIT_ACTION, "well", scope["well_id"], scope["well"], details)
-    os.rename(result.partial_dir, result.final_dir)
+    try:
+        os.rename(result.partial_dir, result.final_dir)
+    except OSError as exc:               # D59: audited already - the folder is a package and is kept
+        raise PackageAuditedNotRenamed(result.partial_dir, result.final_dir, result.manifest_sha256, exc) from exc
     return result.final_dir
 
 
-def discard_package(result: PackageResult) -> None:
-    """Remove an unfinalized ``.partial`` folder (never a finalized package)."""
-    if result.partial_dir.endswith(PARTIAL_SUFFIX) and os.path.isdir(result.partial_dir):
-        shutil.rmtree(result.partial_dir)
+def discard_package(result: PackageResult, db=None) -> None:
+    """Remove an unfinalized ``.partial`` folder (never a finalized package).
+
+    D59: with a database, a folder whose manifest has an audit record is refused - it is an audited package.
+    """
+    if not (result.partial_dir.endswith(PARTIAL_SUFFIX) and os.path.isdir(result.partial_dir)):
+        return
+    if db is not None and find_audit(db, result.manifest_sha256) is not None:
+        raise PackageError(f"{result.partial_dir} has an audit record; an audited package is never removed.")
+    shutil.rmtree(result.partial_dir)
 
 
 def find_audit(db, manifest_sha256: str) -> Optional[Dict[str, Any]]:
@@ -389,6 +422,135 @@ def find_audit(db, manifest_sha256: str) -> Optional[Dict[str, Any]]:
                 return {"id": row.id, "username": row.username, "timestamp": row.timestamp,
                         "well_id": row.entity_id}
     return None
+
+
+def _package_audits(db, needle: str) -> List[Dict[str, Any]]:
+    """Package audit records whose details contain ``needle`` (a manifest hash or a package name), parsed."""
+    from core.database import AuditLog
+    with db.session_scope() as session:
+        rows = (session.query(AuditLog).filter(AuditLog.action == AUDIT_ACTION,
+                                               AuditLog.details.like(f"%{needle}%"))
+                .order_by(AuditLog.id).all())
+        out = []
+        for row in rows:
+            details = json.loads(row.details or "{}")
+            out.append({"id": row.id, "package": details.get("package"),
+                        "manifest_sha256": details.get("manifest_sha256")})
+        return out
+
+
+def find_audit_by_package(db, package_name: str) -> Optional[Dict[str, Any]]:
+    """The first package audit record whose details name ``package_name`` (the final folder name)."""
+    return next((r for r in _package_audits(db, package_name) if r["package"] == package_name), None)
+
+
+STALE_AUDITED, STALE_UNAUDITED, STALE_REFUSED = "AUDITED — NOT RENAMED", "UNAUDITED", "REFUSED"
+AUDIT_STALE_REMOVED = "end_of_well_package_stale_removed"
+AUDIT_STALE_RENAMED = "end_of_well_package_stale_renamed"
+
+
+@dataclass
+class StaleFolder:
+    """A ``.partial`` folder found after the fact and what may be done with it (audit log only)."""
+    path: str
+    final_dir: str
+    state: str
+    reason: str
+    manifest_sha256: Optional[str] = None
+    audit_id: Optional[int] = None
+    files: int = 0
+
+
+def _stale(path, final_dir, state, reason, **kw) -> StaleFolder:
+    return StaleFolder(path, final_dir, state, reason, **kw)
+
+
+def inspect_stale_folder(path: str, db) -> StaleFolder:
+    """Classify a ``.partial`` folder by the audit log (never by its name, age or contents alone)."""
+    path = os.path.abspath(path)
+    final_dir = path[:-len(PARTIAL_SUFFIX)] if path.endswith(PARTIAL_SUFFIX) else path
+    if not path.endswith(PARTIAL_SUFFIX):
+        return _stale(path, final_dir, STALE_REFUSED, "not a '.partial' folder (a finalized package is never touched)")
+    if os.path.islink(path):
+        return _stale(path, final_dir, STALE_REFUSED, "a link: it is neither followed nor removed")
+    if not os.path.isdir(path):
+        return _stale(path, final_dir, STALE_REFUSED, "not a folder")
+    if db is None:
+        return _stale(path, final_dir, STALE_REFUSED, "no database: the audit log cannot be checked")
+    names = sorted(os.listdir(path))
+    for name in names:
+        entry = os.path.join(path, name)
+        if os.path.islink(entry) or not os.path.isfile(entry):
+            return _stale(path, final_dir, STALE_REFUSED,
+                          f"it holds {name!r}, which is not a plain file: not written by a package build")
+    manifest = os.path.join(path, MANIFEST)
+    sha = file_sha256(manifest) if MANIFEST in names else None
+    package = os.path.basename(final_dir)
+    # The manifest does not carry the folder name: two builds of one well in the same second write identical
+    # manifests. AUDITED needs the hash AND the package name of one record; a hash audited under another name
+    # (an identical build, or an audited folder renamed by hand) is refused, never removed.
+    by_hash = [r for r in _package_audits(db, sha) if r["manifest_sha256"] == sha] if sha else []
+    record = next((r for r in by_hash if r["package"] == package), None)
+    if record is not None:
+        return _stale(path, final_dir, STALE_AUDITED,
+                      f"audit record #{record['id']} matches its manifest: an audited package that was not renamed",
+                      manifest_sha256=sha, audit_id=record["id"], files=len(names))
+    if by_hash:
+        return _stale(path, final_dir, STALE_REFUSED,
+                      f"its manifest is audited (record #{by_hash[0]['id']}) under the package name "
+                      f"{by_hash[0]['package']!r}; inspect it by hand",
+                      manifest_sha256=sha, audit_id=by_hash[0]["id"], files=len(names))
+    named = find_audit_by_package(db, package)
+    if named is not None:
+        return _stale(path, final_dir, STALE_REFUSED,
+                      f"audit record #{named['id']} names this package but its manifest "
+                      + ("is missing" if sha is None else "differs") + "; inspect it by hand",
+                      manifest_sha256=sha, audit_id=named["id"], files=len(names))
+    return _stale(path, final_dir, STALE_UNAUDITED,
+                  "no audit record matches its manifest or its name: an interrupted build, never a package",
+                  manifest_sha256=sha, files=len(names))
+
+
+def find_stale_folders(parent: str, db) -> List[StaleFolder]:
+    """Every ``<name>.partial`` entry directly inside ``parent``, classified."""
+    return [inspect_stale_folder(os.path.join(parent, name), db)
+            for name in sorted(os.listdir(parent)) if name.endswith(PARTIAL_SUFFIX)]
+
+
+def _stale_details(stale: StaleFolder, **extra) -> str:
+    return json.dumps({"package": os.path.basename(stale.final_dir), "manifest_sha256": stale.manifest_sha256,
+                       "files": stale.files, **extra}, sort_keys=True)
+
+
+def remove_stale_folder(path: str, db) -> StaleFolder:
+    """Delete an UNAUDITED ``.partial`` folder file by file (no recursive delete), with an audit record."""
+    stale = inspect_stale_folder(path, db)
+    if stale.state != STALE_UNAUDITED:
+        raise PackageError(f"{stale.path} is not removed: {stale.reason}.")
+    with db.session_scope() as session:
+        db._add_mandatory_audit(session, AUDIT_STALE_REMOVED, "folder", None, os.path.basename(stale.path),
+                                _stale_details(stale))
+        for name in sorted(os.listdir(stale.path)):
+            os.remove(os.path.join(stale.path, name))
+        os.rmdir(stale.path)
+    return stale
+
+
+def recover_stale_folder(path: str, db) -> str:
+    """Give an AUDITED ``.partial`` folder its final name once every file still matches its manifest."""
+    stale = inspect_stale_folder(path, db)
+    if stale.state != STALE_AUDITED:
+        raise PackageError(f"{stale.path} is not renamed: {stale.reason}.")
+    if os.path.exists(stale.final_dir):
+        raise PackageError(f"{stale.final_dir} exists; it is not overwritten.")
+    verification = verify_package(stale.path, db)
+    if not verification.ok:
+        raise PackageError(f"{stale.path} is not renamed: " + "; ".join(verification.problems) + ".")
+    with db.session_scope() as session:
+        db._add_mandatory_audit(session, AUDIT_STALE_RENAMED, "folder", None, os.path.basename(stale.final_dir),
+                                _stale_details(stale, audit_id=stale.audit_id))
+        os.rename(stale.path, stale.final_dir)
+    return stale.final_dir
 
 
 def _plain_name(name: Any) -> bool:

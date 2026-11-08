@@ -55,12 +55,13 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 33,
+    "evidence_tests": 34,
     "licence": "own code (product licence)",
     "method_id": "engine.mse",
     "status": "IMPLEMENTED",
     "tests": [
      "test_backup_restore_acceptance.py",
+     "test_d59_stale_partial.py",
      "test_data_layer_authorization.py",
      "test_engineering_completion.py",
      "test_engineering_ground_truth.py",
@@ -211,7 +212,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 63,
+    "evidence_tests": 64,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -269,6 +270,7 @@
      "test_r18_r19_save_preservation.py",
      "test_real_oeoc_golden.py",
      "test_release_gate_and_w13.py",
+     "test_report_snapshot_utc.py",
      "test_rest_api_disabled.py",
      "test_review_contract_certification.py",
      "test_schematic_no_fabrication.py",
@@ -2204,8 +2206,8 @@
    "file": "tabs/well_package_panel.py",
    "guarded": false,
    "lines": [
-    15,
-    225
+    20,
+    256
    ],
    "module": "PySide6"
   },

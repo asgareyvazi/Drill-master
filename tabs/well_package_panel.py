@@ -5,6 +5,11 @@ PDF, and a parent folder. ``core.well_package.build_package`` writes the package
 database view); the GUI thread then adds the mandatory audit record with the manifest SHA-256 and renames the
 ``.partial`` folder to its final name (``finalize_package``). The parts table shows each file's status,
 rows, scope, method and SHA-256; "Verify package…" re-hashes a package folder and looks up its audit record.
+
+Residual R2 (D59): a rename that fails after the audit record keeps the folder (it is an audited package) and
+offers to complete the rename; "Stale folders…" lists the ``.partial`` folders of a parent folder, classified
+by the audit log (``core.well_package.inspect_stale_folder``): an UNAUDITED one can be removed, an AUDITED one
+given its final name once every file still matches; anything else is refused and left alone.
 """
 from __future__ import annotations
 
@@ -12,8 +17,8 @@ import logging
 import os
 from typing import List, Optional, Tuple
 
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QLabel, QPushButton,
-                               QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QLabel, QMessageBox,
+                               QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from core import well_package as wp
 from core.authorization import AuthorizationError
@@ -62,6 +67,7 @@ class WellPackagePanel(QWidget):
         self.result: Optional[wp.PackageResult] = None
         self.final_dir: Optional[str] = None
         self.verification: Optional[wp.Verification] = None
+        self.stale: List[wp.StaleFolder] = []
         self.bore_jobs = ContextJobRunner(None, "wellbores", parent=self)
         self.bore_jobs.result_ready.connect(self._show_bores)
         self.bore_jobs.state_changed.connect(self._bores_state)
@@ -103,8 +109,18 @@ class WellPackagePanel(QWidget):
         self.build_btn.clicked.connect(self._build_dialog)
         self.verify_btn = QPushButton("Verify package…")
         self.verify_btn.clicked.connect(self._verify_dialog)
+        self.stale_btn = QPushButton("Stale folders…")
+        self.stale_btn.setToolTip("List the '.partial' folders of a folder, classified by the audit log")
+        self.stale_btn.clicked.connect(self._stale_dialog)
+        self.remove_stale_btn = QPushButton("Remove unaudited")
+        self.remove_stale_btn.clicked.connect(self._remove_stale_clicked)
+        self.recover_stale_btn = QPushButton("Complete rename")
+        self.recover_stale_btn.clicked.connect(self._recover_stale_clicked)
         buttons.addWidget(self.build_btn)
         buttons.addWidget(self.verify_btn)
+        buttons.addWidget(self.stale_btn)
+        buttons.addWidget(self.remove_stale_btn)
+        buttons.addWidget(self.recover_stale_btn)
         buttons.addStretch()
         layout.addLayout(buttons)
         self.table = QTableWidget(0, len(PART_COLUMNS))
@@ -166,6 +182,9 @@ class WellPackagePanel(QWidget):
     def _update(self) -> None:
         self.scope_label.setText(self.scope_text())
         self.build_btn.setEnabled(self.well_id is not None and self.db is not None and self.jobs.state != LOADING)
+        self.stale_btn.setEnabled(self.db is not None)
+        self.remove_stale_btn.setEnabled(any(f.state == wp.STALE_UNAUDITED for f in self.stale))
+        self.recover_stale_btn.setEnabled(any(f.state == wp.STALE_AUDITED for f in self.stale))
 
     # -- build ------------------------------------------------------------------------------------------------
     def build_into(self, parent_folder: str, *, wellbore_id: Optional[int] = None,
@@ -194,8 +213,10 @@ class WellPackagePanel(QWidget):
 
     def _job_state(self, state: str, message: str) -> None:
         if state in (ERROR, STALE, CANCELLED):
-            self.status.setText(message + " No package was finalized; an interrupted build may leave a "
-                                          "'.partial' folder, which is never audited.")
+            # D59: a build stopped by an error or a cancel removes its own '.partial' folder; only a killed process
+            # leaves one, and it may be audited (killed after the audit record) - the audit log decides.
+            self.status.setText(message + " No package was finalized. A '.partial' folder left by a process that "
+                                          "was killed is classified by the audit log under 'Stale folders…'.")
         self._update()
 
     def _built(self, _job_id, result: wp.PackageResult) -> None:
@@ -203,10 +224,20 @@ class WellPackagePanel(QWidget):
         self._fill(result.parts)
         try:
             self.final_dir = wp.finalize_package(self.db, result)
-        except (wp.PackageError, AuthorizationError, OSError) as exc:
-            wp.discard_package(result)
+        except wp.PackageAuditedNotRenamed as exc:          # D59: audited - kept, never discarded
             self.final_dir = None
-            self.status.setText(f"Not finalized: {exc}. The unaudited folder was removed.")
+            self.stale = [wp.inspect_stale_folder(exc.partial_dir, self.db)]
+            self.status.setText(f"AUDITED — NOT RENAMED: {exc}")
+            self._update()
+            return
+        except (wp.PackageError, AuthorizationError, OSError) as exc:
+            self.final_dir = None
+            try:
+                wp.discard_package(result, self.db)
+            except (wp.PackageError, OSError) as kept:
+                self.status.setText(f"Not finalized: {exc}. The folder was kept: {kept}")
+            else:
+                self.status.setText(f"Not finalized: {exc}. The unaudited folder was removed.")
             self._update()
             return
         failed = [p.key for p in result.parts if p.status == wp.FAILED]
@@ -262,6 +293,69 @@ class WellPackagePanel(QWidget):
         folder = QFileDialog.getExistingDirectory(self, "End-of-well package folder to verify")
         if folder:
             self.verify(folder)
+
+    # -- stale '.partial' folders (D59) ---------------------------------------------------------------------
+    def scan_stale(self, parent_folder: str) -> List[wp.StaleFolder]:
+        """Classify every '.partial' folder of ``parent_folder`` (one manifest hash and audit lookup each)."""
+        self.stale = [] if self.db is None else wp.find_stale_folders(parent_folder, self.db)
+        if not self.stale:
+            self.status.setText(f"No '.partial' folder in {parent_folder}.")
+        else:
+            self.status.setText("Stale folders: " + "; ".join(
+                f"{os.path.basename(f.path)} — {f.state}: {f.reason}" for f in self.stale) + ".")
+        self._update()
+        return self.stale
+
+    def remove_unaudited_stale(self) -> List[str]:
+        """Remove every UNAUDITED folder of the last scan (each is classified again first)."""
+        done, refused = self._apply_stale(wp.STALE_UNAUDITED, wp.remove_stale_folder)
+        self.status.setText(f"Removed {len(done)} unaudited folder(s)" + (f"; refused: {'; '.join(refused)}"
+                                                                         if refused else "") + ".")
+        return done
+
+    def recover_audited_stale(self) -> List[str]:
+        """Give every AUDITED folder of the last scan its final name once its files still match."""
+        done, refused = self._apply_stale(wp.STALE_AUDITED, wp.recover_stale_folder)
+        self.status.setText(f"Renamed {len(done)} audited package(s)" + (f": {', '.join(done)}" if done else "")
+                            + (f"; refused: {'; '.join(refused)}" if refused else "") + ".")
+        if done:
+            self.final_dir = done[-1]
+        return done
+
+    def _apply_stale(self, state: str, action) -> Tuple[List[str], List[str]]:
+        done, refused, keep = [], [], []
+        for folder in self.stale:
+            if folder.state != state:
+                keep.append(folder)
+                continue
+            try:
+                outcome = action(folder.path, self.db)
+            except (wp.PackageError, OSError) as exc:
+                refused.append(str(exc))
+                keep.append(wp.inspect_stale_folder(folder.path, self.db) if os.path.lexists(folder.path)
+                            else folder)
+            else:
+                done.append(outcome if isinstance(outcome, str) else folder.path)
+        self.stale = keep
+        self._update()
+        return done, refused
+
+    def _stale_dialog(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, "Folder to search for '.partial' folders")
+        if folder:
+            self.scan_stale(folder)
+
+    def _remove_stale_clicked(self, _checked: bool = False) -> None:
+        names = [os.path.basename(f.path) for f in self.stale if f.state == wp.STALE_UNAUDITED]
+        if names and QMessageBox.question(
+                self, "Remove unaudited folders",
+                "Delete these interrupted builds (no audit record matches them)?\n" + "\n".join(names)) \
+                == QMessageBox.StandardButton.Yes:
+            self.remove_unaudited_stale()
+
+    def _recover_stale_clicked(self, _checked: bool = False) -> None:
+        if any(f.state == wp.STALE_AUDITED for f in self.stale):
+            self.recover_audited_stale()
 
     # -- lifecycle --------------------------------------------------------------------------------------------
     def wait(self, timeout_ms: int = 30000) -> bool:

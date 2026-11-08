@@ -80,6 +80,9 @@ DPS = "core/dp_schedule.py"
 WW = "core/w13_weight.py"
 W13F = "tabs/w13_Engineering_Calculator.py"
 CH = "core/calculation_history.py"
+RS = "core/report_snapshot.py"
+TR1 = ["tests/test_report_snapshot_utc.py"]
+TD59 = ["tests/test_d59_stale_partial.py"]
 
 MUTANTS = [
     # ---- M122 Knowledge Assistant worker lifecycle (D28) ------------------------------------------------
@@ -1072,6 +1075,45 @@ MUTANTS = [
     Mutant("D46P-stale-done-index-dropped", KA,
            "            self._retired_worker_done(generation, None, index)\n            return\n",
            "            return\n", TD46P, "a done queued before the disconnect loses its index"),
+    # ---- Residuals after M140: R1 utcnow deprecation, R2/D59 audited package deleted, stale '.partial' folders ----
+    Mutant('R1-utcnow-restored', RS, '        "captured_at": _utc_now_naive().isoformat(),\n',
+           '        "captured_at": datetime.utcnow().isoformat(),\n', TR1, 'the deprecated utcnow() (63 warnings on 3.12/3.13) is called again'),
+    Mutant('R1-local-time', RS, '    return datetime.now(timezone.utc).replace(tzinfo=None)\n',
+           '    return datetime.now()\n', TR1, 'captured_at is the local wall clock instead of UTC'),
+    Mutant('R1-aware-iso', RS, '    return datetime.now(timezone.utc).replace(tzinfo=None)\n',
+           '    return datetime.now(timezone.utc)\n', TR1, 'captured_at gains a +00:00 suffix: new snapshots no longer compare with stored ones'),
+    Mutant('D59-rename-failure-not-kept', WPKC, '        raise PackageAuditedNotRenamed(result.partial_dir, result.final_dir, result.manifest_sha256, exc) from exc\n',
+           '        raise\n', TD59, 'a rename failure after the audit is an ordinary error (the pre-D59 path)'),
+    Mutant('D59-discard-ignores-audit', WPKC, '    if db is not None and find_audit(db, result.manifest_sha256) is not None:\n',
+           '    if False:\n', TD59, 'discard deletes a folder whose manifest is audited'),
+    Mutant('D59-panel-discards-audited', WPKP, '        except wp.PackageAuditedNotRenamed as exc:          # D59: audited - kept, never discarded\n',
+           '        except ZeroDivisionError as exc:          # D59: audited - kept, never discarded\n', TD59, 'the panel treats an audited, not renamed package like a failed build'),
+    Mutant('D59-stale-hash-only', WPKC, '    record = next((r for r in by_hash if r["package"] == package), None)\n',
+           '    record = by_hash[0] if by_hash else None\n', TD59, "a twin build with an identical manifest is classified AUDITED by another folder's record"),
+    Mutant('D59-stale-name-check-dropped', WPKC, '    named = find_audit_by_package(db, package)\n',
+           '    named = None\n', TD59, 'an audited folder whose manifest was changed is classified UNAUDITED (removable)'),
+    Mutant('D59-stale-link-followed', WPKC, '    if os.path.islink(path):\n',
+           '    if False:\n', TD59, "a '.partial' link is followed and its target's files removed"),
+    Mutant('D59-stale-subfolder-accepted', WPKC, '        if os.path.islink(entry) or not os.path.isfile(entry):\n',
+           '        if False:\n', TD59, 'a folder holding more than plain files is treated as a build'),
+    Mutant('D59-stale-no-db-accepted', WPKC, '    if db is None:\n        return _stale(path, final_dir, STALE_REFUSED, "no database: the audit log cannot be checked")\n',
+           '', TD59, 'a folder is classified without the audit log'),
+    Mutant('D59-stale-final-accepted', WPKC, '    if not path.endswith(PARTIAL_SUFFIX):\n        return _stale(',
+           '    if False:\n        return _stale(', TD59, 'a finalized package is classified as a stale folder'),
+    Mutant('D59-remove-audited', WPKC, '    if stale.state != STALE_UNAUDITED:\n',
+           '    if False:\n', TD59, 'an audited or refused folder is removed'),
+    Mutant('D59-remove-unrecorded', WPKC, '        db._add_mandatory_audit(session, AUDIT_STALE_REMOVED, "folder", None, os.path.basename(stale.path),\n                                _stale_details(stale))\n',
+           '', TD59, 'a stale folder is removed without an audit record'),
+    Mutant('D59-recover-unverified', WPKC, '    if not verification.ok:\n',
+           '    if False:\n', TD59, 'an audited folder whose files changed is given its final name'),
+    Mutant('D59-recover-overwrites', WPKC, '    if os.path.exists(stale.final_dir):\n        raise PackageError(f"{stale.final_dir} exists; it is not overwritten.")\n',
+           '', TD59, 'the rename replaces a folder that appeared under the final name'),
+    Mutant('D59-recover-unaudited', WPKC, '    if stale.state != STALE_AUDITED:\n',
+           '    if False:\n', TD59, 'a folder without its own audit record is given a final name'),
+    Mutant('D59-remove-unconfirmed', WPKP, '                == QMessageBox.StandardButton.Yes:\n',
+           '                != QMessageBox.StandardButton.Cancel:\n', TD59, 'the removal runs although the user declined'),
+    Mutant('D59-cancel-message-false', WPKP, '"was killed is classified by the audit log under \'Stale folders…\'.")',
+           '"was killed is never audited.")', TD59, "the cancel message again claims a '.partial' folder is never audited"),
 ]
 
 

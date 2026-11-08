@@ -20,7 +20,7 @@ a generic serialization framework (mission §8/§51).
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import date, datetime, time as _time
+from datetime import date, datetime, time as _time, timezone
 from typing import Any, Dict, List
 
 # Current snapshot schema version. Bump only on an incompatible structural
@@ -113,6 +113,16 @@ CHILD_COLLECTIONS: List[tuple] = [
 ]
 
 
+def _utc_now_naive() -> datetime:
+    """Current UTC time as a *naive* datetime.
+
+    Same value and ISO format as the deprecated ``datetime.utcnow()`` (no
+    ``+00:00`` suffix), so ``captured_at`` in new snapshots stays comparable
+    with snapshots already stored. Python 3.12+ deprecates ``utcnow()``.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def build_report_snapshot(session, report, models: Dict[str, Any]) -> Dict[str, Any]:
     """Build the complete, self-contained snapshot of ``report``.
 
@@ -129,7 +139,7 @@ def build_report_snapshot(session, report, models: Dict[str, Any]) -> Dict[str, 
 
     snapshot: Dict[str, Any] = {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
-        "captured_at": datetime.utcnow().isoformat(),
+        "captured_at": _utc_now_naive().isoformat(),
         "report_id": report.id,
         "well_id": report.well_id,
         "section_id": report.section_id,
