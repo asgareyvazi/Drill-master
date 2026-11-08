@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (QComboBox, QFileDialog, QHBoxLayout, QLabel, QPus
 
 from core import parameter_trends as pt
 from core.context_jobs import CANCELLED, ERROR, STALE, ContextJobRunner, check_cancel
+from tabs.job_retry import REFRESH_HINT, retry_button, scope_row, show_retry
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class ParameterTrendPanel(QWidget):
         self.well_id: Optional[int] = None
         self.wellbore_id: Optional[int] = None
         self.result: Optional[pt.TrendResult] = None
-        self.jobs = ContextJobRunner(None, "parameter trends", parent=self)   # M103 runner (M51: no GUI-thread SQL)
+        self.jobs = ContextJobRunner(None, "parameter trends", refresh_hint=REFRESH_HINT, parent=self)   # M103 runner (M51: no GUI-thread SQL)
         self.jobs.result_ready.connect(self._show_result)
         self.jobs.state_changed.connect(self._job_state)
 
@@ -69,7 +70,8 @@ class ParameterTrendPanel(QWidget):
         layout.addLayout(controls)
         self.scope_label = QLabel("NOT ASSESSED: select a well")
         self.scope_label.setWordWrap(True)
-        layout.addWidget(self.scope_label)
+        self.retry_btn = retry_button(self._retry)
+        layout.addLayout(scope_row(self.scope_label, self.retry_btn))
         self.summary_label = QLabel("")
         self.summary_label.setWordWrap(True)
         layout.addWidget(self.summary_label)
@@ -115,6 +117,10 @@ class ParameterTrendPanel(QWidget):
         return self.jobs.start(_load_trends_job, {"well": self.well_id, "axis": self.axis(),
                                                   "wellbore": self.wellbore_id})
 
+    def _retry(self, _checked: bool = False) -> Optional[int]:
+        """M138: Retry re-reads the current scope (a failed, stale or cancelled read showed nothing)."""
+        return self.reload()
+
     def wait(self, timeout_ms: int = 30000) -> bool:
         return self.jobs.wait(timeout_ms)
 
@@ -122,6 +128,7 @@ class ParameterTrendPanel(QWidget):
         return self.jobs.shutdown(timeout_ms)
 
     def _job_state(self, state: str, message: str) -> None:
+        show_retry(self.retry_btn, state)
         if state in (ERROR, STALE, CANCELLED):
             self.result = None
             self.scope_label.setText(message)          # the runner's message names the state / error type
@@ -129,8 +136,10 @@ class ParameterTrendPanel(QWidget):
 
     def _show_result(self, _job_id: int, result) -> None:
         self.result = result
-        self.scope_label.setText(f"{result.scope_label} — {result.rows} DDR row(s); axis {result.axis_label}. "
-                                 f"{pt.TREND_METHOD}.")
+        text = f"{result.scope_label} — {result.rows} DDR row(s); axis {result.axis_label}. {pt.TREND_METHOD}."
+        if not result.rows:                       # M138: an empty scope says so; it is not a chart of zeros
+            text += " No drilling-parameter row is recorded in this scope; nothing is drawn."
+        self.scope_label.setText(text)
         self._draw()
 
     def _x(self, value) -> float:

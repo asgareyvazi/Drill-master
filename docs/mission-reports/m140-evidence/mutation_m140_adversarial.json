@@ -1,0 +1,205 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m130_bit_runs.py",
+      "tests/test_m133_mud_engineering.py",
+      "tests/test_m135_well_package.py",
+      "tests/test_m140_adversarial.py"
+    ],
+    "exit": 0,
+    "summary": "82 passed in 47.16s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "BR-currency-not-required",
+      "path": "core/bit_runs.py",
+      "note": "a cost is computed without a stated currency",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.57s"
+    },
+    {
+      "id": "MUD-version-accepted",
+      "path": "core/mud_engineering.py",
+      "note": "a case of another method version is re-run with the current method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 11.02s"
+    },
+    {
+      "id": "WPK-selection-bound",
+      "path": "tabs/well_package_panel.py",
+      "note": "navigating during a build discards the finished folder (unaudited orphan)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 13.46s"
+    },
+    {
+      "id": "ADV-verify-path-unconfined",
+      "path": "core/well_package.py",
+      "note": "a manifest entry outside the package folder is hashed and can verify",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.81s"
+    },
+    {
+      "id": "ADV-verify-malformed-raises",
+      "path": "core/well_package.py",
+      "note": "a malformed manifest raises instead of being reported unreadable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.78s"
+    },
+    {
+      "id": "ADV-verify-nothing-checked",
+      "path": "core/well_package.py",
+      "note": "a manifest that lists no hashed file is VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.79s"
+    },
+    {
+      "id": "ADV-lsryp-inverted-accepted",
+      "path": "core/mud_engineering.py",
+      "note": "LSRYP is computed from θ3 above θ6 (larger than both readings)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py",
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.98s"
+    },
+    {
+      "id": "ADV-mud-unknown-version-evaluated",
+      "path": "core/mud_engineering.py",
+      "note": "an unknown method version is evaluated as v2",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.82s"
+    },
+    {
+      "id": "ADV-mud-v1-rebased",
+      "path": "core/mud_engineering.py",
+      "note": "a stored v1 case is repeated with v2 (re-based history)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py",
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.04s"
+    },
+    {
+      "id": "ADV-mud-rerun-stored-as-current",
+      "path": "core/mud_engineering.py",
+      "note": "the re-run of a v1 case is stored as v2 while computed as v1",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 1.98s"
+    },
+    {
+      "id": "ADV-currency-trailing-newline",
+      "path": "core/bit_runs.py",
+      "note": "'USD\\n' (or 'USDX') is accepted as a currency code",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 1.96s"
+    },
+    {
+      "id": "ADV-md-bool-accepted",
+      "path": "core/repositories/mse_repository.py",
+      "note": "True is stored as a measured depth of 1 m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 1.96s"
+    },
+    {
+      "id": "ADV-npt-time-range",
+      "path": "core/npt_reconciliation.py",
+      "note": "'25:00' or '10:75' becomes an NPT interval",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 1.94s"
+    },
+    {
+      "id": "ADV-trend-invalid-depth-unrecorded",
+      "path": "core/parameter_trends.py",
+      "note": "a recorded but invalid depth is called not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 33 passed in 2.06s"
+    }
+  ],
+  "killed": [
+    "BR-currency-not-required",
+    "MUD-version-accepted",
+    "WPK-selection-bound",
+    "ADV-verify-path-unconfined",
+    "ADV-verify-malformed-raises",
+    "ADV-verify-nothing-checked",
+    "ADV-lsryp-inverted-accepted",
+    "ADV-mud-unknown-version-evaluated",
+    "ADV-mud-v1-rebased",
+    "ADV-mud-rerun-stored-as-current",
+    "ADV-currency-trailing-newline",
+    "ADV-md-bool-accepted",
+    "ADV-npt-time-range",
+    "ADV-trend-invalid-depth-unrecorded"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

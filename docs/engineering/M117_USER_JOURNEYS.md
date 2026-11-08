@@ -38,7 +38,7 @@ new test with the real documents tab instead.
 
 | Journey | Level | Tests (computed level) |
 |---|---|---|
-| A — Context selection reaches every tab, no leak | widget | `tests/test_m102_context_probes.py::test_switch_to_another_well_leaves_no_alpha_value_anywhere` (widget)<br>`tests/test_m102_context_probes.py::test_every_tab_receives_the_full_context` (widget) |
+| A — Context selection reaches every tab, no leak | widget | `tests/test_m102_context_probes.py::test_switch_to_another_well_leaves_no_alpha_value_anywhere` (widget)<br>`tests/test_m102_context_probes.py::test_every_tab_receives_the_full_context` (widget)<br>`tests/test_m139_end_to_end_journey.py::test_thirty_step_journey_through_the_real_window` (widget) |
 | B — Async job and a context switch | widget | `tests/test_m103_context_jobs.py::test_oa_switch_during_the_job_shows_nothing_of_either_well` (widget)<br>`tests/test_m103_context_jobs.py::test_oa_close_during_the_job_joins_the_worker` (widget) |
 | C — DDR manual edit, save and reload | widget | `tests/test_m52_ddr_manual_edit.py::test_a_reordered_time_log_survives_save_and_reload` (widget) |
 | D — DDR import cancel saves nothing | widget | `tests/test_import_dialog_reentrancy.py::test_preview_cancel_persists_nothing` (widget)<br>`tests/test_m111_isolated_parse.py::test_cancel_during_an_isolated_parse_saves_nothing_and_stops_the_child` (widget) |
@@ -49,7 +49,7 @@ new test with the real documents tab instead.
 | I — Multi-segment plan through all targets | widget | `tests/test_m106_multi_segment_solver.py::test_designer_panel_solves_through_all_targets_and_an_s_profile` (widget) |
 | J — Infeasible plan explained, not approximated | widget | `tests/test_m106_multi_segment_solver.py::test_designer_panel_solves_through_all_targets_and_an_s_profile` (widget) |
 | K — Compare only in the same reference/scope | widget | `tests/test_m105_survey_references.py::test_the_compare_panel_refuses_a_plan_in_another_reference_and_labels_undeclared_ones` (widget)<br>`tests/test_m108_history_coverage.py::test_history_tab_compare_shows_the_full_field_table` (widget) |
-| L — W13 calculation saved and re-run | widget | `tests/test_m87_w13_contracts.py::test_bit_case_save_reopen_rerun_clone_export_and_verify` (widget)<br>`tests/test_m107_w13_contracts.py::test_balanced_plug_parity` (widget) |
+| L — W13 calculation saved and re-run | widget | `tests/test_m87_w13_contracts.py::test_bit_case_save_reopen_rerun_clone_export_and_verify` (widget)<br>`tests/test_m107_w13_contracts.py::test_balanced_plug_parity` (widget)<br>`tests/test_m139_end_to_end_journey.py::test_thirty_step_journey_through_the_real_window` (widget) |
 | M — Legacy record NOT_REPRODUCIBLE | widget | `tests/test_m117_widget_journeys.py::test_journey_m_a_legacy_record_is_not_reproducible_in_the_history_tab` (widget) |
 | N — Lineage navigation in history | widget | `tests/test_m88_history_lineage.py::test_history_tab_opens_a_linked_record_on_another_page` (widget)<br>`tests/test_m70_verification_lineage.py::test_history_tab_lineage_navigation` (widget) |
 | O — Architecture to casing with lineage | widget | `tests/test_m89_architecture_casing_cement.py::test_w13_casing_from_architecture_reaches_history_with_lineage` (widget) |
@@ -60,7 +60,7 @@ new test with the real documents tab instead.
 | T — Single report export (W11) | widget | `tests/test_m94_e2e_journeys.py::test_journey_report_export_through_w11_carries_the_selected_well_only` (widget) |
 | U — Multi-report professional workbooks | widget | `tests/test_m117_widget_journeys.py::test_journey_u_w11_writes_one_professional_workbook_per_report` (widget) |
 | V — Method catalogue (read-only) | widget | `tests/test_m92_method_catalogue.py::test_help_menu_opens_a_read_only_catalogue` (widget) |
-| W — RTL and LTR | widget | `tests/test_m94_e2e_journeys.py::test_journey_persian_well_report_right_to_left` (widget)<br>`tests/test_m53_dashboard.py::test_dashboard_is_english_and_left_to_right_even_in_an_rtl_application` (widget) |
+| W — RTL and LTR | widget | `tests/test_m94_e2e_journeys.py::test_journey_persian_well_report_right_to_left` (widget)<br>`tests/test_m53_dashboard.py::test_dashboard_is_english_and_left_to_right_even_in_an_rtl_application` (widget)<br>`tests/test_m138_ux_states.py::test_every_panel_and_child_follows_the_layout_direction` (service) |
 | X — Offline use | widget | `tests/test_m117_widget_journeys.py::test_journey_x_the_documents_tab_works_with_no_network` (widget) |
 | Y — Backup and restore | widget | `tests/test_db_maintenance_ui.py::test_backup_and_restore_ui_flow_in_subprocess` (widget) |
 | Z — Delete isolation | widget | `tests/test_m117_widget_journeys.py::test_journey_z_deleting_one_well_leaves_every_other_well_intact` (widget) |

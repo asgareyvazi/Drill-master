@@ -26,7 +26,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 MUD_METHOD = "m133.mud_evaluation"
-MUD_VERSION = "M133 mud evaluation v1"
+MUD_VERSION_V1 = "M133 mud evaluation v1"     # replay only: LSRYP was computed from an inverted θ3 / θ6 pair
+MUD_VERSION = "M133 mud evaluation v2"        # M140: LSRYP NOT ASSESSED when θ3 is above θ6
+SUPPORTED_VERSIONS = (MUD_VERSION, MUD_VERSION_V1)
 MUD_CALCULATOR = "Mud evaluation"
 MUD_LABEL = "SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL"
 HB_STATUS = ("NOT ASSESSED — this build has no validated Herschel-Bulkley fit; a Bingham or power-law result "
@@ -200,8 +202,12 @@ def _derived_class(classes: Iterable[str]) -> str:
     return DERIVED_ASSUMED if ASSUMED in set(classes) else DERIVED
 
 
-def evaluate(sample: Dict[str, Any], readings: Optional[Dict[str, Any]] = None) -> Evaluation:
-    """Classify the recorded values and derive what follows from them (``sample`` = ``MudSample.frozen()``)."""
+def evaluate(sample: Dict[str, Any], readings: Optional[Dict[str, Any]] = None,
+             version: str = MUD_VERSION) -> Evaluation:
+    """Classify the recorded values and derive what follows from them (``sample`` = ``MudSample.frozen()``).
+    ``version`` selects the method version (a stored case is repeated with its own version, never re-based)."""
+    if version not in SUPPORTED_VERSIONS:
+        raise MudEvaluationError(f"method version {version!r} is not available")
     from core.hydraulics_engine import MudProperties
 
     clean, problems = clean_readings(readings)
@@ -270,7 +276,12 @@ def evaluate(sample: Dict[str, Any], readings: Optional[Dict[str, Any]] = None) 
         for key, label, unit in (("n", "Power-law n", "-"), ("k", "Power-law K", "cP·s^(n−1)")):
             ev.rows.append(Row(key, label, None, unit, UNKNOWN, "needs θ600 / θ300 or recorded PV and YP"))
 
-    if "t3" in clean and "t6" in clean:
+    if "t3" in clean and "t6" in clean and version != MUD_VERSION_V1 and clean["t3"]["value"] > clean["t6"]["value"]:
+        ev.rows.append(Row("lsryp", "Low-shear yield point (LSRYP)", None, "lbf/100 ft²", UNKNOWN,
+                           "NOT ASSESSED: θ3 is above θ6 (a dial reading falls with the speed); check the readings"))
+        ev.notes.append(f"LSRYP NOT ASSESSED: θ3 ({clean['t3']['value']:g}) is above θ6 ({clean['t6']['value']:g}); "
+                        "2θ3 − θ6 would exceed both readings.")
+    elif "t3" in clean and "t6" in clean:
         cls = _derived_class((clean["t3"]["class"], clean["t6"]["class"]))
         ev.rows.append(Row("lsryp", "Low-shear yield point (LSRYP)",
                            2.0 * clean["t3"]["value"] - clean["t6"]["value"], "lbf/100 ft²", cls,
@@ -349,12 +360,12 @@ def verify_case(db, inputs: Dict[str, Any], results: Dict[str, Any], version: st
     """Repeat the evaluation from the frozen inputs; report a mud-report change (never silently re-based)."""
     blank = {"method_matches": None, "current_method": f"{MUD_METHOD} {MUD_VERSION}", "values": {},
              "differences": [], "not_compared": []}
-    if version != MUD_VERSION:
+    if version not in SUPPORTED_VERSIONS:
         return {**blank, "status": "NOT_REPRODUCIBLE", "detail": f"method version {version!r} is not available"}
     if not isinstance(inputs, dict) or not isinstance(inputs.get("sample"), dict) or not isinstance(results, dict):
         return {**blank, "status": "UNREADABLE", "detail": "the stored case is not a mud evaluation payload"}
     try:
-        ev = evaluate(inputs["sample"], inputs.get("readings"))
+        ev = evaluate(inputs["sample"], inputs.get("readings"), version=version)
     except MudEvaluationError as exc:
         return {**blank, "status": "UNREADABLE", "detail": str(exc)}
     fresh = {r.key: r.value for r in ev.rows}
@@ -372,10 +383,12 @@ def verify_case(db, inputs: Dict[str, Any], results: Dict[str, Any], version: st
     source = source_status(db, inputs)
     detail = (f"{len(differences)} field(s) differ" if differences
               else "evaluation repeated from the frozen mud report values")
+    if version != MUD_VERSION:
+        detail += f" with its own method version ({version}; the current version is {MUD_VERSION})"
     return {"status": "DIFFERENT" if differences else "MATCH", "method_matches": True,
             "current_method": f"{MUD_METHOD} {MUD_VERSION}", "detail": f"{detail}; {source}. {MUD_LABEL}.",
             "values": {k: v for k, v in fresh.items() if v is not None}, "differences": differences,
-            "not_compared": not_compared, "ddr_source": source}
+            "not_compared": not_compared, "ddr_source": source, "replayed_version": version}
 
 
 def save_rerun(db, source_case_id: int, inputs: Dict[str, Any], outcome: Dict[str, Any], *,
@@ -386,12 +399,13 @@ def save_rerun(db, source_case_id: int, inputs: Dict[str, Any], outcome: Dict[st
 
     if outcome.get("status") not in ("MATCH", "DIFFERENT"):
         raise MudEvaluationError(f"Nothing to store: re-run status {outcome.get('status')}.")
-    ev = evaluate(inputs["sample"], inputs.get("readings"))
+    version = outcome.get("replayed_version") or MUD_VERSION     # the source case's own version, never re-based
+    ev = evaluate(inputs["sample"], inputs.get("readings"), version=version)
     return cc.save_case(
         db, calculator=MUD_CALCULATOR, name=f"{name} (re-run)", inputs=inputs, results=ev.results(),
-        method=MUD_METHOD, method_version=MUD_VERSION, well_id=well_id, wellbore_id=wellbore_id, user_id=user_id,
+        method=MUD_METHOD, method_version=version, well_id=well_id, wellbore_id=wellbore_id, user_id=user_id,
         note=f"{MUD_LABEL}; re-run of case #{source_case_id}: {outcome['status']}; {outcome.get('ddr_source', '')}",
         source_link={"link_type": "rerun_of", "source_table": "calculation_cases", "source_id": source_case_id,
-                     "source_method": MUD_METHOD, "source_method_version": MUD_VERSION,
-                     "recalc_method": MUD_METHOD, "recalc_method_version": MUD_VERSION,
+                     "source_method": MUD_METHOD, "source_method_version": version,
+                     "recalc_method": MUD_METHOD, "recalc_method_version": version,
                      "verification_status": outcome["status"], "method_changed": False})

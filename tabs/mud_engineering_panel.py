@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (QComboBox, QGridLayout, QGroupBox, QHBoxLayout, Q
 from core import mud_engineering as me
 from core.authorization import AuthorizationError
 from core.context_jobs import CANCELLED, ERROR, STALE, ContextJobRunner, check_cancel
+from tabs.job_retry import REFRESH_HINT, retry_button, scope_row, show_retry
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +49,15 @@ class MudEvaluationPanel(QWidget):
         self.wellbore_id: Optional[int] = None
         self.samples: List[me.MudSample] = []
         self.evaluation: Optional[me.Evaluation] = None
-        self.jobs = ContextJobRunner(None, "mud reports", parent=self)     # M103 runner (M51: no GUI-thread SQL)
+        self.jobs = ContextJobRunner(None, "mud reports", refresh_hint=REFRESH_HINT, parent=self)     # M103 runner (M51: no GUI-thread SQL)
         self.jobs.result_ready.connect(self._show_samples)
         self.jobs.state_changed.connect(self._job_state)
 
         layout = QVBoxLayout(self)
         self.scope_label = QLabel("NOT ASSESSED: select a well")
         self.scope_label.setWordWrap(True)
-        layout.addWidget(self.scope_label)
+        self.retry_btn = retry_button(self._retry)
+        layout.addLayout(scope_row(self.scope_label, self.retry_btn))
         self.samples_table = QTableWidget(0, len(me.LIST_COLUMNS))
         self.samples_table.setHorizontalHeaderLabels(me.LIST_COLUMNS)
         self.samples_table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -135,6 +137,10 @@ class MudEvaluationPanel(QWidget):
         self.jobs.db_manager = self.db
         return self.jobs.start(_load_samples_job, {"well": self.well_id, "wellbore": self.wellbore_id})
 
+    def _retry(self, _checked: bool = False) -> Optional[int]:
+        """M138: Retry re-reads the current scope (a failed, stale or cancelled read showed nothing)."""
+        return self.reload()
+
     def wait(self, timeout_ms: int = 30000) -> bool:
         return self.jobs.wait(timeout_ms)
 
@@ -142,6 +148,7 @@ class MudEvaluationPanel(QWidget):
         return self.jobs.shutdown(timeout_ms)
 
     def _job_state(self, state: str, message: str) -> None:
+        show_retry(self.retry_btn, state)
         if state in (ERROR, STALE, CANCELLED):
             self.samples, self.evaluation = [], None
             self._fill_samples()

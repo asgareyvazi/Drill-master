@@ -1,0 +1,219 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m135_well_package.py",
+      "tests/test_m138_ux_states.py",
+      "tests/test_m139_end_to_end_journey.py"
+    ],
+    "exit": 0,
+    "summary": "24 passed, 14 warnings in 24.54s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "UXM-retry-never-shown",
+      "path": "tabs/job_retry.py",
+      "note": "a failed read says 'Press Retry' but no Retry button appears",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.14s"
+    },
+    {
+      "id": "UXM-bit-retry-does-nothing",
+      "path": "tabs/bit_run_panel.py",
+      "note": "the bit-run Retry button does not read anything again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.08s"
+    },
+    {
+      "id": "UXM-layers-retry-does-nothing",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "a failed 3D record list stays failed after Retry",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 3.96s"
+    },
+    {
+      "id": "UXM-stale-hint-ignored",
+      "path": "core/context_jobs.py",
+      "note": "a discarded stale result names a Refresh button the panel does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 14 warnings in 4.28s"
+    },
+    {
+      "id": "UXM-error-hint-ignored",
+      "path": "core/context_jobs.py",
+      "note": "a failed package build names a Retry button the package panel does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.18s"
+    },
+    {
+      "id": "UXM-trend-empty-silent",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "a trend scope without any row looks like a chart that simply has no points",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.18s"
+    },
+    {
+      "id": "UXM-npt-empty-silent",
+      "path": "tabs/npt_reconciliation_panel.py",
+      "note": "a scope without NPT records reads as 'Reconciled NPT 0.00 h'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.29s"
+    },
+    {
+      "id": "UXM-working-drawn-without-stations",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "the working-survey row says DRAWN for a scope without a survey station",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.32s"
+    },
+    {
+      "id": "UXM-viewer-never-reports",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "the layer panel never learns what the viewer composed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.30s"
+    },
+    {
+      "id": "UXM-bore-failure-silent",
+      "path": "tabs/well_package_panel.py",
+      "note": "a failed wellbore list leaves a combo with only 'Whole well' and no explanation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.11s"
+    },
+    {
+      "id": "UXM-layers-no-well-blank",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "the 3D layer panel shows a blank frame and an empty table when no well is selected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 4.23s"
+    },
+    {
+      "id": "JRN-w12-well-not-forwarded",
+      "path": "tabs/w12_Analysis.py",
+      "note": "selecting a well in the hierarchy leaves the W12 workbench panels on no well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 6.92s"
+    },
+    {
+      "id": "JRN-clear-leaves-first-well",
+      "path": "tabs/w12_Analysis.py",
+      "note": "clearing the selection leaves the previous well's runs, trends, mud and NPT on screen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 10.10s"
+    },
+    {
+      "id": "W11-deferred-package-sync-removed",
+      "path": "tabs/w11_Export.py",
+      "note": "a W11 shown after a well change keeps the package on the previous well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 10.94s"
+    },
+    {
+      "id": "JRN-package-sync-drops-well",
+      "path": "tabs/w11_Export.py",
+      "note": "the end-of-well package never follows the well selected in the hierarchy",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 7.60s"
+    }
+  ],
+  "killed": [
+    "UXM-retry-never-shown",
+    "UXM-bit-retry-does-nothing",
+    "UXM-layers-retry-does-nothing",
+    "UXM-stale-hint-ignored",
+    "UXM-error-hint-ignored",
+    "UXM-trend-empty-silent",
+    "UXM-npt-empty-silent",
+    "UXM-working-drawn-without-stations",
+    "UXM-viewer-never-reports",
+    "UXM-bore-failure-silent",
+    "UXM-layers-no-well-blank",
+    "JRN-w12-well-not-forwarded",
+    "JRN-clear-leaves-first-well",
+    "W11-deferred-package-sync-removed",
+    "JRN-package-sync-drops-well"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

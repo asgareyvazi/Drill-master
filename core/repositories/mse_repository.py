@@ -55,6 +55,8 @@ def md_in_metres(value, unit) -> float:
 
     if unit not in MD_UNITS:
         raise ValueError(f"Measured depth unit must be one of {', '.join(MD_UNITS)}.")
+    if isinstance(value, bool):             # M140: True is not a depth of 1 m
+        raise ValueError("Measured depth must be a number.")
     try:
         number = float(value)
     except (TypeError, ValueError):

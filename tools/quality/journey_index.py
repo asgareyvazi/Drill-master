@@ -32,6 +32,7 @@ JOURNEYS: Dict[str, tuple] = {
     "A": ("Context selection reaches every tab, no leak", [
         "tests/test_m102_context_probes.py::test_switch_to_another_well_leaves_no_alpha_value_anywhere",
         "tests/test_m102_context_probes.py::test_every_tab_receives_the_full_context",
+        "tests/test_m139_end_to_end_journey.py::test_thirty_step_journey_through_the_real_window",
     ]),
     "B": ("Async job and a context switch", [
         "tests/test_m103_context_jobs.py::test_oa_switch_during_the_job_shows_nothing_of_either_well",
@@ -69,6 +70,7 @@ JOURNEYS: Dict[str, tuple] = {
     "L": ("W13 calculation saved and re-run", [
         "tests/test_m87_w13_contracts.py::test_bit_case_save_reopen_rerun_clone_export_and_verify",
         "tests/test_m107_w13_contracts.py::test_balanced_plug_parity",
+        "tests/test_m139_end_to_end_journey.py::test_thirty_step_journey_through_the_real_window",
     ]),
     "M": ("Legacy record NOT_REPRODUCIBLE", [
         "tests/test_m117_widget_journeys.py::test_journey_m_a_legacy_record_is_not_reproducible_in_the_history_tab",
@@ -106,6 +108,7 @@ JOURNEYS: Dict[str, tuple] = {
     "W": ("RTL and LTR", [
         "tests/test_m94_e2e_journeys.py::test_journey_persian_well_report_right_to_left",
         "tests/test_m53_dashboard.py::test_dashboard_is_english_and_left_to_right_even_in_an_rtl_application",
+        "tests/test_m138_ux_states.py::test_every_panel_and_child_follows_the_layout_direction",
     ]),
     "X": ("Offline use", [
         "tests/test_m117_widget_journeys.py::test_journey_x_the_documents_tab_works_with_no_network",

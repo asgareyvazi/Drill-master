@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (QFileDialog, QGridLayout, QGroupBox, QHBoxLayout,
 from core import bit_runs as br
 from core.authorization import AuthorizationError
 from core.context_jobs import CANCELLED, ERROR, STALE, ContextJobRunner, check_cancel
+from tabs.job_retry import REFRESH_HINT, retry_button, scope_row, show_retry
 
 logger = logging.getLogger(__name__)
 
@@ -62,13 +63,14 @@ class BitRunWorkbench(QWidget):
         self.runs: List[br.BitRun] = []
         self.outcomes: Dict[str, br.CostOutcome] = {}
         self.comparison: List[Dict[str, Any]] = []
-        self.jobs = ContextJobRunner(None, "bit runs", parent=self)       # M103 runner (M51: no GUI-thread SQL)
+        self.jobs = ContextJobRunner(None, "bit runs", refresh_hint=REFRESH_HINT, parent=self)       # M103 runner (M51: no GUI-thread SQL)
         self.jobs.result_ready.connect(self._show_runs)
         self.jobs.state_changed.connect(self._job_state)
 
         layout = QVBoxLayout(self)
         self.scope_label = QLabel("NOT ASSESSED: select a well")
-        layout.addWidget(self.scope_label)
+        self.retry_btn = retry_button(self._retry)
+        layout.addLayout(scope_row(self.scope_label, self.retry_btn))
         self.runs_table = QTableWidget(0, len(br.RUN_COLUMNS))
         self.runs_table.setHorizontalHeaderLabels(br.RUN_COLUMNS)
         self.runs_table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -161,6 +163,10 @@ class BitRunWorkbench(QWidget):
         self.jobs.db_manager = self.db
         return self.jobs.start(_load_runs_job, {"well": self.well_id, "wellbore": self.wellbore_id})
 
+    def _retry(self, _checked: bool = False) -> Optional[int]:
+        """M138: Retry re-reads the current scope (a failed, stale or cancelled read showed nothing)."""
+        return self.reload()
+
     def wait(self, timeout_ms: int = 30000) -> bool:
         return self.jobs.wait(timeout_ms)
 
@@ -168,6 +174,7 @@ class BitRunWorkbench(QWidget):
         return self.jobs.shutdown(timeout_ms)
 
     def _job_state(self, state: str, message: str) -> None:
+        show_retry(self.retry_btn, state)
         if state in (ERROR, STALE, CANCELLED):
             self.runs = []
             self._fill_runs()

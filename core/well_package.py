@@ -391,6 +391,12 @@ def find_audit(db, manifest_sha256: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _plain_name(name: Any) -> bool:
+    """A manifest entry names one file directly inside the package folder: no directory part, no absolute path."""
+    return (isinstance(name, str) and name not in ("", ".", "..") and os.path.basename(name) == name
+            and "/" not in name and "\\" not in name and not os.path.isabs(name))
+
+
 def verify_package(folder: str, db=None) -> Verification:
     """Re-hash every listed file; report changed, missing and unlisted files; find the audit record."""
     manifest_path = os.path.join(folder, MANIFEST)
@@ -403,21 +409,30 @@ def verify_package(folder: str, db=None) -> Verification:
         parts = manifest["parts"]
     except (ValueError, KeyError, TypeError) as exc:
         return Verification(False, [f"{MANIFEST} is unreadable ({type(exc).__name__})"], "not checked", manifest_sha)
+    if not isinstance(parts, list) or not all(isinstance(part, dict) for part in parts):
+        return Verification(False, [f"{MANIFEST} is unreadable (its parts are not a list of entries)"], "not checked",
+                            manifest_sha)
     problems, listed, checked = [], {MANIFEST}, 0
     for part in parts:
         if not part.get("sha256"):
             continue
-        listed.add(part["file"])
-        path = os.path.join(folder, part["file"])
+        name = part.get("file")
+        if not _plain_name(name):              # M140 (D54): never read a file outside the package folder
+            problems.append(f"refused: manifest entry {name!r} is not a file name inside the package folder")
+            continue
+        listed.add(name)
+        path = os.path.join(folder, name)
         if not os.path.isfile(path):
-            problems.append(f"missing: {part['file']}")
+            problems.append(f"missing: {name}")
             continue
         checked += 1
         if file_sha256(path) != part["sha256"]:
-            problems.append(f"changed: {part['file']} (SHA-256 differs from the manifest)")
+            problems.append(f"changed: {name} (SHA-256 differs from the manifest)")
     for name in sorted(os.listdir(folder)):
         if name not in listed:
             problems.append(f"unlisted: {name}")
+    if checked == 0 and not problems:            # M140 (D54): a package always carries at least its hashed EOWR
+        problems.append("nothing verified: the manifest lists no file with a SHA-256")
     if db is None:
         audit = "not checked (no database)"
     else:

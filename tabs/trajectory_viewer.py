@@ -269,6 +269,7 @@ class TrajectoryViewerTab(QWidget):
             self.trajectory, self.stations = None, []
             self._set_banner(NO_DATA, "Select a daily report to use the report scope.")
             self._clear("Select a daily report to use the report scope.")
+            self._report_working()
             return
         vs_azimuth = self.vs_spin.value() if self.vs_mode_combo.currentData() == "user" else None
         try:
@@ -278,10 +279,20 @@ class TrajectoryViewerTab(QWidget):
             self.trajectory, self.stations = None, []
             self._set_banner(ERROR, f"Survey stations could not be read ({type(exc).__name__}).")
             self._clear("Survey stations could not be read; nothing is drawn.")
+            self._report_working(readable=False)
             return
         self.trajectory = compose_well_trajectory(rows, vs_azimuth=vs_azimuth)
         self.stations = list(self.trajectory.stations)
+        self._report_working()
         self.render()
+
+    def _report_working(self, readable: bool = True) -> None:
+        """M138: tell the 3D layer panel what the working survey really holds (its row never claims DRAWN for
+        a scope without stations)."""
+        panel = getattr(self, "layers_panel", None)
+        if panel is not None:
+            t = self.trajectory
+            panel.set_working_state(len(self.stations) if readable else None, bool(t is not None and t.drawable))
 
     # -------------------------------------------------------------- render
     def _set_banner(self, status, text):

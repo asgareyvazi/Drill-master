@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QGroupBox, QHB
 from core import well_package as wp
 from core.authorization import AuthorizationError
 from core.context_jobs import CANCELLED, ERROR, LOADING, STALE, ContextJobRunner, check_cancel
+from tabs.job_retry import REFRESH_HINT, retry_button, scope_row, show_retry
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +64,15 @@ class WellPackagePanel(QWidget):
         self.verification: Optional[wp.Verification] = None
         self.bore_jobs = ContextJobRunner(None, "wellbores", parent=self)
         self.bore_jobs.result_ready.connect(self._show_bores)
-        self.jobs = ContextJobRunner(None, "end-of-well package", selection=_FixedScope(), parent=self)
+        self.bore_jobs.state_changed.connect(self._bores_state)
+        self.bore_jobs.refresh_hint = REFRESH_HINT
+        # M138: a failed build or verification is repeated with the same button, so the message names that button
+        self.jobs = ContextJobRunner(None, "end-of-well package", selection=_FixedScope(),
+                                     retry_hint="Build the package again to retry.", parent=self)
         self.jobs.result_ready.connect(self._built)
         self.jobs.state_changed.connect(self._job_state)
-        self.verify_jobs = ContextJobRunner(None, "package verification", selection=_FixedScope(), parent=self)
+        self.verify_jobs = ContextJobRunner(None, "package verification", selection=_FixedScope(),
+                                            retry_hint="Verify the folder again to retry.", parent=self)
         self.verify_jobs.result_ready.connect(self._verified)
         self.verify_jobs.state_changed.connect(self._verify_state)
 
@@ -90,7 +96,8 @@ class WellPackagePanel(QWidget):
         layout.addLayout(row)
         self.scope_label = QLabel("NOT ASSESSED: select a well")
         self.scope_label.setWordWrap(True)
-        layout.addWidget(self.scope_label)
+        self.retry_btn = retry_button(self._retry, "Read the wellbores of this well again")
+        layout.addLayout(scope_row(self.scope_label, self.retry_btn))
         buttons = QHBoxLayout()
         self.build_btn = QPushButton("Build package…")
         self.build_btn.clicked.connect(self._build_dialog)
@@ -118,6 +125,7 @@ class WellPackagePanel(QWidget):
             self.status.setText("")
         self.well_id, self.well_name = well_id, well_name or (f"well #{well_id}" if well_id else "")
         self._set_bores([])
+        self.retry_btn.setVisible(False)
         if well_id is None or self.db is None:
             self.bore_jobs.invalidate()
         else:
@@ -133,6 +141,21 @@ class WellPackagePanel(QWidget):
 
     def _show_bores(self, _job_id, bores) -> None:
         self._set_bores(bores)
+
+    def _bores_state(self, state: str, message: str) -> None:
+        """M138: a failed wellbore list is said, not hidden behind a combo that offers only the whole well."""
+        show_retry(self.retry_btn, state)
+        problem = getattr(self, "_bores_problem", "")
+        if state in (ERROR, STALE, CANCELLED):
+            self._bores_problem = message + " Only the whole-well scope can be chosen until the wellbores are read."
+            self.status.setText(self._bores_problem)
+        elif problem and self.status.text() == problem:      # read again successfully: the warning goes away
+            self._bores_problem = ""
+            self.status.setText("")
+
+    def _retry(self, _checked: bool = False) -> None:
+        if self.well_id is not None:
+            self.set_well(self.well_id, self.well_name)
 
     def scope_text(self) -> str:
         if self.well_id is None:

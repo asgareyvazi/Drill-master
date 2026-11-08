@@ -18,13 +18,19 @@ from PySide6.QtWidgets import (QComboBox, QGridLayout, QHeaderView, QLabel, QTab
 
 from core import trajectory_layers as tl
 from core.context_jobs import CANCELLED, ERROR, STALE, ContextJobRunner, check_cancel
+from tabs.job_retry import REFRESH_HINT, retry_button, scope_row, show_retry
 
 logger = logging.getLogger(__name__)
 
 WORKING, NO_SURVEY = "working", "none"
+#: M138: with no well the panel says so; it never shows a blank frame or a working-survey state without a well
+NO_WELL_TEXT = "NOT ASSESSED: select a well — no 3D layer is read or drawn."
 STATUS_COLUMNS = ("Layer", "Record", "Status", "Reason")
 WORKING_REASON = ("the working survey (DDR survey points) has no revision identity or declared references; select a "
                   "survey revision as the base to overlay records")
+
+#: M138 working-survey row states besides DRAWN / NOT DRAWN / NOT SELECTED
+NO_DATA, NOT_REPORTED = "NO DATA", "NOT REPORTED"
 
 
 def _catalogue_job(db, params, cancel_event):
@@ -52,7 +58,8 @@ class TrajectoryLayersPanel(QWidget):
         self.catalogue = {"surveys": [], "plans": [], "architectures": [], "excluded": []}
         self.layer_set: Optional[tl.LayerSet] = None
         self._pending = None                 # "catalogue" | "layers": what the running job reads
-        self.jobs = ContextJobRunner(None, "3D layers", parent=self)
+        self.working: Optional[tuple] = None  # M138: (stations, drawable) the viewer composed; None = not reported
+        self.jobs = ContextJobRunner(None, "3D layers", refresh_hint=REFRESH_HINT, parent=self)
         self.jobs.result_ready.connect(self._job_result)
         self.jobs.state_changed.connect(self._job_state)
 
@@ -69,9 +76,10 @@ class TrajectoryLayersPanel(QWidget):
             combo.setMinimumContentsLength(18)
             combo.currentIndexChanged.connect(self._choices_changed)
         layout.addLayout(grid)
-        self.frame_label = QLabel("")
+        self.frame_label = QLabel(NO_WELL_TEXT)
         self.frame_label.setWordWrap(True)
-        layout.addWidget(self.frame_label)
+        self.retry_btn = retry_button(self._retry)
+        layout.addLayout(scope_row(self.frame_label, self.retry_btn))
         self.status_table = QTableWidget(0, len(STATUS_COLUMNS))
         self.status_table.setHorizontalHeaderLabels(STATUS_COLUMNS)
         self.status_table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -87,7 +95,11 @@ class TrajectoryLayersPanel(QWidget):
         self.catalogue = {"surveys": [], "plans": [], "architectures": [], "excluded": []}
         self.layer_set = None
         self._fill_combos()
-        if self.well_id is None or self.db_manager is None:
+        if self.well_id is None:
+            self.jobs.invalidate()
+            self._show_no_well()
+            return None
+        if self.db_manager is None:
             self.jobs.invalidate()
             self._show_working()
             return None
@@ -143,6 +155,12 @@ class TrajectoryLayersPanel(QWidget):
         """Unit or scale changed: rebuild the current choice (the working survey is redrawn by the viewer)."""
         return self._choices_changed()
 
+    def _retry(self, _checked: bool = False) -> Optional[int]:
+        """M138: Retry re-reads what failed for the current scope: the record list, or the chosen layers."""
+        if self._pending == "catalogue":
+            return self.set_scope(self.well_id, self.wellbore_id)
+        return self._choices_changed()
+
     def wait(self, timeout_ms: int = 30000) -> bool:
         return self.jobs.wait(timeout_ms)
 
@@ -151,6 +169,7 @@ class TrajectoryLayersPanel(QWidget):
 
     # -- results ------------------------------------------------------------------------------------------------
     def _job_state(self, state: str, message: str) -> None:
+        show_retry(self.retry_btn, state)
         if state not in (ERROR, STALE, CANCELLED):
             return
         self.layer_set = None
@@ -179,18 +198,45 @@ class TrajectoryLayersPanel(QWidget):
         self._fill_status(rows)
         self.layers_ready.emit(payload)
 
-    def _show_working(self) -> None:
-        self.layer_set = None
+    def set_working_state(self, stations: Optional[int], drawable: bool = False) -> None:
+        """M138: what the viewer composed from the DDR survey points of its scope, so the working-survey row
+        never says DRAWN for a scope without stations. ``None``: not known (the stations could not be read)."""
+        self.working = None if stations is None else (int(stations), bool(drawable))
+        if self.layer_set is None and self.choices()["base"] == WORKING:
+            self._fill_status(self._working_rows())
+
+    def _working_status(self) -> tuple:
+        if not self.well_id:
+            return tl.NOT_SELECTED, "select a well"
+        if self.working is None:
+            return NOT_REPORTED, "the trajectory view has not reported what it composed from the DDR survey points"
+        stations, drawable = self.working
+        if not stations:
+            return NO_DATA, "no DDR survey point is recorded in the trajectory view's scope; nothing is drawn"
+        if not drawable:
+            return tl.NOT_DRAWN, f"{stations} station(s), not drawable (the 2D views say why)"
+        return tl.DRAWN, f"{stations} station(s) composed by the trajectory engine as in the 2D views"
+
+    def _working_rows(self) -> list:
         choice = self.choices()
         selected = [(label, choice[key]) for key, label in (("compare", "Second survey revision"),
                                                             ("plan", "Plan revision"),
                                                             ("architecture", "Architecture revision"))
                     if choice[key] is not None]
-        rows = [("Working survey", "DDR survey points", tl.DRAWN if self.well_id else tl.NOT_SELECTED,
-                 "composed by the trajectory engine as in the 2D views" if self.well_id else "select a well")]
+        rows = [("Working survey", "DDR survey points") + self._working_status()]
         rows.extend((label, f"#{record}", tl.NOT_DRAWN, WORKING_REASON) for label, record in selected)
         rows.extend(("Excluded", source, "EXCLUDED (scope)", why) for source, why in self.catalogue["excluded"])
-        self._fill_status(rows)
+        return rows
+
+    def _show_no_well(self) -> None:
+        self.layer_set = None
+        self._fill_status([])
+        self.frame_label.setText(NO_WELL_TEXT)
+        self.working_selected.emit()          # the host clears any layer drawn for the previous well
+
+    def _show_working(self) -> None:
+        self.layer_set = None
+        self._fill_status(self._working_rows())
         self.frame_label.setText("Base: the working survey. " + tl.LAYER_LABEL + ".")
         self.working_selected.emit()
 

@@ -55,7 +55,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 31,
+    "evidence_tests": 33,
     "licence": "own code (product licence)",
     "method_id": "engine.mse",
     "status": "IMPLEMENTED",
@@ -74,6 +74,8 @@
      "test_m131_parameter_trends.py",
      "test_m134_npt_reconciliation.py",
      "test_m135_well_package.py",
+     "test_m138_ux_states.py",
+     "test_m140_adversarial.py",
      "test_m30_semantic_regressions.py",
      "test_m53_dashboard.py",
      "test_m67_calculation_history.py",
@@ -1392,7 +1394,7 @@
    "guarded": false,
    "lines": [
     34,
-    196
+    199
    ],
    "module": "PySide6"
   },
@@ -1871,6 +1873,14 @@
    "module": "PySide6"
   },
   {
+   "file": "tabs/job_retry.py",
+   "guarded": false,
+   "lines": [
+    10
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "tabs/knowledge_assistant.py",
    "guarded": false,
    "lines": [
@@ -2195,7 +2205,7 @@
    "guarded": false,
    "lines": [
     15,
-    202
+    225
    ],
    "module": "PySide6"
   },
@@ -2591,7 +2601,7 @@
    "file": "tabs/parameter_trend_panel.py",
    "guarded": true,
    "lines": [
-    23
+    24
    ],
    "module": "pyqtgraph"
   },

@@ -34,7 +34,7 @@ COST_METHOD = "m130.bit_run_cost"
 COST_VERSION = "M130 bit run cost per length v1"
 COST_CALCULATOR = "Bit run cost per length"
 COST_LABEL = "SCENARIO — USER-ENTERED COSTS — NOT RECORDED COST — NOT AN APPROVAL"
-CURRENCY_PATTERN = re.compile(r"^[A-Z]{3}$")      # a code the user types (e.g. USD); never looked up or converted
+CURRENCY_PATTERN = re.compile(r"[A-Z]{3}")        # a code the user types (e.g. USD); never looked up or converted
 COST_TOLERANCE = 0.01                             # the engine rounds money to 2 decimals
 
 OPEN, SUPERSEDED = "OPEN", "SUPERSEDED"
@@ -247,7 +247,7 @@ class CostOutcome:
 
 def scenario_problems(currency: str, bit_cost, rig_rate_per_day, trip_hours) -> List[str]:
     problems = []
-    if not CURRENCY_PATTERN.match(currency or ""):
+    if not isinstance(currency, str) or not CURRENCY_PATTERN.fullmatch(currency):   # M140: "USD\n" is not USD
         problems.append("currency not entered (type its 3-letter code, e.g. USD; nothing is converted)")
     for name, value in (("bit cost", bit_cost), ("rig rate per day", rig_rate_per_day), ("trip time", trip_hours)):
         if value is None:

@@ -1,0 +1,553 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m127_weight_casing.py",
+      "tests/test_m128_dp_schedule.py",
+      "tests/test_m129_surveys_anticollision.py"
+    ],
+    "exit": 0,
+    "summary": "33 passed in 20.64s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "WT-pin-hash-unchecked",
+      "path": "core/w13_weight.py",
+      "note": "edited pinned stations are used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.89s"
+    },
+    {
+      "id": "WT-pin-other-well",
+      "path": "core/w13_weight.py",
+      "note": "a survey revision of another well is pinned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.02s"
+    },
+    {
+      "id": "WT-pin-other-wellbore",
+      "path": "core/w13_weight.py",
+      "note": "a survey revision of another wellbore is pinned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.18s"
+    },
+    {
+      "id": "WT-verify-for-use-skipped",
+      "path": "core/w13_weight.py",
+      "note": "a revision whose stored results fail their check is pinned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.07s"
+    },
+    {
+      "id": "WT-unknown-td-as-zero",
+      "path": "core/w13_weight.py",
+      "note": "no survey pinned reads as zero T&D",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.81s"
+    },
+    {
+      "id": "WT-well-change-keeps-pin",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the pin of the previous well survives a well change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.06s"
+    },
+    {
+      "id": "WT-survey-source-not-stored",
+      "path": "core/engineering/torque_drag_persistence.py",
+      "note": "a saved T&D run does not say which survey it used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 3.69s"
+    },
+    {
+      "id": "WT-history-survey-link",
+      "path": "core/calculation_history.py",
+      "note": "a Weight case does not link its survey revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 6.26s"
+    },
+    {
+      "id": "CS-unknown-accepted",
+      "path": "core/calculator_contracts.py",
+      "note": "a required value unknown in the source is re-run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.49s"
+    },
+    {
+      "id": "CS-provenance-missing-accepted",
+      "path": "core/calculator_contracts.py",
+      "note": "a case without provenance is judged on its numbers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.61s"
+    },
+    {
+      "id": "CS-history-architecture-link",
+      "path": "core/calculation_history.py",
+      "note": "a Casing Strength case does not link its architecture revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.50s"
+    },
+    {
+      "id": "CS-selector-captured",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "the architecture string selector is captured as an input and cannot be restored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.48s"
+    },
+    {
+      "id": "CS-restore-drops-origin",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a reopened case loses where each value came from",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.54s"
+    },
+    {
+      "id": "DP-seeded-icp",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the page seeds an ICP again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.66s"
+    },
+    {
+      "id": "DP-unknown-volume-as-zero",
+      "path": "core/dp_schedule.py",
+      "note": "no pump output reads as 0 bbl",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.67s"
+    },
+    {
+      "id": "DP-zero-accepted",
+      "path": "core/dp_schedule.py",
+      "note": "a value not entered (0) is used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.69s"
+    },
+    {
+      "id": "DP-fractional-intervals",
+      "path": "core/dp_schedule.py",
+      "note": "a fractional interval count is truncated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.71s"
+    },
+    {
+      "id": "DP-interval-ceiling",
+      "path": "core/dp_schedule.py",
+      "note": "the interval ceiling is gone",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.70s"
+    },
+    {
+      "id": "DP-rounded-rows",
+      "path": "core/dp_schedule.py",
+      "note": "stored rows are rounded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.71s"
+    },
+    {
+      "id": "DP-reason-captured-as-result",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a NOT ASSESSED page saves a case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.61s"
+    },
+    {
+      "id": "DP-stale-result-kept",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an invalid re-run leaves the previous schedule saveable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.60s"
+    },
+    {
+      "id": "DP-choke-label",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the column no longer says drill-pipe pressure",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.61s"
+    },
+    {
+      "id": "DP-page-ignores-output",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the entered pump output is ignored by the page",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.71s"
+    },
+    {
+      "id": "DP-contract-unclassified",
+      "path": "core/calculator_contracts.py",
+      "note": "the worksheet is labelled a CONTRACT",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.03s"
+    },
+    {
+      "id": "AC-grid-not-required",
+      "path": "core/trajectory_compare.py",
+      "note": "true / magnetic north surveys are compared with grid wellhead offsets",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.81s"
+    },
+    {
+      "id": "AC-any-datum",
+      "path": "core/trajectory_compare.py",
+      "note": "a GL / DF datum is placed with the rotary-table elevation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.85s"
+    },
+    {
+      "id": "AC-legacy-not-named",
+      "path": "core/trajectory_compare.py",
+      "note": "a legacy survey is not reported as undeclared",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.78s"
+    },
+    {
+      "id": "AC-msl-needs-rte",
+      "path": "core/trajectory_compare.py",
+      "note": "an MSL survey is refused for a missing rte_msl",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.77s"
+    },
+    {
+      "id": "AC-v1-label-lost",
+      "path": "core/trajectory_compare.py",
+      "note": "an M52 record re-runs with the new label",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.81s"
+    },
+    {
+      "id": "AC-rerun-current-version",
+      "path": "core/trajectory_compare.py",
+      "note": "an M52 record is re-run under the M129 rules",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.80s"
+    },
+    {
+      "id": "AC-unknown-version-run",
+      "path": "core/trajectory_compare.py",
+      "note": "an unknown method version is silently run as the current one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.81s"
+    },
+    {
+      "id": "AC-panel-legacy-offset",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "the panel reads the offset well from legacy points",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.06s"
+    },
+    {
+      "id": "AC-panel-references-faked",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "the panel declares references the offset survey does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 3.10s"
+    },
+    {
+      "id": "AC-panel-offset-unverified",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "a tampered offset revision is compared",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 4.08s"
+    },
+    {
+      "id": "AC-w13-mode-unlocked",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the anti-collision page can switch to plan mode",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 5.57s"
+    },
+    {
+      "id": "AC-w13-not-following",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the anti-collision page keeps the previous well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 5.76s"
+    },
+    {
+      "id": "MS-draft-other-well",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a draft of one well is saved for another",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 8.14s"
+    },
+    {
+      "id": "MS-undeclared-azimuth",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an undeclared azimuth reference is saved as true north",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 7.11s"
+    },
+    {
+      "id": "MS-unchanged-resaved",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an unchanged loaded revision is saved again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 6.94s"
+    },
+    {
+      "id": "MS-replace-as-initial",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an edited revision is saved without its parent",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 7.18s"
+    },
+    {
+      "id": "CB-recorded-elsewhere-saved",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "a duplicate W13 case is attempted for a leaf recorded elsewhere",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 5.73s"
+    }
+  ],
+  "killed": [
+    "WT-pin-hash-unchecked",
+    "WT-pin-other-well",
+    "WT-pin-other-wellbore",
+    "WT-verify-for-use-skipped",
+    "WT-unknown-td-as-zero",
+    "WT-well-change-keeps-pin",
+    "WT-survey-source-not-stored",
+    "WT-history-survey-link",
+    "CS-unknown-accepted",
+    "CS-provenance-missing-accepted",
+    "CS-history-architecture-link",
+    "CS-selector-captured",
+    "CS-restore-drops-origin",
+    "DP-seeded-icp",
+    "DP-unknown-volume-as-zero",
+    "DP-zero-accepted",
+    "DP-fractional-intervals",
+    "DP-interval-ceiling",
+    "DP-rounded-rows",
+    "DP-reason-captured-as-result",
+    "DP-stale-result-kept",
+    "DP-choke-label",
+    "DP-page-ignores-output",
+    "DP-contract-unclassified",
+    "AC-grid-not-required",
+    "AC-any-datum",
+    "AC-legacy-not-named",
+    "AC-msl-needs-rte",
+    "AC-v1-label-lost",
+    "AC-rerun-current-version",
+    "AC-unknown-version-run",
+    "AC-panel-legacy-offset",
+    "AC-panel-references-faked",
+    "AC-panel-offset-unverified",
+    "AC-w13-mode-unlocked",
+    "AC-w13-not-following",
+    "MS-draft-other-well",
+    "MS-undeclared-azimuth",
+    "MS-unchanged-resaved",
+    "MS-replace-as-initial",
+    "CB-recorded-elsewhere-saved"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

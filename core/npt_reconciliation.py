@@ -155,10 +155,12 @@ class Reconciliation:
 
 def _minutes(text: str) -> Optional[int]:
     try:
-        hours, minutes = text.split(":")[:2]
-        return int(hours) * 60 + int(minutes)
+        hours, minutes = (int(part) for part in text.split(":")[:2])
     except (AttributeError, ValueError):  # silent-ok: an unreadable time has no interval (reported as such)
         return None
+    if not (0 <= hours <= 23 and 0 <= minutes <= 59):     # M140: "25:00" or "10:75" is not a time of day
+        return None
+    return hours * 60 + minutes
 
 
 def _interval(start: str, end: str) -> Optional[Tuple[int, int]]:

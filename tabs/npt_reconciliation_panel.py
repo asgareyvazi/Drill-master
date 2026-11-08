@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog
 from core import npt_reconciliation as nr
 from core.authorization import AuthorizationError
 from core.context_jobs import CANCELLED, ERROR, STALE, ContextJobRunner, check_cancel
+from tabs.job_retry import REFRESH_HINT, retry_button, scope_row, show_retry
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class NptReconciliationPanel(QWidget):
         self.well_id: Optional[int] = None
         self.wellbore_id: Optional[int] = None
         self.recon: Optional[nr.Reconciliation] = None
-        self.jobs = ContextJobRunner(None, "NPT reconciliation", parent=self)   # M103 runner (M51)
+        self.jobs = ContextJobRunner(None, "NPT reconciliation", refresh_hint=REFRESH_HINT, parent=self)   # M103 runner (M51)
         self.jobs.result_ready.connect(self._show)
         self.jobs.state_changed.connect(self._job_state)
 
@@ -86,7 +87,8 @@ class NptReconciliationPanel(QWidget):
         outer.addWidget(box)
         self.scope_label = QLabel("NOT ASSESSED: select a well")
         self.scope_label.setWordWrap(True)
-        layout.addWidget(self.scope_label)
+        self.retry_btn = retry_button(self._retry)
+        layout.addLayout(scope_row(self.scope_label, self.retry_btn))
         self.table = QTableWidget(0, len(nr.COLUMNS))
         self.table.setHorizontalHeaderLabels(nr.COLUMNS)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -143,6 +145,10 @@ class NptReconciliationPanel(QWidget):
         self.jobs.db_manager = self.db
         return self.jobs.start(_reconcile_job, {"well": self.well_id, "wellbore": self.wellbore_id})
 
+    def _retry(self, _checked: bool = False) -> Optional[int]:
+        """M138: Retry re-reads the current scope (a failed, stale or cancelled read showed nothing)."""
+        return self.reload()
+
     def wait(self, timeout_ms: int = 30000) -> bool:
         return self.jobs.wait(timeout_ms)
 
@@ -150,6 +156,7 @@ class NptReconciliationPanel(QWidget):
         return self.jobs.shutdown(timeout_ms)
 
     def _job_state(self, state: str, message: str) -> None:
+        show_retry(self.retry_btn, state)
         if state in (ERROR, STALE, CANCELLED):
             self.recon = None
             self._fill()
@@ -157,7 +164,10 @@ class NptReconciliationPanel(QWidget):
 
     def _show(self, _job_id: int, result) -> None:
         self.recon = result
-        self.scope_label.setText(self.scope_text() + f" — {len(result.groups)} group(s).")
+        text = self.scope_text() + f" — {len(result.groups)} group(s)."
+        if not result.groups:                     # M138: no record is not "0 h of NPT"
+            text += " No NPT register event or NPT time-log row is recorded in this scope."
+        self.scope_label.setText(text)
         self._fill()
 
     def _fill(self) -> None:

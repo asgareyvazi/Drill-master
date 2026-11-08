@@ -1,0 +1,422 @@
+{
+  "tool": "M138 panel states v1",
+  "environment": {
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+    "python": "3.11.2",
+    "cpus": 2,
+    "qpa": "offscreen",
+    "note": "offscreen Linux; not a Windows desktop measurement"
+  },
+  "runs": [
+    {
+      "direction": "ltr",
+      "panels": [
+        {
+          "panel": "BitRunWorkbench",
+          "construct_ms": 20.0,
+          "direction": {
+            "panel": true,
+            "children": 75,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well || "
+          },
+          "empty": {
+            "ms": 32.6,
+            "delivered": true,
+            "text": "Well #3, whole well (all wellbores; legacy duplicate rows excluded) — 0 run(s), 0 incomplete. M130 bit run roll-up v1. No DDR row records a bit number. || "
+          },
+          "data": {
+            "ms": 7.4,
+            "delivered": true,
+            "text": "Well #2, whole well (all wellbores; legacy duplicate rows excluded) — 1 run(s), 0 incomplete. M130 bit run roll-up v1. || "
+          },
+          "error": {
+            "ms": 1.0,
+            "delivered": true,
+            "text": "Bit runs failed (RuntimeError); nothing is shown. Press Retry. || ",
+            "retry_visible": true,
+            "after_retry_ms": 7.4,
+            "after_retry_text": "Well #2, whole well (all wellbores; legacy duplicate rows excluded) — 1 run(s), 0 incomplete. M130 bit run roll-up v1. || ",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "ParameterTrendPanel",
+          "construct_ms": 303.2,
+          "direction": {
+            "panel": true,
+            "children": 58,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well || "
+          },
+          "empty": {
+            "ms": 15.1,
+            "delivered": true,
+            "text": "Well #3, whole well — 0 DDR row(s); axis Report date (DDR). M131 drilling-parameter trends v1. No drilling-parameter row is recorded in this scope; nothing is drawn. || ROP (average) (m/h): 0 placed, 0 missing, 0 invalid, 0 not placed. MSE — discrete saved runs, not a continuous log (psi): 0 placed, 0 missing, 0 invalid, 0 not placed."
+          },
+          "data": {
+            "ms": 13.4,
+            "delivered": true,
+            "text": "Well #2, whole well — 2 DDR row(s); axis Report date (DDR). M131 drilling-parameter trends v1. || ROP (average) (m/h): 2 placed, 0 missing, 0 invalid, 0 not placed. MSE — discrete saved runs, not a continuous log (psi): 0 placed, 0 missing, 0 invalid, 0 not placed.",
+            "axes": {
+              "parameter": {
+                "left": "ROP (average) (m/h)",
+                "bottom": "Report date (DDR)"
+              },
+              "mse": {
+                "left": "MSE — discrete saved runs, not a continuous log (psi)",
+                "bottom": "Report date (DDR)"
+              }
+            }
+          },
+          "error": {
+            "ms": 1.0,
+            "delivered": true,
+            "text": "Parameter trends failed (RuntimeError); nothing is shown. Press Retry. || ",
+            "retry_visible": true,
+            "after_retry_ms": 11.7,
+            "after_retry_text": "Well #2, whole well — 2 DDR row(s); axis Report date (DDR). M131 drilling-parameter trends v1. || ROP (average) (m/h): 2 placed, 0 missing, 0 invalid, 0 not placed. MSE — discrete saved runs, not a continuous log (psi): 0 placed, 0 missing, 0 invalid, 0 not placed.",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "TrajectoryLayersPanel",
+          "construct_ms": 601.5,
+          "direction": {
+            "panel": true,
+            "children": 522,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well — no 3D layer is read or drawn. || "
+          },
+          "empty": {
+            "ms": 47.7,
+            "delivered": true,
+            "text": "Base: the working survey. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. || Working survey | DDR survey points | NO DATA | no DDR survey point is recorded in the trajectory view's scope; nothing is drawn"
+          },
+          "data": {
+            "ms": 78.2,
+            "delivered": true,
+            "text": "Base: the working survey. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. || Working survey | DDR survey points | DRAWN | 4 station(s) composed by the trajectory engine as in the 2D views",
+            "layers_ok": true,
+            "layers_ms": 26.2,
+            "layers_text": "Frame: survey revision 1 — north / east / TVD relative to its first station (MD 0 m); true north, datum RKB. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. M132 revision-aware 3D layers v1. Well #2, whole well. || Survey revision 1 (true north, datum RKB) | survey_revisions #1 (stations SHA-256 b4fc0a123cae…) | DRAWN | integrity VERIFIED / Second survey revision |  | NOT SELECTED | no second survey revision selected / Plan revision |  | NOT SELECTED | no plan revision selected / Targets |  | NOT SELECTED | no plan revision selected / Architecture revision |  | NOT SELECTED | no architecture revision selected"
+          },
+          "error": {
+            "ms": 58.0,
+            "delivered": true,
+            "text": "Revision records: 3d layers failed (RuntimeError); nothing is shown. Press Retry. The working survey is shown. || Working survey | DDR survey points | DRAWN | 4 station(s) composed by the trajectory engine as in the 2D views",
+            "retry_visible": true,
+            "after_retry_ms": 24.5,
+            "after_retry_text": "Base: the working survey. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. || Working survey | DDR survey points | DRAWN | 4 station(s) composed by the trajectory engine as in the 2D views",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "MudEvaluationPanel",
+          "construct_ms": 9.7,
+          "direction": {
+            "panel": true,
+            "children": 124,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL"
+          },
+          "empty": {
+            "ms": 8.0,
+            "delivered": true,
+            "text": "Well #3, whole well (all mud reports, including legacy rows without a DDR link) — 0 mud report(s). No mud report is recorded in this scope. || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL"
+          },
+          "data": {
+            "ms": 4.3,
+            "delivered": true,
+            "text": "Well #2, whole well (all mud reports, including legacy rows without a DDR link) — 1 mud report(s). || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL"
+          },
+          "error": {
+            "ms": 0.8,
+            "delivered": true,
+            "text": "Mud reports failed (RuntimeError); nothing is shown. Press Retry. || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL",
+            "retry_visible": true,
+            "after_retry_ms": 4.0,
+            "after_retry_text": "Well #2, whole well (all mud reports, including legacy rows without a DDR link) — 1 mud report(s). || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "NptReconciliationPanel",
+          "construct_ms": 6.1,
+          "direction": {
+            "panel": true,
+            "children": 28,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well ||  || "
+          },
+          "empty": {
+            "ms": 10.4,
+            "delivered": true,
+            "text": "Well #3, whole well — 0 group(s). No NPT register event or NPT time-log row is recorded in this scope. || Reconciled NPT 0.00 h (each event once). M134 NPT event reconciliation v1. || "
+          },
+          "data": {
+            "ms": 8.7,
+            "delivered": true,
+            "text": "Well #2, whole well — 2 group(s). || Reconciled NPT 4.00 h (each event once). 1 UNCERTAIN group(s) not added: 2.50–4.00 h more (one event … different events). M134 NPT event reconciliation v1. || "
+          },
+          "error": {
+            "ms": 1.0,
+            "delivered": true,
+            "text": "Npt reconciliation failed (RuntimeError); nothing is shown. Press Retry. ||  || ",
+            "retry_visible": true,
+            "after_retry_ms": 5.7,
+            "after_retry_text": "Well #2, whole well — 2 group(s). || Reconciled NPT 4.00 h (each event once). 1 UNCERTAIN group(s) not added: 2.50–4.00 h more (one event … different events). M134 NPT event reconciliation v1. || ",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "WellPackagePanel",
+          "construct_ms": 5.6,
+          "direction": {
+            "panel": true,
+            "children": 38,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well ||  || "
+          },
+          "empty": {
+            "ms": 118.4,
+            "delivered": true,
+            "text": "SYN-EMPTY: whole well (all wellbores) || COMPLETE: <work>/pkg-3-10489199226520/EOW_SYN-EMPTY_20261108T075230Z — manifest SHA-256 ea18cae641c227e2…, audit record written. || End-of-well report (HTML) | eowr.html | INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | a761adb1babefb31… | M93 provenance block and label inside / End-of-well report (PDF) | eowr.pdf | NOT INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | — | not requested / Bit runs (M130 workbench, no cost scenario) | bit_runs.csv | EMPTY | 0 | whole well (all wellbores) | M130 bit run roll-up v1 | cbdc6291f19ddc23… | cost per metre NOT ASSESSED in the package: costs are user scenarios, not records / NPT events reconciled (M134) | npt_reconciliation.csv | EMPTY | 0 | whole well (all wellbores) | M134 NPT event reconciliation v1 | 3dc288ee4ba23c2f… | Reconciled NPT 0.00 h (each event once). M134 NPT event reconciliation v1. / Mud evaluation of the DDR mud reports (M133) | mud_evaluation.csv | EMPTY | 0 | whole well (all wellbores) | M133 mud evaluation v1 | b5f82613f567cfdb… | recorded values only (no Fann readings are stored with DDR mud reports); Herschel-Bulkley NOT ASSESSED / Calculation history of the well (M67) | calculation_history.csv | EMPTY | 0 | whole well (history entries are recorded per well; each row keeps its own scope column) | core/calculation_history.py export | f4e6da6b2f6b47cc… |  / Approval records and typed names | approvals.csv | EMPTY | 0 | whole well (all wellbores) | M135 end-of-well package v1 | 699339616cfa31fd… | A typed 'Approved By' name (operational procedures, report signature blocks) is text a user entered; it is not an approval. The only approval records are the daily-report workflow's 'approve' actions, listed as such; none of them is a signature, and this package is not an approval."
+          },
+          "data": {
+            "ms": 62.3,
+            "delivered": true,
+            "text": "SYN-UX: whole well (all wellbores) || COMPLETE: <work>/pkg-2-10489317697545/EOW_SYN-UX_20261108T075230Z — manifest SHA-256 4f2b8c4cd8c8015c…, audit record written. || End-of-well report (HTML) | eowr.html | INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | d93dc87b5b524753… | M93 provenance block and label inside / End-of-well report (PDF) | eowr.pdf | NOT INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | — | not requested / Bit runs (M130 workbench, no cost scenario) | bit_runs.csv | INCLUDED | 1 | whole well (all wellbores) | M130 bit run roll-up v1 | 6f401e6ee576aeae… | cost per metre NOT ASSESSED in the package: costs are user scenarios, not records / NPT events reconciled (M134) | npt_reconciliation.csv | INCLUDED | 2 | whole well (all wellbores) | M134 NPT event reconciliation v1 | 390efd81959d2748… | Reconciled NPT 4.00 h (each event once). 1 UNCERTAIN group(s) not added: 2.50–4.00 h more (one event … different events). M134 NPT event reconciliation v1. / Mud evaluation of the DDR mud reports (M133) | mud_evaluation.csv | INCLUDED | 1 | whole well (all wellbores) | M133 mud evaluation v1 | 7b868219ccb8a705… | recorded values only (no Fann readings are stored with DDR mud reports); Herschel-Bulkley NOT ASSESSED / Calculation history of the well (M67) | calculation_history.csv | INCLUDED | 1 | whole well (history entries are recorded per well; each row keeps its own scope column) | core/calculation_history.py export | 34d127dc1b3238a8… |  / Approval records and typed names | approvals.csv | INCLUDED | 2 | whole well (all wellbores) | M135 end-of-well package v1 | 0e4dfee8025634be… | A typed 'Approved By' name (operational procedures, report signature blocks) is text a user entered; it is not an approval. The only approval records are the daily-report workflow's 'approve' actions, listed as such; none of them is a signature, and this package is not an approval.",
+            "build_error_text": "End-of-well package failed (RuntimeError); nothing is shown. Build the package again to retry. No package was finalized; an interrupted build may leave a '.partial' folder, which is never audited."
+          },
+          "error": {
+            "ms": 1.0,
+            "delivered": true,
+            "text": "SYN-UX: whole well (all wellbores) || Wellbores failed (RuntimeError); nothing is shown. Press Retry. Only the whole-well scope can be chosen until the wellbores are read. || ",
+            "retry_visible": true,
+            "after_retry_ms": 4.0,
+            "after_retry_text": "SYN-UX: whole well (all wellbores) ||  || ",
+            "retry_hidden_after": true
+          }
+        }
+      ]
+    },
+    {
+      "direction": "rtl",
+      "panels": [
+        {
+          "panel": "BitRunWorkbench",
+          "construct_ms": 4.0,
+          "direction": {
+            "panel": true,
+            "children": 75,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well || "
+          },
+          "empty": {
+            "ms": 8.1,
+            "delivered": true,
+            "text": "Well #3, whole well (all wellbores; legacy duplicate rows excluded) — 0 run(s), 0 incomplete. M130 bit run roll-up v1. No DDR row records a bit number. || "
+          },
+          "data": {
+            "ms": 7.3,
+            "delivered": true,
+            "text": "Well #2, whole well (all wellbores; legacy duplicate rows excluded) — 1 run(s), 0 incomplete. M130 bit run roll-up v1. || "
+          },
+          "error": {
+            "ms": 0.9,
+            "delivered": true,
+            "text": "Bit runs failed (RuntimeError); nothing is shown. Press Retry. || ",
+            "retry_visible": true,
+            "after_retry_ms": 7.5,
+            "after_retry_text": "Well #2, whole well (all wellbores; legacy duplicate rows excluded) — 1 run(s), 0 incomplete. M130 bit run roll-up v1. || ",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "ParameterTrendPanel",
+          "construct_ms": 23.5,
+          "direction": {
+            "panel": true,
+            "children": 58,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well || "
+          },
+          "empty": {
+            "ms": 11.2,
+            "delivered": true,
+            "text": "Well #3, whole well — 0 DDR row(s); axis Report date (DDR). M131 drilling-parameter trends v1. No drilling-parameter row is recorded in this scope; nothing is drawn. || ROP (average) (m/h): 0 placed, 0 missing, 0 invalid, 0 not placed. MSE — discrete saved runs, not a continuous log (psi): 0 placed, 0 missing, 0 invalid, 0 not placed."
+          },
+          "data": {
+            "ms": 13.4,
+            "delivered": true,
+            "text": "Well #2, whole well — 2 DDR row(s); axis Report date (DDR). M131 drilling-parameter trends v1. || ROP (average) (m/h): 2 placed, 0 missing, 0 invalid, 0 not placed. MSE — discrete saved runs, not a continuous log (psi): 0 placed, 0 missing, 0 invalid, 0 not placed.",
+            "axes": {
+              "parameter": {
+                "left": "ROP (average) (m/h)",
+                "bottom": "Report date (DDR)"
+              },
+              "mse": {
+                "left": "MSE — discrete saved runs, not a continuous log (psi)",
+                "bottom": "Report date (DDR)"
+              }
+            }
+          },
+          "error": {
+            "ms": 1.0,
+            "delivered": true,
+            "text": "Parameter trends failed (RuntimeError); nothing is shown. Press Retry. || ",
+            "retry_visible": true,
+            "after_retry_ms": 12.1,
+            "after_retry_text": "Well #2, whole well — 2 DDR row(s); axis Report date (DDR). M131 drilling-parameter trends v1. || ROP (average) (m/h): 2 placed, 0 missing, 0 invalid, 0 not placed. MSE — discrete saved runs, not a continuous log (psi): 0 placed, 0 missing, 0 invalid, 0 not placed.",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "TrajectoryLayersPanel",
+          "construct_ms": 113.6,
+          "direction": {
+            "panel": true,
+            "children": 522,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well — no 3D layer is read or drawn. || "
+          },
+          "empty": {
+            "ms": 45.1,
+            "delivered": true,
+            "text": "Base: the working survey. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. || Working survey | DDR survey points | NO DATA | no DDR survey point is recorded in the trajectory view's scope; nothing is drawn"
+          },
+          "data": {
+            "ms": 86.2,
+            "delivered": true,
+            "text": "Base: the working survey. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. || Working survey | DDR survey points | DRAWN | 4 station(s) composed by the trajectory engine as in the 2D views",
+            "layers_ok": true,
+            "layers_ms": 150.8,
+            "layers_text": "Frame: survey revision 1 — north / east / TVD relative to its first station (MD 0 m); true north, datum RKB. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. M132 revision-aware 3D layers v1. Well #2, whole well. || Survey revision 1 (true north, datum RKB) | survey_revisions #1 (stations SHA-256 b4fc0a123cae…) | DRAWN | integrity VERIFIED / Second survey revision |  | NOT SELECTED | no second survey revision selected / Plan revision |  | NOT SELECTED | no plan revision selected / Targets |  | NOT SELECTED | no plan revision selected / Architecture revision |  | NOT SELECTED | no architecture revision selected"
+          },
+          "error": {
+            "ms": 59.0,
+            "delivered": true,
+            "text": "Revision records: 3d layers failed (RuntimeError); nothing is shown. Press Retry. The working survey is shown. || Working survey | DDR survey points | DRAWN | 4 station(s) composed by the trajectory engine as in the 2D views",
+            "retry_visible": true,
+            "after_retry_ms": 25.2,
+            "after_retry_text": "Base: the working survey. DISPLAY ONLY — LOCAL NORTH / EAST / TVD OF THE BASE RECORD — NO CRS, DECLINATION, CONVERGENCE OR DATUM TRANSFORMATION. || Working survey | DDR survey points | DRAWN | 4 station(s) composed by the trajectory engine as in the 2D views",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "MudEvaluationPanel",
+          "construct_ms": 7.2,
+          "direction": {
+            "panel": true,
+            "children": 124,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL"
+          },
+          "empty": {
+            "ms": 5.8,
+            "delivered": true,
+            "text": "Well #3, whole well (all mud reports, including legacy rows without a DDR link) — 0 mud report(s). No mud report is recorded in this scope. || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL"
+          },
+          "data": {
+            "ms": 4.5,
+            "delivered": true,
+            "text": "Well #2, whole well (all mud reports, including legacy rows without a DDR link) — 1 mud report(s). || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL"
+          },
+          "error": {
+            "ms": 0.8,
+            "delivered": true,
+            "text": "Mud reports failed (RuntimeError); nothing is shown. Press Retry. || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL",
+            "retry_visible": true,
+            "after_retry_ms": 4.1,
+            "after_retry_text": "Well #2, whole well (all mud reports, including legacy rows without a DDR link) — 1 mud report(s). || SCREENING — MUD EVALUATION FROM DDR MUD REPORTS — NOT A MUD PROGRAMME OR AN APPROVAL",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "NptReconciliationPanel",
+          "construct_ms": 1.6,
+          "direction": {
+            "panel": true,
+            "children": 28,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well ||  || "
+          },
+          "empty": {
+            "ms": 4.8,
+            "delivered": true,
+            "text": "Well #3, whole well — 0 group(s). No NPT register event or NPT time-log row is recorded in this scope. || Reconciled NPT 0.00 h (each event once). M134 NPT event reconciliation v1. || "
+          },
+          "data": {
+            "ms": 5.6,
+            "delivered": true,
+            "text": "Well #2, whole well — 2 group(s). || Reconciled NPT 4.00 h (each event once). 1 UNCERTAIN group(s) not added: 2.50–4.00 h more (one event … different events). M134 NPT event reconciliation v1. || "
+          },
+          "error": {
+            "ms": 0.8,
+            "delivered": true,
+            "text": "Npt reconciliation failed (RuntimeError); nothing is shown. Press Retry. ||  || ",
+            "retry_visible": true,
+            "after_retry_ms": 5.8,
+            "after_retry_text": "Well #2, whole well — 2 group(s). || Reconciled NPT 4.00 h (each event once). 1 UNCERTAIN group(s) not added: 2.50–4.00 h more (one event … different events). M134 NPT event reconciliation v1. || ",
+            "retry_hidden_after": true
+          }
+        },
+        {
+          "panel": "WellPackagePanel",
+          "construct_ms": 2.5,
+          "direction": {
+            "panel": true,
+            "children": 38,
+            "not_following": []
+          },
+          "none": {
+            "text": "NOT ASSESSED: select a well ||  || "
+          },
+          "empty": {
+            "ms": 55.0,
+            "delivered": true,
+            "text": "SYN-EMPTY: whole well (all wellbores) || COMPLETE: <work>/pkg-3-10490067102598/EOW_SYN-EMPTY_20261108T075230Z — manifest SHA-256 ea18cae641c227e2…, audit record written. || End-of-well report (HTML) | eowr.html | INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | a761adb1babefb31… | M93 provenance block and label inside / End-of-well report (PDF) | eowr.pdf | NOT INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | — | not requested / Bit runs (M130 workbench, no cost scenario) | bit_runs.csv | EMPTY | 0 | whole well (all wellbores) | M130 bit run roll-up v1 | cbdc6291f19ddc23… | cost per metre NOT ASSESSED in the package: costs are user scenarios, not records / NPT events reconciled (M134) | npt_reconciliation.csv | EMPTY | 0 | whole well (all wellbores) | M134 NPT event reconciliation v1 | 3dc288ee4ba23c2f… | Reconciled NPT 0.00 h (each event once). M134 NPT event reconciliation v1. / Mud evaluation of the DDR mud reports (M133) | mud_evaluation.csv | EMPTY | 0 | whole well (all wellbores) | M133 mud evaluation v1 | b5f82613f567cfdb… | recorded values only (no Fann readings are stored with DDR mud reports); Herschel-Bulkley NOT ASSESSED / Calculation history of the well (M67) | calculation_history.csv | EMPTY | 0 | whole well (history entries are recorded per well; each row keeps its own scope column) | core/calculation_history.py export | f4e6da6b2f6b47cc… |  / Approval records and typed names | approvals.csv | EMPTY | 0 | whole well (all wellbores) | M135 end-of-well package v1 | 699339616cfa31fd… | A typed 'Approved By' name (operational procedures, report signature blocks) is text a user entered; it is not an approval. The only approval records are the daily-report workflow's 'approve' actions, listed as such; none of them is a signature, and this package is not an approval."
+          },
+          "data": {
+            "ms": 70.2,
+            "delivered": true,
+            "text": "SYN-UX: whole well (all wellbores) || COMPLETE: <work>/pkg-2-10490122147420/EOW_SYN-UX_20261108T075230Z — manifest SHA-256 f0067091f4b95ae6…, audit record written. || End-of-well report (HTML) | eowr.html | INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | d93dc87b5b524753… | M93 provenance block and label inside / End-of-well report (PDF) | eowr.pdf | NOT INCLUDED | — | whole well (the EOWR engine reads every wellbore of the well) | M93 report provenance v1; report template core/report_engine.py (eowr) | — | not requested / Bit runs (M130 workbench, no cost scenario) | bit_runs.csv | INCLUDED | 1 | whole well (all wellbores) | M130 bit run roll-up v1 | 6f401e6ee576aeae… | cost per metre NOT ASSESSED in the package: costs are user scenarios, not records / NPT events reconciled (M134) | npt_reconciliation.csv | INCLUDED | 2 | whole well (all wellbores) | M134 NPT event reconciliation v1 | 390efd81959d2748… | Reconciled NPT 4.00 h (each event once). 1 UNCERTAIN group(s) not added: 2.50–4.00 h more (one event … different events). M134 NPT event reconciliation v1. / Mud evaluation of the DDR mud reports (M133) | mud_evaluation.csv | INCLUDED | 1 | whole well (all wellbores) | M133 mud evaluation v1 | 7b868219ccb8a705… | recorded values only (no Fann readings are stored with DDR mud reports); Herschel-Bulkley NOT ASSESSED / Calculation history of the well (M67) | calculation_history.csv | INCLUDED | 1 | whole well (history entries are recorded per well; each row keeps its own scope column) | core/calculation_history.py export | 34d127dc1b3238a8… |  / Approval records and typed names | approvals.csv | INCLUDED | 2 | whole well (all wellbores) | M135 end-of-well package v1 | 0e4dfee8025634be… | A typed 'Approved By' name (operational procedures, report signature blocks) is text a user entered; it is not an approval. The only approval records are the daily-report workflow's 'approve' actions, listed as such; none of them is a signature, and this package is not an approval.",
+            "build_error_text": "End-of-well package failed (RuntimeError); nothing is shown. Build the package again to retry. No package was finalized; an interrupted build may leave a '.partial' folder, which is never audited."
+          },
+          "error": {
+            "ms": 0.9,
+            "delivered": true,
+            "text": "SYN-UX: whole well (all wellbores) || Wellbores failed (RuntimeError); nothing is shown. Press Retry. Only the whole-well scope can be chosen until the wellbores are read. || ",
+            "retry_visible": true,
+            "after_retry_ms": 4.4,
+            "after_retry_text": "SYN-UX: whole well (all wellbores) ||  || ",
+            "retry_hidden_after": true
+          }
+        }
+      ]
+    }
+  ]
+}

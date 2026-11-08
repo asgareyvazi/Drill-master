@@ -75,10 +75,13 @@ class ContextJobRunner(QObject):
     state_changed = Signal(str, str)          # state, user-facing message
 
     def __init__(self, db_manager, name: str, *, selection=None, is_empty: Optional[Callable[[Any], bool]] = None,
+                 retry_hint: str = "Press Retry.", refresh_hint: str = "Press Refresh for the new selection.",
                  parent=None):
         super().__init__(parent)
         self.db_manager = db_manager
         self.name = name
+        # M138: the action the ERROR / STALE messages name must exist on the panel that shows them
+        self.retry_hint, self.refresh_hint = retry_hint, refresh_hint
         self._selection = selection
         self._is_empty = is_empty
         self._next_id = 0
@@ -158,10 +161,10 @@ class ContextJobRunner(QObject):
         if not self._sel().is_current(self._token):
             self.rejected["stale"] += 1
             self._set_state(STALE, f"The selection changed while {self.name} was loading; "
-                                   "the result was discarded. Press Refresh for the new selection.")
+                                   f"the result was discarded. {self.refresh_hint}")
             return
         if error is not None:
-            self._set_state(ERROR, f"{self.name.capitalize()} failed ({error}); nothing is shown. Press Retry.")
+            self._set_state(ERROR, f"{self.name.capitalize()} failed ({error}); nothing is shown. {self.retry_hint}")
             return
         if self._is_empty is not None and self._is_empty(result):
             self._set_state(EMPTY, f"No data for {self.name} in this scope.")

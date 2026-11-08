@@ -112,8 +112,7 @@ def build(params: Sequence[Any], axis: str, mse_runs: Sequence[Any] = (), report
                 s.invalid.append((p.report_date, source, f"min {low:g} > max {high:g}"))
                 continue
             if x is None:
-                s.not_placed.append((p.report_date, source, "depth out not recorded" if axis == AXIS_DEPTH
-                                     else "no report date"))
+                s.not_placed.append((p.report_date, source, _not_placed_reason(p, axis)))
                 continue
             note = "" if low_attr == high_attr or (low is not None and high is not None) else \
                 ("only min recorded" if high is None else "only max recorded")
@@ -123,6 +122,14 @@ def build(params: Sequence[Any], axis: str, mse_runs: Sequence[Any] = (), report
         s.points.sort(key=lambda pt: (pt.x, pt.source))
     mse, excluded = _mse_series(mse_runs, axis, report_dates or {}, wellbore_id)
     return TrendResult(axis, AXIS_LABELS[axis], series, mse, len(params), scope_label, excluded_mse=excluded)
+
+
+def _not_placed_reason(p, axis: str) -> str:
+    """M140: a recorded but unusable depth is not called "not recorded"."""
+    if axis != AXIS_DEPTH:
+        return "no report date"
+    state, _number = _value(p.depth_out)
+    return "depth out not recorded" if state == "missing" else "depth out invalid (negative or non-numeric)"
 
 
 def _mse_series(runs, axis, report_dates, wellbore_id):
