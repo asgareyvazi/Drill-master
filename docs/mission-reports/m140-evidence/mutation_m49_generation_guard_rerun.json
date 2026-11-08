@@ -1,0 +1,31 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m49_knowledge_ui.py"
+    ],
+    "exit": 0,
+    "summary": "23 passed in 8.44s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "U-generation-guard-removed",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an answer that finished after a scope/question change is shown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 7.92s"
+    }
+  ],
+  "killed": [
+    "U-generation-guard-removed"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

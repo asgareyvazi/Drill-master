@@ -1,0 +1,287 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m49_knowledge_answer.py",
+      "tests/test_m50_assistant_states.py",
+      "tests/test_m50_citation_navigation.py",
+      "tests/test_m50_knowledge_gold.py",
+      "tests/test_m50_knowledge_retrieval.py",
+      "tests/test_m50_verifier.py"
+    ],
+    "exit": 0,
+    "summary": "122 passed in 17.17s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "R-context-ignored",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a well code named in the page header / file name no longer covers the page's chunks",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 0.68s"
+    },
+    {
+      "id": "R-context-loose-parts",
+      "path": "core/knowledge_retrieval.py",
+      "note": "code parts scattered on the page (a date '05', a crew 'KE') count as the well code",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.58s"
+    },
+    {
+      "id": "R-file-name-context-dropped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a well code that only the file name states is ignored (Q19)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "30 passed in 12.20s"
+    },
+    {
+      "id": "R-absent-ignores-context",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the insufficient-evidence message claims a well code is missing that the file name states",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "30 passed in 13.14s"
+    },
+    {
+      "id": "R-answer-type-cap-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a passage without the asked quantity (no time / temperature) can be sufficient",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.60s"
+    },
+    {
+      "id": "R-frame-words-kept",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'how long ... take' keeps 'long'/'take' as required content words (Q09)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.64s"
+    },
+    {
+      "id": "R-named-quantity-not-required",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'mud temperature in X' can be answered by a mud-weight passage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.63s"
+    },
+    {
+      "id": "R-sufficiency-rerank-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "header-only passages push the answering passage out of the top k",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.96s"
+    },
+    {
+      "id": "R-designation-read-as-value",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'the 16 in section' is read as the quantity: real conflicts are missed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 4.25s"
+    },
+    {
+      "id": "R-glossary-m50-entries-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the M50 glossary entries are dropped: English pump-repair questions miss Persian reports",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 4.72s"
+    },
+    {
+      "id": "R-glossary-daily-report-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "'daily report' no longer reaches Persian daily reports",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 4.46s"
+    },
+    {
+      "id": "R-version-not-bumped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "retrieval rules changed but cached indexes keyed on the version are not invalidated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_knowledge_retrieval.py",
+        "tests/test_m50_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 4.68s"
+    },
+    {
+      "id": "V-conflicts-across-sizes",
+      "path": "core/knowledge_retrieval.py",
+      "note": "1.08 sg for 16 in and 1.25 sg for 12-1/4 in are reported as a conflict",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 0.81s"
+    },
+    {
+      "id": "V-panel-drops-text-version",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the panel stops sending the cited text version, so changed pages are highlighted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_verifier.py",
+        "tests/test_m50_citation_navigation.py",
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 1.56s"
+    },
+    {
+      "id": "S-semantic-stale-shown-ready",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a semantic index built for other documents stays labelled ready",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.48s"
+    },
+    {
+      "id": "S-embed-reason-misreported",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a configured embedding model is reported by state when the server could not be asked",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 3.31s"
+    },
+    {
+      "id": "D-diagnostics-kept-when-stale",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the diagnostics of an invalidated answer stay on screen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 3.47s"
+    },
+    {
+      "id": "D-semantic-claimed-used",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "diagnostics say semantic retrieval was used when it did not run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.55s"
+    },
+    {
+      "id": "D-diagnostics-unescaped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "document or model text is rendered as HTML in the diagnostics",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_assistant_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 3.28s"
+    }
+  ],
+  "killed": [
+    "R-context-ignored",
+    "R-context-loose-parts",
+    "R-answer-type-cap-removed",
+    "R-frame-words-kept",
+    "R-named-quantity-not-required",
+    "R-sufficiency-rerank-removed",
+    "R-designation-read-as-value",
+    "R-glossary-m50-entries-removed",
+    "R-glossary-daily-report-removed",
+    "R-version-not-bumped",
+    "V-conflicts-across-sizes",
+    "V-panel-drops-text-version",
+    "S-semantic-stale-shown-ready",
+    "S-embed-reason-misreported",
+    "D-diagnostics-kept-when-stale",
+    "D-semantic-claimed-used",
+    "D-diagnostics-unescaped"
+  ],
+  "survived_non_equivalent": [
+    "R-file-name-context-dropped",
+    "R-absent-ignores-context"
+  ],
+  "declared_equivalent": [],
+  "invalid": []
+}

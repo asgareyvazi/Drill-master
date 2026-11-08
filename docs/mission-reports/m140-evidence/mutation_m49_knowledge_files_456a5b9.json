@@ -1,0 +1,252 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m49_knowledge_answer.py",
+      "tests/test_m49_knowledge_gold.py",
+      "tests/test_m49_knowledge_retrieval.py",
+      "tests/test_m49_knowledge_ui.py"
+    ],
+    "exit": 0,
+    "summary": "114 passed in 15.27s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "K-scope-filter-dropped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the scope filter is dropped: every document is searchable from a well/report scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 1.45s"
+    },
+    {
+      "id": "K-approval-ignored",
+      "path": "core/knowledge_retrieval.py",
+      "note": "pages rejected at review (not approved) become answerable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 1.09s"
+    },
+    {
+      "id": "K-stale-corpus-signature",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a delete + same-size re-import keeps the stale knowledge index (document changed)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 35 passed in 4.21s"
+    },
+    {
+      "id": "A-absence-unchecked",
+      "path": "core/knowledge_retrieval.py",
+      "note": "insufficient evidence claims stored words are missing (screenshot-review defect)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed in 1.23s"
+    },
+    {
+      "id": "R-identifier-weight-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "an unknown identifier/number weighs like an ordinary word (loose false answers)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 81 passed in 5.34s"
+    },
+    {
+      "id": "R-size-rule-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a question about a 17-1/2 in section is answered with the 12-1/4 in value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 45 passed in 1.85s"
+    },
+    {
+      "id": "R-size-absence-unreported",
+      "path": "core/knowledge_retrieval.py",
+      "note": "insufficient evidence does not say that the asked size occurs in no passage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_answer.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 45 passed in 1.80s"
+    },
+    {
+      "id": "R-coverage-threshold-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "weakly related passages are presented as an answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py",
+        "tests/test_m49_knowledge_answer.py",
+        "tests/test_m49_knowledge_gold.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 2.75s"
+    },
+    {
+      "id": "R-dedupe-removed",
+      "path": "core/knowledge_retrieval.py",
+      "note": "one page floods the evidence list",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 36 passed in 4.07s"
+    },
+    {
+      "id": "R-partial-semantic-ready",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a partial/cancelled semantic index is reported ready",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 29 passed in 3.37s"
+    },
+    {
+      "id": "R-dimension-mismatch-used",
+      "path": "core/knowledge_retrieval.py",
+      "note": "vectors of another dimension are compared after a model change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 30 passed in 3.83s"
+    },
+    {
+      "id": "R-store-writes-foreign-db",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the embedding cache creates tables inside the application database",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 34 passed in 4.14s"
+    },
+    {
+      "id": "R-rrf-constant",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the documented RRF constant k=60 is changed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_retrieval.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 2.75s"
+    },
+    {
+      "id": "U-generation-guard-removed",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an answer that finished after a scope/question change is shown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "INVALID",
+      "detail": "snippet occurs 0 times"
+    },
+    {
+      "id": "U-invalidate-noop",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "changing scope/question/library keeps the old answer on screen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.91s"
+    },
+    {
+      "id": "U-scope-change-keeps-answer",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a scope change alone does not clear the answer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.90s"
+    },
+    {
+      "id": "U-disabled-looks-enabled",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the busy (disabled) Ask button looks enabled",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m49_knowledge_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 7.97s"
+    }
+  ],
+  "killed": [
+    "K-scope-filter-dropped",
+    "K-approval-ignored",
+    "K-stale-corpus-signature",
+    "A-absence-unchecked",
+    "R-identifier-weight-removed",
+    "R-size-rule-removed",
+    "R-size-absence-unreported",
+    "R-coverage-threshold-removed",
+    "R-dedupe-removed",
+    "R-partial-semantic-ready",
+    "R-dimension-mismatch-used",
+    "R-store-writes-foreign-db",
+    "R-rrf-constant",
+    "U-invalidate-noop",
+    "U-scope-change-keeps-answer",
+    "U-disabled-looks-enabled"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": [
+    "U-generation-guard-removed"
+  ]
+}

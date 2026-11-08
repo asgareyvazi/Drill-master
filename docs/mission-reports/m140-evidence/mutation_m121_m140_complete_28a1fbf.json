@@ -1,0 +1,4002 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_d46_index_build_cancel.py",
+      "tests/test_d52_deferred_deletes.py",
+      "tests/test_d52_deferred_deletes.py::test_the_conftest_flushes_between_modules",
+      "tests/test_d53_gui_thread_gc.py",
+      "tests/test_m122_assistant_worker_lifecycle.py",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_summary_counts_threads_without_a_python_frame",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one",
+      "tests/test_m123_mse_lineage.py",
+      "tests/test_m124_central_identity.py",
+      "tests/test_m125_w13_classification.py",
+      "tests/test_m126_d40_assistant_late_results.py",
+      "tests/test_m126_volumes_hydraulics.py",
+      "tests/test_m127_weight_casing.py",
+      "tests/test_m128_dp_schedule.py",
+      "tests/test_m129_surveys_anticollision.py",
+      "tests/test_m130_bit_runs.py",
+      "tests/test_m131_parameter_trends.py",
+      "tests/test_m132_trajectory_layers.py",
+      "tests/test_m133_mud_engineering.py",
+      "tests/test_m134_npt_reconciliation.py",
+      "tests/test_m135_well_package.py",
+      "tests/test_m136_security_hardening.py",
+      "tests/test_m137_dependency_reconciliation.py",
+      "tests/test_m138_ux_states.py",
+      "tests/test_m139_end_to_end_journey.py",
+      "tests/test_m140_adversarial.py",
+      "tests/test_m45_ui.py",
+      "tests/test_m50_analysis_async.py",
+      "tests/test_m50_trajectory_3d_disposal.py",
+      "tests/test_m53_dashboard.py",
+      "tests/test_release_gate_annotations.py"
+    ],
+    "exit": 0,
+    "summary": "392 passed, 14 warnings in 303.14s (0:05:03)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "KA-check-before-connect",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the pre-M122 order: a thread ending between the check and the connect is never released (D28)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 6.66s"
+    },
+    {
+      "id": "KA-immediate-check-dropped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a thread that ended before the connection waits for a finished signal that never comes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 8.07s"
+    },
+    {
+      "id": "KA-stop-worker-not-kept",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "cancel/supersede/scope change drop the worker reference while its thread may run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 6.24s"
+    },
+    {
+      "id": "KA-retire-not-kept",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a retired scope-list worker is neither tracked nor deleted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 10.17s"
+    },
+    {
+      "id": "KA-completed-worker-leaks",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "every completed question leaves a QThread object on the panel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 8.00s"
+    },
+    {
+      "id": "KA-corpus-check-late-connect",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the pre-M122 corpus-check release: finished has already fired, the worker is never deleted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.79s"
+    },
+    {
+      "id": "KA-cleanup-destroys-running-thread",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a thread still running at close stays a child of the panel and is destroyed with it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": -6,
+      "summary": "1 failed, 19 passed in 26.60s"
+    },
+    {
+      "id": "MSE-md-without-wellbore",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a depth is stored without the wellbore it was measured in (a whole-well run looks depth-reproducible)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.87s"
+    },
+    {
+      "id": "MSE-repair-no-evidence",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a repair is recorded without the evidence it rests on",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.08s"
+    },
+    {
+      "id": "MSE-repair-no-reason",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a repair is recorded without a reason",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.07s"
+    },
+    {
+      "id": "MSE-repair-no-confirmer",
+      "path": "core/repositories/mse_repository.py",
+      "note": "an anonymous session can record a repair (no confirming user)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 11.99s"
+    },
+    {
+      "id": "MSE-repair-standalone-run",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a run saved without a well is given a well-relative lineage (inference)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.07s"
+    },
+    {
+      "id": "MSE-repair-overwrites-recorded",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a repair shadows lineage that was recorded at save",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.06s"
+    },
+    {
+      "id": "MSE-repair-twice",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a second repair silently replaces the first (one live repair per field)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.05s"
+    },
+    {
+      "id": "MSE-repair-bore-other-well",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a wellbore of another well is accepted as the run's lineage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 10.96s"
+    },
+    {
+      "id": "MSE-repair-report-other-well",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a report of another well is accepted as the run's lineage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.07s"
+    },
+    {
+      "id": "MSE-repair-report-other-bore",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a report of another wellbore of the same well contradicts the run's wellbore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.05s"
+    },
+    {
+      "id": "MSE-repair-md-without-bore",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a depth is repaired onto a run whose wellbore is unknown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 11.06s"
+    },
+    {
+      "id": "MSE-unlinked-repair-counts",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a repair whose report was deleted still supplies the (now non-existent) report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 14.20s"
+    },
+    {
+      "id": "MSE-repair-not-audited",
+      "path": "core/repositories/mse_repository.py",
+      "note": "a lineage repair leaves no audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 10.27s"
+    },
+    {
+      "id": "MSE-repair-trigger-inert",
+      "path": "core/storage_guards.py",
+      "note": "a stored repair can be edited in place (append-only evidence)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 12.94s"
+    },
+    {
+      "id": "MSE-oa-recorded-not-effective",
+      "path": "core/operational_analysis.py",
+      "note": "OA's wellbore scope ignores audited repairs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 16.95s"
+    },
+    {
+      "id": "MSE-oa-class-split-truncates",
+      "path": "core/operational_analysis.py",
+      "note": "the OA lineage note truncates the class names ('depth (wellbore + entered MD)' -> 'depth')",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 15.96s"
+    },
+    {
+      "id": "MSE-history-legacy-label-lost",
+      "path": "dialogs/mse_history_dialog.py",
+      "note": "MSE History shows a legacy run without LEGACY - LINEAGE UNKNOWN - NOT DEPTH-REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 18.77s"
+    },
+    {
+      "id": "MSE-w13-md-always-recorded",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "W13 records a depth the user did not choose to record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 20.93s"
+    },
+    {
+      "id": "MSE-w13-no-md-guidance",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "W13 reports a failed save instead of explaining that a depth needs its wellbore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 20.94s"
+    },
+    {
+      "id": "MSE-dashboard-legacy-merged",
+      "path": "core/operations_dashboard.py",
+      "note": "the dashboard draws legacy runs as if their lineage were recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py",
+        "tests/test_m53_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.99s"
+    },
+    {
+      "id": "MSE-dashboard-points-joined",
+      "path": "tabs/dashboard_widgets.py",
+      "note": "discrete saved MSE runs are joined into a line that implies continuity",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m123_mse_lineage.py",
+        "tests/test_m53_dashboard.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.21s"
+    },
+    {
+      "id": "CTX-ticket-local-ignored",
+      "path": "core/selection_manager.py",
+      "note": "a newer request in the same context no longer supersedes an older result",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.15s"
+    },
+    {
+      "id": "CTX-ticket-fields-ignored",
+      "path": "core/selection_manager.py",
+      "note": "a result started for one well/wellbore/report is accepted after the selection moved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.18s"
+    },
+    {
+      "id": "CTX-ticket-unknown-field",
+      "path": "core/selection_manager.py",
+      "note": "a misspelt dependency silently makes the ticket depend on nothing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.15s"
+    },
+    {
+      "id": "CTX-w12-generation-local-only",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the pre-M124 page generation: a hidden page paints a queued result of the old well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.74s"
+    },
+    {
+      "id": "CTX-w12-no-restart",
+      "path": "tabs/w12_Analysis.py",
+      "note": "a staged paint stopped by a central-only change leaves the page without a cycle",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 3.47s"
+    },
+    {
+      "id": "CTX-w12-restart-competes",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the restart starts a second cycle next to the one a handler already started",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 1 error in 3.36s"
+    },
+    {
+      "id": "CTX-compare-done-unchecked",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "a comparison computed for well A is shown after the app switched to well B",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 3.66s"
+    },
+    {
+      "id": "CTX-compare-save-unchecked",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "a comparison of well A is saved as a record while well B is selected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 3.98s"
+    },
+    {
+      "id": "CTX-compare-ticket-all-fields",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "a report/period change (which a comparison does not read) discards a valid comparison",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 3.83s"
+    },
+    {
+      "id": "CTX-picker-local-only",
+      "path": "core/base_tab.py",
+      "note": "the pre-M124 pickers: a tab switches its own well while the app keeps another (D38)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 14 warnings in 5.65s"
+    },
+    {
+      "id": "CTX-w10-picker-local",
+      "path": "tabs/w10_Planning_Widget.py",
+      "note": "the W10 picker switches only the planning tab (D38)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed, 14 warnings in 7.34s"
+    },
+    {
+      "id": "CTX-w6-fill-selects-first",
+      "path": "tabs/w6_Trajectory_Widget.py",
+      "note": "the pre-M124 fill: W6 switches to the first well while nothing is selected (D38)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 14 warnings in 5.88s"
+    },
+    {
+      "id": "CTX-w5-fill-selects-first",
+      "path": "tabs/w5_Equipment_Widget.py",
+      "note": "the pre-M124 fill: W5 loads the first well's equipment while nothing is selected (D38)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 14 warnings in 6.80s"
+    },
+    {
+      "id": "CTX-w6-init-hides-selection",
+      "path": "tabs/w6_Trajectory_Widget.py",
+      "note": "a W6 built after a selection never shows or loads it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m124_central_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 7.59s"
+    },
+    {
+      "id": "HANG-not-armed-by-gate",
+      "path": "verify_release.py",
+      "note": "the release gate runs pytest without the watchdog: a hang runs into the job timeout again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 5.42s"
+    },
+    {
+      "id": "HANG-not-annotated",
+      "path": "verify_release.py",
+      "note": "a hang fails the run but the readable CI annotations do not name the test",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 5.46s"
+    },
+    {
+      "id": "HANG-header-anchored",
+      "path": "verify_release.py",
+      "note": "the dump shares a line with pytest's progress marks and is never recognised",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.07s"
+    },
+    {
+      "id": "HANG-not-rearmed-per-test",
+      "path": "tests/conftest.py",
+      "note": "the watchdog is never armed, so a hung test is not ended",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 50.15s"
+    },
+    {
+      "id": "HANG-dump-to-captured-fd",
+      "path": "tests/conftest.py",
+      "note": "the dump goes to pytest's capture file, which dies with the process",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.24s"
+    },
+    {
+      "id": "CLS-screening-unchecked",
+      "path": "core/calculator_contracts.py",
+      "note": "a calculator without a screening limit can be labelled SCREENING CONTRACT",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.64s"
+    },
+    {
+      "id": "CLS-worksheet-unchecked",
+      "path": "core/calculator_contracts.py",
+      "note": "a calculator without a worksheet limit can be labelled WORKSHEET",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.72s"
+    },
+    {
+      "id": "CLS-contract-relabel-unchecked",
+      "path": "core/calculator_contracts.py",
+      "note": "a screening estimate can be presented as a full CONTRACT",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.63s"
+    },
+    {
+      "id": "CLS-missing-leaf-unchecked",
+      "path": "core/calculator_contracts.py",
+      "note": "a leaf without a class passes the consistency check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.57s"
+    },
+    {
+      "id": "CLS-reference-save-enabled",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "the case bar offers to save a case for the reference catalogue",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.07s"
+    },
+    {
+      "id": "CLS-reference-save-guard",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "save_case does not explain that DP Database is REFERENCE-ONLY",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.87s"
+    },
+    {
+      "id": "CLS-history-scope-lost",
+      "path": "core/calculation_history.py",
+      "note": "Calc History shows a screening case without its class",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.94s"
+    },
+    {
+      "id": "CLS-catalogue-label-lost",
+      "path": "core/method_catalogue.py",
+      "note": "the Method Catalogue does not mark DP Database as REFERENCE-ONLY",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m125_w13_classification.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.42s"
+    },
+    {
+      "id": "WV-placement-ignored",
+      "path": "core/well_volumes.py",
+      "note": "every component placed from the surface again (the pre-M126 overlap)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.27s"
+    },
+    {
+      "id": "WV-gap-accepted",
+      "path": "core/well_volumes.py",
+      "note": "an uncovered interval is silently skipped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.28s"
+    },
+    {
+      "id": "WV-overlap-accepted",
+      "path": "core/well_volumes.py",
+      "note": "overlapping bore rows are accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.26s"
+    },
+    {
+      "id": "WV-closure-unchecked",
+      "path": "core/well_volumes.py",
+      "note": "a string that does not reach the bit is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.28s"
+    },
+    {
+      "id": "WV-clearance-unchecked",
+      "path": "core/well_volumes.py",
+      "note": "a component wider than the bore is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.27s"
+    },
+    {
+      "id": "WV-no-flow-zero",
+      "path": "core/well_volumes.py",
+      "note": "no pump gives a lag time of 0 min",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.28s"
+    },
+    {
+      "id": "WV-unequal-spm-strokes",
+      "path": "core/well_volumes.py",
+      "note": "one stroke count claimed for pumps at different SPM",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.28s"
+    },
+    {
+      "id": "HY-unconfirmed-accepted",
+      "path": "core/calculator_contracts.py",
+      "note": "unconfirmed display seeds become a reproducible case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed, 14 warnings in 10.97s"
+    },
+    {
+      "id": "HY-not-recorded-diameter",
+      "path": "core/calculator_contracts.py",
+      "note": "the Not recorded sentinel (-1) reaches the engine as a bit diameter",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed, 14 warnings in 8.39s"
+    },
+    {
+      "id": "HY-page-own-collect",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the page and the contract configure the engine differently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 5.36s"
+    },
+    {
+      "id": "HY-rows-by-name",
+      "path": "core/w13_hydraulics.py",
+      "note": "pipe velocity and regime paired with the wrong component",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 7.28s"
+    },
+    {
+      "id": "CMP-rows-not-stored",
+      "path": "core/calculator_contracts.py",
+      "note": "the component rows are not stored with the case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.64s"
+    },
+    {
+      "id": "CMP-rows-not-compared",
+      "path": "core/calculator_contracts.py",
+      "note": "a changed component row is reported as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.62s"
+    },
+    {
+      "id": "CMP-row-number-tolerance",
+      "path": "core/calculator_contracts.py",
+      "note": "component numbers compared with a loose tolerance",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.99s"
+    },
+    {
+      "id": "KA-closed-never-set",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "cleanup leaves the panel accepting late results",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.85s"
+    },
+    {
+      "id": "KA-done-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an answer queued before cleanup is shown after it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.80s"
+    },
+    {
+      "id": "KA-status-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a late model status is applied to the closed panel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.98s"
+    },
+    {
+      "id": "KA-choices-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "late picker choices are applied to the closed panel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.15s"
+    },
+    {
+      "id": "KA-corpus-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a late library check is applied to the closed panel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.94s"
+    },
+    {
+      "id": "KA-semantic-done-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a late semantic result rewrites the closed panel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.90s"
+    },
+    {
+      "id": "KA-progress-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "late progress rewrites the closed panel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.85s"
+    },
+    {
+      "id": "KA-indexed-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an index is installed after cleanup",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 1 error in 1.93s"
+    },
+    {
+      "id": "KA-stage-unguarded",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a late stage moves the closed panel to generating",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_d40_assistant_late_results.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.90s"
+    },
+    {
+      "id": "HY-display-rounded",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the page computes with the rounded table text (D41)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m126_volumes_hydraulics.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 7.01s"
+    },
+    {
+      "id": "WT-pin-hash-unchecked",
+      "path": "core/w13_weight.py",
+      "note": "edited pinned stations are used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.92s"
+    },
+    {
+      "id": "WT-pin-other-well",
+      "path": "core/w13_weight.py",
+      "note": "a survey revision of another well is pinned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.09s"
+    },
+    {
+      "id": "WT-pin-other-wellbore",
+      "path": "core/w13_weight.py",
+      "note": "a survey revision of another wellbore is pinned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.97s"
+    },
+    {
+      "id": "WT-verify-for-use-skipped",
+      "path": "core/w13_weight.py",
+      "note": "a revision whose stored results fail their check is pinned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.96s"
+    },
+    {
+      "id": "WT-unknown-td-as-zero",
+      "path": "core/w13_weight.py",
+      "note": "no survey pinned reads as zero T&D",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.82s"
+    },
+    {
+      "id": "WT-well-change-keeps-pin",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the pin of the previous well survives a well change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.17s"
+    },
+    {
+      "id": "WT-survey-source-not-stored",
+      "path": "core/engineering/torque_drag_persistence.py",
+      "note": "a saved T&D run does not say which survey it used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 3.76s"
+    },
+    {
+      "id": "WT-history-survey-link",
+      "path": "core/calculation_history.py",
+      "note": "a Weight case does not link its survey revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 6.41s"
+    },
+    {
+      "id": "CS-unknown-accepted",
+      "path": "core/calculator_contracts.py",
+      "note": "a required value unknown in the source is re-run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 9.01s"
+    },
+    {
+      "id": "CS-provenance-missing-accepted",
+      "path": "core/calculator_contracts.py",
+      "note": "a case without provenance is judged on its numbers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 9.35s"
+    },
+    {
+      "id": "CS-history-architecture-link",
+      "path": "core/calculation_history.py",
+      "note": "a Casing Strength case does not link its architecture revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 9.00s"
+    },
+    {
+      "id": "CS-selector-captured",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "the architecture string selector is captured as an input and cannot be restored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 9.16s"
+    },
+    {
+      "id": "CS-restore-drops-origin",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a reopened case loses where each value came from",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m127_weight_casing.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 9.24s"
+    },
+    {
+      "id": "DP-seeded-icp",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the page seeds an ICP again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.11s"
+    },
+    {
+      "id": "DP-unknown-volume-as-zero",
+      "path": "core/dp_schedule.py",
+      "note": "no pump output reads as 0 bbl",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.78s"
+    },
+    {
+      "id": "DP-zero-accepted",
+      "path": "core/dp_schedule.py",
+      "note": "a value not entered (0) is used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.76s"
+    },
+    {
+      "id": "DP-fractional-intervals",
+      "path": "core/dp_schedule.py",
+      "note": "a fractional interval count is truncated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.77s"
+    },
+    {
+      "id": "DP-interval-ceiling",
+      "path": "core/dp_schedule.py",
+      "note": "the interval ceiling is gone",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.80s"
+    },
+    {
+      "id": "DP-rounded-rows",
+      "path": "core/dp_schedule.py",
+      "note": "stored rows are rounded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.81s"
+    },
+    {
+      "id": "DP-reason-captured-as-result",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a NOT ASSESSED page saves a case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.00s"
+    },
+    {
+      "id": "DP-stale-result-kept",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an invalid re-run leaves the previous schedule saveable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.86s"
+    },
+    {
+      "id": "DP-choke-label",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the column no longer says drill-pipe pressure",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.85s"
+    },
+    {
+      "id": "DP-page-ignores-output",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the entered pump output is ignored by the page",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.23s"
+    },
+    {
+      "id": "DP-contract-unclassified",
+      "path": "core/calculator_contracts.py",
+      "note": "the worksheet is labelled a CONTRACT",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m128_dp_schedule.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.98s"
+    },
+    {
+      "id": "AC-grid-not-required",
+      "path": "core/trajectory_compare.py",
+      "note": "true / magnetic north surveys are compared with grid wellhead offsets",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.96s"
+    },
+    {
+      "id": "AC-any-datum",
+      "path": "core/trajectory_compare.py",
+      "note": "a GL / DF datum is placed with the rotary-table elevation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.00s"
+    },
+    {
+      "id": "AC-legacy-not-named",
+      "path": "core/trajectory_compare.py",
+      "note": "a legacy survey is not reported as undeclared",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.04s"
+    },
+    {
+      "id": "AC-msl-needs-rte",
+      "path": "core/trajectory_compare.py",
+      "note": "an MSL survey is refused for a missing rte_msl",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.93s"
+    },
+    {
+      "id": "AC-v1-label-lost",
+      "path": "core/trajectory_compare.py",
+      "note": "an M52 record re-runs with the new label",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.88s"
+    },
+    {
+      "id": "AC-rerun-current-version",
+      "path": "core/trajectory_compare.py",
+      "note": "an M52 record is re-run under the M129 rules",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.91s"
+    },
+    {
+      "id": "AC-unknown-version-run",
+      "path": "core/trajectory_compare.py",
+      "note": "an unknown method version is silently run as the current one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.95s"
+    },
+    {
+      "id": "AC-panel-legacy-offset",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "the panel reads the offset well from legacy points",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.19s"
+    },
+    {
+      "id": "AC-panel-references-faked",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "the panel declares references the offset survey does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 3.21s"
+    },
+    {
+      "id": "AC-panel-offset-unverified",
+      "path": "tabs/trajectory_compare_panel.py",
+      "note": "a tampered offset revision is compared",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 4.33s"
+    },
+    {
+      "id": "AC-w13-mode-unlocked",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the anti-collision page can switch to plan mode",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 5.96s"
+    },
+    {
+      "id": "AC-w13-not-following",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "the anti-collision page keeps the previous well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 5.97s"
+    },
+    {
+      "id": "MS-draft-other-well",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a draft of one well is saved for another",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 8.66s"
+    },
+    {
+      "id": "MS-undeclared-azimuth",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an undeclared azimuth reference is saved as true north",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 7.07s"
+    },
+    {
+      "id": "MS-unchanged-resaved",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an unchanged loaded revision is saved again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 7.41s"
+    },
+    {
+      "id": "MS-replace-as-initial",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an edited revision is saved without its parent",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 7.58s"
+    },
+    {
+      "id": "CB-recorded-elsewhere-saved",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "a duplicate W13 case is attempted for a leaf recorded elsewhere",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m129_surveys_anticollision.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 6.35s"
+    },
+    {
+      "id": "D46-child-not-run",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "the wrapper passes without running the load cycles",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.15s"
+    },
+    {
+      "id": "D46-child-body-fails",
+      "path": "tests/m122_cpu_load_child.py",
+      "note": "a failing load body is not reported by the wrapper",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 12.89s"
+    },
+    {
+      "id": "BR-incomplete-sum-as-total",
+      "path": "core/bit_runs.py",
+      "note": "an incomplete daily-drilled sum is taken as the run footage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.19s"
+    },
+    {
+      "id": "BR-lifecycle-always-open",
+      "path": "core/bit_runs.py",
+      "note": "a run replaced by a later bit is shown as still open",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.23s"
+    },
+    {
+      "id": "BR-incomplete-costed",
+      "path": "core/bit_runs.py",
+      "note": "an incomplete run is costed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 5.11s"
+    },
+    {
+      "id": "BR-currency-not-required",
+      "path": "core/bit_runs.py",
+      "note": "a cost is computed without a stated currency",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.89s"
+    },
+    {
+      "id": "BR-ranked-across-sizes",
+      "path": "core/bit_runs.py",
+      "note": "runs of different hole sizes are ranked against each other",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.97s"
+    },
+    {
+      "id": "BR-ddr-change-ignored",
+      "path": "core/bit_runs.py",
+      "note": "a re-run hides that the DDR rows changed since saving",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 14.79s"
+    },
+    {
+      "id": "BR-other-version-run",
+      "path": "core/bit_runs.py",
+      "note": "a scenario of another method version is re-run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 15.58s"
+    },
+    {
+      "id": "BR-not-assessed-saved",
+      "path": "core/bit_runs.py",
+      "note": "a NOT ASSESSED scenario is stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.89s"
+    },
+    {
+      "id": "BR-wellbore-scope-ignored",
+      "path": "core/bit_runs.py",
+      "note": "a wellbore view includes another wellbore's DDRs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.19s"
+    },
+    {
+      "id": "BR-panel-seeded-currency",
+      "path": "tabs/bit_run_panel.py",
+      "note": "the scenario starts with a currency nobody entered",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 13.38s"
+    },
+    {
+      "id": "BR-history-not-routed",
+      "path": "core/calculation_history.py",
+      "note": "History re-runs a bit run scenario with the W13 contract verifier",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 14.29s"
+    },
+    {
+      "id": "BR-w12-wellbore-dropped",
+      "path": "tabs/w12_Analysis.py",
+      "note": "the workbench ignores the selected wellbore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py",
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 18.92s"
+    },
+    {
+      "id": "TR-single-bound-filled",
+      "path": "core/parameter_trends.py",
+      "note": "a single recorded bound is drawn as a full range",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.00s"
+    },
+    {
+      "id": "TR-missing-placed",
+      "path": "core/parameter_trends.py",
+      "note": "a missing value is placed on the chart",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.03s"
+    },
+    {
+      "id": "TR-inverted-range-accepted",
+      "path": "core/parameter_trends.py",
+      "note": "an inverted min/max range is drawn",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.07s"
+    },
+    {
+      "id": "TR-depth-guessed",
+      "path": "core/parameter_trends.py",
+      "note": "a row without depth out is put at 0 m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.00s"
+    },
+    {
+      "id": "TR-mse-save-time-as-drilling-time",
+      "path": "core/parameter_trends.py",
+      "note": "an MSE run is placed at its save time",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.98s"
+    },
+    {
+      "id": "TR-mse-without-md-placed",
+      "path": "core/parameter_trends.py",
+      "note": "an MSE run without MD is put at 0 m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.84s"
+    },
+    {
+      "id": "TR-mse-scope-ignored",
+      "path": "core/parameter_trends.py",
+      "note": "a wellbore view shows another wellbore's MSE runs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.82s"
+    },
+    {
+      "id": "TR-legacy-label-lost",
+      "path": "core/parameter_trends.py",
+      "note": "a legacy MSE run is not labelled LEGACY",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.88s"
+    },
+    {
+      "id": "TR-panel-ranges-joined",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "the range bars are joined into one line across records",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.18s"
+    },
+    {
+      "id": "TR-panel-markers-joined",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "the markers are joined by a line",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.12s"
+    },
+    {
+      "id": "TR-w12-performance-line",
+      "path": "tabs/w12_Analysis.py",
+      "note": "D48: the W12 performance chart joins records across days without a DDR",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.66s"
+    },
+    {
+      "id": "TR-w12-dexponent-line",
+      "path": "tabs/w12_Analysis.py",
+      "note": "D47: the W12 d-exponent chart joins daily records with a line",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.67s"
+    },
+    {
+      "id": "TR-w12-dexponent-bit-run-label",
+      "path": "tabs/w12_Analysis.py",
+      "note": "D47: daily d-exponent points are labelled as bit runs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.71s"
+    },
+    {
+      "id": "BR-panel-gui-thread-read",
+      "path": "tabs/bit_run_panel.py",
+      "note": "M51: the bit runs are read with SQL on the GUI thread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 29.83s"
+    },
+    {
+      "id": "BR-panel-late-result-shown",
+      "path": "tabs/bit_run_panel.py",
+      "note": "a bit run read that finishes after the scope was cleared is shown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m130_bit_runs.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 19.66s"
+    },
+    {
+      "id": "TR-panel-gui-thread-read",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "M51: the trends are read with SQL on the GUI thread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m131_parameter_trends.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 19.58s"
+    },
+    {
+      "id": "TL-unpinned-plan-drawn",
+      "path": "core/trajectory_layers.py",
+      "note": "a plan without a survey tie-in is overlaid on the survey",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.73s"
+    },
+    {
+      "id": "TL-foreign-pin-drawn",
+      "path": "core/trajectory_layers.py",
+      "note": "a plan tied in to another survey revision is overlaid on the base",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.73s"
+    },
+    {
+      "id": "TL-undeclared-reference-accepted",
+      "path": "core/trajectory_layers.py",
+      "note": "an undeclared reference is treated as compatible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.68s"
+    },
+    {
+      "id": "TL-different-reference-accepted",
+      "path": "core/trajectory_layers.py",
+      "note": "a grid revision is overlaid on a true-north base without transformation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.85s"
+    },
+    {
+      "id": "TL-origin-ignored",
+      "path": "core/trajectory_layers.py",
+      "note": "two revisions with different first stations are overlaid",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.78s"
+    },
+    {
+      "id": "TL-survey-integrity-skipped",
+      "path": "core/trajectory_layers.py",
+      "note": "a survey revision failing its hash check is drawn",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 4.73s"
+    },
+    {
+      "id": "TL-plan-hash-skipped",
+      "path": "core/trajectory_layers.py",
+      "note": "a tampered plan result is drawn",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.62s"
+    },
+    {
+      "id": "TL-unpinned-architecture-placed",
+      "path": "core/trajectory_layers.py",
+      "note": "an architecture not pinned to the base survey is placed on it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 6.57s"
+    },
+    {
+      "id": "TL-extrapolated",
+      "path": "core/trajectory_layers.py",
+      "note": "a point below the last survey station is drawn at the last station",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.75s"
+    },
+    {
+      "id": "TL-wellbore-scope-ignored",
+      "path": "core/trajectory_layers.py",
+      "note": "a wellbore view includes another wellbore's or unscoped revisions",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.41s"
+    },
+    {
+      "id": "TL-units-not-converted",
+      "path": "core/trajectory_layers.py",
+      "note": "feet are shown with metre values",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 9.19s"
+    },
+    {
+      "id": "TL-panel-working-overlays",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "records are overlaid on the working survey (no revision identity)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed, 14 warnings in 13.58s"
+    },
+    {
+      "id": "TL-viewer-closure-cycle",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "M50: a closure over the viewer leaves cyclic Qt garbage after disposal",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m50_trajectory_3d_disposal.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 1.52s"
+    },
+    {
+      "id": "TL-w6-cleanup-missing",
+      "path": "tabs/w6_Trajectory_Widget.py",
+      "note": "W6 shutdown leaves the 3D layer reader running",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed, 14 warnings in 17.46s"
+    },
+    {
+      "id": "TL-unit-change-not-rebuilt",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "a unit change keeps the layers in the old unit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 14 warnings in 11.38s"
+    },
+    {
+      "id": "D49-status-registry-strong",
+      "path": "core/managers.py",
+      "note": "the status registry keeps every disposed tab alive until an arbitrary later gc",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": -11,
+      "summary": "................"
+    },
+    {
+      "id": "D49-shortcut-cycle",
+      "path": "core/managers.py",
+      "note": "the shortcut manager and its widget form a cycle only a later gc pass frees",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m132_trajectory_layers.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed, 14 warnings in 19.02s"
+    },
+    {
+      "id": "MUD-assumed-as-derived",
+      "path": "core/mud_engineering.py",
+      "note": "a result computed from an assumed reading is shown as plain DERIVED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.78s"
+    },
+    {
+      "id": "MUD-lab-without-reference",
+      "path": "core/mud_engineering.py",
+      "note": "a typed reading is accepted as LAB with no lab reference behind it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.60s"
+    },
+    {
+      "id": "MUD-unknown-mw-as-zero",
+      "path": "core/mud_engineering.py",
+      "note": "an unrecorded mud weight becomes 0 ppg",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.83s"
+    },
+    {
+      "id": "MUD-mw-7.48",
+      "path": "core/mud_engineering.py",
+      "note": "the 7.48 shortcut replaces the central 7.48052 conversion (owner gate)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.95s"
+    },
+    {
+      "id": "MUD-implied-t600",
+      "path": "core/mud_engineering.py",
+      "note": "the dial values implied by PV / YP use the wrong identity",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.92s"
+    },
+    {
+      "id": "MUD-lsryp-formula",
+      "path": "core/mud_engineering.py",
+      "note": "LSRYP computed as 2θ6 − θ3",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.82s"
+    },
+    {
+      "id": "MUD-gel-ratio-inverted",
+      "path": "core/mud_engineering.py",
+      "note": "the gel ratio is inverted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.00s"
+    },
+    {
+      "id": "MUD-hb-claimed",
+      "path": "core/mud_engineering.py",
+      "note": "Herschel-Bulkley reported as a derived result although no HB fit exists",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.30s"
+    },
+    {
+      "id": "MUD-other-well",
+      "path": "core/mud_engineering.py",
+      "note": "a mud report of another well is saved under the selected well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.21s"
+    },
+    {
+      "id": "MUD-wellbore-attributed",
+      "path": "core/mud_engineering.py",
+      "note": "a mud report outside the selected wellbore is attributed to it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.36s"
+    },
+    {
+      "id": "MUD-source-change-silent",
+      "path": "core/mud_engineering.py",
+      "note": "an edited DDR mud report is reported as unchanged",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.11s"
+    },
+    {
+      "id": "MUD-version-accepted",
+      "path": "core/mud_engineering.py",
+      "note": "a case of another method version is re-run with the current method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 10.99s"
+    },
+    {
+      "id": "MUD-negative-dial",
+      "path": "core/mud_engineering.py",
+      "note": "a negative dial reading is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.56s"
+    },
+    {
+      "id": "MUD-history-scope-lost",
+      "path": "core/calculation_history.py",
+      "note": "History shows a mud evaluation without its SCREENING scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.14s"
+    },
+    {
+      "id": "NPT-uncertain-counted",
+      "path": "core/npt_reconciliation.py",
+      "note": "an UNCERTAIN group is added to the certain hours",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.07s"
+    },
+    {
+      "id": "NPT-matched-double-counted",
+      "path": "core/npt_reconciliation.py",
+      "note": "a matched event is counted from both the register and the time log",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.04s"
+    },
+    {
+      "id": "NPT-different-counted-once",
+      "path": "core/npt_reconciliation.py",
+      "note": "two events confirmed different are counted as one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.83s"
+    },
+    {
+      "id": "NPT-range-in-certain",
+      "path": "core/npt_reconciliation.py",
+      "note": "the low end of an UNCERTAIN range is added to the certain total",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.05s"
+    },
+    {
+      "id": "NPT-missing-as-zero",
+      "path": "core/npt_reconciliation.py",
+      "note": "a missing or invalid duration is counted as 0 h",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.82s"
+    },
+    {
+      "id": "NPT-midnight-ignored",
+      "path": "core/npt_reconciliation.py",
+      "note": "a row ending at or before its start is not read as crossing midnight",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.09s"
+    },
+    {
+      "id": "NPT-matched-without-report",
+      "path": "core/npt_reconciliation.py",
+      "note": "a register event with no daily report link is MATCHED by date alone",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 12.47s"
+    },
+    {
+      "id": "NPT-stale-ignored",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision on rows that changed still governs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.80s"
+    },
+    {
+      "id": "NPT-first-decision-governs",
+      "path": "core/npt_reconciliation.py",
+      "note": "the first decision governs instead of the latest",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.79s"
+    },
+    {
+      "id": "NPT-unlinked-attributed",
+      "path": "core/npt_reconciliation.py",
+      "note": "a register event without a report link is attributed to the selected wellbore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.95s"
+    },
+    {
+      "id": "NPT-no-evidence",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision is recorded without evidence",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.81s"
+    },
+    {
+      "id": "NPT-anonymous-confirmer",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision is recorded without an identified user",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 13.35s"
+    },
+    {
+      "id": "NPT-decide-certain",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision can overrule a certain (MATCHED) group",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.71s"
+    },
+    {
+      "id": "NPT-audit-missing",
+      "path": "core/npt_reconciliation.py",
+      "note": "a decision is recorded without its mandatory audit entry",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.70s"
+    },
+    {
+      "id": "NPT-decision-mutable",
+      "path": "core/storage_guards.py",
+      "note": "an audited decision can be edited in place",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m134_npt_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.80s"
+    },
+    {
+      "id": "D50-child-inherits-watchdog",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "the child keeps verify_release's 900 s watchdog, which fires after the 720 s kill: no dump",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.75s"
+    },
+    {
+      "id": "D50-kill-without-dump",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "a child hung outside a test is killed silently - the 7b13a1c failure with empty output",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_watchdog_fires_at_the_bound_it_is_given_not_the_inherited_one"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 3.79s"
+    },
+    {
+      "id": "WPK-overwrites",
+      "path": "core/well_package.py",
+      "note": "an existing folder (or a half-written one) is written into",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 5.32s"
+    },
+    {
+      "id": "WPK-no-audit",
+      "path": "core/well_package.py",
+      "note": "a package gets its final name without an audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.26s"
+    },
+    {
+      "id": "WPK-manifest-not-rechecked",
+      "path": "core/well_package.py",
+      "note": "a manifest changed after writing is audited as if it were the written one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.28s"
+    },
+    {
+      "id": "WPK-part-not-hashed",
+      "path": "core/well_package.py",
+      "note": "files are listed without their SHA-256",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.54s"
+    },
+    {
+      "id": "WPK-verify-no-rehash",
+      "path": "core/well_package.py",
+      "note": "an edited file verifies",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.28s"
+    },
+    {
+      "id": "WPK-unlisted-ignored",
+      "path": "core/well_package.py",
+      "note": "a file added to the package verifies",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.14s"
+    },
+    {
+      "id": "WPK-audit-not-required",
+      "path": "core/well_package.py",
+      "note": "a forged manifest without an audit record verifies",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.26s"
+    },
+    {
+      "id": "WPK-typed-name-as-approval",
+      "path": "core/well_package.py",
+      "note": "a typed 'Approved by' name is shown as the approval record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.16s"
+    },
+    {
+      "id": "WPK-foreign-wellbore",
+      "path": "core/well_package.py",
+      "note": "another well's wellbore is accepted as the scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.28s"
+    },
+    {
+      "id": "WPK-approvals-unscoped",
+      "path": "core/well_package.py",
+      "note": "other wellbores' reports appear in a wellbore package",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.25s"
+    },
+    {
+      "id": "WPK-error-message-leak",
+      "path": "core/well_package.py",
+      "note": "an exception message (may quote report data) is written into the manifest",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.10s"
+    },
+    {
+      "id": "WPK-cancel-leaves-partial",
+      "path": "core/well_package.py",
+      "note": "a cancelled or failed build leaves a half-written folder",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.99s"
+    },
+    {
+      "id": "WPK-incomplete-hidden",
+      "path": "core/well_package.py",
+      "note": "a package with a FAILED part is called COMPLETE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.13s"
+    },
+    {
+      "id": "WPK-selection-bound",
+      "path": "tabs/well_package_panel.py",
+      "note": "navigating during a build discards the finished folder (unaudited orphan)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 13.56s"
+    },
+    {
+      "id": "WPK-pdf-always-skipped",
+      "path": "core/well_package.py",
+      "note": "the requested PDF is silently not written",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 10.15s"
+    },
+    {
+      "id": "SEC-audit-update-allowed",
+      "path": "core/storage_guards.py",
+      "note": "an audit record can be rewritten by raw SQL or a system-scope session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.92s"
+    },
+    {
+      "id": "SEC-audit-delete-allowed",
+      "path": "core/storage_guards.py",
+      "note": "an audit record can be deleted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.84s"
+    },
+    {
+      "id": "SEC-audit-guards-not-installed",
+      "path": "core/storage_guards.py",
+      "note": "no database gets the audit guards",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.89s"
+    },
+    {
+      "id": "SEC-db-not-protected",
+      "path": "core/database.py",
+      "note": "the live database stays readable by group/others",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 5.74s"
+    },
+    {
+      "id": "SEC-other-owner-changed",
+      "path": "core/file_protection.py",
+      "note": "another user's (shared) database has its permissions changed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 4.88s"
+    },
+    {
+      "id": "SEC-windows-described-as-posix",
+      "path": "core/file_protection.py",
+      "note": "Windows files are described by POSIX bits that do not govern access there",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 4.78s"
+    },
+    {
+      "id": "SEC-chmod-failure-fatal",
+      "path": "core/file_protection.py",
+      "note": "a file system refusing chmod stops the database from opening",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 4.78s"
+    },
+    {
+      "id": "SEC-package-folder-default-mode",
+      "path": "core/well_package.py",
+      "note": "an end-of-well package folder is readable by group/others",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.25s"
+    },
+    {
+      "id": "SEC-empty-password-unlocks",
+      "path": "core/session_lock.py",
+      "note": "an empty password unlocks the session",
+      "equivalent": "object() has no id, so the same-account check (account_id != self.user_id) still refuses; without the guard authenticate_user returns None for an empty password before counting a failure - an empty password is refused by three independent layers (killed variants below)",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "23 passed in 16.75s"
+    },
+    {
+      "id": "SEC-wrong-password-unlocks",
+      "path": "core/session_lock.py",
+      "note": "a wrong password unlocks the session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 6.67s"
+    },
+    {
+      "id": "SEC-unlock-ignores-account-id",
+      "path": "core/session_lock.py",
+      "note": "a recreated account with the signed-in user's name unlocks the old session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 8.73s"
+    },
+    {
+      "id": "SEC-unlock-not-audited",
+      "path": "core/session_lock.py",
+      "note": "an unlock leaves no audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 7.58s"
+    },
+    {
+      "id": "SEC-lock-not-idempotent",
+      "path": "core/session_lock.py",
+      "note": "locking twice writes two audit records and resets the failure count",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 6.63s"
+    },
+    {
+      "id": "SEC-idle-default-on",
+      "path": "core/session_lock.py",
+      "note": "the build chooses an idle limit that is an owner policy",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 5.69s"
+    },
+    {
+      "id": "SEC-idle-range-unbounded",
+      "path": "core/session_lock.py",
+      "note": "a limit beyond a day is accepted as an idle lock",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 5.89s"
+    },
+    {
+      "id": "SEC-overlay-not-shown",
+      "path": "tabs/session_lock_ui.py",
+      "note": "the work stays readable behind the unlock dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 11.61s"
+    },
+    {
+      "id": "SEC-dialog-only-window-modal",
+      "path": "tabs/session_lock_ui.py",
+      "note": "QDialog.open() makes the unlock dialog window-modal: other windows stay usable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 11.65s"
+    },
+    {
+      "id": "SEC-other-windows-stay-visible",
+      "path": "tabs/session_lock_ui.py",
+      "note": "a floating panel or tool window stays readable while the session is locked",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 11.55s"
+    },
+    {
+      "id": "SEC-escape-unlocks",
+      "path": "tabs/session_lock_ui.py",
+      "note": "Escape closes the unlock dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 11.65s"
+    },
+    {
+      "id": "SEC-refused-exit-strands",
+      "path": "tabs/session_lock_ui.py",
+      "note": "a refused exit leaves a locked window without an unlock dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 13.66s"
+    },
+    {
+      "id": "SEC-input-does-not-restart",
+      "path": "tabs/session_lock_ui.py",
+      "note": "the idle lock fires while the user is working",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 14.64s"
+    },
+    {
+      "id": "SEC-watcher-runs-while-locked",
+      "path": "tabs/session_lock_ui.py",
+      "note": "input on the locked window restarts the idle timer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 14.57s"
+    },
+    {
+      "id": "SEC-password-kept-in-field",
+      "path": "tabs/session_lock_ui.py",
+      "note": "a typed password stays in the dialog",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 11.95s"
+    },
+    {
+      "id": "SEC-status-claims-missing-guards",
+      "path": "core/security_posture.py",
+      "note": "the security status claims guards that are not installed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 16.69s"
+    },
+    {
+      "id": "SEC-status-drops-limits",
+      "path": "core/security_posture.py",
+      "note": "the security status omits what this build does not provide",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 15.82s"
+    },
+    {
+      "id": "SEC-lock-action-not-wired",
+      "path": "main_window.py",
+      "note": "File > Lock Session does nothing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m45_ui.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed, 14 warnings in 10.02s"
+    },
+    {
+      "id": "DEP-pyproject-drift-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a dependency declared in pyproject.toml only goes unnoticed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.07s"
+    },
+    {
+      "id": "DEP-unpinned-declaration-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a declared distribution without a lock pin goes unnoticed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.08s"
+    },
+    {
+      "id": "DEP-unrecorded-licence-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "an optional/build pin without a licence passes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.09s"
+    },
+    {
+      "id": "DEP-licence-version-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a licence read for another version is accepted for the pin",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.09s"
+    },
+    {
+      "id": "DEP-spec-exclusion-unchecked",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a gated module may be bundled by PyInstaller",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.09s"
+    },
+    {
+      "id": "DEP-smoke-exclusion-unchecked",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "the bundle smoke check may accept a gated module",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.09s"
+    },
+    {
+      "id": "DEP-qtribbon-not-gated",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "the unknown-licence ribbon package may be bundled",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.06s"
+    },
+    {
+      "id": "DEP-notices-not-replaced",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a stale bundled-runtime licence table is kept",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.98s"
+    },
+    {
+      "id": "DEP-notices-without-copyleft-caveat",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "the notices imply that shipping licence texts meets copyleft obligations",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 4.60s"
+    },
+    {
+      "id": "SMK-notices-not-required",
+      "path": "packaging/package_smoke.py",
+      "note": "a bundle without the notices passes the smoke check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.50s"
+    },
+    {
+      "id": "SMK-licence-metadata-unchecked",
+      "path": "packaging/package_smoke.py",
+      "note": "a bundle without a distribution's licence metadata passes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.45s"
+    },
+    {
+      "id": "SMK-any-version-accepted",
+      "path": "packaging/package_smoke.py",
+      "note": "metadata of another version counts as licence evidence",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.60s"
+    },
+    {
+      "id": "SMK-torch-allowed",
+      "path": "packaging/package_smoke.py",
+      "note": "a bundle containing torch passes the smoke check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.06s"
+    },
+    {
+      "id": "D52-flush-is-a-no-op",
+      "path": "tests/conftest.py",
+      "note": "pending deleteLater() calls accumulate until a later test's nested event loop destroys them all",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d52_deferred_deletes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.11s"
+    },
+    {
+      "id": "D52-module-fixture-skips-the-flush",
+      "path": "tests/conftest.py",
+      "note": "the helper exists but no module end runs it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d52_deferred_deletes.py::test_the_conftest_flushes_between_modules"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.42s"
+    },
+    {
+      "id": "D53-automatic-collection-stays-on",
+      "path": "tests/conftest.py",
+      "note": "a worker thread that allocates starts a collection and destroys GUI garbage off the GUI thread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.05s"
+    },
+    {
+      "id": "D53-collects-on-any-thread",
+      "path": "tests/conftest.py",
+      "note": "the session rule runs a collection on whichever thread calls it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.36s"
+    },
+    {
+      "id": "D53-no-teardown-collection",
+      "path": "tests/conftest.py",
+      "note": "cycles are reclaimed only when a test happens to process events",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.35s"
+    },
+    {
+      "id": "D53-no-reenable-watchdog",
+      "path": "tests/conftest.py",
+      "note": "one test's unconditional gc.enable() turns worker-thread collection back on for the rest of the session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.37s"
+    },
+    {
+      "id": "D53-unconfigure-forces-collection-on",
+      "path": "tests/conftest.py",
+      "note": "a nested configure/unconfigure inside the session switches automatic collection back on",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.42s"
+    },
+    {
+      "id": "D53-marker-ignored",
+      "path": "tests/conftest.py",
+      "note": "the tests of core.qt_gc no longer start from the interpreter default they assert",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py",
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.71s"
+    },
+    {
+      "id": "UXM-retry-never-shown",
+      "path": "tabs/job_retry.py",
+      "note": "a failed read says 'Press Retry' but no Retry button appears",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.31s"
+    },
+    {
+      "id": "UXM-bit-retry-does-nothing",
+      "path": "tabs/bit_run_panel.py",
+      "note": "the bit-run Retry button does not read anything again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.11s"
+    },
+    {
+      "id": "UXM-layers-retry-does-nothing",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "a failed 3D record list stays failed after Retry",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.17s"
+    },
+    {
+      "id": "UXM-stale-hint-ignored",
+      "path": "core/context_jobs.py",
+      "note": "a discarded stale result names a Refresh button the panel does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 14 warnings in 4.10s"
+    },
+    {
+      "id": "UXM-error-hint-ignored",
+      "path": "core/context_jobs.py",
+      "note": "a failed package build names a Retry button the package panel does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.20s"
+    },
+    {
+      "id": "UXM-trend-empty-silent",
+      "path": "tabs/parameter_trend_panel.py",
+      "note": "a trend scope without any row looks like a chart that simply has no points",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.27s"
+    },
+    {
+      "id": "UXM-npt-empty-silent",
+      "path": "tabs/npt_reconciliation_panel.py",
+      "note": "a scope without NPT records reads as 'Reconciled NPT 0.00 h'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.22s"
+    },
+    {
+      "id": "UXM-working-drawn-without-stations",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "the working-survey row says DRAWN for a scope without a survey station",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.31s"
+    },
+    {
+      "id": "UXM-viewer-never-reports",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "the layer panel never learns what the viewer composed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py",
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 4.48s"
+    },
+    {
+      "id": "UXM-bore-failure-silent",
+      "path": "tabs/well_package_panel.py",
+      "note": "a failed wellbore list leaves a combo with only 'Whole well' and no explanation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 4.32s"
+    },
+    {
+      "id": "UXM-layers-no-well-blank",
+      "path": "tabs/trajectory_layers_panel.py",
+      "note": "the 3D layer panel shows a blank frame and an empty table when no well is selected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m138_ux_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 4.41s"
+    },
+    {
+      "id": "JRN-w12-well-not-forwarded",
+      "path": "tabs/w12_Analysis.py",
+      "note": "selecting a well in the hierarchy leaves the W12 workbench panels on no well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 7.03s"
+    },
+    {
+      "id": "JRN-clear-leaves-first-well",
+      "path": "tabs/w12_Analysis.py",
+      "note": "clearing the selection leaves the previous well's runs, trends, mud and NPT on screen",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 10.18s"
+    },
+    {
+      "id": "W11-deferred-package-sync-removed",
+      "path": "tabs/w11_Export.py",
+      "note": "a W11 shown after a well change keeps the package on the previous well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m135_well_package.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 11.10s"
+    },
+    {
+      "id": "JRN-package-sync-drops-well",
+      "path": "tabs/w11_Export.py",
+      "note": "the end-of-well package never follows the well selected in the hierarchy",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m139_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 7.79s"
+    },
+    {
+      "id": "ADV-verify-path-unconfined",
+      "path": "core/well_package.py",
+      "note": "a manifest entry outside the package folder is hashed and can verify",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.79s"
+    },
+    {
+      "id": "ADV-verify-malformed-raises",
+      "path": "core/well_package.py",
+      "note": "a malformed manifest raises instead of being reported unreadable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.81s"
+    },
+    {
+      "id": "ADV-verify-nothing-checked",
+      "path": "core/well_package.py",
+      "note": "a manifest that lists no hashed file is VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.78s"
+    },
+    {
+      "id": "ADV-lsryp-inverted-accepted",
+      "path": "core/mud_engineering.py",
+      "note": "LSRYP is computed from θ3 above θ6 (larger than both readings)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py",
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.88s"
+    },
+    {
+      "id": "ADV-mud-unknown-version-evaluated",
+      "path": "core/mud_engineering.py",
+      "note": "an unknown method version is evaluated as v2",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.78s"
+    },
+    {
+      "id": "ADV-mud-v1-rebased",
+      "path": "core/mud_engineering.py",
+      "note": "a stored v1 case is repeated with v2 (re-based history)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py",
+        "tests/test_m133_mud_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.04s"
+    },
+    {
+      "id": "ADV-mud-rerun-stored-as-current",
+      "path": "core/mud_engineering.py",
+      "note": "the re-run of a v1 case is stored as v2 while computed as v1",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.03s"
+    },
+    {
+      "id": "ADV-currency-trailing-newline",
+      "path": "core/bit_runs.py",
+      "note": "'USD\\n' (or 'USDX') is accepted as a currency code",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 1.99s"
+    },
+    {
+      "id": "ADV-md-bool-accepted",
+      "path": "core/repositories/mse_repository.py",
+      "note": "True is stored as a measured depth of 1 m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 2.00s"
+    },
+    {
+      "id": "ADV-npt-time-range",
+      "path": "core/npt_reconciliation.py",
+      "note": "'25:00' or '10:75' becomes an NPT interval",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 1.97s"
+    },
+    {
+      "id": "ADV-trend-invalid-depth-unrecorded",
+      "path": "core/parameter_trends.py",
+      "note": "a recorded but invalid depth is called not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m140_adversarial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 33 passed in 2.05s"
+    },
+    {
+      "id": "D51-quoted-child-dump-is-a-hang",
+      "path": "verify_release.py",
+      "note": "a child's dump quoted in a failure message is annotated as a hang of the whole run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.07s"
+    },
+    {
+      "id": "D51-no-thread-annotation",
+      "path": "verify_release.py",
+      "note": "a hang names only the test's own thread; the lock or GIL holder stays invisible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_release_gate_annotations.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 5.44s"
+    },
+    {
+      "id": "D46-native-threads-dropped",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "threads in native code only vanish from the child failure summary",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_the_child_summary_counts_threads_without_a_python_frame"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.75s"
+    },
+    {
+      "id": "D46P-build-checkpoint-never-raises",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a cancelled worker finishes its index build (CPU-bound beside the next question's build)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.08s"
+    },
+    {
+      "id": "D46P-no-per-row-checkpoint",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the FTS rows are inserted to the end after a cancel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.23s"
+    },
+    {
+      "id": "D46P-no-per-chunk-checkpoint",
+      "path": "core/knowledge_retrieval.py",
+      "note": "every trigram vector is weighted after a cancel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.20s"
+    },
+    {
+      "id": "D46P-cancelled-fts-left-open",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a build cancelled during the FTS insert leaves its SQLite connection open",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.76s"
+    },
+    {
+      "id": "D46P-cancelled-finish-left-open",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a build cancelled after the FTS insert leaves its SQLite connection open",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.97s"
+    },
+    {
+      "id": "D46P-index-keeps-the-token",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a finished index keeps polling (and referencing) the cancel token of the question that built it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.30s"
+    },
+    {
+      "id": "D46P-ask-worker-build-not-cancellable",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the question's cancel token is not given to its index build",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.58s"
+    },
+    {
+      "id": "D46P-semantic-cancel-reported-as-error",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a semantic build cancelled during the keyword index is reported as a failure",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.14s"
+    },
+    {
+      "id": "D46P-retired-index-dropped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "every cancelled question throws its index away (the next one reads and builds again)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.75s"
+    },
+    {
+      "id": "D46P-retired-index-after-cleanup",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an index is installed into a panel that was already cleaned up (D40)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 3.06s"
+    },
+    {
+      "id": "D46P-retired-index-replaces-current",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a retired worker's index replaces the index the panel holds",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.92s"
+    },
+    {
+      "id": "D46P-retired-index-other-corpus",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an index of another corpus state is adopted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 3.10s"
+    },
+    {
+      "id": "D46P-retired-answer-shown",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the answer of a cancelled question is shown once its index is adopted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.72s"
+    }
+  ],
+  "killed": [
+    "KA-check-before-connect",
+    "KA-immediate-check-dropped",
+    "KA-stop-worker-not-kept",
+    "KA-retire-not-kept",
+    "KA-completed-worker-leaks",
+    "KA-corpus-check-late-connect",
+    "KA-cleanup-destroys-running-thread",
+    "MSE-md-without-wellbore",
+    "MSE-repair-no-evidence",
+    "MSE-repair-no-reason",
+    "MSE-repair-no-confirmer",
+    "MSE-repair-standalone-run",
+    "MSE-repair-overwrites-recorded",
+    "MSE-repair-twice",
+    "MSE-repair-bore-other-well",
+    "MSE-repair-report-other-well",
+    "MSE-repair-report-other-bore",
+    "MSE-repair-md-without-bore",
+    "MSE-unlinked-repair-counts",
+    "MSE-repair-not-audited",
+    "MSE-repair-trigger-inert",
+    "MSE-oa-recorded-not-effective",
+    "MSE-oa-class-split-truncates",
+    "MSE-history-legacy-label-lost",
+    "MSE-w13-md-always-recorded",
+    "MSE-w13-no-md-guidance",
+    "MSE-dashboard-legacy-merged",
+    "MSE-dashboard-points-joined",
+    "CTX-ticket-local-ignored",
+    "CTX-ticket-fields-ignored",
+    "CTX-ticket-unknown-field",
+    "CTX-w12-generation-local-only",
+    "CTX-w12-no-restart",
+    "CTX-w12-restart-competes",
+    "CTX-compare-done-unchecked",
+    "CTX-compare-save-unchecked",
+    "CTX-compare-ticket-all-fields",
+    "CTX-picker-local-only",
+    "CTX-w10-picker-local",
+    "CTX-w6-fill-selects-first",
+    "CTX-w5-fill-selects-first",
+    "CTX-w6-init-hides-selection",
+    "HANG-not-armed-by-gate",
+    "HANG-not-annotated",
+    "HANG-header-anchored",
+    "HANG-not-rearmed-per-test",
+    "HANG-dump-to-captured-fd",
+    "CLS-screening-unchecked",
+    "CLS-worksheet-unchecked",
+    "CLS-contract-relabel-unchecked",
+    "CLS-missing-leaf-unchecked",
+    "CLS-reference-save-enabled",
+    "CLS-reference-save-guard",
+    "CLS-history-scope-lost",
+    "CLS-catalogue-label-lost",
+    "WV-placement-ignored",
+    "WV-gap-accepted",
+    "WV-overlap-accepted",
+    "WV-closure-unchecked",
+    "WV-clearance-unchecked",
+    "WV-no-flow-zero",
+    "WV-unequal-spm-strokes",
+    "HY-unconfirmed-accepted",
+    "HY-not-recorded-diameter",
+    "HY-page-own-collect",
+    "HY-rows-by-name",
+    "CMP-rows-not-stored",
+    "CMP-rows-not-compared",
+    "CMP-row-number-tolerance",
+    "KA-closed-never-set",
+    "KA-done-unguarded",
+    "KA-status-unguarded",
+    "KA-choices-unguarded",
+    "KA-corpus-unguarded",
+    "KA-semantic-done-unguarded",
+    "KA-progress-unguarded",
+    "KA-indexed-unguarded",
+    "KA-stage-unguarded",
+    "HY-display-rounded",
+    "WT-pin-hash-unchecked",
+    "WT-pin-other-well",
+    "WT-pin-other-wellbore",
+    "WT-verify-for-use-skipped",
+    "WT-unknown-td-as-zero",
+    "WT-well-change-keeps-pin",
+    "WT-survey-source-not-stored",
+    "WT-history-survey-link",
+    "CS-unknown-accepted",
+    "CS-provenance-missing-accepted",
+    "CS-history-architecture-link",
+    "CS-selector-captured",
+    "CS-restore-drops-origin",
+    "DP-seeded-icp",
+    "DP-unknown-volume-as-zero",
+    "DP-zero-accepted",
+    "DP-fractional-intervals",
+    "DP-interval-ceiling",
+    "DP-rounded-rows",
+    "DP-reason-captured-as-result",
+    "DP-stale-result-kept",
+    "DP-choke-label",
+    "DP-page-ignores-output",
+    "DP-contract-unclassified",
+    "AC-grid-not-required",
+    "AC-any-datum",
+    "AC-legacy-not-named",
+    "AC-msl-needs-rte",
+    "AC-v1-label-lost",
+    "AC-rerun-current-version",
+    "AC-unknown-version-run",
+    "AC-panel-legacy-offset",
+    "AC-panel-references-faked",
+    "AC-panel-offset-unverified",
+    "AC-w13-mode-unlocked",
+    "AC-w13-not-following",
+    "MS-draft-other-well",
+    "MS-undeclared-azimuth",
+    "MS-unchanged-resaved",
+    "MS-replace-as-initial",
+    "CB-recorded-elsewhere-saved",
+    "D46-child-not-run",
+    "D46-child-body-fails",
+    "BR-incomplete-sum-as-total",
+    "BR-lifecycle-always-open",
+    "BR-incomplete-costed",
+    "BR-currency-not-required",
+    "BR-ranked-across-sizes",
+    "BR-ddr-change-ignored",
+    "BR-other-version-run",
+    "BR-not-assessed-saved",
+    "BR-wellbore-scope-ignored",
+    "BR-panel-seeded-currency",
+    "BR-history-not-routed",
+    "BR-w12-wellbore-dropped",
+    "TR-single-bound-filled",
+    "TR-missing-placed",
+    "TR-inverted-range-accepted",
+    "TR-depth-guessed",
+    "TR-mse-save-time-as-drilling-time",
+    "TR-mse-without-md-placed",
+    "TR-mse-scope-ignored",
+    "TR-legacy-label-lost",
+    "TR-panel-ranges-joined",
+    "TR-panel-markers-joined",
+    "TR-w12-performance-line",
+    "TR-w12-dexponent-line",
+    "TR-w12-dexponent-bit-run-label",
+    "BR-panel-gui-thread-read",
+    "BR-panel-late-result-shown",
+    "TR-panel-gui-thread-read",
+    "TL-unpinned-plan-drawn",
+    "TL-foreign-pin-drawn",
+    "TL-undeclared-reference-accepted",
+    "TL-different-reference-accepted",
+    "TL-origin-ignored",
+    "TL-survey-integrity-skipped",
+    "TL-plan-hash-skipped",
+    "TL-unpinned-architecture-placed",
+    "TL-extrapolated",
+    "TL-wellbore-scope-ignored",
+    "TL-units-not-converted",
+    "TL-panel-working-overlays",
+    "TL-viewer-closure-cycle",
+    "TL-w6-cleanup-missing",
+    "TL-unit-change-not-rebuilt",
+    "D49-status-registry-strong",
+    "D49-shortcut-cycle",
+    "MUD-assumed-as-derived",
+    "MUD-lab-without-reference",
+    "MUD-unknown-mw-as-zero",
+    "MUD-mw-7.48",
+    "MUD-implied-t600",
+    "MUD-lsryp-formula",
+    "MUD-gel-ratio-inverted",
+    "MUD-hb-claimed",
+    "MUD-other-well",
+    "MUD-wellbore-attributed",
+    "MUD-source-change-silent",
+    "MUD-version-accepted",
+    "MUD-negative-dial",
+    "MUD-history-scope-lost",
+    "NPT-uncertain-counted",
+    "NPT-matched-double-counted",
+    "NPT-different-counted-once",
+    "NPT-range-in-certain",
+    "NPT-missing-as-zero",
+    "NPT-midnight-ignored",
+    "NPT-matched-without-report",
+    "NPT-stale-ignored",
+    "NPT-first-decision-governs",
+    "NPT-unlinked-attributed",
+    "NPT-no-evidence",
+    "NPT-anonymous-confirmer",
+    "NPT-decide-certain",
+    "NPT-audit-missing",
+    "NPT-decision-mutable",
+    "D50-child-inherits-watchdog",
+    "D50-kill-without-dump",
+    "WPK-overwrites",
+    "WPK-no-audit",
+    "WPK-manifest-not-rechecked",
+    "WPK-part-not-hashed",
+    "WPK-verify-no-rehash",
+    "WPK-unlisted-ignored",
+    "WPK-audit-not-required",
+    "WPK-typed-name-as-approval",
+    "WPK-foreign-wellbore",
+    "WPK-approvals-unscoped",
+    "WPK-error-message-leak",
+    "WPK-cancel-leaves-partial",
+    "WPK-incomplete-hidden",
+    "WPK-selection-bound",
+    "WPK-pdf-always-skipped",
+    "SEC-audit-update-allowed",
+    "SEC-audit-delete-allowed",
+    "SEC-audit-guards-not-installed",
+    "SEC-db-not-protected",
+    "SEC-other-owner-changed",
+    "SEC-windows-described-as-posix",
+    "SEC-chmod-failure-fatal",
+    "SEC-package-folder-default-mode",
+    "SEC-wrong-password-unlocks",
+    "SEC-unlock-ignores-account-id",
+    "SEC-unlock-not-audited",
+    "SEC-lock-not-idempotent",
+    "SEC-idle-default-on",
+    "SEC-idle-range-unbounded",
+    "SEC-overlay-not-shown",
+    "SEC-dialog-only-window-modal",
+    "SEC-other-windows-stay-visible",
+    "SEC-escape-unlocks",
+    "SEC-refused-exit-strands",
+    "SEC-input-does-not-restart",
+    "SEC-watcher-runs-while-locked",
+    "SEC-password-kept-in-field",
+    "SEC-status-claims-missing-guards",
+    "SEC-status-drops-limits",
+    "SEC-lock-action-not-wired",
+    "DEP-pyproject-drift-ignored",
+    "DEP-unpinned-declaration-ignored",
+    "DEP-unrecorded-licence-ignored",
+    "DEP-licence-version-ignored",
+    "DEP-spec-exclusion-unchecked",
+    "DEP-smoke-exclusion-unchecked",
+    "DEP-qtribbon-not-gated",
+    "DEP-notices-not-replaced",
+    "DEP-notices-without-copyleft-caveat",
+    "SMK-notices-not-required",
+    "SMK-licence-metadata-unchecked",
+    "SMK-any-version-accepted",
+    "SMK-torch-allowed",
+    "D52-flush-is-a-no-op",
+    "D52-module-fixture-skips-the-flush",
+    "D53-automatic-collection-stays-on",
+    "D53-collects-on-any-thread",
+    "D53-no-teardown-collection",
+    "D53-no-reenable-watchdog",
+    "D53-unconfigure-forces-collection-on",
+    "D53-marker-ignored",
+    "UXM-retry-never-shown",
+    "UXM-bit-retry-does-nothing",
+    "UXM-layers-retry-does-nothing",
+    "UXM-stale-hint-ignored",
+    "UXM-error-hint-ignored",
+    "UXM-trend-empty-silent",
+    "UXM-npt-empty-silent",
+    "UXM-working-drawn-without-stations",
+    "UXM-viewer-never-reports",
+    "UXM-bore-failure-silent",
+    "UXM-layers-no-well-blank",
+    "JRN-w12-well-not-forwarded",
+    "JRN-clear-leaves-first-well",
+    "W11-deferred-package-sync-removed",
+    "JRN-package-sync-drops-well",
+    "ADV-verify-path-unconfined",
+    "ADV-verify-malformed-raises",
+    "ADV-verify-nothing-checked",
+    "ADV-lsryp-inverted-accepted",
+    "ADV-mud-unknown-version-evaluated",
+    "ADV-mud-v1-rebased",
+    "ADV-mud-rerun-stored-as-current",
+    "ADV-currency-trailing-newline",
+    "ADV-md-bool-accepted",
+    "ADV-npt-time-range",
+    "ADV-trend-invalid-depth-unrecorded",
+    "D51-quoted-child-dump-is-a-hang",
+    "D51-no-thread-annotation",
+    "D46-native-threads-dropped",
+    "D46P-build-checkpoint-never-raises",
+    "D46P-no-per-row-checkpoint",
+    "D46P-no-per-chunk-checkpoint",
+    "D46P-cancelled-fts-left-open",
+    "D46P-cancelled-finish-left-open",
+    "D46P-index-keeps-the-token",
+    "D46P-ask-worker-build-not-cancellable",
+    "D46P-semantic-cancel-reported-as-error",
+    "D46P-retired-index-dropped",
+    "D46P-retired-index-after-cleanup",
+    "D46P-retired-index-replaces-current",
+    "D46P-retired-index-other-corpus",
+    "D46P-retired-answer-shown"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [
+    "SEC-empty-password-unlocks"
+  ],
+  "invalid": []
+}

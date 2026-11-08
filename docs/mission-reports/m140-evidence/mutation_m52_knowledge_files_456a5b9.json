@@ -1,0 +1,110 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m52_scope_choices.py",
+      "tests/test_m52_sentence_support.py"
+    ],
+    "exit": 0,
+    "summary": "26 passed in 11.13s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "R-file-name-context-dropped",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a well code that only the file name states is ignored (M50 survivor)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 1.00s"
+    },
+    {
+      "id": "R-absent-ignores-context",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the insufficient-evidence message claims a well code is missing that the file name states",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_sentence_support.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.99s"
+    },
+    {
+      "id": "KP-scope-list-read-on-gui",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the well / report / document lists are read on the GUI thread again (pre-M52)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.93s"
+    },
+    {
+      "id": "KP-late-list-accepted",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a late well list overwrites the picker of a newer scope",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.31s"
+    },
+    {
+      "id": "KP-error-shown-as-empty",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an unreadable well list looks like 'no wells' (pre-M52)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.10s"
+    },
+    {
+      "id": "KP-ask-not-blocked-while-loading",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a question is asked for a scope whose list is loading or unreadable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.10s"
+    },
+    {
+      "id": "KP-refresh-drops-chosen-well",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a library refresh moves the question to another well silently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m52_scope_choices.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.30s"
+    }
+  ],
+  "killed": [
+    "R-file-name-context-dropped",
+    "R-absent-ignores-context",
+    "KP-scope-list-read-on-gui",
+    "KP-late-list-accepted",
+    "KP-error-shown-as-empty",
+    "KP-ask-not-blocked-while-loading",
+    "KP-refresh-drops-chosen-well"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

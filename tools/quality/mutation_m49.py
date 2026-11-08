@@ -171,8 +171,9 @@ MUTANTS = [
            T_RET, "the documented RRF constant k=60 is changed"),
     # ------------------------------------------------------------ UI: stale answers / citations
     Mutant("U-generation-guard-removed", PANEL,
-           "        if generation != self._generation:\n            return                                  # stale",
-           "        if False:\n            return                                  # stale",
+           # D58 (M140 follow-up): the stale branch now offers the retired index first; same guard, same mutant.
+           "        if generation != self._generation:\n            # stale: question/scope/library changed meanwhile.",
+           "        if False:\n            # stale: question/scope/library changed meanwhile.",
            T_UI, "an answer that finished after a scope/question change is shown"),
     Mutant("U-invalidate-noop", PANEL,
            '        """Question/scope/library changed: drop any shown or pending answer."""\n',

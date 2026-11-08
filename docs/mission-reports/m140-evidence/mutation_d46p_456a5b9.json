@@ -1,0 +1,215 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_d46_index_build_cancel.py",
+      "tests/test_m122_assistant_worker_lifecycle.py"
+    ],
+    "exit": 0,
+    "summary": "36 passed in 30.43s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "D46P-build-checkpoint-never-raises",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a cancelled worker finishes its index build (CPU-bound beside the next question's build)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.14s"
+    },
+    {
+      "id": "D46P-no-per-row-checkpoint",
+      "path": "core/knowledge_retrieval.py",
+      "note": "the FTS rows are inserted to the end after a cancel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.19s"
+    },
+    {
+      "id": "D46P-no-per-chunk-checkpoint",
+      "path": "core/knowledge_retrieval.py",
+      "note": "every trigram vector is weighted after a cancel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.22s"
+    },
+    {
+      "id": "D46P-cancelled-fts-left-open",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a build cancelled during the FTS insert leaves its SQLite connection open",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.41s"
+    },
+    {
+      "id": "D46P-cancelled-finish-left-open",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a build cancelled after the FTS insert leaves its SQLite connection open",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.57s"
+    },
+    {
+      "id": "D46P-index-keeps-the-token",
+      "path": "core/knowledge_retrieval.py",
+      "note": "a finished index keeps polling (and referencing) the cancel token of the question that built it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 1.80s"
+    },
+    {
+      "id": "D46P-ask-worker-build-not-cancellable",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the question's cancel token is not given to its index build",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 1.92s"
+    },
+    {
+      "id": "D46P-semantic-cancel-reported-as-error",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a semantic build cancelled during the keyword index is reported as a failure",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.00s"
+    },
+    {
+      "id": "D46P-retired-index-dropped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "every cancelled question throws its index away (the next one reads and builds again)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.83s"
+    },
+    {
+      "id": "D46P-retired-index-after-cleanup",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an index is installed into a panel that was already cleaned up (D40)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.85s"
+    },
+    {
+      "id": "D46P-retired-index-replaces-current",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a retired worker's index replaces the index the panel holds",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.90s"
+    },
+    {
+      "id": "D46P-retired-index-other-corpus",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an index of another corpus state is adopted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.95s"
+    },
+    {
+      "id": "D46P-retired-answer-shown",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the answer of a cancelled question is shown once its index is adopted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py",
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.72s"
+    },
+    {
+      "id": "D46P-retired-connect-after-cancel",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the retired slot is connected after the cancel: an index emitted at once is lost (CI 3.12 at 28a1fbf)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 4.47s"
+    },
+    {
+      "id": "D46P-stale-done-index-dropped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a done queued before the disconnect loses its index",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d46_index_build_cancel.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 4.31s"
+    }
+  ],
+  "killed": [
+    "D46P-build-checkpoint-never-raises",
+    "D46P-no-per-row-checkpoint",
+    "D46P-no-per-chunk-checkpoint",
+    "D46P-cancelled-fts-left-open",
+    "D46P-cancelled-finish-left-open",
+    "D46P-index-keeps-the-token",
+    "D46P-ask-worker-build-not-cancellable",
+    "D46P-semantic-cancel-reported-as-error",
+    "D46P-retired-index-dropped",
+    "D46P-retired-index-after-cleanup",
+    "D46P-retired-index-replaces-current",
+    "D46P-retired-index-other-corpus",
+    "D46P-retired-answer-shown",
+    "D46P-retired-connect-after-cancel",
+    "D46P-stale-done-index-dropped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

@@ -9,7 +9,7 @@ Allowed description of the product state: *Integrated drilling engineering produ
 qualified within the documented technical scope; Windows desktop acceptance, field acceptance, legal approvals and
 release authorization remain open.*
 
-The single live register, including the single defect register (D1–D56; D19–D22 are a numbering gap), is
+The single live register, including the single defect register (D1–D58; D19–D22 are a numbering gap), is
 [`docs/engineering/PRODUCT_CAPABILITY_MATRIX.md`](../engineering/PRODUCT_CAPABILITY_MATRIX.md), section
 "M121–M140". This report summarises it and carries the evidence; it does not compete with it.
 
@@ -19,8 +19,8 @@ The single live register, including the single defect register (D1–D56; D19–
 |---|---|
 | Branch | `arena/72010272-drill-master` only; upstream `origin/arena/72010272-drill-master` |
 | Start | report commit `27e3bc2` of M101–M120 (code `c7b6ac1`); both green on Source and Windows CI |
-| **Final code SHA** | **`443a1e310afa15405cb36097afcb7daa93225726`** (every code change of the programme; the final full suite, the complete mutation run and the final CI ran on this tree) |
-| Report commit | adds this file, the final register rows and the mutation evidence, and carries the D57 fix of the mutation harness (`tools/quality/mutation_m121_m140.py`; not imported by any test or CI job) — product code and tests are identical to the final code SHA. Its SHA and CI are in the final reply, because a file cannot contain its own commit SHA |
+| **Final code SHA** | **`456a5b9edb9af5f0d4e9ff480a91f6ea8b989f18`** — the M121–M140 phase work (ended at `443a1e3`) plus the D46 follow-up (`28a1fbf`) and its D58 fix (`456a5b9`); the final full suite, the complete mutation run, the coverage figure and the final CI ran on this tree |
+| Report commits | `a6e506a` (this file, the mutation evidence, the D57 fix of `tools/quality/mutation_m121_m140.py`), `15db396` (correction: D46 is not tied to one Python version) and the final report commit (this revision: the D46 follow-up, D58, the final evidence, and the M49 harness anchor update in `tools/quality/mutation_m49.py`). Mutation scripts are not imported by any test or CI job, so product code and tests of the final report commit are identical to the final code SHA. Its SHA and CI are in the final reply, because a file cannot contain its own commit SHA |
 | `drill-Master` | untouched: `e3fa42a3257e981d9bdf9d012c97919e3352a53a` before and after (`git ls-remote`) |
 | Not done (by instruction) | no `main` branch, no force-push, no history rewrite, no merge, no tag, no release, no EXE/installer publication, no signing, no settings / protection / ruleset change |
 
@@ -54,10 +54,13 @@ Phase checkpoints (CI on that exact SHA; "no run" = GitHub ran only the pushed t
 | M135 | `f620564` | ❌ 42381281727 (D52 on all three legs) | ✅ 42381281820 |
 | M136 | `76059dd` | ❌ 42387631121 (D52 on all three legs) | ✅ 42387631127 |
 | D52 + D53 + M137 | `00ddbe6` | ❌ 42460255134 — 3.11 ✅ (job 128667817522), 3.13 ✅ (128667817652), 3.12 ❌ (128667817789: 4973 passed / 1 failed — D46 load child; D52 did not recur) | ✅ 42460255146 |
-| M138 + M139 + M140 (final code) | `443a1e310afa15405cb36097afcb7daa93225726` | ❌ 42465610612 — 3.11 ✅ (job 128684300945), 3.12 ❌ (128684301142), 3.13 ❌ (128684301121): each 5018 passed / 4 skipped / 1 failed — the same D46 load child | ✅ 42465610586 (job 128684301197) |
+| M138 + M139 + M140 (end of the phase work) | `443a1e310afa15405cb36097afcb7daa93225726` | ❌ 42465610612 — 3.11 ✅ (job 128684300945), 3.12 ❌ (128684301142), 3.13 ❌ (128684301121): each 5018 passed / 4 skipped / 1 failed — the same D46 load child | ✅ 42465610586 (job 128684301197) |
 | M140 report, first commit (product and test code identical to `443a1e3`) | `a6e506aa9605ff57616a4ac4a4c04971596553ba` | ❌ 42472656017 — 3.11 ❌ (job 128706856823, Python 3.11.18), 3.12 ❌ (128706856835): each 5018 passed / 4 skipped / 1 failed — D46 load child; 3.13 ✅ (128706856663) | ✅ 42472655975 (job 128706856622) |
+| M140 report correction (same code) | `15db396` | ❌ 42476643498 — 3.11 ❌ (job 128719371727: D46, threads `_build_fts`, `select`, `_wait`), 3.12 ✅ (128719371682), 3.13 ✅ (128719371679) | ✅ 42476643508 (job 128719371619) |
+| D46 follow-up: cancellable index build, a cancelled question keeps its index | `28a1fbf` | ❌ 42484059701 — 3.12 ❌ (job 128741983752: **D58**, the fix's own test; the D46 load test passed on every leg), 3.11 ✅ (128741983447), 3.13 ✅ (128741983817) | ✅ 42484059798 (job 128741983785) |
+| **D58 (final code)** | `456a5b9edb9af5f0d4e9ff480a91f6ea8b989f18` | **✅ 42490385107 — 3.11 ✅ (job 128761246243), 3.12 ✅ (128761246047; coverage 69.98 %), 3.13 ✅ (128761246172)** | **✅ 42490384978 (job 128761245716)** |
 
-A red Source run was never treated as a pass: each one produced a defect row (D40, D46, D51, D52) and a fix or a
+A red Source run was never treated as a pass: each one produced a defect row (D40, D46, D51, D52, D58) and a fix or a
 bounded-risk statement.
 
 ## B. Defect register (summary of the live register)
@@ -75,7 +78,7 @@ bounded-risk statement.
 | D42 Weight / T&D survey source | P2 | resolved for new runs (M127) | |
 | D43 Choke Schedule | P2 | resolved (M128) | |
 | D44 / D45 Comparison / Anti-Collision references | P1 | resolved (M129) | |
-| D46 CI load-test hang (Linux CI, all three Python versions) | P2 | **OPEN (reopened) — root cause UNKNOWN; now the Source gate blocker.** It is not tied to one Python version: it failed on 3.11 (`600b2f0`, `75b2d38`, `a6e506a`), on 3.12 (`82071b2`, `7b13a1c`, `00ddbe6`, `443a1e3`, `a6e506a`) and on 3.13 (`7b13a1c`, `443a1e3`), including the final code `443a1e3` (3.12 and 3.13) and the identical-code report commit `a6e506a` (3.11 and 3.12). It was not reproduced locally. The dumps show a worker inside a SQLite call (`KnowledgeIndex._build_fts` `executemany`; SQLAlchemy `fetchall`) and, at `00ddbe6`, the main thread blocked inside `processEvents()` with no Python frame above it. Bounded: the child watchdog ends the run inside the job timeout and names the threads. The D53 fix did not remove it. **Product risk stated:** the same pattern could stall the desktop when the Knowledge Assistant is cancelled under heavy CPU load (not observed outside this test) | M129, M132, M134, M140 |
+| D46 CI load-test hang (Linux CI, all three Python versions) | P2 | **RESOLVED (M140 follow-up: `28a1fbf`, D58 fix `456a5b9`) — mechanism evidenced, product cause fixed, residual stated.** History: failed on 3.11 (`600b2f0`, `75b2d38`, `a6e506a`, `15db396`), 3.12 (`82071b2`, `7b13a1c`, `00ddbe6`, `443a1e3`, `a6e506a`) and 3.13 (`7b13a1c`, `443a1e3`) — 6 of the 12 legs from `00ddbe6` to `15db396`. Mechanism: every dump has the non-burner threads at a GIL re-acquisition point (consistent with GIL waits; a native-lock wait of a frameless thread is not excluded). With two or more CPU-bound threads CPython suppresses the waiter's drop request, so each per-row SQLite step or Qt-to-Python callback costs up to many switch intervals (`tools/quality/d46_gil_convoy_probe.py`: `executemany` of 3000 rows 0.002 s → 7.9 s with 4 burners). Product cause: a cancelled index build kept running, and every cancel discarded the index, so each question re-read the corpus (on the GUI thread for an in-memory database) and rebuilt it — 15 builds in the 15 load cycles, now 1 (load body 19–26 s → 9–11 s). Fix: cancellable `KnowledgeIndex`; a cancelled question's **index** is adopted, never its answer. The load test, its burners, bounds and watchdog are unchanged; no timeout raised, no retry. CI after the fix: the load test passed on all 6 legs of `28a1fbf` and `456a5b9`. **Residual:** the in-process burners still slow every GUI-thread GIL re-acquisition in the test, so a recurrence on a slow runner is possible and would reopen D46. Desktop risk restated: a UI slowdown (not a deadlock) while two or more CPU-bound Python threads run, which the assistant no longer creates by itself | M129, M132, M134, M140, follow-up |
 | D47 Bit run cost comparison | P1 | resolved (M130) | |
 | D48 Performance chart lines | P2 | resolved (M131) | |
 | D49 Manager retention of disposed widgets | P1 | resolved (M132) | |
@@ -87,6 +90,7 @@ bounded-risk statement.
 | D55 LSRYP from inverted θ3 / θ6 | P2 | **resolved for new cases (M140)** by "M133 mud evaluation v2"; v1 replayed, never re-based | `ADV-lsryp-*`, `ADV-mud-*` 4/4 |
 | D56 Service contracts accepting values the UI cannot produce | P3 | **resolved (M140)** | `ADV-currency/md/npt/trend-*` 4/4 |
 | D57 Mutation harness: shadowed test list | P3 | **resolved (M140)** — a second `T122` (from `7b13a1c`) narrowed the 7 KA mutants to the load test; found by the complete run (6 survived); fixed; 9/9 KILLED on the corrected lists | `mutation_m140_t122_rerun.json` |
+| D58 Retired-index slot connected after the cancel (in the D46 fix) | P3 | **RESOLVED (`456a5b9`)** — found by CI 3.12 at `28a1fbf` (job 128741983752). The slot is now connected before the cancel, and a stale queued `done` offers its index; never a wrong answer, at worst one extra index build | `test_d46_index_build_cancel.py` (16), `D46P-*` 15/15 |
 | D13 Licences | P2 | disclosure holds; decisions are owner gates (M137) | |
 | D17 Coverage numerator labelling | P3 | process (holds) | |
 | D1–D5, D8–D10, D12, D14–D16, D18, D23–D27, D29–D37 | — | **hold** — their regression tests ran in the final full suite; none reopened by the M140 adversarial audit | §F |
@@ -179,36 +183,37 @@ Totals: CONTRACT 9, SCREENING CONTRACT 10, WORKSHEET 4, TRAINING AID 1, REFERENC
 
 ## F. Quality and CI
 
-All figures are for the final code SHA `443a1e310afa15405cb36097afcb7daa93225726` unless a row says otherwise.
+All figures are for the final code SHA `456a5b9edb9af5f0d4e9ff480a91f6ea8b989f18` unless a row says otherwise.
 
 **Full suite (local, offscreen Qt, Linux, Python 3.11.2, PySide6 6.8.1.1; NOT Windows desktop):**
 
 | collected | passed | skipped | failed | errors | xfailed | xpassed | deselected | runtime |
 |---|---|---|---|---|---|---|---|---|
-| 5023 | 5019 | 4 | 0 | 0 | 0 | 0 | 0 | 1990 s (33:10) |
+| 5039 | 5035 | 4 | 0 | 0 | 0 | 0 | 0 | 2013 s (33:33) |
 
 The 4 skips are the four opt-in tests (`test_ddr_acceptance.py` ×2, `test_mineru_real_integration.py`,
 `test_packaging_smoke.py`). They did **not** pass. No skip, xfail or exclusion was added.
 
 Count history in this programme (new tests only; nothing removed): 4707 (M120) → … → 4877 (M132) → 4905 (M134)
-→ 4920 (M135) → 4944 (M136) → 4978 (D52 + D53 + M137) → 5023 (M138 +10, M139 +1, M140 +34).
+→ 4920 (M135) → 4944 (M136) → 4978 (D52 + D53 + M137) → 5023 (M138 +10, M139 +1, M140 +34) → 5036 (D46 follow-up +13)
+→ 5039 (D58 +3). Earlier local suites: 5019 / 4 at `443a1e3` (twice, the second under coverage), 5032 / 4 at `28a1fbf`.
 
-**Mutation.** All 289 mutants of `tools/quality/mutation_m121_m140.py` were run on the final code tree in one complete run (`complete=True`, 2352 s): **282 KILLED, 6 SURVIVED, 1 declared EQUIVALENT, 0 INVALID** (`m140-evidence/mutation_m121_m140_complete.json`). The 6 survivors were all KA (D28 lifecycle) mutants and exposed **D57**, a harness defect: a second `T122` assignment added at `7b13a1c` had narrowed their test list to the load test alone. After the fix (in the report commit; the script is not imported by any test or CI job), the 9 mutants on the corrected lists were re-run: **9/9 KILLED** (`mutation_m140_t122_rerun.json`). Final: **288 KILLED + 1 EQUIVALENT of 289, 0 survived, 0 invalid**; product code identical between the runs. The EQUIVALENT mutant (`SEC-empty-password-unlocks`) carries its proof in the script and the register (three independent layers refuse an empty password; the two stronger variants are killed). Phase runs kept as evidence: M138/M139 15/15 (`mutation_m138_m139.json`), M140 adversarial 14/14 (`mutation_m140_adversarial.json`), M127–M129 rerun 41/41.
+**Mutation (final code tree).** All **304** mutants of `tools/quality/mutation_m121_m140.py` in one complete run (`complete=True`, 2335 s): **303 KILLED, 1 declared EQUIVALENT, 0 SURVIVED, 0 INVALID** (`m140-evidence/mutation_m121_m140_complete_456a5b9.json`). The EQUIVALENT mutant (`SEC-empty-password-unlocks`) carries its proof in the script and the register (three independent layers refuse an empty password; the two stronger variants are killed). The 15 `D46P-*` mutants are among them. Because the follow-up changed `tabs/knowledge_assistant.py` and `core/knowledge_retrieval.py`, the older suites' 54 mutants on those two files were re-run as well: M49 17/17 KILLED (one first reported INVALID, because D58 rewrote its anchor line; the anchor was updated in the report commit with unchanged semantics and the mutant re-run KILLED); M50 17 KILLED + 2 SURVIVED — `R-file-name-context-dropped` and `R-absent-ignores-context`, the same pre-existing survivors recorded since M52 (also at `36a847a` and `c5ea349`), which the M52 suite re-runs and **kills** on this tree; M51 11/11; M52 7/7. All 874 mutant anchors of the 13 mutation suites match exactly once on the final tree. History: the complete run on `443a1e3` (289: 282 KILLED, 6 SURVIVED, 1 EQUIVALENT) exposed **D57**, a harness defect (a second `T122` had narrowed the KA mutants' test list); after the fix the 9 affected mutants were KILLED (`mutation_m140_t122_rerun.json`); a complete run on `28a1fbf` gave 302 → 301 KILLED + 1 EQUIVALENT. Phase runs kept as evidence: M138/M139 15/15, M140 adversarial 14/14, M127–M129 rerun 41/41.
 
-**Coverage (local, Python 3.11.2, branch coverage, `pyproject.toml` settings; not the CI 3.12 measurement, which was not produced — see below):** **69.95 %** (71238 / 101841), floor 45.50, target ≥ 65 met; programme-start baseline as recorded in the M121 brief 67.78 % (65304 / 96344). The coverage run was a second complete local suite: 5019 passed / 4 skipped / 0 failed (2498 s).
+**Coverage (CI, the Python 3.12 leg of the final code SHA, job 128761246047, branch + line, `pyproject.toml` settings):** **69.98 %** (71304 / 101897), floor 45.50, target ≥ 65 met; programme-start baseline as recorded in the M121 brief 67.78 % (65304 / 96344). The local 3.11 measurement at `443a1e3` was 69.95 % (71238 / 101841).
 
 **Gates at the final code SHA:** lint 726 (ceiling 727; no finding in an added or modified file); exception gate
-rc 0; privacy 0 findings; schema compatibility 26/26 (old `0822a28`, new `443a1e3`); dependency audit 26 pins, 0 FAIL; constant / engine
+rc 0 (the follow-up added 4 specific handlers, no broad or silent one); privacy 0 findings; schema compatibility 26/26 (old `0822a28`, new `456a5b9`); dependency audit 26 pins, 0 FAIL; constant / engine
 inventories and the journey index current.
 
 **CI on the exact final code SHA:**
 
 | Workflow | Run | Jobs | Result |
 |---|---|---|---|
-| Source release gate | 42465610612 | 3.11 128684300945 ✅; 3.12 128684301142 ❌; 3.13 128684301121 ❌ | **FAILURE** — 5018 passed / 4 skipped / 1 failed on 3.12 and 3.13; the failure is D46 (`test_cancel_under_cpu_load_releases_every_worker`: the fresh-interpreter load child hit its 600 s watchdog). Warnings unchanged: 3.11 39 / 12 groups, 3.12 and 3.13 102 / 13 groups |
-| Windows release validation | 42465610586 | windows-release 128684301197 ✅ | success (bundle build and smoke; not desktop acceptance) |
+| Source release gate | 42490385107 | 3.11 128761246243 ✅; 3.12 128761246047 ✅; 3.13 128761246172 ✅ | **SUCCESS** — every leg's pytest stage passed, and the coverage stage on 3.12 too; warnings unchanged: 3.11 39 / 12 groups, 3.12 and 3.13 102 / 13 groups |
+| Windows release validation | 42490384978 | windows-release 128761245716 ✅ | success (bundle build and smoke; not desktop acceptance) |
 
-**This is not a passing Source gate and is not reported as one.** A second sample of the same product and test code, the first report commit `a6e506a` (Source run 42472656017), failed again with D46 on 3.11 (job 128706856823) and 3.12 (job 128706856835), while 3.13 passed (job 128706856663); Windows release validation 42472655975 passed (job 128706856622). The CI result of this corrected report commit is necessarily not contained in the report itself. Coverage is measured by the 3.12 leg only after its pytest stage passes, so CI produced no coverage figure for the final code; the local figure above is labelled as local. The report commit's own CI is a second sample of identical product and test code; its result is quoted in the final reply.
+**The red runs stay on the record (§A).** The Source gate failed on `443a1e3` (3.12 and 3.13), `a6e506a` (3.11 and 3.12) and `15db396` (3.11), all D46, and on `28a1fbf` (3.12, D58). The green run on `456a5b9` is one run. D46's resolution rests on the mechanism, the product fix and the load test passing on all 6 legs of two consecutive runs, not on that run alone. The final report commit's own CI is quoted in the final reply.
 
 ## G. Owner register (open decisions; none taken by automation)
 
@@ -239,10 +244,10 @@ inventories and the journey index current.
 scope; Windows desktop acceptance, field acceptance, legal approvals and release authorization remain open.*
 **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.**
 
-**Qualification is not complete on CI:** the Source release gate on the final code SHA failed on Python 3.12 and 3.13 with one failure each (D46, open, root cause unknown), and on the first report commit `a6e506a` (identical product and test code) it failed on 3.11 and 3.12 with the same defect; Python 3.11, the Windows release validation, the local full suite (5019 passed / 4 opt-in skips / 0 failed), the complete mutation run and every static gate pass. This report does not turn that red run into a pass; closing D46 (or an owner decision about it) is a precondition of any release decision.
+**CI on the final code SHA `456a5b9`:** Source release gate ✅ on Python 3.11, 3.12 and 3.13 (run 42490385107) and Windows release validation ✅ (run 42490384978) — the first fully green Source gate since `45291cd`. Local full suite 5035 passed / 4 opt-in skips / 0 failed; complete mutation run 303 KILLED + 1 EQUIVALENT of 304; every static gate passes. The earlier red runs of this programme stay recorded (§A). D46 is resolved on evidence with a stated residual and would be reopened by any recurrence.
 
 Residual risks carried forward (each in the register):
-- **D46 — the final code's Source gate is red because of it** (3.12 and 3.13: 1 failure of 5023 each on `443a1e3`; 3.11 and 3.12 on the identical-code `a6e506a`; it has failed on every Linux CI Python version); root cause UNKNOWN, bounded by the child watchdog; a possible desktop stall when cancelling the Knowledge Assistant under heavy load is stated as a product risk. D51 — CI hang, root cause UNKNOWN, bounded by the watchdog.
+- **D46 — resolved with a residual:** the test's in-process GIL burners still slow the GUI thread's GIL re-acquisitions, so a recurrence on a slow CI runner is possible and would reopen it; desktop risk restated as a UI slowdown (not a deadlock) while two or more CPU-bound Python threads run. D51 — CI hang, root cause UNKNOWN, bounded by the watchdog; it has not recurred in any later CI run.
 - D6 and D11 PARTIAL by design — legacy MSE rows cannot gain lineage without audited evidence; no CRS transformation without an owner decision.
 - The `trg_mse_lineage_repair_nodelete_v1` and audit triggers can be dropped by anyone with write access to the database file; the external-key chain is design only.
 - The local test environment needs a GLX stub `libGL.so.1` (offscreen platform; GLX never called) — CI uses the distribution libraries.
