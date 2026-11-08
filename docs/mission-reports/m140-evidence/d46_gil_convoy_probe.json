@@ -1,0 +1,58 @@
+{
+  "probe": "D46 GIL convoy",
+  "python": "3.11.2",
+  "implementation": "CPython",
+  "machine": "x86_64",
+  "cpu_count": 2,
+  "switch_interval_s": 0.005,
+  "runs": [
+    {
+      "burners": 0,
+      "pure_python_loop_s": 0.0116,
+      "executemany_3000_rows_s": 0.0023,
+      "fetchall_3000_rows_s": 0.002,
+      "sleep_extra_wait_ms": {
+        "n": 987,
+        "p50": 0.13,
+        "p99": 0.24,
+        "max": 0.56
+      }
+    },
+    {
+      "burners": 1,
+      "pure_python_loop_s": 0.0266,
+      "executemany_3000_rows_s": 1.1919,
+      "fetchall_3000_rows_s": 0.3174,
+      "sleep_extra_wait_ms": {
+        "n": 653,
+        "p50": 5.29,
+        "p99": 5.5,
+        "max": 10.18
+      }
+    },
+    {
+      "burners": 2,
+      "pure_python_loop_s": 0.0337,
+      "executemany_3000_rows_s": 1.4931,
+      "fetchall_3000_rows_s": 0.2409,
+      "sleep_extra_wait_ms": {
+        "n": 398,
+        "p50": 5.52,
+        "p99": 175.47,
+        "max": 352.12
+      }
+    },
+    {
+      "burners": 4,
+      "pure_python_loop_s": 0.0269,
+      "executemany_3000_rows_s": 7.8864,
+      "fetchall_3000_rows_s": 1.2978,
+      "sleep_extra_wait_ms": {
+        "n": 317,
+        "p50": 10.56,
+        "p99": 138.98,
+        "max": 165.68
+      }
+    }
+  ]
+}

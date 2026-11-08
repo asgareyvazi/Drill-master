@@ -302,12 +302,18 @@ class AskWorker(QThread):
             return                              # cancelled while reading: nothing is shown
         try:
             if self.index is None:
+                token = self.cancel_token
                 self.index = kr.KnowledgeIndex(self.snapshot, embedding_store=self.store,
-                                               embed_model=getattr(self.adapter, "embed_model", None) or None)
+                                               embed_model=getattr(self.adapter, "embed_model", None) or None,
+                                               cancelled=(lambda: token.cancelled) if token is not None else
+                                               (lambda: False))
             answer = ka.answer_question(self.index, self.question, self.scope, self.target, adapter=self.adapter,
                                         use_model=self.use_model, cancel=self.cancel_token,
                                         stage=lambda s: self.stage.emit(self.generation, s))
             self.done.emit(self.generation, answer, self.index)
+        except kr.IndexBuildCancelled:          # D46: cancelled inside the index build - nothing is shown or kept
+            logger.debug("Knowledge Assistant: the index build stopped with its cancelled question")
+            self.index = None
         except Exception as exc:  # shown as an explicit error state, never as "no evidence"
             logger.warning("Knowledge Assistant question failed: %s", type(exc).__name__)
             self.done.emit(self.generation, f"{type(exc).__name__}: the question could not be answered", self.index)
@@ -363,7 +369,15 @@ class SemanticBuildWorker(QThread):
                 logger.warning("Semantic index: pages could not be read: %s", type(exc).__name__)
                 self.done.emit({"state": "error", "message": f"pages could not be read ({type(exc).__name__})"})
                 return
-            self.index = kr.KnowledgeIndex(snapshot, embedding_store=self.store, embed_model=self.adapter.embed_model)
+            token = self.cancel_token
+            try:
+                self.index = kr.KnowledgeIndex(snapshot, embedding_store=self.store,
+                                               embed_model=self.adapter.embed_model,
+                                               cancelled=(lambda: token.cancelled) if token is not None else
+                                               (lambda: False))
+            except kr.IndexBuildCancelled:     # D46: cancelled before any passage was embedded
+                self.done.emit({"state": "cancelled", "done": 0, "total": 0})
+                return
             self.indexed.emit(self.index)
         try:
             self.done.emit(kr.build_semantic_index(self.index, self.adapter, self.store, cancel=self.cancel_token,
@@ -1064,7 +1078,25 @@ class KnowledgeAssistantPanel(QWidget):
         if self._cancel is not None:
             self._cancel.cancel()
         if worker is not None:
+            # D46: the ANSWER of a retired worker is never used; the corpus index it may still deliver is.
+            worker.done.connect(self._retired_worker_done)
             self._keep_until_finished(worker)      # keep a reference until the thread ends (M122)
+
+    def _retired_worker_done(self, _generation, _outcome, index):
+        """Adopt the corpus index of a cancelled or superseded question - never its answer (D46).
+
+        Before D46 every cancel threw away the index the worker had built, so the next question read the
+        corpus and built it again although nothing had changed.  The index is a cache keyed by the corpus
+        signature, not a result: it is taken only while the panel is open and holds no index, and only when
+        it matches the corpus state the panel last knew (any state when it knows none).  Every later use
+        revalidates it - ``_start`` compares the current signature (in-memory database) and the worker
+        re-reads the corpus and compares it (file database) - so a stale index is never answered from.
+        """
+        if self._closed or index is None or self._index is not None:
+            return
+        if self._snapshot_signature is not None and index.signature != self._snapshot_signature:
+            return
+        self._index, self._snapshot_signature = index, index.signature
 
     def _forget(self, worker):
         """Release a retired worker once its thread has ended; a second call is a no-op (M122)."""

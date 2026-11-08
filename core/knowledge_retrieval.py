@@ -792,16 +792,38 @@ class RetrievalResult:
 
 
 # ------------------------------------------------------------------ index
+def _no_checkpoint() -> None:
+    """The checkpoint of a finished (or never cancellable) build: never raises."""
+
+
+class IndexBuildCancelled(Exception):
+    """The build was cancelled at a checkpoint; nothing of it is usable (its FTS connection is closed)."""
+
+
 class KnowledgeIndex:
-    """In-memory retrieval structures for one corpus snapshot."""
+    """In-memory retrieval structures for one corpus snapshot.
+
+    ``cancelled`` (D46): polled between the build phases and inside the per-page, per-row and
+    per-chunk loops; when it answers True the build raises ``IndexBuildCancelled`` and closes its FTS
+    connection, so a cancelled question stops spending CPU at once instead of finishing an index nobody
+    waits for (a cancelled build kept running beside the next question's build, two CPU-bound threads).
+    """
 
     def __init__(self, snapshot: CorpusSnapshot, *, embedding_store: Optional[EmbeddingStore] = None,
-                 embed_model: Optional[str] = None):
+                 embed_model: Optional[str] = None, cancelled: Callable[[], bool] = lambda: False):
+        def checkpoint():
+            if cancelled():
+                raise IndexBuildCancelled("knowledge index build cancelled")
+
+        self._checkpoint = checkpoint
         self.snapshot = snapshot
         self.signature = snapshot.signature
         self.chunks = {}
         self.page_chunks = defaultdict(list)
+        self._fts = None
+        checkpoint()
         for page in snapshot.pages.values():
+            checkpoint()
             for chunk in chunk_page(page):
                 self.chunks[chunk.chunk_id] = chunk
                 self.page_chunks[page.page_id].append(chunk.chunk_id)
@@ -822,7 +844,19 @@ class KnowledgeIndex:
         self._identity_cache = {}
         self._size_cache = {}
         self._lock = threading.Lock()
+        checkpoint()
         self._fts = self._build_fts()
+        try:
+            self._finish_build(checkpoint)
+        except IndexBuildCancelled:
+            self.close()
+            raise
+        self.embedding_store = embedding_store
+        self.embed_model = embed_model or None
+        self._checkpoint = _no_checkpoint   # the build is over; the index keeps no reference to the caller's token
+
+    def _finish_build(self, checkpoint):
+        checkpoint()
         document_frequency = Counter()
         for toks in self._norm_tokens.values():
             document_frequency.update(set(toks))
@@ -830,9 +864,8 @@ class KnowledgeIndex:
         self._n = max(1, len(self.chunks))
         idfs = sorted(math.log((self._n + 1) / (df + 0.5)) for df in document_frequency.values())
         self._median_idf = idfs[len(idfs) // 2] if idfs else 1.0
+        checkpoint()
         self._grams, self._gram_norm, self._gram_idf = self._build_trigrams()
-        self.embedding_store = embedding_store
-        self.embed_model = embed_model or None
 
     # ------------------------------------------------------------ building
     def _build_fts(self):
@@ -843,10 +876,17 @@ class KnowledgeIndex:
         except sqlite3.OperationalError:
             connection.close()
             return None
-        connection.executemany("INSERT INTO chunk_fts(body, chunk, document) VALUES (?, ?, ?)",
-                               ((" ".join(self._norm_tokens[cid]), cid, self.snapshot.pages[c.page_id].document_id)
-                                for cid, c in self.chunks.items()))
-        connection.commit()
+
+        def rows():
+            for cid, c in self.chunks.items():
+                self._checkpoint()           # per row: each INSERT step re-acquires the GIL (D46)
+                yield " ".join(self._norm_tokens[cid]), cid, self.snapshot.pages[c.page_id].document_id
+        try:
+            connection.executemany("INSERT INTO chunk_fts(body, chunk, document) VALUES (?, ?, ?)", rows())
+            connection.commit()
+        except IndexBuildCancelled:
+            connection.close()
+            raise
         return connection
 
     def _build_trigrams(self):
@@ -857,6 +897,7 @@ class KnowledgeIndex:
         idf = {gram: math.log((1 + self._n) / (1 + count)) + 1.0 for gram, count in df.items()}
         weighted, norms = {}, {}
         for cid, g in grams.items():
+            self._checkpoint()
             vector = {gram: (1 + math.log(count)) * idf[gram] for gram, count in g.items()}
             weighted[cid] = vector
             norms[cid] = math.sqrt(sum(w * w for w in vector.values()))

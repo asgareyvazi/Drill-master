@@ -1,0 +1,57 @@
+{
+  "probe": "tools/quality/d46_load_body_probe.py (real _cpu_load_body: 4 GIL burners, 15 cancel cycles, unchanged bounds and assertions)",
+  "environment": "local Linux sandbox, 2 cores, Python 3.11.2, PySide6 offscreen; NOT CI and NOT Windows",
+  "before": {
+    "tree": "git archive of 15db396 (pre-fix)",
+    "runs": [
+      {
+        "index_builds": 15,
+        "concurrent_builds_max": 1,
+        "gui_thread_corpus_reads": 15,
+        "gui_thread_corpus_read_s": 1.65,
+        "body_s": 25.7
+      },
+      {
+        "index_builds": 15,
+        "concurrent_builds_max": 1,
+        "gui_thread_corpus_reads": 15,
+        "gui_thread_corpus_read_s": 1.66,
+        "body_s": 25.5
+      },
+      {
+        "index_builds": 15,
+        "concurrent_builds_max": 1,
+        "gui_thread_corpus_reads": 15,
+        "gui_thread_corpus_read_s": 1.49,
+        "body_s": 18.8
+      }
+    ]
+  },
+  "after": {
+    "tree": "working tree with the D46 product fix (cancellable index build, a cancelled question keeps its index)",
+    "runs": [
+      {
+        "index_builds": 1,
+        "concurrent_builds_max": 1,
+        "gui_thread_corpus_reads": 1,
+        "gui_thread_corpus_read_s": 0.03,
+        "body_s": 9.4
+      },
+      {
+        "index_builds": 1,
+        "concurrent_builds_max": 1,
+        "gui_thread_corpus_reads": 1,
+        "gui_thread_corpus_read_s": 0.1,
+        "body_s": 11.4
+      },
+      {
+        "index_builds": 1,
+        "concurrent_builds_max": 1,
+        "gui_thread_corpus_reads": 1,
+        "gui_thread_corpus_read_s": 0.28,
+        "body_s": 9.2
+      }
+    ]
+  },
+  "note": "build_s lists omitted here; every run printed 15/15 cancels on a live worker and passed every lifecycle assertion"
+}

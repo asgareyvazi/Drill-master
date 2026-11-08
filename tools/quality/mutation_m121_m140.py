@@ -69,6 +69,8 @@ TCMP = "core/trajectory_compare.py"
 TPNL = "tabs/trajectory_compare_panel.py"
 # M140: this was a second ``T122`` (7b13a1c), which silently narrowed every KA mutant defined below it to the load
 # test alone; only the two D46 wrapper mutants need the load test by itself.
+KRET = "core/knowledge_retrieval.py"
+TD46P = ["tests/test_d46_index_build_cancel.py"]
 T122_LOAD = ["tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"]
 T50F = "tests/test_m122_assistant_worker_lifecycle.py"
 T50 = [f"{T50F}::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
@@ -1012,6 +1014,55 @@ MUTANTS = [
            "            native += 1          # M134 (D46): a thread in native code only is a possible lock holder\n",
            "            pass\n", [f"{T50F}::test_the_child_summary_counts_threads_without_a_python_frame"],
            "threads in native code only vanish from the child failure summary"),
+    # ---- D46 product side (M140 follow-up): cancellable index build, a cancelled question keeps its index ----
+    Mutant("D46P-build-checkpoint-never-raises", KRET,
+           "            if cancelled():\n                raise IndexBuildCancelled", "            if False:\n                raise IndexBuildCancelled",
+           TD46P, "a cancelled worker finishes its index build (CPU-bound beside the next question's build)"),
+    Mutant("D46P-no-per-row-checkpoint", KRET,
+           "                self._checkpoint()           # per row", "                pass           # per row", TD46P,
+           "the FTS rows are inserted to the end after a cancel"),
+    Mutant("D46P-no-per-chunk-checkpoint", KRET,
+           "        for cid, g in grams.items():\n            self._checkpoint()\n",
+           "        for cid, g in grams.items():\n", TD46P, "every trigram vector is weighted after a cancel"),
+    Mutant("D46P-cancelled-fts-left-open", KRET,
+           "        except IndexBuildCancelled:\n            connection.close()\n            raise",
+           "        except IndexBuildCancelled:\n            raise", TD46P,
+           "a build cancelled during the FTS insert leaves its SQLite connection open"),
+    Mutant("D46P-cancelled-finish-left-open", KRET,
+           "        except IndexBuildCancelled:\n            self.close()\n            raise",
+           "        except IndexBuildCancelled:\n            raise", TD46P,
+           "a build cancelled after the FTS insert leaves its SQLite connection open"),
+    Mutant("D46P-index-keeps-the-token", KRET,
+           "        self._checkpoint = _no_checkpoint   # the build is over", "        pass   # the build is over", TD46P,
+           "a finished index keeps polling (and referencing) the cancel token of the question that built it"),
+    Mutant("D46P-ask-worker-build-not-cancellable", KA,
+           "                                               cancelled=(lambda: token.cancelled) if token is not None else\n"
+           "                                               (lambda: False))\n            answer",
+           "                                               cancelled=lambda: False)\n            answer", TD46P,
+           "the question's cancel token is not given to its index build"),
+    Mutant("D46P-semantic-cancel-reported-as-error", KA,
+           '                self.done.emit({"state": "cancelled", "done": 0, "total": 0})\n',
+           '                self.done.emit({"state": "error", "message": "cancelled"})\n', TD46P,
+           "a semantic build cancelled during the keyword index is reported as a failure"),
+    Mutant("D46P-retired-index-dropped", KA,
+           "            worker.done.connect(self._retired_worker_done)\n", "            pass\n", TD46P,
+           "every cancelled question throws its index away (the next one reads and builds again)"),
+    Mutant("D46P-retired-index-after-cleanup", KA,
+           "        if self._closed or index is None or self._index is not None:",
+           "        if index is None or self._index is not None:", TD46P,
+           "an index is installed into a panel that was already cleaned up (D40)"),
+    Mutant("D46P-retired-index-replaces-current", KA,
+           "        if self._closed or index is None or self._index is not None:",
+           "        if self._closed or index is None:", TD46P,
+           "a retired worker's index replaces the index the panel holds"),
+    Mutant("D46P-retired-index-other-corpus", KA,
+           "        if self._snapshot_signature is not None and index.signature != self._snapshot_signature:\n            return\n",
+           "", TD46P, "an index of another corpus state is adopted"),
+    Mutant("D46P-retired-answer-shown", KA,
+           "        self._index, self._snapshot_signature = index, index.signature\n\n    def _forget",
+           "        self._index, self._snapshot_signature = index, index.signature\n"
+           "        if isinstance(_outcome, ka.Answer):\n            self.show_answer(_outcome)\n\n    def _forget",
+           TD46P + T122, "the answer of a cancelled question is shown once its index is adopted"),
 ]
 
 
