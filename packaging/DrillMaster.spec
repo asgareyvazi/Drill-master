@@ -73,6 +73,16 @@ for template in sorted((PROJECT_ROOT / "config" / "company_templates").glob("*.j
 for name in ("OEOC_DDR_General.json", "OEOC_DDR_v3.json", "OEOC_DDR_full_extraction.json"):
     datas.append((str(PROJECT_ROOT / "templates" / name), "templates"))
 
+# M137: licence evidence travels with the bundle - the notices (with the generated bundled-runtime table) and the
+# metadata folder of every locked runtime distribution (licence fields and the licence files its wheel carries).
+from PyInstaller.utils.hooks import copy_metadata  # noqa: E402
+
+datas.append((str(PROJECT_ROOT / "THIRD_PARTY_NOTICES.md"), "."))
+for _line in (PROJECT_ROOT / "requirements-lock.txt").read_text(encoding="utf-8").splitlines():
+    _line = _line.strip()
+    if _line and not _line.startswith("#"):
+        datas += copy_metadata(_line.split("==", 1)[0])
+
 excludes = [
     # Optional integrations are detected and installed separately. Excluding
     # them prevents accidental redistribution and keeps the core bundle small.
@@ -85,6 +95,13 @@ excludes = [
     "pdf2image",
     "torque_drag",
     "welleng",
+    # M137: every owner-gated optional module and the GPL bindings (tools/quality/dependency_audit.BUNDLE_EXCLUDED)
+    "onnxruntime",
+    "PyQt5",
+    "PyQt6",
+    "qtribbon",
+    "rapidocr",
+    "torch",
     "pytest",
     "ruff",
 ]

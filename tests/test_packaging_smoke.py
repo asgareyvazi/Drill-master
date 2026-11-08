@@ -71,6 +71,9 @@ def _valid_bundle(tmp_path):
         (bundle / dll).write_bytes(b"test")
     (bundle / "platforms").mkdir()
     (bundle / "platforms" / "qwindows.dll").write_bytes(b"test")
+    (bundle / "THIRD_PARTY_NOTICES.md").write_text("notices", encoding="utf-8")       # M137
+    for name, version in _load_package_smoke().locked_distributions():
+        (bundle / "_internal" / f"{name}-{version}.dist-info").mkdir(parents=True)
     return bundle
 
 

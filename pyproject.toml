@@ -43,6 +43,7 @@ testpaths = ["tests"]
 addopts = "-q"
 markers = [
     "integration: requires an externally installed integration engine or service",
+    "interpreter_gc: the test exercises the GC policy from the interpreter default (D53)",
 ]
 
 [tool.coverage.run]

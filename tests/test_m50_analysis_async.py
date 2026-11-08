@@ -100,6 +100,7 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
+@pytest.mark.interpreter_gc   # starts from the interpreter default; the session policy is D53
 def test_gc_policy_collects_cycles_from_the_gui_thread_only(qapp):
     from core import qt_gc
     assert gc.isenabled()
@@ -134,6 +135,7 @@ def test_gc_policy_collects_cycles_from_the_gui_thread_only(qapp):
     assert gc.isenabled() and not qt_gc.installed()
 
 
+@pytest.mark.interpreter_gc   # starts from the interpreter default; the session policy is D53
 def test_gc_policy_refuses_a_worker_thread(qapp):
     from core import qt_gc
     errors = []

@@ -1,4 +1,36 @@
 {
+ "build_pins": {
+  "altgraph": {
+   "licence": "MIT",
+   "read": "2026-11-07",
+   "version": "0.17.5"
+  },
+  "pefile": {
+   "licence": "MIT",
+   "read": "2026-11-07",
+   "version": "2023.2.7"
+  },
+  "pyinstaller": {
+   "licence": "GPL-2.0-or-later with the PyInstaller bootloader exception (build tool; the exception allows distributing the built application under its own terms)",
+   "read": "2026-11-07",
+   "version": "6.11.1"
+  },
+  "pyinstaller-hooks-contrib": {
+   "licence": "Apache-2.0; GPL-2.0 (classifiers only; no licence expression published)",
+   "read": "2026-11-07",
+   "version": "2025.1"
+  },
+  "pywin32-ctypes": {
+   "licence": "BSD-3-Clause",
+   "read": "2026-11-07",
+   "version": "0.2.3"
+  },
+  "setuptools": {
+   "licence": "MIT",
+   "read": "2026-11-07",
+   "version": "84.0.0"
+  }
+ },
  "catalogue": {
   "approved": 0,
   "entries": 54,
@@ -177,7 +209,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 62,
+    "evidence_tests": 63,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -210,6 +242,7 @@
      "test_m109_cement_worksheet.py",
      "test_m113_constant_inventory.py",
      "test_m119_adversarial.py",
+     "test_m137_dependency_reconciliation.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -3189,5 +3222,84 @@
    "module": "welleng"
   }
  ],
- "version": "M112 dependency audit v1"
+ "optional_pins": {
+  "camelot-py": {
+   "licence": "MIT",
+   "read": "2026-11-07",
+   "version": "0.11.0"
+  },
+  "onnxruntime": {
+   "licence": "MIT",
+   "read": "2026-11-07",
+   "version": "1.31.0"
+  },
+  "pytesseract": {
+   "licence": "Apache-2.0",
+   "read": "2026-11-03",
+   "version": "0.3.13"
+  },
+  "rapidocr": {
+   "licence": "Apache-2.0; the wheel bundles PP-OCR ONNX models (model licence: owner review)",
+   "read": "2026-11-03",
+   "version": "3.10.0"
+  }
+ },
+ "packaging": {
+  "bundle_excluded": [
+   "camelot",
+   "gekko",
+   "magic_pdf",
+   "mineru",
+   "ollama",
+   "onnxruntime",
+   "pdf2image",
+   "PyQt5",
+   "PyQt6",
+   "pytesseract",
+   "qtribbon",
+   "rapidocr",
+   "torch",
+   "torque_drag",
+   "welleng"
+  ],
+  "smoke_forbidden": [
+   "camelot",
+   "gekko",
+   "magic_pdf",
+   "mineru",
+   "ollama",
+   "onnxruntime",
+   "pdf2image",
+   "pyqt5",
+   "pyqt6",
+   "pytesseract",
+   "pytest",
+   "qtribbon",
+   "rapidocr",
+   "ruff",
+   "torch",
+   "torque_drag",
+   "welleng"
+  ],
+  "spec_excludes": [
+   "camelot",
+   "gekko",
+   "magic_pdf",
+   "mineru",
+   "ollama",
+   "pytesseract",
+   "pdf2image",
+   "torque_drag",
+   "welleng",
+   "onnxruntime",
+   "PyQt5",
+   "PyQt6",
+   "qtribbon",
+   "rapidocr",
+   "torch",
+   "pytest",
+   "ruff"
+  ]
+ },
+ "version": "M137 dependency audit v2"
 }

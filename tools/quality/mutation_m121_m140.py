@@ -55,6 +55,9 @@ SECF = "core/file_protection.py"
 SECL = "core/session_lock.py"
 SECU = "tabs/session_lock_ui.py"
 SECP = "core/security_posture.py"
+T137 = ["tests/test_m137_dependency_reconciliation.py"]
+DEPA = "tools/quality/dependency_audit.py"
+SMKP = "packaging/package_smoke.py"
 NPTC = "core/npt_reconciliation.py"
 MUDC = "core/mud_engineering.py"
 TLC = "core/trajectory_layers.py"
@@ -832,6 +835,69 @@ MUTANTS = [
     Mutant("SEC-lock-action-not-wired", "main_window.py",
            "        self.lock_session_action.triggered.connect(self.lock_session)\n", "", ["tests/test_m45_ui.py"],
            "File > Lock Session does nothing"),
+    # M137 dependency / licence / packaging reconciliation
+    Mutant("DEP-pyproject-drift-ignored", DEPA, "    if project_deps != requirement_lines:\n", "    if False:\n", T137,
+           "a dependency declared in pyproject.toml only goes unnoticed"),
+    Mutant("DEP-unpinned-declaration-ignored", DEPA, "        if name not in lock:\n", "        if False:\n", T137,
+           "a declared distribution without a lock pin goes unnoticed"),
+    Mutant("DEP-unrecorded-licence-ignored", DEPA, "            if name not in known:\n                fail(label",
+           "            if False:\n                fail(label", T137, "an optional/build pin without a licence passes"),
+    Mutant("DEP-licence-version-ignored", DEPA, '            elif known[name]["version"] != version:\n',
+           "            elif False:\n", T137, "a licence read for another version is accepted for the pin"),
+    Mutant("DEP-spec-exclusion-unchecked", DEPA, "        if module not in excludes:\n", "        if False:\n", T137,
+           "a gated module may be bundled by PyInstaller"),
+    Mutant("DEP-smoke-exclusion-unchecked", DEPA, "        if module.casefold() not in smoke:\n",
+           "        if False:\n", T137, "the bundle smoke check may accept a gated module"),
+    Mutant("DEP-qtribbon-not-gated", DEPA, '"pytesseract", "qtribbon", "rapidocr"', '"pytesseract", "rapidocr"', T137,
+           "the unknown-licence ribbon package may be bundled"),
+    Mutant("DEP-notices-not-replaced", DEPA, "        return head + section + tail\n", "        return current\n", T137,
+           "a stale bundled-runtime licence table is kept"),
+    Mutant("DEP-notices-without-copyleft-caveat", DEPA, "does not by itself meet AGPL or LGPL",
+           "meets AGPL and LGPL", T137, "the notices imply that shipping licence texts meets copyleft obligations"),
+    Mutant("SMK-notices-not-required", SMKP, '    Path("THIRD_PARTY_NOTICES.md"),\n', "", T137,
+           "a bundle without the notices passes the smoke check"),
+    Mutant("SMK-licence-metadata-unchecked", SMKP, "    for pin in missing_licence_metadata(bundle):\n",
+           "    for pin in []:\n", T137, "a bundle without a distribution's licence metadata passes"),
+    Mutant("SMK-any-version-accepted", SMKP, "            if (_norm(name), version) not in present]",
+           "            if _norm(name) not in {n for n, _v in present}]", T137,
+           "metadata of another version counts as licence evidence"),
+    Mutant("SMK-torch-allowed", SMKP, '"rapidocr", "torch",\n', '"rapidocr",\n', T137,
+           "a bundle containing torch passes the smoke check"),
+    # D52: deferred deletions of earlier test modules run between modules, not in a later test's event loop
+    Mutant("D52-flush-is-a-no-op", "tests/conftest.py",
+           "    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)\n",
+           "    pass\n", ["tests/test_d52_deferred_deletes.py"],
+           "pending deleteLater() calls accumulate until a later test's nested event loop destroys them all"),
+    Mutant("D52-module-fixture-skips-the-flush", "tests/conftest.py",
+           "    yield\n    flush_deferred_deletes()\n",
+           "    yield\n", ["tests/test_d52_deferred_deletes.py::test_the_conftest_flushes_between_modules"],
+           "the helper exists but no module end runs it"),
+    # D53: the test session collects cyclic garbage only on the main (GUI) thread, as app.py does (core/qt_gc.py)
+    Mutant("D53-automatic-collection-stays-on", "tests/conftest.py",
+           "def _install_session_gc_policy() -> None:\n    gc.disable()\n",
+           "def _install_session_gc_policy() -> None:\n    pass\n", ["tests/test_d53_gui_thread_gc.py"],
+           "a worker thread that allocates starts a collection and destroys GUI garbage off the GUI thread"),
+    Mutant("D53-collects-on-any-thread", "tests/conftest.py",
+           "    if threading.current_thread() is not threading.main_thread():\n        return\n"
+           "    threshold = gc.get_threshold()\n",
+           "    threshold = gc.get_threshold()\n", ["tests/test_d53_gui_thread_gc.py"],
+           "the session rule runs a collection on whichever thread calls it"),
+    Mutant("D53-no-teardown-collection", "tests/conftest.py",
+           "            gc.disable()\n        collect_due_garbage()\n",
+           "            gc.disable()\n", ["tests/test_d53_gui_thread_gc.py"],
+           "cycles are reclaimed only when a test happens to process events"),
+    Mutant("D53-no-reenable-watchdog", "tests/conftest.py",
+           "        elif gc.isenabled():",
+           "        elif False:", ["tests/test_d53_gui_thread_gc.py"],
+           "one test's unconditional gc.enable() turns worker-thread collection back on for the rest of the session"),
+    Mutant("D53-unconfigure-forces-collection-on", "tests/conftest.py",
+           '    if getattr(config, "_drillmaster_gc_was_enabled", False):\n        gc.enable()\n',
+           "    gc.enable()\n", ["tests/test_d53_gui_thread_gc.py"],
+           "a nested configure/unconfigure inside the session switches automatic collection back on"),
+    Mutant("D53-marker-ignored", "tests/conftest.py",
+           "    if interpreter:\n        gc.enable()\n",
+           "    if False:\n        gc.enable()\n", ["tests/test_d53_gui_thread_gc.py", "tests/test_m50_analysis_async.py"],
+           "the tests of core.qt_gc no longer start from the interpreter default they assert"),
     # D51 / D46 (M134): hang diagnostics of the release gate and the child summary
     Mutant("D51-quoted-child-dump-is-a-hang", "verify_release.py",
            "        if _PROGRESS_MARKS.fullmatch(text[line_start:match.start()]):\n",

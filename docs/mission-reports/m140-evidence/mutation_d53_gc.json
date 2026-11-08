@@ -1,0 +1,98 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_d53_gui_thread_gc.py",
+      "tests/test_m50_analysis_async.py"
+    ],
+    "exit": 0,
+    "summary": "40 passed in 69.17s (0:01:09)"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "D53-automatic-collection-stays-on",
+      "path": "tests/conftest.py",
+      "note": "a worker thread that allocates starts a collection and destroys GUI garbage off the GUI thread",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.06s"
+    },
+    {
+      "id": "D53-collects-on-any-thread",
+      "path": "tests/conftest.py",
+      "note": "the session rule runs a collection on whichever thread calls it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.39s"
+    },
+    {
+      "id": "D53-no-teardown-collection",
+      "path": "tests/conftest.py",
+      "note": "cycles are reclaimed only when a test happens to process events",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.41s"
+    },
+    {
+      "id": "D53-no-reenable-watchdog",
+      "path": "tests/conftest.py",
+      "note": "one test's unconditional gc.enable() turns worker-thread collection back on for the rest of the session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.43s"
+    },
+    {
+      "id": "D53-unconfigure-forces-collection-on",
+      "path": "tests/conftest.py",
+      "note": "a nested configure/unconfigure inside the session switches automatic collection back on",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.50s"
+    },
+    {
+      "id": "D53-marker-ignored",
+      "path": "tests/conftest.py",
+      "note": "the tests of core.qt_gc no longer start from the interpreter default they assert",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d53_gui_thread_gc.py",
+        "tests/test_m50_analysis_async.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.82s"
+    }
+  ],
+  "killed": [
+    "D53-automatic-collection-stays-on",
+    "D53-collects-on-any-thread",
+    "D53-no-teardown-collection",
+    "D53-no-reenable-watchdog",
+    "D53-unconfigure-forces-collection-on",
+    "D53-marker-ignored"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

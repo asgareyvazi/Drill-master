@@ -53,6 +53,7 @@ def _qt_wrappers_left_after(app, make, destroy, patch_draw=False):  # noqa: F811
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     app.processEvents()
     gc.collect()
+    was_enabled = gc.isenabled()          # D53: the test session runs with automatic collection off
     gc.disable()
     # type(), not isinstance(): isinstance reads ``__class__``, which raises ReferenceError for a dead
     # weakref.proxy anywhere in the heap (PyMuPDF table extraction leaves one; see test_model_registry).
@@ -90,7 +91,8 @@ def _qt_wrappers_left_after(app, make, destroy, patch_draw=False):  # noqa: F811
         gc.set_debug(0)
         gc.garbage.clear()
         del before
-        gc.enable()
+        if was_enabled:
+            gc.enable()
 
 
 def _shiboken_delete(app, widget):  # noqa: F811

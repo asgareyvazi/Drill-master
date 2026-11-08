@@ -1,0 +1,215 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_d52_deferred_deletes.py",
+      "tests/test_d52_deferred_deletes.py::test_the_conftest_flushes_between_modules",
+      "tests/test_m137_dependency_reconciliation.py"
+    ],
+    "exit": 0,
+    "summary": "16 passed in 10.95s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "DEP-pyproject-drift-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a dependency declared in pyproject.toml only goes unnoticed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.08s"
+    },
+    {
+      "id": "DEP-unpinned-declaration-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a declared distribution without a lock pin goes unnoticed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.08s"
+    },
+    {
+      "id": "DEP-unrecorded-licence-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "an optional/build pin without a licence passes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.09s"
+    },
+    {
+      "id": "DEP-licence-version-ignored",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a licence read for another version is accepted for the pin",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.08s"
+    },
+    {
+      "id": "DEP-spec-exclusion-unchecked",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a gated module may be bundled by PyInstaller",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.10s"
+    },
+    {
+      "id": "DEP-smoke-exclusion-unchecked",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "the bundle smoke check may accept a gated module",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.09s"
+    },
+    {
+      "id": "DEP-qtribbon-not-gated",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "the unknown-licence ribbon package may be bundled",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.08s"
+    },
+    {
+      "id": "DEP-notices-not-replaced",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "a stale bundled-runtime licence table is kept",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 10.34s"
+    },
+    {
+      "id": "DEP-notices-without-copyleft-caveat",
+      "path": "tools/quality/dependency_audit.py",
+      "note": "the notices imply that shipping licence texts meets copyleft obligations",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 5.14s"
+    },
+    {
+      "id": "SMK-notices-not-required",
+      "path": "packaging/package_smoke.py",
+      "note": "a bundle without the notices passes the smoke check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.93s"
+    },
+    {
+      "id": "SMK-licence-metadata-unchecked",
+      "path": "packaging/package_smoke.py",
+      "note": "a bundle without a distribution's licence metadata passes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 10.52s"
+    },
+    {
+      "id": "SMK-any-version-accepted",
+      "path": "packaging/package_smoke.py",
+      "note": "metadata of another version counts as licence evidence",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.97s"
+    },
+    {
+      "id": "SMK-torch-allowed",
+      "path": "packaging/package_smoke.py",
+      "note": "a bundle containing torch passes the smoke check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m137_dependency_reconciliation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.06s"
+    },
+    {
+      "id": "D52-flush-is-a-no-op",
+      "path": "tests/conftest.py",
+      "note": "pending deleteLater() calls accumulate until a later test's nested event loop destroys them all",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d52_deferred_deletes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.12s"
+    },
+    {
+      "id": "D52-module-fixture-skips-the-flush",
+      "path": "tests/conftest.py",
+      "note": "the helper exists but no module end runs it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d52_deferred_deletes.py::test_the_conftest_flushes_between_modules"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.42s"
+    }
+  ],
+  "killed": [
+    "DEP-pyproject-drift-ignored",
+    "DEP-unpinned-declaration-ignored",
+    "DEP-unrecorded-licence-ignored",
+    "DEP-licence-version-ignored",
+    "DEP-spec-exclusion-unchecked",
+    "DEP-smoke-exclusion-unchecked",
+    "DEP-qtribbon-not-gated",
+    "DEP-notices-not-replaced",
+    "DEP-notices-without-copyleft-caveat",
+    "SMK-notices-not-required",
+    "SMK-licence-metadata-unchecked",
+    "SMK-any-version-accepted",
+    "SMK-torch-allowed",
+    "D52-flush-is-a-no-op",
+    "D52-module-fixture-skips-the-flush"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

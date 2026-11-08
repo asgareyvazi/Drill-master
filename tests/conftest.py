@@ -4,9 +4,11 @@ Configure before collection/session fixtures. Individual production tests overri
 or remove settings and exercise the real fail-closed policy. Never seed fixtures
 in the normal per-user database when pytest is run without an explicit mode.
 """
+import gc
 import os
 from pathlib import Path
 import tempfile
+import threading
 
 
 def pytest_configure(config):
@@ -31,6 +33,8 @@ def pytest_configure(config):
     os.environ["DRILLMASTER_DATA_DIR"] = directory
     os.environ["DRILLMASTER_DB_PATH"] = str(Path(directory) / "test-session.db")
     _arm_hang_watchdog_output()
+    config._drillmaster_gc_was_enabled = gc.isenabled()     # restored as found by pytest_unconfigure
+    _install_session_gc_policy()
 
 
 
@@ -55,6 +59,121 @@ def _isolate_session_principal():
         yield
     finally:
         permissions._user = previous
+
+
+def flush_deferred_deletes() -> int:
+    """Destroy the Qt objects whose ``deleteLater()`` is pending; returns how many widgets went away.
+
+    D52: tests call ``deleteLater()`` outside an event loop and ``processEvents()`` does not run those deletions,
+    so the objects stayed alive until the next nested ``QEventLoop.exec()`` - which then spent its time destroying
+    the earlier modules' widgets (27,126 widgets before the M111 dialog test, 0.83 s, during which its 20 ms GUI
+    timer could not fire). The application's own event loop destroys them continuously; this restores that parity.
+    Qt is touched only when a test module already imported it.
+    """
+    import sys
+    if "PySide6.QtWidgets" not in sys.modules:
+        return 0
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QApplication
+    if QApplication.instance() is None:
+        return 0
+    before = len(QApplication.allWidgets())
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    return before - len(QApplication.allWidgets())
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _flush_deferred_deletes_per_module():
+    """After each test module (and after its own module fixtures), run the deletions it left pending (D52)."""
+    yield
+    flush_deferred_deletes()
+
+
+# ---- D53: cyclic garbage collection only on the main (GUI) thread, as the application runs it ----------
+# ``app.py`` installs ``core.qt_gc`` (M50) before any worker starts: automatic collection is off and a GUI
+# thread timer collects. The test session ran with the interpreter default instead, so a collection could start
+# in whichever thread allocated - a background ``ContextJobRunner`` read compiling SQLAlchemy - and destroy
+# the cyclic garbage of earlier tests there: pyqtgraph plot items, a ``QGraphicsWidget``, 204
+# ``QTableWidgetItem`` wrappers (traced with a ``gc.callbacks`` probe at the end of ``tests/test_m44_ui.py``).
+# GUI objects destroyed off the GUI thread left the widget set corrupt and the next ``QApplication.allWidgets()``
+# segfaulted. The session now follows the application's rule; the ``core.qt_gc`` singleton itself is left to the
+# tests that exercise it.
+_GC_WATCH = {"worker_collections": 0, "worker_threads": [], "reenabled": []}
+_gc_timer = None
+
+
+def _gc_watch(phase, _info):
+    """``gc.callbacks`` hook; it runs in the collecting thread, so it only counts."""
+    if phase == "start" and threading.current_thread() is not threading.main_thread():
+        _GC_WATCH["worker_collections"] += 1
+        if len(_GC_WATCH["worker_threads"]) < 10:
+            _GC_WATCH["worker_threads"].append(threading.current_thread().name)
+
+
+def collect_due_garbage() -> None:
+    """The ``core.qt_gc`` M50 rule, main thread only: collect each generation whose threshold is exceeded."""
+    if threading.current_thread() is not threading.main_thread():
+        return
+    threshold = gc.get_threshold()
+    count0, count1, count2 = gc.get_count()
+    if count0 > threshold[0]:
+        gc.collect(0)
+        if count1 > threshold[1]:
+            gc.collect(1)
+            if count2 > threshold[2]:
+                gc.collect(2)
+
+
+def _install_session_gc_policy() -> None:
+    gc.disable()
+    if _gc_watch not in gc.callbacks:
+        gc.callbacks.append(_gc_watch)
+
+
+def _arm_gc_timer() -> None:
+    """Once a QApplication exists, also collect from a GUI-thread timer while tests process events."""
+    global _gc_timer
+    import sys
+    if _gc_timer is not None or "PySide6.QtWidgets" not in sys.modules:
+        return
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None:
+        return
+    _gc_timer = QTimer(app)
+    _gc_timer.setInterval(1000)
+    _gc_timer.timeout.connect(collect_due_garbage)
+    _gc_timer.start()
+
+
+@pytest.fixture(autouse=True)
+def _gui_thread_garbage_collection(request):
+    """Collect what is due on the main thread after every test (D53); ``interpreter_gc`` tests get the default."""
+    _arm_gc_timer()
+    interpreter = request.node.get_closest_marker("interpreter_gc") is not None
+    if interpreter:
+        gc.enable()
+    try:
+        yield
+    finally:
+        if interpreter:
+            gc.disable()
+        elif gc.isenabled():              # a test switched automatic collection back on: the qt_gc watchdog rule
+            _GC_WATCH["reenabled"].append(request.node.nodeid)
+            gc.disable()
+        collect_due_garbage()
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if _GC_WATCH["reenabled"]:
+        terminalreporter.write_line(
+            f"D53 GC policy: automatic collection was switched back on by {len(_GC_WATCH['reenabled'])} test(s) "
+            f"and disabled again: {', '.join(_GC_WATCH['reenabled'][:10])}")
+    if _GC_WATCH["worker_collections"]:
+        terminalreporter.write_line(
+            f"D53 GC policy: {_GC_WATCH['worker_collections']} collection(s) started off the main thread "
+            f"(threads: {', '.join(_GC_WATCH['worker_threads'])})")
 
 
 _HANG_SECONDS_ENV = "DRILLMASTER_TEST_HANG_SECONDS"
@@ -144,3 +263,7 @@ def pytest_unconfigure(config):
         else:
             os.environ[key] = value
     config._drillmaster_test_directory.cleanup()
+    if _gc_watch in gc.callbacks:
+        gc.callbacks.remove(_gc_watch)
+    if getattr(config, "_drillmaster_gc_was_enabled", False):
+        gc.enable()

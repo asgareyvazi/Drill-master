@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,7 @@ from pathlib import Path
 
 
 REQUIRED_CONFIG = (
+    Path("THIRD_PARTY_NOTICES.md"),
     Path("config") / "ai_models.json",
     Path("config") / "company_templates" / "oeoc.json",
     Path("config") / "company_templates" / "example_company.json",
@@ -29,7 +31,10 @@ REQUIRED_QT_DLLS = (
 FORBIDDEN_MODULES = {
     "camelot", "gekko", "magic_pdf", "mineru", "ollama", "pytesseract",
     "pdf2image", "torque_drag", "welleng", "pytest", "ruff",
+    # M137: owner-gated optional modules and the GPL bindings (compared case-insensitively)
+    "onnxruntime", "pyqt5", "pyqt6", "qtribbon", "rapidocr", "torch",
 }
+LOCK_FILE = Path(__file__).resolve().parents[1] / "requirements-lock.txt"
 BOOTSTRAP_ENV = (
     "DRILLMASTER_ADMIN_PASSWORD", "DRILLMASTER_USER_PASSWORD", "DRILLMASTER_VIEWER_PASSWORD",
 )
@@ -43,6 +48,26 @@ def _find_in_bundle(bundle: Path, relative: Path) -> Path | None:
         if match.as_posix().endswith(relative.as_posix()):
             return match
     return None
+
+
+def _norm(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).casefold()
+
+
+def locked_distributions(lock_file: Path = LOCK_FILE) -> list[tuple[str, str]]:
+    text = lock_file.read_text(encoding="utf-8")
+    return re.findall(r"^([A-Za-z0-9_.-]+)==([^\s;\\]+)", text, re.M)
+
+
+def missing_licence_metadata(bundle: Path, lock_file: Path = LOCK_FILE) -> list[str]:
+    """Locked runtime distributions whose ``*.dist-info`` (licence fields and files) is not in the bundle (M137)."""
+    present = set()
+    for path in bundle.rglob("*.dist-info"):
+        if path.is_dir():
+            name, _, version = path.name[: -len(".dist-info")].rpartition("-")
+            present.add((_norm(name), version))
+    return [f"{name}=={version}" for name, version in locked_distributions(lock_file)
+            if (_norm(name), version) not in present]
 
 
 def validate_bundle(bundle: Path) -> list[str]:
@@ -61,6 +86,8 @@ def validate_bundle(bundle: Path) -> list[str]:
             errors.append(f"missing Qt runtime DLL: {dll}")
     if "qwindows.dll" not in names:
         errors.append("missing Qt Windows platform plugin qwindows.dll")
+    for pin in missing_licence_metadata(bundle):
+        errors.append(f"missing licence metadata of the bundled distribution {pin}")
     for path in bundle.rglob("*"):
         if not path.is_file():
             continue

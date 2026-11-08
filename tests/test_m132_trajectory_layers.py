@@ -392,10 +392,12 @@ def test_a_widget_with_shortcuts_is_freed_by_reference_counting(app):
     StatusBarManager().register_widget("M132 probe", widget)
     ref = weakref.ref(widget)
     gc.collect()
+    was_enabled = gc.isenabled()          # D53: the test session runs with automatic collection off
     gc.disable()
     try:
         _dispose(app, widget)
         del widget
         assert ref() is None
     finally:
-        gc.enable()
+        if was_enabled:
+            gc.enable()

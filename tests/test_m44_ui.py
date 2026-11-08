@@ -76,9 +76,26 @@ def test_no_module_sets_pyqtgraph_global_options():
 
 
 # ------------------------------------------------------ trajectory viewer
+_VIEWERS = []      # viewers built by this module; their 3D layer readers are stopped after each test
+
+
 def _viewer(db):
     from tabs.trajectory_viewer import TrajectoryViewerTab
-    return TrajectoryViewerTab(db)
+    viewer = TrajectoryViewerTab(db)
+    _VIEWERS.append(viewer)
+    return viewer
+
+
+@pytest.fixture(autouse=True)
+def _stop_viewer_readers():
+    """Each viewer starts an M132 layer-catalogue reader; the app stops it in ``TrajectoryWidget.cleanup``.
+
+    Left running, a test that ended a process (a single test or the last module) aborted at interpreter exit
+    with "QThread: Destroyed while thread is still running" (D53 investigation). The widgets stay alive as before.
+    """
+    yield
+    while _VIEWERS:
+        assert _VIEWERS.pop().shutdown(10000), "a 3D layer reader did not stop within 10 s"
 
 
 def _drawn_items(plot):
@@ -206,6 +223,7 @@ def test_trajectory_widget_hosts_viewer_first(app, synthetic):
     from tabs.w6_Trajectory_Widget import TrajectoryWidget
     db, ids = synthetic
     widget = TrajectoryWidget(db)
+    _VIEWERS.append(widget.viewer_tab)
     assert widget.tab_widget.widget(0) is widget.viewer_tab
     assert widget.tab_widget.tabText(0) == "Well Trajectory Viewer"
     widget.tab_widget.setCurrentIndex(2)
