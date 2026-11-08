@@ -528,7 +528,7 @@ class MinerUAdapter:
         started = time.monotonic()
         try:
             source = source.resolve(strict=True)
-        except FileNotFoundError as exc:
+        except FileNotFoundError:
             return self._failure(source_display, "invalid-input", f"Input file does not exist: {source}", started)
         if not source.is_file():
             return self._failure(source_display, "invalid-input", f"Input is not a file: {source}", started)

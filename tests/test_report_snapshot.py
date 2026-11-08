@@ -41,13 +41,27 @@ def _seed(db, with_children=True, valid=True):
     """Create a well/section/report plus representative multi-entity DDR data."""
     s = db.create_session()
     try:
-        eng = User(username="eng", password_hash="x", role="engineer"); s.add(eng); s.flush()
-        sup = User(username="sup", password_hash="x", role="supervisor"); s.add(sup); s.flush()
-        c = Company(name="C", code="C1"); s.add(c); s.flush()
-        p = Project(company_id=c.id, name="P", code="P1"); s.add(p); s.flush()
-        w = Well(project_id=p.id, name="W1", code="W1"); s.add(w); s.flush()
-        w2 = Well(project_id=p.id, name="W2", code="W2"); s.add(w2); s.flush()
-        sec = Section(well_id=w.id, name="12.25"); s.add(sec); s.flush()
+        eng = User(username="eng", password_hash="x", role="engineer")
+        s.add(eng)
+        s.flush()
+        sup = User(username="sup", password_hash="x", role="supervisor")
+        s.add(sup)
+        s.flush()
+        c = Company(name="C", code="C1")
+        s.add(c)
+        s.flush()
+        p = Project(company_id=c.id, name="P", code="P1")
+        s.add(p)
+        s.flush()
+        w = Well(project_id=p.id, name="W1", code="W1")
+        s.add(w)
+        s.flush()
+        w2 = Well(project_id=p.id, name="W2", code="W2")
+        s.add(w2)
+        s.flush()
+        sec = Section(well_id=w.id, name="12.25")
+        s.add(sec)
+        s.flush()
         r = DailyReport(well_id=w.id, section_id=sec.id, report_number=1,
                         report_date=date(2026, 9, 1),
                         status="Draft",
@@ -57,7 +71,8 @@ def _seed(db, with_children=True, valid=True):
                         # validation, not a DB constraint, blocks submission).
                         depth_0000=(-5.0 if not valid else 100.0),
                         depth_2400=250.0, summary="spud")
-        s.add(r); s.flush()
+        s.add(r)
+        s.flush()
         rid = r.id
         if with_children:
             s.add(TimeLog24H(report_id=rid, time_from=time(6, 0), time_to=time(12, 0),

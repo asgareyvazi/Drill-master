@@ -485,18 +485,18 @@ class BHAEngine:
             if length in (None, ""):
                 raise MissingInputError(f"bha component {comp.get('component_name','unknown')} length")
             try:
-                l = float(length)
+                length_value = float(length)
             except (TypeError, ValueError):
                 raise EngineeringError(f"Invalid BHA length: {length}")
 
-            if l < 0:
-                raise EngineeringError(f"BHA length cannot be negative: {l}")
+            if length_value < 0:
+                raise EngineeringError(f"BHA length cannot be negative: {length_value}")
 
             # Weight: if weight is ppf, convert to kg/m? Keep as provided for now
             w = float(comp.get("weight", 0) or 0)
 
-            total_length += l
-            total_weight += w * l if w else 0
+            total_length += length_value
+            total_weight += w * length_value if w else 0
 
             enriched.append(
                 {

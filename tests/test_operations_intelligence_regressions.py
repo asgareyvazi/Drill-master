@@ -318,9 +318,15 @@ def test_current_depth_unknown_not_fabricated_zero():
                                    autocommit=False)
     s = manager.create_session()
     try:
-        c = Company(name="C", code="C"); s.add(c); s.flush()
-        p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-        w = Well(name="W", code="W", project_id=p.id); s.add(w); s.flush()
+        c = Company(name="C", code="C")
+        s.add(c)
+        s.flush()
+        p = Project(name="P", code="P", company_id=c.id)
+        s.add(p)
+        s.flush()
+        w = Well(name="W", code="W", project_id=p.id)
+        s.add(w)
+        s.flush()
         # Two reports, both with depth_2400 = NULL (unknown depth).
         s.add_all([
             DailyReport(well_id=w.id, report_number=1, report_date=date(2026, 1, 1),

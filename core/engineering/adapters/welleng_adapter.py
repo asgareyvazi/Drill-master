@@ -256,7 +256,7 @@ class WellengAdapter:
 
         # Try welleng
         try:
-            welleng_clearance = WellengAdapter.calculate_trajectory(reference)  # placeholder for actual clearance
+            WellengAdapter.calculate_trajectory(reference)  # placeholder for actual clearance
             basic["welleng_available"] = True
             basic["welleng_attempted"] = True
             basic["method"] = "Basic Euclidean + welleng available - full clearance factor requires error models"

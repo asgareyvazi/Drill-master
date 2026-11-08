@@ -41,16 +41,23 @@ def two_wells():
     Base.metadata.create_all(m.engine)
     m.Session = sessionmaker(bind=m.engine, autoflush=False, autocommit=False)
     s = m.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
     wa = Well(name="A", code="A", project_id=p.id)
     wb = Well(name="B", code="B", project_id=p.id)
-    s.add_all([wa, wb]); s.flush()
+    s.add_all([wa, wb])
+    s.flush()
     ra = DailyReport(well_id=wa.id, report_number=1, report_date=date(2026, 1, 1))
     rb = DailyReport(well_id=wb.id, report_number=1, report_date=date(2026, 1, 1))
-    s.add_all([ra, rb]); s.flush()
+    s.add_all([ra, rb])
+    s.flush()
     ids = {"wa": wa.id, "wb": wb.id, "ra": ra.id, "rb": rb.id}
-    s.commit(); s.close()
+    s.commit()
+    s.close()
     return m, ids
 
 

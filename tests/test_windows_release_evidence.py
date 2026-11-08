@@ -947,7 +947,7 @@ def test_a_probe_that_reports_no_command_is_not_recorded_as_having_answered(tmp_
     A payload that parses and exits 0 while naming no command told the run nothing; recording that
     as usable would leave a reader to guess whether the probe ran at all.
     """
-    module = _evidence_module()
+    _evidence_module()
     _, report = _harness_for(tmp_path, "probe-answers-nothing", probe_omits_cmdlet=True,
                              signature_status="NotSigned", signature_message="No signature is present.")
     assert report["harness"]["probe_usable"] is False

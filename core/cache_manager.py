@@ -306,9 +306,6 @@ class AppCache:
             expired = sum(
                 1 for e in self._cache.values() if e.is_expired
             )
-            total_hits = sum(
-                e.hit_count for e in self._cache.values()
-            )
             top_keys = sorted(
                 self._cache.items(),
                 key=lambda x: x[1].hit_count,

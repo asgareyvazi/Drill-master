@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import date
 
 try:
-    from openpyxl import Workbook
+    from openpyxl import Workbook  # noqa: F401 - availability probe; the import itself is the check
     HAS_OPENPYXL = True
 except ImportError:
     HAS_OPENPYXL = False

@@ -549,10 +549,10 @@ def test_the_frame_tally_says_whether_the_stack_was_deep(tmp_path):
     deep = tmp_path / "deep.log"
     frames = []
     for depth in range(150):
-        frames.append(f'  File "D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py", '
-                      f"line 1488 in _redact_tree")
-        frames.append(f'  File "D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py", '
-                      f"line 1486 in _redact_tree")
+        frames.append('  File "D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py", '
+                      "line 1488 in _redact_tree")
+        frames.append('  File "D:\\a\\Drill-master\\Drill-master\\packaging\\windows_release_evidence.py", '
+                      "line 1486 in _redact_tree")
     deep.write_text("Windows fatal exception: access violation\n\nCurrent thread 0x1 (most recent call first):\n"
                     + "\n".join(frames) + "\n", encoding="utf-8")
     quoted = module.crash_excerpt(deep, limit_lines=6)

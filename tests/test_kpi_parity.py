@@ -64,13 +64,20 @@ class _Stub:
 def seed_well(m, depths_rops, npt=True):
     s = m.create_session()
     try:
-        c = Company(name="X", code="X"); s.add(c); s.flush()
-        p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-        w = Well(name="W", code="W", project_id=p.id); s.add(w); s.flush()
+        c = Company(name="X", code="X")
+        s.add(c)
+        s.flush()
+        p = Project(name="P", code="P", company_id=c.id)
+        s.add(p)
+        s.flush()
+        w = Well(name="W", code="W", project_id=p.id)
+        s.add(w)
+        s.flush()
         wid = w.id
         for d, depth, rop in depths_rops:
             r = DailyReport(well_id=wid, report_date=d, depth_2400=depth)
-            s.add(r); s.flush()
+            s.add(r)
+            s.flush()
             if rop is not None:
                 s.add(DrillingParameters(well_id=wid, report_date=d, avg_rop=rop))
             if npt:
@@ -152,9 +159,15 @@ class TestParity:
     def test_empty_well_all_none(self, m):
         s = m.create_session()
         try:
-            c = Company(name="Y", code="Y"); s.add(c); s.flush()
-            p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-            w = Well(name="Empty", code="E", project_id=p.id); s.add(w); s.commit()
+            c = Company(name="Y", code="Y")
+            s.add(c)
+            s.flush()
+            p = Project(name="P", code="P", company_id=c.id)
+            s.add(p)
+            s.flush()
+            w = Well(name="Empty", code="E", project_id=p.id)
+            s.add(w)
+            s.commit()
             wid = w.id
         finally:
             s.close()

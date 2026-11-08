@@ -268,7 +268,7 @@ def extract_tables(path, pages="all", continuation: bool = True) -> Dict[str, An
 
         for page_no, image in enumerate(images, 1):
             text = pytesseract.image_to_string(image)
-            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            lines = [text_line.strip() for text_line in text.splitlines() if text_line.strip()]
             if lines:
                 ocr_tables.append(
                     {

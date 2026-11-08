@@ -38,15 +38,25 @@ def memory_manager():
     m.Session = sessionmaker(bind=m.engine, autoflush=False, autocommit=False)
     s = m.create_session()
     try:
-        c = Company(name="OEOC", code="OEOC"); s.add(c); s.flush()
-        p = Project(name="BB", code="BB", company_id=c.id); s.add(p); s.flush()
-        w1 = Well(name="W1", code="W1", project_id=p.id); s.add(w1); s.flush()
-        w2 = Well(name="W2", code="W2", project_id=p.id); s.add(w2); s.flush()
+        c = Company(name="OEOC", code="OEOC")
+        s.add(c)
+        s.flush()
+        p = Project(name="BB", code="BB", company_id=c.id)
+        s.add(p)
+        s.flush()
+        w1 = Well(name="W1", code="W1", project_id=p.id)
+        s.add(w1)
+        s.flush()
+        w2 = Well(name="W2", code="W2", project_id=p.id)
+        s.add(w2)
+        s.flush()
         reports = {}
         for wid, d in ((w1.id, date(2026, 1, 1)), (w1.id, date(2026, 1, 2)),
                        (w1.id, date(2026, 1, 3)), (w1.id, date(2026, 1, 4)),
                        (w2.id, date(2026, 1, 1))):
-            r = DailyReport(well_id=wid, report_date=d); s.add(r); s.flush()
+            r = DailyReport(well_id=wid, report_date=d)
+            s.add(r)
+            s.flush()
             reports[(wid, d)] = r.id
         s.commit()
         ids = {"w1": w1.id, "w2": w2.id, "reports": reports}

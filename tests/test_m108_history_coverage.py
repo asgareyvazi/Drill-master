@@ -35,7 +35,7 @@ def test_a_new_comparison_record_is_versioned_self_contained_and_reruns(panel, s
     db = synthetic[0]
     record_id = _saved_offset(panel, synthetic)
     with db.session_scope() as session:
-        row = session.query(TrajectoryCalculation).get(record_id)
+        row = session.get(TrajectoryCalculation, record_id)
         assert row.method_version == tc.METHOD_VERSION
         params = dict(row.parameters_json)
     assert params["record_schema"] == tc.RECORD_SCHEMA and params["inputs_sha256"] == tc.inputs_sha256(params["inputs"])
@@ -61,7 +61,7 @@ def test_a_plan_record_with_targets_reruns_and_detects_a_changed_result(panel, s
     assert entry.inputs["inputs"]["target_checks"][0]["distance_m"] == pytest.approx(3.0, abs=1e-6)
     assert ch.recalculate_entry(entry)["status"] == "MATCH"
     with db.session_scope() as session:                     # a stored result altered outside the application
-        row = session.query(TrajectoryCalculation).get(record_id)
+        row = session.get(TrajectoryCalculation, record_id)
         results = dict(row.results_json)
         results["rows"] = [dict(r) for r in results["rows"]]
         results["rows"][0]["distance_m"] = results["rows"][0]["distance_m"] + 0.5
@@ -69,7 +69,7 @@ def test_a_plan_record_with_targets_reruns_and_detects_a_changed_result(panel, s
     outcome = ch.recalculate_entry(_trajectory_entries(db, {record_id})[record_id])
     assert outcome["status"] == "DIFFERENT" and outcome["differences"][0]["field_id"] == "rows.0.distance_m"
     with db.session_scope() as session:                     # altered inputs: never recomputed
-        row = session.query(TrajectoryCalculation).get(record_id)
+        row = session.get(TrajectoryCalculation, record_id)
         params = dict(row.parameters_json)
         params["inputs"] = dict(params["inputs"], step=1.0)
         row.parameters_json = params

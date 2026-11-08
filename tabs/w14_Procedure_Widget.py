@@ -1634,7 +1634,7 @@ class ProcedurePDFExporter:
                 doc.print_(printer)
                 return True
                 
-            except Exception as e:
+            except Exception:
                 # روش 2: reportlab fallback
                 return self._export_with_reportlab(proc, steps, checklist, filename)
                 
@@ -1793,7 +1793,7 @@ class ProcedurePDFExporter:
                 if step.get('caution_notes'):
                     html += f"<p>⚠️ {step.get('caution_notes', '')}</p>"
         
-        html += f"<h2>Approval</h2>"
+        html += "<h2>Approval</h2>"
         html += f"<p>Prepared by: {proc.get('prepared_by', '')}</p>"
         html += f"<p>Checked by: {proc.get('checked_by', '')}</p>"
         html += f"<p>Approved by: {proc.get('approved_by', '')}</p>"

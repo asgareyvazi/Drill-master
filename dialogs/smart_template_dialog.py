@@ -3453,8 +3453,6 @@ class SmartTemplateDialog(QDialog):
             return None
 
         orig_sheet = info.get("sheet", "")
-        orig_row = info.get("row", 0)
-        orig_col = info.get("col", 0)
 
         # calculate original offset from anchor to value
         # we need to find the anchor in original and compute offset

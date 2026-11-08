@@ -345,7 +345,6 @@ class WellboreSchematicRenderer:
 
     def _draw_formations(self, painter: QPainter):
         """رندر لایه‌های سازند."""
-        cx = self.get_center_x()
         formation_width = self.config.total_width - self.config.margin_left - self.config.margin_right
 
         for layer in self.schematic.formations:

@@ -65,17 +65,28 @@ class PermissionManager:
         role_permissions = ROLE_PERMISSIONS.get(self.role, set())
         return permission in role_permissions or "*" in role_permissions
 
-    def can_create_well(self): return self.has_permission("can_create_well")
-    def can_delete_well(self): return self.has_permission("can_delete_well")
-    def can_delete_reports(self): return self.has_permission("can_delete_reports")
-    def can_edit_reports(self): return self.has_permission("can_edit_reports")
-    def can_approve_reports(self): return self.has_permission("can_approve_reports")
-    def can_manage_users(self): return self.has_permission("can_manage_users")
-    def can_export(self): return self.has_permission("can_export")
-    def can_import(self): return self.has_permission("can_import")
-    def can_maintain_database(self): return self.has_permission("can_maintain_database")
-    def is_admin(self): return self.role == "admin"
-    def is_viewer(self): return self.role == "viewer"
+    def can_create_well(self):
+        return self.has_permission("can_create_well")
+    def can_delete_well(self):
+        return self.has_permission("can_delete_well")
+    def can_delete_reports(self):
+        return self.has_permission("can_delete_reports")
+    def can_edit_reports(self):
+        return self.has_permission("can_edit_reports")
+    def can_approve_reports(self):
+        return self.has_permission("can_approve_reports")
+    def can_manage_users(self):
+        return self.has_permission("can_manage_users")
+    def can_export(self):
+        return self.has_permission("can_export")
+    def can_import(self):
+        return self.has_permission("can_import")
+    def can_maintain_database(self):
+        return self.has_permission("can_maintain_database")
+    def is_admin(self):
+        return self.role == "admin"
+    def is_viewer(self):
+        return self.role == "viewer"
 
 
 permissions = PermissionManager()

@@ -290,21 +290,33 @@ def test_report_engines_import_without_qt(engine_name):
 
 
 class Text:
-    def __init__(self): self.value = ""
-    def setReadOnly(self, value): self.read_only = value
-    def setEnabled(self, value): self.enabled = value
-    def text(self): return self.value
-    def setText(self, value): self.value = value
-    def clear(self): self.value = ""
+    def __init__(self):
+        self.value = ""
+    def setReadOnly(self, value):
+        self.read_only = value
+    def setEnabled(self, value):
+        self.enabled = value
+    def text(self):
+        return self.value
+    def setText(self, value):
+        self.value = value
+    def clear(self):
+        self.value = ""
 
 
 class Combo:
-    def __init__(self): self.items, self.selected = [], None
-    def blockSignals(self, _): pass
-    def clear(self): self.items, self.selected = [], None
-    def addItem(self, text, identity=None): self.items.append((text, identity))
-    def setCurrentText(self, text): self.selected = next(identity for label, identity in self.items if label == text)
-    def currentData(self): return self.selected
+    def __init__(self):
+        self.items, self.selected = [], None
+    def blockSignals(self, _):
+        pass
+    def clear(self):
+        self.items, self.selected = [], None
+    def addItem(self, text, identity=None):
+        self.items.append((text, identity))
+    def setCurrentText(self, text):
+        self.selected = next(identity for label, identity in self.items if label == text)
+    def currentData(self):
+        return self.selected
 
 
 def downhole_editor(db):
@@ -428,7 +440,8 @@ def test_professional_export_scope_nulls_lineage_and_failures(production_db, tmp
     raw = json.loads("".join(chunks))
     assert len(raw["bha_data_json"][0]["_provenance"]["source_record"]["note"]) == 40000
     wb.close()
-    def fail(*_, **__): raise RuntimeError("Injected unavailable query")
+    def fail(*_, **__):
+        raise RuntimeError("Injected unavailable query")
     monkeypatch.setattr(db, "get_mud_report", fail)
     assert not exporter.export(well, str(tmp_path / "failed.xlsx"), report_id=report)
     assert not (tmp_path / "failed.xlsx").exists()
@@ -458,8 +471,10 @@ def test_csv_export_real_file_cancel_and_write_failure(tmp_path, monkeypatch):
 def test_autosave_uses_same_pending_context_guard():
     cls = actual_class("core/managers.py", "AutoSaveManager")
     class Pending:
-        def save_context_ready(self): return False
-        def save_data(self): raise AssertionError("Stale widget must not be saved")
+        def save_context_ready(self):
+            return False
+        def save_data(self):
+            raise AssertionError("Stale widget must not be saved")
     assert cls.save_widget("pending", Pending()).status == "REVIEW_REQUIRED"
 
 

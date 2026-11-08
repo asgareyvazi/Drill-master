@@ -50,17 +50,26 @@ def db():
 @pytest.fixture()
 def two_bore(db):
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     orig = Wellbore(well_id=w.id, name="Original", wellbore_type="original")
-    s.add(orig); s.flush()
+    s.add(orig)
+    s.flush()
     st1 = Wellbore(well_id=w.id, name="ST-1", wellbore_type="sidetrack",
                    parent_wellbore_id=orig.id, kickoff_md=2500)
-    s.add(st1); s.flush()
+    s.add(st1)
+    s.flush()
     sec_o = Section(name='12-1/4"', well_id=w.id, wellbore_id=orig.id, depth_from=1000)
     sec_s = Section(name='12-1/4"', well_id=w.id, wellbore_id=st1.id, depth_from=2500)
-    s.add_all([sec_o, sec_s]); s.flush()
+    s.add_all([sec_o, sec_s])
+    s.flush()
     ro = DailyReport(well_id=w.id, section_id=sec_o.id, wellbore_id=orig.id,
                      report_number=1, report_date=date(2026, 1, 1),
                      depth_2400=1000, rop_meter=20)
@@ -70,7 +79,8 @@ def two_bore(db):
     runk = DailyReport(well_id=w.id, section_id=None, wellbore_id=None,
                        report_number=3, report_date=date(2026, 1, 3),
                        depth_2400=1500, rop_meter=40)
-    s.add_all([ro, rs, runk]); s.flush()
+    s.add_all([ro, rs, runk])
+    s.flush()
     s.add_all([
         DrillingParameters(well_id=w.id, report_id=ro.id, report_date=date(2026, 1, 1),
                            avg_rop=20, wob_min=10, wob_max=20),

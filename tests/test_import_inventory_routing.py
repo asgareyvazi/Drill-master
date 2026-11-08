@@ -44,12 +44,22 @@ def _env():
     m.Session = sessionmaker(bind=m.engine, autoflush=False, autocommit=False)
     s = m.create_session()
     try:
-        c = Company(name="OP", code="OP"); s.add(c); s.flush()
-        p = Project(name="PR", code="PR", company_id=c.id); s.add(p); s.flush()
-        w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
-        sec = Section(name="S", well_id=w.id); s.add(sec); s.flush()
+        c = Company(name="OP", code="OP")
+        s.add(c)
+        s.flush()
+        p = Project(name="PR", code="PR", company_id=c.id)
+        s.add(p)
+        s.flush()
+        w = Well(name="W1", code="W1", project_id=p.id)
+        s.add(w)
+        s.flush()
+        sec = Section(name="S", well_id=w.id)
+        s.add(sec)
+        s.flush()
         r = DailyReport(well_id=w.id, section_id=sec.id, report_number=1,
-                        report_date=date(2024, 1, 1)); s.add(r); s.flush()
+                        report_date=date(2024, 1, 1))
+        s.add(r)
+        s.flush()
         s.commit()
         ids = {"well": w.id, "report": r.id}
     finally:
@@ -159,13 +169,6 @@ class TestLegacyProfileExtraction:
                 2: {1: "Gloves", 3: 100, 4: "pcs"},
                 3: {1: "Welding Rod", 3: 50, 4: "pcs"},
             }
-        }
-        res = {
-            "surveys": [], "survey_review": [], "pob_records": [],
-            "casing_report": {}, "cement_report": {}, "bit_report": {},
-            "bha_report": {}, "bulk_materials": [], "fuel_water": {},
-            "safety_report": {}, "bop_components": [], "waste_records": [],
-            "cost_records": [], "equipment_logs": [],
         }
         # Directly exercise the sheet loop.
         out = engine._extract_multi_tab_sheets(["General Inventory"])

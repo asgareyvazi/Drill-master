@@ -135,6 +135,7 @@
      "test_cement_history_viewmodel.py",
      "test_cement_persistence.py",
      "test_cement_report_null_roundtrip.py",
+     "test_d60_material_request_status.py",
      "test_document_library.py",
      "test_document_links.py",
      "test_documents_tab.py",
@@ -145,7 +146,6 @@
      "test_final_hardening_regressions.py",
      "test_hydraulics_m40_regressions.py",
      "test_hydraulics_m41_model_certification.py",
-     "test_import_inventory_routing.py",
      "test_kill_sheet_casing_id_gate.py",
      "test_m102_context_probes.py",
      "test_m109_cement_worksheet.py",
@@ -212,7 +212,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 64,
+    "evidence_tests": 63,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -238,7 +238,6 @@
      "test_golden_ddr.py",
      "test_hydraulics_m40_regressions.py",
      "test_hydraulics_m41_model_certification.py",
-     "test_import_inventory_routing.py",
      "test_inventory_zero_semantics.py",
      "test_kill_sheet_casing_id_gate.py",
      "test_m107_w13_contracts.py",
@@ -1483,21 +1482,21 @@
    "file": "core/report_engine.py",
    "guarded": true,
    "lines": [
+    557,
+    558,
     559,
-    560,
-    561,
-    1276,
-    1277,
-    1278,
-    1676,
-    1677,
-    1678,
-    1952,
-    1953,
-    1954,
-    2212,
-    2213,
-    2214
+    1273,
+    1274,
+    1275,
+    1673,
+    1674,
+    1675,
+    1949,
+    1950,
+    1951,
+    2209,
+    2210,
+    2211
    ],
    "module": "PySide6"
   },
@@ -2038,8 +2037,8 @@
     14,
     15,
     16,
-    1979,
-    1980
+    1981,
+    1982
    ],
    "module": "PySide6"
   },
@@ -2126,9 +2125,9 @@
     11,
     12,
     18,
-    1087,
-    1795,
-    1811
+    1349,
+    2154,
+    2170
    ],
    "module": "PySide6"
   },
@@ -2170,8 +2169,8 @@
     12,
     13,
     1482,
-    2044,
-    2045
+    2049,
+    2050
    ],
    "module": "PySide6"
   },
@@ -2283,8 +2282,8 @@
    "file": "tabs/w4_Downhole_Widget.py",
    "guarded": true,
    "lines": [
-    863,
-    882
+    867,
+    887
    ],
    "module": "lasio"
   },
@@ -2342,7 +2341,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    1809
+    1811
    ],
    "module": "matplotlib"
   },
@@ -2487,16 +2486,16 @@
    "file": "core/report_engine.py",
    "guarded": true,
    "lines": [
-    594,
-    595,
-    1305,
-    1306,
-    1703,
-    1704,
-    1979,
-    1980,
-    2239,
-    2240
+    592,
+    593,
+    1302,
+    1303,
+    1700,
+    1701,
+    1976,
+    1977,
+    2236,
+    2237
    ],
    "module": "openpyxl"
   },
@@ -2546,7 +2545,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    2858
+    2860
    ],
    "module": "openpyxl"
   },
@@ -2739,16 +2738,15 @@
     671,
     3053,
     3054,
-    3789,
-    4302,
-    4916,
-    3634,
+    3784,
+    4297,
+    4911,
+    3629,
     3095,
-    5506,
-    7754,
-    6119,
-    6166,
-    6348
+    7740,
+    6105,
+    6152,
+    6334
    ],
    "module": "sqlalchemy"
   },
@@ -2836,14 +2834,6 @@
    "module": "sqlalchemy"
   },
   {
-   "file": "core/report_engine.py",
-   "guarded": false,
-   "lines": [
-    10
-   ],
-   "module": "sqlalchemy"
-  },
-  {
    "file": "core/repositories/drill_pipe_reference_repository.py",
    "guarded": false,
    "lines": [
@@ -2889,7 +2879,7 @@
    "file": "core/wellbore_schematic_engine.py",
    "guarded": false,
    "lines": [
-    1718
+    1717
    ],
    "module": "sqlalchemy"
   },
@@ -2897,7 +2887,7 @@
    "file": "dialogs/hierarchy_dialogs.py",
    "guarded": false,
    "lines": [
-    1389
+    1387
    ],
    "module": "sqlalchemy"
   },

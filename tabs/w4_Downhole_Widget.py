@@ -7,7 +7,7 @@ import json
 from datetime import date
 # Try to import pandas (optional)
 try:
-    import pandas as pd
+    import pandas as pd  # noqa: F401 - availability probe; the import itself is the check
     PANDAS_AVAILABLE = True
 except ImportError:  # silent-ok: pandas optional; PANDAS_AVAILABLE gates the features
     PANDAS_AVAILABLE = False
@@ -724,7 +724,8 @@ class BHAManager:
 
     def delete_row(self):
         r = self.table.currentRow()
-        if r >= 0: self.table.removeRow(r)
+        if r >= 0:
+            self.table.removeRow(r)
 
 
 class DownholeEquipmentManager:
@@ -747,7 +748,8 @@ class DownholeEquipmentManager:
         default = [""] * self.table.columnCount()  # user supplies identity, dates and measured hours
         for col, val in enumerate(default):
             item = QTableWidgetItem(val)
-            if col in [6,7,8,9,10]: item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            if col in [6,7,8,9,10]:
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.table.setItem(row, col, item)
         return row
 
@@ -804,7 +806,8 @@ class DownholeEquipmentManager:
 
     def delete_row(self):
         r = self.table.currentRow()
-        if r >= 0: self.table.removeRow(r)
+        if r >= 0:
+            self.table.removeRow(r)
 
 
 class FormationManager:
@@ -828,7 +831,8 @@ class FormationManager:
         self.table.insertRow(row)
         for col, header in enumerate([self.table.horizontalHeaderItem(c).text() for c in range(self.table.columnCount())]):
             item = QTableWidgetItem("" if data.get(header) is None else str(data[header]))
-            if col in [3,4,5,6]: item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            if col in [3,4,5,6]:
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             if col == 7:
                 # Color is optional presentation metadata in formations_json.
                 # A missing/unsupported color uses the neutral widget palette;
@@ -868,7 +872,8 @@ class FormationManager:
                 formations = las.curves.get("FORMATION", [""]*len(depths))
                 groups = {}
                 for d, f in zip(depths, formations):
-                    if f not in groups: groups[f] = []
+                    if f not in groups:
+                        groups[f] = []
                     groups[f].append(d)
                 for name, dvals in groups.items():
                     self.add_formation_row({"Formation Name": name, "Top MD (m)": str(min(dvals)), "Base MD (m)": str(max(dvals)), "Color": self.current_color})
@@ -902,4 +907,5 @@ class FormationManager:
 
     def delete_row(self):
         r = self.table.currentRow()
-        if r >= 0: self.table.removeRow(r)
+        if r >= 0:
+            self.table.removeRow(r)

@@ -261,7 +261,7 @@ class AIToolRegistry:
                 if val is None or qty is None or from_u is None or to_u is None:
                     return {"success": False, "error": "MISSING_INPUT: value, quantity, from_unit, to_unit required"}
                 try:
-                    converted = UnitManager.convert(val, qty, from_u, to_u)
+                    UnitManager.convert(val, qty, from_u, to_u)   # raises on an unsupported conversion
                     record = UnitManager.create_record("ai_tool.convert", qty, from_u, val, to_u)
                     return {
                         "success": True,

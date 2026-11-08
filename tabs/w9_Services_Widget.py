@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 _REQUEST_QUANTITY_UNKNOWN = -1.0
 
 # ------------------------ Material Handling Tab ------------------------
+MATERIAL_STATUS_COLUMN = 8   # "Status" in setup_requests_table
+
+
 class MaterialHandlingTab(QWidget):
     """Tab for material handling, notes, and requests"""
     def __init__(self, db_manager=None, parent=None):
@@ -410,16 +413,41 @@ class MaterialHandlingTab(QWidget):
             return
         request_id = int(self.requests_table.item(selected_row, 0).text())
         statuses = ["Pending", "Partially Received", "Fully Received", "Closed"]
-        status, ok = QInputDialog.getItem(self, "Update Status", "Select new status:", statuses, 0, False)
+        status_item = self.requests_table.item(selected_row, MATERIAL_STATUS_COLUMN)
+        current = status_item.text() if status_item is not None else ""
+        start = statuses.index(current) if current in statuses else 0
+        status, ok = QInputDialog.getItem(self, "Update Status", "Select new status:", statuses, start, False)
         if ok and status:
-            try:
-                # Here we could update status directly, but for simplicity we use a generic update
-                request_data = {"id": request_id, "status": status}
-                # Optional: Implement update_material_request in DB manager
-                self.status_manager.show_message("MaterialHandlingTab", f"Status updated to {status}")
+            self.update_material_request_status(request_id, status)
+
+    def update_material_request_status(self, request_id: int, status: str) -> bool:
+        """D60: persist the new status and report the real outcome.
+
+        Before, the dialog announced "Status updated" and saved nothing. The request must belong to the
+        selected well (the table lists only that well's requests; a stale row is refused, never re-scoped).
+        """
+        if not self.db or not self.current_well_id:
+            self.show_well_selection_error()
+            return False
+        try:
+            own = {row.get("id") for row in self.db.get_material_requests(well_id=self.current_well_id)}
+            if request_id not in own:
+                self.status_manager.show_error(
+                    "MaterialHandlingTab", f"Request #{request_id} is not a request of the selected well; "
+                                           "its status was NOT updated")
                 self.load_material_requests()
-            except Exception as e:
-                logger.error(f"Error updating request status: {e}")
+                return False
+            saved = self.db.save_material_request({"id": request_id, "status": status})
+        except Exception as e:
+            logger.error(f"Error updating request status: {e}")
+            self.status_manager.show_error("MaterialHandlingTab", f"Status NOT updated: {e}")
+            return False
+        if saved:
+            self.status_manager.show_success("MaterialHandlingTab", f"Request #{request_id}: status updated to {status}")
+        else:
+            self.status_manager.show_error("MaterialHandlingTab", f"Request #{request_id}: status was NOT updated")
+        self.load_material_requests()
+        return bool(saved)
 
     def delete_material_request(self):
         selected_row = self.requests_table.currentRow()
@@ -558,12 +586,15 @@ class ServiceNoteDialog(QDialog):
         if note:
             self.note_number_input.setValue(note.get("note_number", 1))
             idx = self.note_type_input.findText(note.get("note_type", "General"))
-            if idx >= 0: self.note_type_input.setCurrentIndex(idx)
+            if idx >= 0:
+                self.note_type_input.setCurrentIndex(idx)
             self.content_input.setText(note.get("content", ""))
             idx = self.priority_input.findText(note.get("priority", "Medium"))
-            if idx >= 0: self.priority_input.setCurrentIndex(idx)
+            if idx >= 0:
+                self.priority_input.setCurrentIndex(idx)
             idx = self.status_input.findText(note.get("status", "Active"))
-            if idx >= 0: self.status_input.setCurrentIndex(idx)
+            if idx >= 0:
+                self.status_input.setCurrentIndex(idx)
 
     def save_note(self):
         try:

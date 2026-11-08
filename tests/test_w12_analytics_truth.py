@@ -65,9 +65,15 @@ def _mgr():
 def _well(m):
     s = m.create_session()
     try:
-        c = Company(name="OP", code="OP"); s.add(c); s.flush()
-        p = Project(name="PR", code="PR", company_id=c.id); s.add(p); s.flush()
-        w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+        c = Company(name="OP", code="OP")
+        s.add(c)
+        s.flush()
+        p = Project(name="PR", code="PR", company_id=c.id)
+        s.add(p)
+        s.flush()
+        w = Well(name="W1", code="W1", project_id=p.id)
+        s.add(w)
+        s.flush()
         s.commit()
         return w.id
     finally:
@@ -80,21 +86,25 @@ def _well(m):
 
 class TestDepthTrichotomy:
     def test_missing_depth_stays_null(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         s = m.create_session()
         try:
             r = DailyReport(well_id=wid, report_date=date(2026, 1, 1), depth_2400=None)
-            s.add(r); s.commit()
+            s.add(r)
+            s.commit()
             assert r.depth_2400 is None  # no fabricated 0
         finally:
             s.close()
 
     def test_explicit_zero_depth_preserved(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         s = m.create_session()
         try:
             r = DailyReport(well_id=wid, report_date=date(2026, 1, 1), depth_2400=0.0)
-            s.add(r); s.commit()
+            s.add(r)
+            s.commit()
             assert r.depth_2400 == 0.0
         finally:
             s.close()
@@ -123,7 +133,8 @@ class TestTimeDepth:
             s.close()
 
     def test_missing_middle_depth_does_not_fabricate_gain(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         self._seed(m, wid, [1000.0, None, 1200.0])
         res = self._run(m, wid)
         assert res[0]["depth"] == 1000.0 and res[0]["gain"] is None
@@ -133,7 +144,8 @@ class TestTimeDepth:
         assert res[2]["depth"] == 1200.0 and res[2]["gain"] == 200.0
 
     def test_leading_missing_depth(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         self._seed(m, wid, [None, 1000.0])
         res = self._run(m, wid)
         assert res[0]["depth"] is None and res[0]["gain"] is None
@@ -141,14 +153,16 @@ class TestTimeDepth:
         assert res[1]["depth"] == 1000.0 and res[1]["gain"] is None
 
     def test_normal_progression_gain(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         self._seed(m, wid, [1000.0, 1100.0, 1250.0])
         res = self._run(m, wid)
         assert res[1]["gain"] == 100.0 and res[1]["status"] == "Normal"
         assert res[2]["gain"] == 150.0
 
     def test_explicit_zero_depth_is_a_fact_not_gap(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         self._seed(m, wid, [0.0, 500.0])
         res = self._run(m, wid)
         # Day 1 explicit 0 depth is known; day 2 gain is 500 - 0.
@@ -169,7 +183,8 @@ class TestTodayData:
             s.close()
 
     def test_unknown_measurements_are_none(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         s = m.create_session()
         try:
             # A report with no depth, no drilling params, no mud, no time logs.
@@ -191,11 +206,13 @@ class TestTodayData:
         assert today["npt_hours"] is None
 
     def test_recorded_time_with_no_npt_is_real_zero(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         s = m.create_session()
         try:
             r = DailyReport(well_id=wid, report_date=date(2026, 1, 1), depth_2400=1500.0)
-            s.add(r); s.flush()
+            s.add(r)
+            s.flush()
             # A recorded (non-NPT) time log exists.
             s.add(TimeLog24H(report_id=r.id, time_from=time(0, 0), time_to=time(12, 0),
                              duration=12.0, is_npt=False))
@@ -208,11 +225,13 @@ class TestTodayData:
         assert today["npt_hours"] == 0.0  # real zero NPT, time was recorded
 
     def test_midpoint_requires_both_bounds(self):
-        m = _mgr(); wid = _well(m)
+        m = _mgr()
+        wid = _well(m)
         s = m.create_session()
         try:
             r = DailyReport(well_id=wid, report_date=date(2026, 1, 1), depth_2400=100.0)
-            s.add(r); s.flush()
+            s.add(r)
+            s.flush()
             # WOB has both bounds; RPM only a min -> RPM midpoint unknown.
             s.add(DrillingParameters(well_id=wid, report_date=date(2026, 1, 1),
                                      wob_min=10.0, wob_max=20.0, rpm_min=100.0))

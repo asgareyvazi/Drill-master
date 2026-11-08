@@ -138,7 +138,7 @@ def pdf_to_xlsx(pdf_path, output_path):
     try:
         import pytesseract
         from pdf2image import convert_from_path
-        from PIL import Image
+        from PIL import Image  # noqa: F401 - availability probe; the import itself is the check
 
         # Convert PDF pages to images
         images = convert_from_path(str(pdf_path), first_page=1, last_page=5)  # limit to 5 pages for performance

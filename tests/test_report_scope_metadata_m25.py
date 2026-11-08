@@ -47,22 +47,32 @@ def db():
 def multibore(db):
     """Well W1 with Original (NPT 1h) and ST-1 (NPT 4h). Whole-well NPT = 5h."""
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     orig = Wellbore(well_id=w.id, name="Original", wellbore_type="original")
-    s.add(orig); s.flush()
+    s.add(orig)
+    s.flush()
     st1 = Wellbore(well_id=w.id, name="ST-1", wellbore_type="sidetrack",
                    parent_wellbore_id=orig.id, kickoff_md=2500)
-    s.add(st1); s.flush()
+    s.add(st1)
+    s.flush()
     sec_o = Section(name='12-1/4"', well_id=w.id, wellbore_id=orig.id, depth_from=1000)
     sec_s = Section(name='8-1/2"', well_id=w.id, wellbore_id=st1.id, depth_from=2500)
-    s.add_all([sec_o, sec_s]); s.flush()
+    s.add_all([sec_o, sec_s])
+    s.flush()
     ro = DailyReport(well_id=w.id, section_id=sec_o.id, wellbore_id=orig.id,
                      report_number=1, report_date=date(2026, 1, 1), depth_2400=1000)
     rs = DailyReport(well_id=w.id, section_id=sec_s.id, wellbore_id=st1.id,
                      report_number=2, report_date=date(2026, 1, 5), depth_2400=3000)
-    s.add_all([ro, rs]); s.flush()
+    s.add_all([ro, rs])
+    s.flush()
     s.add_all([
         # Original: 1h NPT + 23h productive.
         TimeLog24H(report_id=ro.id, time_from=time(0, 0), time_to=time(1, 0),
@@ -146,7 +156,8 @@ def test_cost_report_is_well_level_and_labelled(db, multibore, tmp_path):
         CostRecord(well_id=multibore["well"], category="Rig", currency="USD", actual_cost=100000.0),
         CostRecord(well_id=multibore["well"], category="Mud", currency="USD", actual_cost=40000.0),
     ])
-    s.commit(); s.close()
+    s.commit()
+    s.close()
     out = tmp_path / "cost.html"
     assert CostReportEngine(db).generate(multibore["well"], str(out), format="html")
     html = out.read_text()
@@ -160,7 +171,8 @@ def test_cost_excel_scope_row(db, multibore, tmp_path):
     from openpyxl import load_workbook
     s = db.create_session()
     s.add(CostRecord(well_id=multibore["well"], category="Rig", currency="USD", actual_cost=50000.0))
-    s.commit(); s.close()
+    s.commit()
+    s.close()
     out = tmp_path / "cost.xlsx"
     assert CostReportEngine(db).generate(multibore["well"], str(out), format="excel")
     wb = load_workbook(out)
@@ -179,7 +191,8 @@ def test_plan_report_is_well_level_and_labelled(db, multibore, tmp_path):
     s = db.create_session()
     plan = WellPlan(well_id=multibore["well"], plan_name="Base Plan",
                     plan_version="1.0", is_active=True)
-    s.add(plan); s.flush()
+    s.add(plan)
+    s.flush()
     s.add(PlannedActivity(
         well_id=multibore["well"], plan_id=plan.id,
         activity_name="Drill 12-1/4", phase_code="Drill",
@@ -187,7 +200,8 @@ def test_plan_report_is_well_level_and_labelled(db, multibore, tmp_path):
         planned_end=datetime(2026, 1, 3, 0, 0),
         planned_duration_hours=48.0,
         planned_depth_from=0, planned_depth_to=1000))
-    s.commit(); s.close()
+    s.commit()
+    s.close()
     out = tmp_path / "plan.html"
     assert PlanReportEngine(db).generate(multibore["well"], str(out), format="html")
     html = out.read_text()

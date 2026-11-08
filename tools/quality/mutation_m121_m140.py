@@ -83,6 +83,8 @@ CH = "core/calculation_history.py"
 RS = "core/report_snapshot.py"
 TR1 = ["tests/test_report_snapshot_utc.py"]
 TD59 = ["tests/test_d59_stale_partial.py"]
+W9 = "tabs/w9_Services_Widget.py"
+TD60 = ["tests/test_d60_material_request_status.py"]
 
 MUTANTS = [
     # ---- M122 Knowledge Assistant worker lifecycle (D28) ------------------------------------------------
@@ -1114,6 +1116,21 @@ MUTANTS = [
            '                != QMessageBox.StandardButton.Cancel:\n', TD59, 'the removal runs although the user declined'),
     Mutant('D59-cancel-message-false', WPKP, '"was killed is classified by the audit log under \'Stale folders…\'.")',
            '"was killed is never audited.")', TD59, "the cancel message again claims a '.partial' folder is never audited"),
+    # ---- Residuals round 2: D60 W9 material-request status announced but never saved ----
+    Mutant('D60-status-not-saved', W9, '            saved = self.db.save_material_request({"id": request_id, "status": status})\n',
+           '            saved = True\n', TD60, 'the pre-D60 path: success is announced and nothing is saved'),
+    Mutant('D60-foreign-well-accepted', W9, '            if request_id not in own:\n',
+           '            if False:\n', TD60, "a stale row updates a request of another well"),
+    Mutant('D60-failure-claims-success', W9, '        if saved:\n            self.status_manager.show_success(',
+           '        if True:\n            self.status_manager.show_success(', TD60, 'a failed save is reported as saved'),
+    Mutant('D60-picker-ignores-current', W9, '        start = statuses.index(current) if current in statuses else 0\n',
+           '        start = 0\n', TD60, 'the picker always starts at Pending: OK silently resets the status'),
+    Mutant('D60-no-well-accepted', W9, '        if not self.db or not self.current_well_id:\n            self.show_well_selection_error()\n            return False\n        try:\n            own',
+           '        if not self.db:\n            self.show_well_selection_error()\n            return False\n        try:\n            own', TD60, 'the status is changed with no well selected'),
+    Mutant('D60-status-column-wrong', W9, 'MATERIAL_STATUS_COLUMN = 8',
+           'MATERIAL_STATUS_COLUMN = 7', TD60, 'the current status is read from the Remarks column'),
+    Mutant('D60-table-not-reloaded', W9, '        self.load_material_requests()\n        return bool(saved)\n',
+           '        return bool(saved)\n', TD60, 'the table keeps showing the old status after a save'),
 ]
 
 

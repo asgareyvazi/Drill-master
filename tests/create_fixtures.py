@@ -17,8 +17,7 @@ from datetime import date, time
 
 try:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-    from openpyxl.utils import get_column_letter
+    from openpyxl.styles import Font, Alignment
     HAS_OPENPYXL = True
 except ImportError:
     HAS_OPENPYXL = False

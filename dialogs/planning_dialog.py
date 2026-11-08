@@ -630,7 +630,7 @@ class WellPlanDialog(QDialog):
         self.plan_id = None
         self.activities = []
 
-        self.setWindowTitle(f"📋 Well Drilling Plan")
+        self.setWindowTitle("📋 Well Drilling Plan")
         self.setMinimumSize(1000, 700)
         self.init_ui()
         self.load_well_info()
@@ -933,7 +933,6 @@ class WellPlanDialog(QDialog):
             cum_hrs = 0
             y_pos = []
             labels = []
-            colors_list = []
 
             for i, act in enumerate(self.activities):
                 dur = act.get('duration_hrs')
@@ -1197,7 +1196,6 @@ class AddPlanActivityDialog(QDialog):
         self.phase_combo = QComboBox()
         self.phase_combo.addItem("Not planned", None)
         for phase_name in DRILLING_PHASES:
-            color = DRILLING_PHASES[phase_name]["color"]
             self.phase_combo.addItem(f"🔵 {phase_name}", phase_name)
         self.phase_combo.currentIndexChanged.connect(self._on_phase_changed)
         f1.addRow("Phase:", self.phase_combo)

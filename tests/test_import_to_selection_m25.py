@@ -41,24 +41,35 @@ def db():
 @pytest.fixture()
 def fixture(db):
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     orig = Wellbore(well_id=w.id, name="Original", wellbore_type="original")
-    s.add(orig); s.flush()
+    s.add(orig)
+    s.flush()
     st1 = Wellbore(well_id=w.id, name="ST-1", wellbore_type="sidetrack",
                    parent_wellbore_id=orig.id, kickoff_md=2500)
-    s.add(st1); s.flush()
+    s.add(st1)
+    s.flush()
     sec = Section(name='12-1/4"', well_id=w.id, wellbore_id=st1.id,
                   depth_from=2500)
-    s.add(sec); s.flush()
+    s.add(sec)
+    s.flush()
     rpt = DailyReport(well_id=w.id, section_id=sec.id, wellbore_id=st1.id,
                       report_number=100, report_date=date(2026, 3, 1),
                       depth_2400=3000)
-    s.add(rpt); s.flush()
+    s.add(rpt)
+    s.flush()
     ids = {"well": w.id, "orig": orig.id, "st1": st1.id,
            "sec": sec.id, "rpt": rpt.id}
-    s.commit(); s.close()
+    s.commit()
+    s.close()
     return ids
 
 

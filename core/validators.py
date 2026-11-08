@@ -311,12 +311,12 @@ class BHAValidator:
                 r.add_error(f"bha[{idx}].length", "Length required - MISSING_INPUT")
             else:
                 try:
-                    l = float(length)
-                    if l < 0:
+                    length_value = float(length)
+                    if length_value < 0:
                         r.add_error(f"bha[{idx}].length", "Length cannot be negative")
-                    if l == 0:
+                    if length_value == 0:
                         r.add_warning(f"bha[{idx}].length", "Zero length component")
-                    total_length += l
+                    total_length += length_value
                 except (TypeError, ValueError):
                     r.add_error(f"bha[{idx}].length", "Length must be numeric")
 
@@ -582,7 +582,7 @@ class TimeLogValidator:
     @staticmethod
     def validate_logs(logs: list) -> ValidationResult:
         r = ValidationResult()
-        recorded = [l.get("duration") for l in logs]
+        recorded = [entry.get("duration") for entry in logs]
         unrecorded = sum(1 for value in recorded if value is None)
         total = sum(float(value) for value in recorded if value is not None)
         if unrecorded:

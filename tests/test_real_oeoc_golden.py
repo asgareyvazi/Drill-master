@@ -266,10 +266,14 @@ class _QtStubs:
         ).split()
 
         class _Fake:
-            def __init__(self, *a, **k): pass
-            def __getattr__(self, name): return _Fake
-            def __call__(self, *a, **k): return _Fake()
-            def connect(self, *a, **k): return None
+            def __init__(self, *a, **k):
+                pass
+            def __getattr__(self, name):
+                return _Fake
+            def __call__(self, *a, **k):
+                return _Fake()
+            def connect(self, *a, **k):
+                return None
 
         for mod_name in ("PySide6", "PySide6.QtWidgets", "PySide6.QtCore",
                          "PySide6.QtGui", "PySide6.QtPrintSupport",

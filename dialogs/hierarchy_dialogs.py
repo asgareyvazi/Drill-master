@@ -1377,13 +1377,11 @@ class NewDailyReportDialog(BaseHierarchyDialog):
             TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
             CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
             FormationReport, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory,
-            BulkMaterials, TransportLog, SafetyReport, BOPComponent,
+            BulkMaterials, TransportLog, BOPComponent,
             WasteRecord, ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
             SevenDaysLookahead, TripSheetEntry, SurveyPoint, WellboreSchematic
         )
-        from datetime import date, timedelta
-        import logging
-        logger = logging.getLogger(__name__)
+        from datetime import timedelta
 
         from copy import deepcopy
         from sqlalchemy import null

@@ -160,7 +160,7 @@ class TestDDRRegression:
 
     def test_pob_data_extracted(self, ddr_report):
         """POB data should be extracted if present."""
-        pob = ddr_report.canonical_json.get("pob_data", [])
+        ddr_report.canonical_json.get("pob_data", [])
         # May or may not be present depending on template mapping
 
     def test_bop_data_extracted(self, ddr_report):

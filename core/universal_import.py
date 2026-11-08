@@ -111,7 +111,6 @@ class WorkbookScanner:
 
         total_cells = 0
         total_non_empty = 0
-        total_formulas = 0
 
         for sheet in workbook.worksheets:
             sheet_info = self._scan_sheet(sheet)
@@ -268,7 +267,6 @@ class WorkbookScanner:
             # Detect column gaps >=2 empty columns as table separators
             col_bands = []
             curr_cols = []
-            col_empty = 0
             for idx, col in enumerate(all_cols):
                 if not curr_cols:
                     curr_cols.append(col)
@@ -473,7 +471,6 @@ class WorkbookScanner:
     def _detect_table_type(self, band: List[int], cols: List[int], cells: Dict, title: str, headers: List[str]) -> str:
         """Detect table type: vertical, horizontal, nested, continuation."""
         title_lower = title.lower() if title else ""
-        headers_lower = " ".join(h.lower() for h in headers).lower()
 
         # Check for nested indicators
         if any(x in title_lower for x in ["bha", "bit", "assembly"]):

@@ -1041,8 +1041,8 @@ class SurveyPoint(Base):
     )
     md = Column(Float, nullable=False)
     # Missing source angles remain NULL and are surfaced for review; the
-    # trajectory engine refuses incomplete stations. Older databases may
-    # still have NOT NULL columns and will reject such rows before execution.
+    # trajectory engine refuses incomplete stations. Older databases with
+    # NOT NULL angle columns are relaxed by _migrate_nullable_contracts.
     inc = Column(Float, nullable=True)
     azi = Column(Float, nullable=True)
     tvd = Column(Float)
@@ -3288,13 +3288,8 @@ class DatabaseManager:
         )
         # External indexes and triggers are not part of CREATE TABLE. Recreate
         # their original SQL after the old table has been removed.
-        for object_type, object_name in contract["objects"]:
-            object_sql = connection.execute(
-                "SELECT sql FROM sqlite_master WHERE type=? AND name=?",
-                (object_type, object_name),
-            ).fetchone()
-            # The query above cannot see the dropped object's SQL, so the SQL
-            # is captured before the rebuild below in _capture_live_objects.
+        # The dropped objects' SQL is captured before the rebuild in _capture_live_objects
+        # (sqlite_master no longer lists an object once its table is dropped).
         return contract
 
     def _capture_live_objects(self, connection, table_name: str) -> list[tuple[str, str, str]]:
@@ -5095,7 +5090,8 @@ class DatabaseManager:
             report = session.get(DailyReport, report_id)
             if report:
                 for key, value in snapshot["report"].items():
-                    if key != "id": setattr(report, key, value)
+                    if key != "id":
+                        setattr(report, key, value)
             for model, values in snapshot.get("children", []):
                 session.add(model(**values))
             session.commit()
@@ -5152,7 +5148,7 @@ class DatabaseManager:
         try:
             plan = session.query(WellPlan).filter(
                 WellPlan.well_id == well_id
-                , WellPlan.is_active == True
+                , WellPlan.is_active == True  # noqa: E712 - SQLAlchemy column expression (SQL `= 1`); .is_(True) would change the SQL
             ).one_or_none()
             if not plan or plan.planned_total_days is None:
                 return None
@@ -5171,7 +5167,7 @@ class DatabaseManager:
         try:
             plan = session.query(WellPlan).filter(
                 WellPlan.well_id == well_id
-                , WellPlan.is_active == True
+                , WellPlan.is_active == True  # noqa: E712 - SQLAlchemy column expression (SQL `= 1`); .is_(True) would change the SQL
             ).one_or_none()
             activities = []
             if plan:
@@ -5499,19 +5495,9 @@ class DatabaseManager:
                 if report_obj is None:
                     raise ValueError(f"Report {report_id} not found for atomic import")
                 imported_report_date = report_obj.report_date
-                # Existing installations may still have the historical
-                # NOT NULL survey-angle columns. Do not attempt a destructive
-                # schema rewrite; reject incomplete rows there and preserve
-                # NULLs on newly created schemas.
-                from sqlalchemy import inspect
-                survey_columns = {
-                    column["name"]: column.get("nullable", True)
-                    for column in inspect(session.connection()).get_columns("survey_points")
-                }
-                survey_angles_nullable = (
-                    survey_columns.get("inc", False)
-                    and survey_columns.get("azi", False)
-                )
+                # Historical NOT NULL survey-angle columns are migrated to
+                # nullable by initialize(), so an incomplete survey row is kept
+                # with NULL angles plus a review item (prepare_surveys).
 
                 # Helper to count
                 def count(key, ok, *, review=False, reason=""):
@@ -8279,27 +8265,27 @@ class DatabaseManager:
             logs = query.order_by(TransportLog.log_date.desc(), TransportLog.arrival_time).all()
             return [
                 {
-                    "id": l.id,
-                    "well_id": l.well_id,
-                    "section_id": l.section_id,
-                    "report_id": l.report_id,
-                    "log_date": l.log_date,
-                    "vehicle_type": l.vehicle_type,
-                    "vehicle_name": l.vehicle_name,
-                    "vehicle_id": l.vehicle_id,
-                    "arrival_time": l.arrival_time.strftime("%H:%M") if l.arrival_time else "",
-                    "departure_time": l.departure_time.strftime("%H:%M") if l.departure_time else "",
-                    "duration": l.duration,
-                    "passengers_in": l.passengers_in,
-                    "passengers_out": l.passengers_out,
-                    "cargo_description": l.cargo_description,
-                    "status": l.status,
-                    "purpose": l.purpose,
-                    "remarks": l.remarks,
-                    "created_at": l.created_at,
-                    "updated_at": l.updated_at
+                    "id": entry.id,
+                    "well_id": entry.well_id,
+                    "section_id": entry.section_id,
+                    "report_id": entry.report_id,
+                    "log_date": entry.log_date,
+                    "vehicle_type": entry.vehicle_type,
+                    "vehicle_name": entry.vehicle_name,
+                    "vehicle_id": entry.vehicle_id,
+                    "arrival_time": entry.arrival_time.strftime("%H:%M") if entry.arrival_time else "",
+                    "departure_time": entry.departure_time.strftime("%H:%M") if entry.departure_time else "",
+                    "duration": entry.duration,
+                    "passengers_in": entry.passengers_in,
+                    "passengers_out": entry.passengers_out,
+                    "cargo_description": entry.cargo_description,
+                    "status": entry.status,
+                    "purpose": entry.purpose,
+                    "remarks": entry.remarks,
+                    "created_at": entry.created_at,
+                    "updated_at": entry.updated_at
                 }
-                for l in logs
+                for entry in logs
             ]
         except Exception as e:
             logger.error(f"Error getting transport logs: {e}")
@@ -9213,25 +9199,25 @@ class DatabaseManager:
             logs = query.order_by(EquipmentLog.service_date.desc()).all()
             return [
                 {
-                    "id": l.id,
-                    "well_id": l.well_id,
-                    "section_id": l.section_id,
-                    "report_id": l.report_id,
-                    "equipment_type": l.equipment_type,
-                    "equipment_name": l.equipment_name,
-                    "equipment_id": l.equipment_id,
-                    "manufacturer": l.manufacturer,
-                    "serial_number": l.serial_number,
-                    "service_date": l.service_date,
-                    "service_type": l.service_type,
-                    "service_provider": l.service_provider,
-                    "hours_worked": l.hours_worked,
-                    "status": l.status,
-                    "notes": l.notes,
-                    "created_at": l.created_at,
-                    "updated_at": l.updated_at
+                    "id": entry.id,
+                    "well_id": entry.well_id,
+                    "section_id": entry.section_id,
+                    "report_id": entry.report_id,
+                    "equipment_type": entry.equipment_type,
+                    "equipment_name": entry.equipment_name,
+                    "equipment_id": entry.equipment_id,
+                    "manufacturer": entry.manufacturer,
+                    "serial_number": entry.serial_number,
+                    "service_date": entry.service_date,
+                    "service_type": entry.service_type,
+                    "service_provider": entry.service_provider,
+                    "hours_worked": entry.hours_worked,
+                    "status": entry.status,
+                    "notes": entry.notes,
+                    "created_at": entry.created_at,
+                    "updated_at": entry.updated_at
                 }
-                for l in logs
+                for entry in logs
             ]
         except Exception as e:
             logger.error(f"Error getting equipment logs: {e}")
@@ -9259,33 +9245,33 @@ class DatabaseManager:
                 "hours_not_recorded": 0,
                 "by_type": {}
             }
-            for l in logs:
-                if l.status == "Operational":
+            for entry in logs:
+                if entry.status == "Operational":
                     summary["operational"] += 1
-                elif l.status == "Under Maintenance":
+                elif entry.status == "Under Maintenance":
                     summary["under_maintenance"] += 1
-                elif l.status == "Out of Service":
+                elif entry.status == "Out of Service":
                     summary["out_of_service"] += 1
                 # An unknown duration makes the aggregate unknown: it must never
                 # read as if that equipment contributed zero hours.
-                if l.hours_worked is None:
+                if entry.hours_worked is None:
                     summary["hours_not_recorded"] += 1
                     summary["total_hours"] = None
                 elif summary["total_hours"] is not None:
-                    summary["total_hours"] += l.hours_worked
-                eq_type = l.equipment_type or "Unknown"
+                    summary["total_hours"] += entry.hours_worked
+                eq_type = entry.equipment_type or "Unknown"
                 if eq_type not in summary["by_type"]:
                     summary["by_type"][eq_type] = {"count": 0, "operational": 0,
                                                    "total_hours": 0.0,
                                                    "hours_not_recorded": 0}
                 summary["by_type"][eq_type]["count"] += 1
-                if l.status == "Operational":
+                if entry.status == "Operational":
                     summary["by_type"][eq_type]["operational"] += 1
-                if l.hours_worked is None:
+                if entry.hours_worked is None:
                     summary["by_type"][eq_type]["hours_not_recorded"] += 1
                     summary["by_type"][eq_type]["total_hours"] = None
                 elif summary["by_type"][eq_type]["total_hours"] is not None:
-                    summary["by_type"][eq_type]["total_hours"] += l.hours_worked
+                    summary["by_type"][eq_type]["total_hours"] += entry.hours_worked
             return summary
         except Exception as e:
             logger.error(f"Error getting equipment summary: {e}")
@@ -10005,7 +9991,7 @@ class DatabaseManager:
             # NPT from time logs
             npt_logs = session.query(TimeLog24H).filter(
                 TimeLog24H.report_id == report_id,
-                TimeLog24H.is_npt == True
+                TimeLog24H.is_npt == True  # noqa: E712 - SQLAlchemy column expression (SQL `= 1`); .is_(True) would change the SQL
             ).all()
             unrecorded_npt = 0
             for log in npt_logs:
@@ -10135,7 +10121,7 @@ class DatabaseManager:
             if created_by:
                 query = query.filter(
                     (ExportTemplate.created_by == created_by) |
-                    (ExportTemplate.is_shared == True)
+                    (ExportTemplate.is_shared == True)  # noqa: E712 - SQLAlchemy column expression (SQL `= 1`); .is_(True) would change the SQL
                 )
             templates = query.order_by(ExportTemplate.is_default.desc(), ExportTemplate.updated_at.desc()).all()
             return [
@@ -10218,7 +10204,7 @@ class DatabaseManager:
         try:
             session.query(ExportTemplate).filter(
                 ExportTemplate.template_type == template_type,
-                ExportTemplate.is_default == True
+                ExportTemplate.is_default == True  # noqa: E712 - SQLAlchemy column expression (SQL `= 1`); .is_(True) would change the SQL
             ).update({"is_default": False})
             template = session.query(ExportTemplate).filter(ExportTemplate.id == template_id).first()
             if template:
@@ -10754,7 +10740,7 @@ class DatabaseManager:
             if user_id:
                 query = query.filter(AuditLog.user_id == user_id)
             logs = query.order_by(AuditLog.timestamp.desc()).limit(limit).all()
-            return [{col.name: getattr(l, col.name) for col in AuditLog.__table__.columns} for l in logs]
+            return [{col.name: getattr(entry, col.name) for col in AuditLog.__table__.columns} for entry in logs]
         except Exception as e:
             logger.error(f"Get audit logs error: {e}")
             raise  # collection query failure is not an empty dataset
@@ -10905,14 +10891,14 @@ class DatabaseManager:
             logs = log_query.filter(
                 TimeLog24H.activity_description.ilike(q, escape='\\')
             ).limit(10).all()
-            for l, owner_well_id in logs:
+            for entry, owner_well_id in logs:
                 results.append({
                     "type": "timelog",
                     "well_id": owner_well_id,
-                    "report_id": l.report_id,
-                    "id": l.id,
-                    "title": f"{l.main_code or ''} - {l.time_from}",
-                    "subtitle": (l.activity_description or "")[:100],
+                    "report_id": entry.report_id,
+                    "id": entry.id,
+                    "title": f"{entry.main_code or ''} - {entry.time_from}",
+                    "subtitle": (entry.activity_description or "")[:100],
                     "icon": "🕐",
                 })
 

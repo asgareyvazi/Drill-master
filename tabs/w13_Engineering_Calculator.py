@@ -1717,8 +1717,8 @@ class EngineeringCalculatorTab(DrillTabBase):
         self.hy_press_t.setRowCount(0)
         t = r.total_loss_psi if r.total_loss_psi > 0 else 1
         entries = [("Surface Equipment", r.surface_loss_psi)]
-        entries += [(n, l) for n, l in r.pipe_losses]
-        entries += [(n, l) for n, l in r.annulus_losses]
+        entries += [(n, segment_loss) for n, segment_loss in r.pipe_losses]
+        entries += [(n, segment_loss) for n, segment_loss in r.annulus_losses]
         entries.append(("Bit Nozzles", r.bit_loss_psi))
         entries.append(("═══ TOTAL ═══", r.total_loss_psi))
 
@@ -1736,7 +1736,9 @@ class EngineeringCalculatorTab(DrillTabBase):
                 for c in range(3):
                     it = self.hy_press_t.item(row, c)
                     if it:
-                        f = it.font(); f.setBold(True); it.setFont(f)
+                        f = it.font()
+                        f.setBold(True)
+                        it.setFont(f)
                         it.setBackground(QColor("#d5f5e3"))
 
         # AV Table
@@ -1956,10 +1958,10 @@ class EngineeringCalculatorTab(DrillTabBase):
             w.writerow([])
             w.writerow(["Component", "ΔP (psi)", "% Total"])
             w.writerow(["Surface", f"{r.surface_loss_psi:.1f}", f"{r.surface_loss_psi/t*100:.1f}%"])
-            for n, l in r.pipe_losses:
-                w.writerow([f"Pipe: {n}", f"{l:.1f}", f"{l/t*100:.1f}%"])
-            for n, l in r.annulus_losses:
-                w.writerow([f"Ann: {n}", f"{l:.1f}", f"{l/t*100:.1f}%"])
+            for n, segment_loss in r.pipe_losses:
+                w.writerow([f"Pipe: {n}", f"{segment_loss:.1f}", f"{segment_loss/t*100:.1f}%"])
+            for n, segment_loss in r.annulus_losses:
+                w.writerow([f"Ann: {n}", f"{segment_loss:.1f}", f"{segment_loss/t*100:.1f}%"])
             w.writerow(["Bit", f"{r.bit_loss_psi:.1f}", f"{r.bit_loss_psi/t*100:.1f}%"])
             w.writerow(["TOTAL", f"{r.total_loss_psi:.1f}", "100%"])
             w.writerow([])
@@ -1989,10 +1991,10 @@ class EngineeringCalculatorTab(DrillTabBase):
         <table border="1" cellpadding="4"><tr><th>Component</th><th>ΔP (psi)</th></tr>
         <tr><td>Surface</td><td>{r.surface_loss_psi:.1f}</td></tr>
         """
-        for n, l in r.pipe_losses:
-            html += f"<tr><td>Pipe: {n}</td><td>{l:.1f}</td></tr>"
-        for n, l in r.annulus_losses:
-            html += f"<tr><td>Ann: {n}</td><td>{l:.1f}</td></tr>"
+        for n, segment_loss in r.pipe_losses:
+            html += f"<tr><td>Pipe: {n}</td><td>{segment_loss:.1f}</td></tr>"
+        for n, segment_loss in r.annulus_losses:
+            html += f"<tr><td>Ann: {n}</td><td>{segment_loss:.1f}</td></tr>"
         html += f"""
         <tr><td>Bit</td><td>{r.bit_loss_psi:.1f}</td></tr>
         <tr><td><b>TOTAL</b></td><td><b>{r.total_loss_psi:.1f}</b></td></tr>
@@ -2638,8 +2640,8 @@ class EngineeringCalculatorTab(DrillTabBase):
                    else "source unavailable")
         text += f"║ Friction exponent:  n={result.get('friction_exponent', 1.0):.3f} — {n_label}\n"
         text += f"║ Target TFA:         {result['optimal_tfa_in2']:.4f} in²\n"
-        text += f"╠═══════════════════════════════════════════╣\n"
-        text += f"║ SELECTED NOZZLES:\n"
+        text += "╠═══════════════════════════════════════════╣\n"
+        text += "║ SELECTED NOZZLES:\n"
         text += f"║   {combo_str}\n"
         text += f"║ Actual TFA:         {result['actual_tfa_in2']:.4f} in²\n"
         text += f"║ TFA Error:          {result['tfa_error']:.4f} in²\n"
@@ -5090,9 +5092,6 @@ class EngineeringCalculatorTab(DrillTabBase):
                 f"Total: {total_string + total_ann:.2f} bbl"
             )
         else:
-            annular_note = (
-                "annular geometry not assessable from the recorded pipe/casing values"
-            )
             self.wc_string_summary.setText(
                 f"{string_text} | Annular: NOT ASSESSED "
                 "(requires complete pipe program, casing ID, hole size, and shoe MD)"
@@ -5166,7 +5165,6 @@ class EngineeringCalculatorTab(DrillTabBase):
         scr2_spm = inp.scr2_spm
         pump_output = inp.pump_output_bbl_stk
         hole = inp.hole_size_in
-        csg_id = inp.casing_id_in
         total_string_vol = res.total_string_vol_bbl
         total_ann_vol = res.total_ann_vol_bbl
         string_detail = res.string_detail
@@ -5304,7 +5302,7 @@ class EngineeringCalculatorTab(DrillTabBase):
     ║   • Hold FCP at {fcp:.0f} psi for remaining {strokes_annular_text} strokes
     ║ • Kill in ONE circulation"""
 
-        text += f"""
+        text += """
     ╠═════════════════════════════════════════════════════════╣
     ║ CHOKE PRESSURE SCHEDULE (Surface → Bit):
     ║ ─────────────────────────────────────────

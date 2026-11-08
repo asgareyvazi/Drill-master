@@ -123,7 +123,7 @@ class TestAfePersistence:
         saved = manager.save_afe_worksheet(well_id, rows, afe_number="AFE-1",
                                            currency="USD")
         assert saved == 2
-        lines = {l.category: l for l in afe_lines(manager, well_id)}
+        lines = {line.category: line for line in afe_lines(manager, well_id)}
         assert lines["Rig & Equipment"].planned_cost == 500000
         assert lines["Rig & Equipment"].actual_cost == 480000
         # Variance recomputed canonically as planned - actual.
@@ -166,7 +166,7 @@ class TestAfePersistence:
             {"category": "Real", "planned_cost": 10, "actual_cost": 5},
         ])
         assert saved == 1
-        assert [l.category for l in afe_lines(manager, well_id)] == ["Real"]
+        assert [line.category for line in afe_lines(manager, well_id)] == ["Real"]
 
     def test_save_leaves_non_afe_opex_lines_untouched(self, env):
         manager, well_id = env

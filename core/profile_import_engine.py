@@ -197,7 +197,6 @@ class ProfileImportEngine:
 
         # 5. استخراج متن‌های طولانی (Summary)
         remark_sheet = self._get_real_sheet_name(sheet_names, "DDR Remark")
-        data_sheet = self._get_real_sheet_name(sheet_names, "DDR Data")
         if not remark_sheet:
             # Some vendors put the time table in a renamed operations sheet.
             remark_sheet = next((s for s in sheet_names if "remark" in s.lower() or "operation" in s.lower()), None)
@@ -246,7 +245,8 @@ class ProfileImportEngine:
             # A. Trajectory / Surveys (md, inc, azi, tvd)
             if any(k in lower_name for k in ["survey", "traject", "directional", "deviation"]):
                 for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
-                    if r not in cache: continue
+                    if r not in cache:
+                        continue
                     md_primary = self._to_float(cache[r].get(1))
                     md = md_primary if md_primary is not None else self._to_float(cache[r].get(2))
                     inc = self._to_float(cache[r].get(3))
@@ -274,7 +274,8 @@ class ProfileImportEngine:
             # B. POB / Personnel On Board
             elif any(k in lower_name for k in ["pob", "personnel", "crew", "manpower"]):
                 for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
-                    if r not in cache: continue
+                    if r not in cache:
+                        continue
                     company = cache[r].get(1) or cache[r].get(2)
                     count = self._to_float(cache[r].get(3)) or self._to_float(cache[r].get(4))
                     if company and count and count > 0:
@@ -311,7 +312,8 @@ class ProfileImportEngine:
             # core.domain_records.material_route (mud vs fuel_water vs review).
             elif any(k in lower_name for k in ["bulk", "fuel", "water"]):
                 for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
-                    if r not in cache: continue
+                    if r not in cache:
+                        continue
                     mat = cache[r].get(1) or cache[r].get(2)
                     stock = self._to_float(cache[r].get(3))
                     received = self._to_float(cache[r].get(5))
@@ -365,7 +367,8 @@ class ProfileImportEngine:
             # G. Cost / AFE
             elif any(k in lower_name for k in ["cost", "afe", "expense"]):
                 for r in range(2, min(max(cache, default=1) + 1, MAX_PROFILE_ROWS)):
-                    if r not in cache: continue
+                    if r not in cache:
+                        continue
                     item_name = cache[r].get(1) or cache[r].get(2)
                     daily_cost = self._to_float(cache[r].get(3))
                     if item_name and daily_cost is not None:
@@ -412,13 +415,20 @@ class ProfileImportEngine:
                 header = {c: str(cell(survey_row, c, "")).lower() for c in range(1, MAX_PROFILE_COLS)}
                 columns = {}
                 for c, text in header.items():
-                    if "m.d" in text or text.strip() == "md": columns["md"] = c
-                    elif "incl" in text: columns["inc"] = c
-                    elif "azimuth" in text: columns["azi"] = c
-                    elif "tvd" in text: columns["tvd"] = c
-                    elif "north" in text: columns["north"] = c
-                    elif "east" in text: columns["east"] = c
-                    elif "dls" in text: columns["dls"] = c
+                    if "m.d" in text or text.strip() == "md":
+                        columns["md"] = c
+                    elif "incl" in text:
+                        columns["inc"] = c
+                    elif "azimuth" in text:
+                        columns["azi"] = c
+                    elif "tvd" in text:
+                        columns["tvd"] = c
+                    elif "north" in text:
+                        columns["north"] = c
+                    elif "east" in text:
+                        columns["east"] = c
+                    elif "dls" in text:
+                        columns["dls"] = c
                 for row in range(survey_row + 1, min(survey_row + 500, MAX_PROFILE_ROWS)):
                     md = self._to_float(cell(row, columns.get("md", 0)))
                     if md is None:
@@ -449,11 +459,15 @@ class ProfileImportEngine:
                     row_by_label = {}
                     for r in range(header_row + 1, header_row + 8):
                         text = row_text(r)
-                        if "on hand" in text: row_by_label["initial"] = r
-                        elif text.strip().startswith("used"): row_by_label["used"] = r
-                        elif "received" in text: row_by_label["received"] = r
+                        if "on hand" in text:
+                            row_by_label["initial"] = r
+                        elif text.strip().startswith("used"):
+                            row_by_label["used"] = r
+                        elif "received" in text:
+                            row_by_label["received"] = r
                     for c, name in name_columns:
-                        if not name or str(name).lower() in {"bulk data", "unit"}: continue
+                        if not name or str(name).lower() in {"bulk data", "unit"}:
+                            continue
                         initial = self._to_float(cell(row_by_label.get("initial", 0), c))
                         used = self._to_float(cell(row_by_label.get("used", 0), c)) or 0.0
                         received = self._to_float(cell(row_by_label.get("received", 0), c)) or 0.0
@@ -468,7 +482,8 @@ class ProfileImportEngine:
                 for r in range(pob_row + 1, pob_row + 12):
                     values = [cell(r, c) for c in range(1, MAX_PROFILE_COLS)]
                     text = " ".join(str(v or "") for v in values)
-                    if not text.strip() or "total" in text.lower(): continue
+                    if not text.strip() or "total" in text.lower():
+                        continue
                     count = next((self._to_float(v) for v in values if self._to_float(v) is not None), None)
                     company = next((str(v).strip() for v in values if isinstance(v, str) and v.strip() and not v.replace(" ", "").isdigit()), None)
                     if company and count is not None and count > 0:
@@ -625,11 +640,16 @@ class ProfileImportEngine:
                 columns = {}
                 for col, header in headers.items():
                     compact = re.sub(r"[^a-z0-9]", "", header)
-                    if "product" in compact or "material" in compact: columns["name"] = col
-                    elif "used" in compact: columns["used"] = col
-                    elif "received" in compact: columns["received"] = col
-                    elif "hand" in compact or "stock" in compact: columns["stock"] = col
-                    elif compact == "unit": columns["unit"] = col
+                    if "product" in compact or "material" in compact:
+                        columns["name"] = col
+                    elif "used" in compact:
+                        columns["used"] = col
+                    elif "received" in compact:
+                        columns["received"] = col
+                    elif "hand" in compact or "stock" in compact:
+                        columns["stock"] = col
+                    elif compact == "unit":
+                        columns["unit"] = col
                 if "name" not in columns:
                     continue
                 for data_row in range(header_row + 1, min(header_row + 100, MAX_PROFILE_ROWS)):
@@ -719,7 +739,8 @@ class ProfileImportEngine:
     def _extract_right_value(self, sheet_name, row, col, data_type):
         """به سمت راست حرکت می‌کند تا اولین سلول پر را پیدا کند"""
         cache = self.cell_cache[sheet_name]
-        if row not in cache: return None
+        if row not in cache:
+            return None
         
         for c in range(col + 1, col + 15):
             val = cache[row].get(c)
@@ -742,14 +763,16 @@ class ProfileImportEngine:
     def _extract_date_triplet(self, sheet_name, row, col):
         """سه سلول پر بعدی را به عنوان سال، ماه و روز برمی‌گرداند"""
         cache = self.cell_cache[sheet_name]
-        if row not in cache: return None
+        if row not in cache:
+            return None
         
         vals = []
         for c in range(col + 1, col + 15):
             val = cache[row].get(c)
             if val is not None and str(val).strip() not in ("", "-", "---"):
                 vals.append(str(val).strip())
-                if len(vals) == 3: break
+                if len(vals) == 3:
+                    break
                 
         if len(vals) == 3:
             try:
@@ -766,7 +789,8 @@ class ProfileImportEngine:
     def _extract_text_block(self, sheet_name, start_keyword, stop_keyword):
         cache = self.cell_cache.get(sheet_name, {})
         start_row = self._find_anchor(sheet_name, start_keyword.lower())
-        if not start_row: return ""
+        if not start_row:
+            return ""
         
         lines = []
         for r in range(start_row[0] + 1, start_row[0] + 20):
@@ -803,7 +827,8 @@ class ProfileImportEngine:
                 header_row = r
                 break
                 
-        if not header_row: return logs
+        if not header_row:
+            return logs
         
         # پیدا کردن موقعیت ستون‌ها
         cols = cache[header_row]
@@ -811,25 +836,36 @@ class ProfileImportEngine:
         
         for c, v in cols.items():
             v_lower = str(v).lower().strip()
-            if v_lower == "from": c_from = c
-            elif v_lower == "to": c_to = c
-            elif "hrs" in v_lower: c_hrs = c
-            elif "main phase" in v_lower: c_phase = c
-            elif v_lower in ("code", "main code", "activity code", "phase code") or "main code" in v_lower or "activity code" in v_lower: c_code = c
-            elif ("sub" in v_lower or "secondary" in v_lower) and "code" in v_lower: c_sub = c
-            elif v_lower == "status": c_status = c
-            elif "npt" in v_lower: c_npt = c
-            elif "rig activity" in v_lower: c_act = c
+            if v_lower == "from":
+                c_from = c
+            elif v_lower == "to":
+                c_to = c
+            elif "hrs" in v_lower:
+                c_hrs = c
+            elif "main phase" in v_lower:
+                c_phase = c
+            elif v_lower in ("code", "main code", "activity code", "phase code") or "main code" in v_lower or "activity code" in v_lower:
+                c_code = c
+            elif ("sub" in v_lower or "secondary" in v_lower) and "code" in v_lower:
+                c_sub = c
+            elif v_lower == "status":
+                c_status = c
+            elif "npt" in v_lower:
+                c_npt = c
+            elif "rig activity" in v_lower:
+                c_act = c
             
         # خواندن دیتا
         # Read until the real table boundary; the old +50 limit truncated
         # long 24-hour logs.
         max_row = max(self.cell_cache.get(sheet_name, {}) or {header_row: {}})
         for r in range(header_row + 1, min(max_row + 1, MAX_PROFILE_ROWS)):
-            if r not in cache: continue
+            if r not in cache:
+                continue
             
             c1_val = str(cache[r].get(1, "")).lower()
-            if "total" in c1_val: break # پایان جدول
+            if "total" in c1_val:
+                break # پایان جدول
             
             tf_raw = cache[r].get(c_from)
             hrs_raw = cache[r].get(c_hrs)
@@ -909,9 +945,11 @@ class ProfileImportEngine:
         cache = self.cell_cache.get(sheet_name, {})
         companies = []
         for r in range(2, 50): # ردیف اول هدر است
-            if r not in cache: continue
+            if r not in cache:
+                continue
             company = cache[r].get(2)
-            if not company: continue
+            if not company:
+                continue
             companies.append({
                 "company_name": str(company),
                 "service_type": str(cache[r].get(3, "")),
@@ -923,8 +961,10 @@ class ProfileImportEngine:
         return companies
 
     def _convert_time(self, raw):
-        if isinstance(raw, time): return raw
-        if isinstance(raw, datetime): return raw.time()
+        if isinstance(raw, time):
+            return raw
+        if isinstance(raw, datetime):
+            return raw.time()
         s = str(raw).strip()
         m = re.match(r'^(\d{1,2}):(\d{2})', s)
         if m:

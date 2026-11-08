@@ -79,8 +79,8 @@ class DataQualityService:
                 # Use professional validator
                 from core.import_quality import TimeLogValidator
                 log_dicts = [
-                    {"time_from": l.time_from, "time_to": l.time_to, "duration": l.duration, "main_code": l.main_code}
-                    for l in logs
+                    {"time_from": entry.time_from, "time_to": entry.time_to, "duration": entry.duration, "main_code": entry.main_code}
+                    for entry in logs
                 ]
                 validation_report = TimeLogValidator.validate_logs(log_dicts, sheet=f"Report {report_id}")
                 overlap_count = sum(1 for issue in validation_report.issues if "overlap" in issue.message.lower())

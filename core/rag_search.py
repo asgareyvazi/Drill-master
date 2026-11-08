@@ -113,9 +113,6 @@ class HistoricalDDRSearch:
 
             well_id = report.get("well_id")
 
-            # Get current params
-            params = self.db.get_drilling_parameters(report_id=current_report_id) or {}
-
             # Search for similar depth or formation
             formation = report.get("formation", "") or ""
 

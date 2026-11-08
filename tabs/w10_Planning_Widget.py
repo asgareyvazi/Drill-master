@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 # Try to import QtCharts for charts
 try:
-    from PySide6.QtCharts import QChart, QChartView, QLineSeries, QScatterSeries, QValueAxis, QDateTimeAxis
+    from PySide6.QtCharts import QChart, QChartView, QLineSeries, QScatterSeries, QValueAxis, QDateTimeAxis  # noqa: F401 - availability probe; the import itself is the check
     CHARTS_AVAILABLE = True
 except ImportError:
     CHARTS_AVAILABLE = False
@@ -917,7 +917,6 @@ class CodeManagementTab(QWidget):
 
                 total_code_hours = data['hours']
                 productive_hours = data['productive_hours']
-                npt_hours = data['npt_hours']
 
                 if total_code_hours and productive_hours is not None:
                     productive_percent = (productive_hours / total_code_hours) * 100

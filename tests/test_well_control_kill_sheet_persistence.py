@@ -122,8 +122,10 @@ def test_snapshot_reconstructs_inputs_without_display():
     rebuilt = snapshot_to_inputs(snap)
     fresh = _inputs()
     # canonical fields reconstruct exactly (ignoring the presentation display map)
-    a = fresh.as_dict(); a.pop("display")
-    b = rebuilt.as_dict(); b.pop("display")
+    a = fresh.as_dict()
+    a.pop("display")
+    b = rebuilt.as_dict()
+    b.pop("display")
     assert a == b
 
 
@@ -151,7 +153,9 @@ def test_save_and_load_roundtrip():
 
 def test_each_save_is_a_distinct_run():
     repo = WellControlKillSheetRepository(_mem_db())
-    _save(repo); _save(repo); _save(repo)
+    _save(repo)
+    _save(repo)
+    _save(repo)
     assert repo.count() == 3  # never deduplicated
 
 

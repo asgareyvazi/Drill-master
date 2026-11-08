@@ -1737,12 +1737,17 @@ class TransportLogTab(QWidget):
             type_item = self.transport_table.item(row, 1)
             status_item = self.transport_table.item(row, 11)
             if type_item:
-                if type_item.text() == "Boat": boats += 1
-                elif type_item.text() == "Chopper": choppers += 1
+                if type_item.text() == "Boat":
+                    boats += 1
+                elif type_item.text() == "Chopper":
+                    choppers += 1
             if status_item:
-                if status_item.text() == "In Progress": active += 1
-                elif status_item.text() == "Completed": completed += 1
-                elif status_item.text() == "Scheduled": scheduled += 1
+                if status_item.text() == "In Progress":
+                    active += 1
+                elif status_item.text() == "Completed":
+                    completed += 1
+                elif status_item.text() == "Scheduled":
+                    scheduled += 1
         self.stats_labels['total_logs'].setText(str(total))
         self.stats_labels['boats'].setText(str(boats))
         self.stats_labels['choppers'].setText(str(choppers))

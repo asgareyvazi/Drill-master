@@ -13,7 +13,7 @@ class TestExpandedSchema:
     def test_all_fields_have_paths(self):
         """Every field must have a non-empty path."""
         for path, spec in FIELD_SPECS.items():
-            assert path, f"Empty path found in schema"
+            assert path, "Empty path found in schema"
             assert spec.path == path
 
     def test_critical_fields_exist(self):
@@ -105,7 +105,7 @@ class TestExpandedSchema:
 
     def test_no_duplicate_paths(self):
         """No duplicate field paths in the schema."""
-        paths = [path for path, _, _, _ in [
+        [path for path, _, _, _ in [
             # Reconstruct from FIELD_SPECS to check
         ]]
         # The dict comprehension already deduplicates, but let's verify

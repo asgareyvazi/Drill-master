@@ -1065,7 +1065,7 @@ class DailyReportWidget(DrillTabBase):
                 session = self.db_manager.create_session()
                 try:
                     from core.database import TimeLog24H
-                    recent = session.query(TimeLog24H.contractor).filter(TimeLog24H.contractor != None, TimeLog24H.contractor != "").distinct().limit(50).all()
+                    recent = session.query(TimeLog24H.contractor).filter(TimeLog24H.contractor != None, TimeLog24H.contractor != "").distinct().limit(50).all()  # noqa: E711 - SQLAlchemy column expression (SQL `IS NOT NULL`)
                     for r in recent:
                         if r[0] and str(r[0]).strip():
                             contractors.add(str(r[0]).strip())
@@ -2271,7 +2271,7 @@ class DailyReportWidget(DrillTabBase):
             from core.database import (
                 TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
                 CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
-                FormationReport, SafetyReport, WellboreSchematic,
+                FormationReport, WellboreSchematic,
                 TripSheetEntry, SurveyPoint, LogisticsPersonnel, ServiceCompanyPOB,
                 FuelWaterInventory, BulkMaterials, TransportLog, TransportNotes,
                 ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
@@ -2744,8 +2744,9 @@ class DailyReportWidget(DrillTabBase):
                 log = LogData()
                 
                 # Parse time strings
-                from_parts = data['time_from'].split(':')
-                to_parts = data['time_to'].split(':')
+                # Kept from the former unused parse: a non-text time still raises here, as before.
+                data['time_from'].split(':')
+                data['time_to'].split(':')
                 
                 log.time_from = data['time_from']
                 log.time_to = data['time_to']

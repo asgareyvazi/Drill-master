@@ -564,7 +564,7 @@ def verify_lint() -> bool:
         return False
     count = len(json.loads(debt.stdout))
     ceiling = int((ROOT / ".github/ruff-debt-ceiling.txt").read_text(encoding="utf-8").strip())
-    print(f"Lint debt: {count}; ceiling: {ceiling} (not lint-clean)")
+    print(f"Lint debt: {count}; ceiling: {ceiling} ({'lint-clean' if count == 0 else 'not lint-clean'})")
     return count <= ceiling
 
 

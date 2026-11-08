@@ -38,13 +38,21 @@ def db():
 @pytest.fixture()
 def well(db):
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     orig = Wellbore(well_id=w.id, name="Original", wellbore_type="original")
-    s.add(orig); s.flush()
+    s.add(orig)
+    s.flush()
     ids = {"well": w.id, "orig": orig.id}
-    s.commit(); s.close()
+    s.commit()
+    s.close()
     return ids
 
 
@@ -112,7 +120,11 @@ def test_case_c_same_parent_idempotent(db, well):
 def test_case_d_conflicting_parent_raises(db, well):
     s = db.create_session()
     other = Wellbore(well_id=well["well"], name="Other", wellbore_type="original")
-    s.add(other); s.flush(); other_id = other.id; s.commit(); s.close()
+    s.add(other)
+    s.flush()
+    other_id = other.id
+    s.commit()
+    s.close()
 
     st = db.get_or_create_wellbore(
         well["well"], "ST-1", wellbore_type="sidetrack",

@@ -66,20 +66,29 @@ def _two_bore_same_date(db):
     report's DrillingParameters/MudReport carry a report_id; the Original
     report's child rows are legacy (report_id=NULL, well+date only)."""
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     orig = Wellbore(well_id=w.id, name="Original", wellbore_type="original")
-    s.add(orig); s.flush()
+    s.add(orig)
+    s.flush()
     st1 = Wellbore(well_id=w.id, name="ST-1", wellbore_type="sidetrack",
                    parent_wellbore_id=orig.id, kickoff_md=2500)
-    s.add(st1); s.flush()
+    s.add(st1)
+    s.flush()
     d = date(2026, 1, 10)
     ro = DailyReport(well_id=w.id, wellbore_id=orig.id, report_number=1,
                      report_date=d, depth_2400=1000)
     rs = DailyReport(well_id=w.id, wellbore_id=st1.id, report_number=2,
                      report_date=d, depth_2400=3000)
-    s.add_all([ro, rs]); s.flush()
+    s.add_all([ro, rs])
+    s.flush()
     # Original: LEGACY child rows with NO report_id (only well+date). ROP 20.
     s.add_all([
         DrillingParameters(well_id=w.id, report_id=None, report_date=d,
@@ -131,13 +140,20 @@ def test_today_data_single_bore_legacy_fallback_still_works(db):
     """When (well, date) is unambiguous (one report), the legacy well+date
     fallback is preserved so single-bore legacy data still displays."""
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     d = date(2026, 2, 1)
     r = DailyReport(well_id=w.id, wellbore_id=None, report_number=1,
                     report_date=d, depth_2400=800)
-    s.add(r); s.flush()
+    s.add(r)
+    s.flush()
     # Legacy child rows with NO report_id — only well+date links them.
     s.add_all([
         DrillingParameters(well_id=w.id, report_id=None, report_date=d, avg_rop=15.0),
@@ -162,13 +178,20 @@ def test_today_data_ambiguous_legacy_child_rows_stay_unknown(db):
     rows make a bare .first() nondeterministic. The fallback must refuse and
     return UNKNOWN instead of silently hiding the other row."""
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     d = date(2026, 3, 1)
     r = DailyReport(well_id=w.id, wellbore_id=None, report_number=1,
                     report_date=d, depth_2400=800)
-    s.add(r); s.flush()
+    s.add(r)
+    s.flush()
     # ONE report, but TWO legacy child rows share (well, date) with different
     # values — ownership of each is unprovable.
     s.add_all([
@@ -196,13 +219,20 @@ def test_npt_null_duration_is_unknown_not_zero(db):
     not contribute a fabricated zero to the total, must be counted as unknown,
     and its entry keeps hours=None. A stored 0.0 is a real fact and survives."""
     s = db.create_session()
-    c = Company(name="C", code="C"); s.add(c); s.flush()
-    p = Project(name="P", code="P", company_id=c.id); s.add(p); s.flush()
-    w = Well(name="W1", code="W1", project_id=p.id); s.add(w); s.flush()
+    c = Company(name="C", code="C")
+    s.add(c)
+    s.flush()
+    p = Project(name="P", code="P", company_id=c.id)
+    s.add(p)
+    s.flush()
+    w = Well(name="W1", code="W1", project_id=p.id)
+    s.add(w)
+    s.flush()
     d = date(2026, 5, 1)
     r = DailyReport(well_id=w.id, wellbore_id=None, report_number=1,
                     report_date=d)
-    s.add(r); s.flush()
+    s.add(r)
+    s.flush()
     s.add_all([
         TimeLog24H(report_id=r.id, is_npt=True, duration=2.0, main_code="A",
                    time_from=time(0, 0), time_to=time(2, 0)),

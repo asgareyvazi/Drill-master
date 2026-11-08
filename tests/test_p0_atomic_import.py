@@ -114,7 +114,7 @@ class AtomicImportTests(unittest.TestCase):
             "pob_records": [{"company_name": "", "personnel_count": 5}],  # empty name -> skip
         }
 
-        results = self.db.save_imported_multi_tab_data_atomic(well_id, report_id, extracted)
+        self.db.save_imported_multi_tab_data_atomic(well_id, report_id, extracted)
         # Should not have saved invalid
         with self.db.session_scope() as session:
             from core.database import SurveyPoint

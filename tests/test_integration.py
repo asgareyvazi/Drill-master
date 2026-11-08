@@ -318,7 +318,7 @@ class TestFullImportPipeline:
     
     def test_search(self, db, well_with_section):
         """Test global search."""
-        well_id = well_with_section["well_id"]
+        well_with_section["well_id"]
         
         results = db.search_all("TestWell")
         assert len(results) > 0

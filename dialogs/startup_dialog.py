@@ -454,7 +454,7 @@ class StartupDialog(QDialog):
                 self.selected_well_id = None
                 self.action = "load_project"
                 self.proceed_btn.setEnabled(True)
-                self.proceed_btn.setText(f"📁 Load Project")
+                self.proceed_btn.setText("📁 Load Project")
                 
     def on_well_selected(self):
         """هنگام انتخاب چاه"""
@@ -467,7 +467,7 @@ class StartupDialog(QDialog):
                 self.selected_project_id = None
                 self.action = "load_well"
                 self.proceed_btn.setEnabled(True)
-                self.proceed_btn.setText(f"🛢️ Load Well")
+                self.proceed_btn.setText("🛢️ Load Well")
                 
     def create_company(self):
         """ایجاد شرکت جدید"""
@@ -587,7 +587,7 @@ class StartupDialog(QDialog):
             self.selected_well_id = well_id
             self.action = "load_well"
             self.proceed_btn.setEnabled(True)
-            self.proceed_btn.setText(f"🛢️ Load Well")
+            self.proceed_btn.setText("🛢️ Load Well")
             self.status_message("Complete hierarchy created successfully!")
             self.load_recent_data()
             self.tabs.setCurrentIndex(0)
@@ -686,7 +686,7 @@ class StartupDialog(QDialog):
                 self.selected_well_id = well.id
                 self.action = "load_well"
                 self.proceed_btn.setEnabled(True)
-                self.proceed_btn.setText(f"🛢️ Load Well")
+                self.proceed_btn.setText("🛢️ Load Well")
                 
                 self.status_message(f"Template '{template['name']}' created successfully!")
                 self.load_recent_data()

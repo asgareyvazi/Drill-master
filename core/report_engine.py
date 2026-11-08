@@ -7,8 +7,6 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional
 
-from sqlalchemy import func
-
 
 logger = logging.getLogger(__name__)
 
@@ -448,7 +446,7 @@ table {{
 </table>"""
 
         # 24h Operations
-        html += f"""
+        html += """
 <div class="section-title">🕒 24-Hour Operations</div>
 <table class="data-table">
 <tr>
@@ -482,7 +480,7 @@ table {{
 
         # Morning Tour
         if logs_m:
-            html += f"""
+            html += """
 <div class="section-title">☀️ Morning Tour</div>
 <table class="data-table">
 <tr>
@@ -921,7 +919,6 @@ class EOWRReportEngine:
         daily_reports = data.get("daily_reports", [])
         drilling_params = data.get("drilling_params", [])
         mud_reports = data.get("mud_reports", [])
-        bit_reports = data.get("bit_reports", [])
         surveys = data.get("surveys", [])
         sections = data.get("sections", [])
         cement_reports = data.get("cement_reports", [])
@@ -1423,7 +1420,7 @@ class NPTReportEngine:
                 DailyReport, TimeLog24H.report_id == DailyReport.id
             ).filter(
                 DailyReport.well_id == well_id,
-                TimeLog24H.is_npt == True
+                TimeLog24H.is_npt == True  # noqa: E712 - SQLAlchemy column expression (SQL `= 1`); .is_(True) would change the SQL
             )
             if from_date:
                 query = query.filter(DailyReport.report_date >= from_date)

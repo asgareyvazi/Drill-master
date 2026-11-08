@@ -229,56 +229,105 @@ class CementReportTab(QWidget):
         self.materials_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         ml.addWidget(self.materials_table)
         mb = QHBoxLayout()
-        ab = QPushButton("➕ Add"); ab.clicked.connect(self.add_material_row)
-        rb = QPushButton("➖ Remove"); rb.clicked.connect(self.remove_material_row)
-        mb.addWidget(ab); mb.addWidget(rb); mb.addStretch()
+        ab = QPushButton("➕ Add")
+        ab.clicked.connect(self.add_material_row)
+        rb = QPushButton("➖ Remove")
+        rb.clicked.connect(self.remove_material_row)
+        mb.addWidget(ab)
+        mb.addWidget(rb)
+        mb.addStretch()
         ml.addLayout(mb)
         mg.setLayout(ml)
         cl.addWidget(mg)
 
         pg = QGroupBox("⚙️ Parameters")
         pl = QGridLayout()
-        self.slurry_density = QDoubleSpinBox(); self.slurry_density.setRange(0,200); self.slurry_density.setValue(120)
-        self.slurry_yield = QDoubleSpinBox(); self.slurry_yield.setRange(0,10); self.slurry_yield.setDecimals(2); self.slurry_yield.setValue(1.18)
-        self.mix_water = QDoubleSpinBox(); self.mix_water.setRange(0,20); self.mix_water.setValue(5.2)
-        self.thickening_hours = QSpinBox(); self.thickening_hours.setRange(0,24); self.thickening_hours.setValue(4)
-        self.thickening_minutes = QSpinBox(); self.thickening_minutes.setRange(0,59); self.thickening_minutes.setValue(30)
-        self.compressive_strength = QDoubleSpinBox(); self.compressive_strength.setRange(0,10000); self.compressive_strength.setValue(2500)
-        self.fluid_loss = QDoubleSpinBox(); self.fluid_loss.setRange(0,500)
-        pl.addWidget(QLabel("Slurry Density (pcf):"),0,0); pl.addWidget(self.slurry_density,0,1)
-        pl.addWidget(QLabel("Slurry Yield:"),0,2); pl.addWidget(self.slurry_yield,0,3)
-        pl.addWidget(QLabel("Mix Water:"),1,0); pl.addWidget(self.mix_water,1,1)
-        tl = QHBoxLayout(); tl.addWidget(self.thickening_hours); tl.addWidget(QLabel("hr")); tl.addWidget(self.thickening_minutes); tl.addWidget(QLabel("min")); tl.addStretch()
-        pl.addWidget(QLabel("Thickening Time:"),1,2); pl.addLayout(tl,1,3)
-        pl.addWidget(QLabel("Comp. Strength:"),2,0); pl.addWidget(self.compressive_strength,2,1)
-        pl.addWidget(QLabel("Fluid Loss:"),2,2); pl.addWidget(self.fluid_loss,2,3)
+        self.slurry_density = QDoubleSpinBox()
+        self.slurry_density.setRange(0,200)
+        self.slurry_density.setValue(120)
+        self.slurry_yield = QDoubleSpinBox()
+        self.slurry_yield.setRange(0,10)
+        self.slurry_yield.setDecimals(2)
+        self.slurry_yield.setValue(1.18)
+        self.mix_water = QDoubleSpinBox()
+        self.mix_water.setRange(0,20)
+        self.mix_water.setValue(5.2)
+        self.thickening_hours = QSpinBox()
+        self.thickening_hours.setRange(0,24)
+        self.thickening_hours.setValue(4)
+        self.thickening_minutes = QSpinBox()
+        self.thickening_minutes.setRange(0,59)
+        self.thickening_minutes.setValue(30)
+        self.compressive_strength = QDoubleSpinBox()
+        self.compressive_strength.setRange(0,10000)
+        self.compressive_strength.setValue(2500)
+        self.fluid_loss = QDoubleSpinBox()
+        self.fluid_loss.setRange(0,500)
+        pl.addWidget(QLabel("Slurry Density (pcf):"),0,0)
+        pl.addWidget(self.slurry_density,0,1)
+        pl.addWidget(QLabel("Slurry Yield:"),0,2)
+        pl.addWidget(self.slurry_yield,0,3)
+        pl.addWidget(QLabel("Mix Water:"),1,0)
+        pl.addWidget(self.mix_water,1,1)
+        tl = QHBoxLayout()
+        tl.addWidget(self.thickening_hours)
+        tl.addWidget(QLabel("hr"))
+        tl.addWidget(self.thickening_minutes)
+        tl.addWidget(QLabel("min"))
+        tl.addStretch()
+        pl.addWidget(QLabel("Thickening Time:"),1,2)
+        pl.addLayout(tl,1,3)
+        pl.addWidget(QLabel("Comp. Strength:"),2,0)
+        pl.addWidget(self.compressive_strength,2,1)
+        pl.addWidget(QLabel("Fluid Loss:"),2,2)
+        pl.addWidget(self.fluid_loss,2,3)
         pg.setLayout(pl)
         cl.addWidget(pg)
 
         vg = QGroupBox("📊 Volumes")
         vl = QGridLayout()
-        self.cement_volume = QDoubleSpinBox(); self.cement_volume.setRange(0,10000)
-        self.displacement_volume = QDoubleSpinBox(); self.displacement_volume.setRange(0,5000); self.displacement_volume.setDecimals(1)
-        self.top_of_cement = QDoubleSpinBox(); self.top_of_cement.setRange(0,20000); self.top_of_cement.setDecimals(2)
-        self.bottom_of_cement = QDoubleSpinBox(); self.bottom_of_cement.setRange(0,20000); self.bottom_of_cement.setDecimals(2)
-        vl.addWidget(QLabel("Cement Vol (sacks):"),0,0); vl.addWidget(self.cement_volume,0,1)
-        vl.addWidget(QLabel("Displacement (bbl):"),0,2); vl.addWidget(self.displacement_volume,0,3)
-        vl.addWidget(QLabel("Top of Cement (m):"),1,0); vl.addWidget(self.top_of_cement,1,1)
-        vl.addWidget(QLabel("Bottom (m):"),1,2); vl.addWidget(self.bottom_of_cement,1,3)
+        self.cement_volume = QDoubleSpinBox()
+        self.cement_volume.setRange(0,10000)
+        self.displacement_volume = QDoubleSpinBox()
+        self.displacement_volume.setRange(0,5000)
+        self.displacement_volume.setDecimals(1)
+        self.top_of_cement = QDoubleSpinBox()
+        self.top_of_cement.setRange(0,20000)
+        self.top_of_cement.setDecimals(2)
+        self.bottom_of_cement = QDoubleSpinBox()
+        self.bottom_of_cement.setRange(0,20000)
+        self.bottom_of_cement.setDecimals(2)
+        vl.addWidget(QLabel("Cement Vol (sacks):"),0,0)
+        vl.addWidget(self.cement_volume,0,1)
+        vl.addWidget(QLabel("Displacement (bbl):"),0,2)
+        vl.addWidget(self.displacement_volume,0,3)
+        vl.addWidget(QLabel("Top of Cement (m):"),1,0)
+        vl.addWidget(self.top_of_cement,1,1)
+        vl.addWidget(QLabel("Bottom (m):"),1,2)
+        vl.addWidget(self.bottom_of_cement,1,3)
         vg.setLayout(vl)
         cl.addWidget(vg)
 
         sg = QGroupBox("📝 Summary")
-        sl = QVBoxLayout(); self.cement_summary = QTextEdit(); self.cement_summary.setMaximumHeight(120)
-        sl.addWidget(self.cement_summary); sg.setLayout(sl)
+        sl = QVBoxLayout()
+        self.cement_summary = QTextEdit()
+        self.cement_summary.setMaximumHeight(120)
+        sl.addWidget(self.cement_summary)
+        sg.setLayout(sl)
         cl.addWidget(sg)
 
         bl = QHBoxLayout()
-        sb = QPushButton("💾 Save"); sb.clicked.connect(self.save_data)
-        lb = QPushButton("📂 Load"); lb.clicked.connect(self.load_data)
-        bl.addWidget(sb); bl.addWidget(lb); bl.addStretch()
-        cl.addLayout(bl); cl.addStretch()
-        scroll.setWidget(content); layout.addWidget(scroll)
+        sb = QPushButton("💾 Save")
+        sb.clicked.connect(self.save_data)
+        lb = QPushButton("📂 Load")
+        lb.clicked.connect(self.load_data)
+        bl.addWidget(sb)
+        bl.addWidget(lb)
+        bl.addStretch()
+        cl.addLayout(bl)
+        cl.addStretch()
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
 
     def add_material_row(
         self, material="", mt="", received=None, consumed=None, backload=None,
@@ -374,17 +423,21 @@ class CementReportTab(QWidget):
 
     def remove_material_row(self):
         r=self.materials_table.currentRow()
-        if r>=0: self.materials_table.removeRow(r)
+        if r>=0:
+            self.materials_table.removeRow(r)
 
     @editor_loaded()
     def load_for_report(self, report_id):
         if self.db_manager:
             data = self.db_manager.get_cement_report(report_id=report_id)
-            if data: self.load_from_dict(data)
-            else: self.clear_form()
+            if data:
+                self.load_from_dict(data)
+            else:
+                self.clear_form()
 
     def save_data_for_report(self, report_id):
-        if not self.current_well: return False
+        if not self.current_well:
+            return False
         mats = self._collect_material_rows()
         d = {"well_id":self.current_well,"report_id":report_id,"report_date":date.today(),"report_name":self.report_name.text(),"cement_type":self.cement_type.currentText(),"job_type":self.job_type.currentText(),"materials_json":json.dumps(mats),"slurry_density":self.slurry_density.value(),"slurry_yield":self.slurry_yield.value(),"mix_water":self.mix_water.value(),"thickening_time":f"{self.thickening_hours.value():02d}:{self.thickening_minutes.value():02d}","compressive_strength":self.compressive_strength.value(),"fluid_loss":self.fluid_loss.value(),"cement_volume":self.cement_volume.value(),"displacement_volume":self.displacement_volume.value(),"top_of_cement":self.top_of_cement.value(),"bottom_of_cement":self.bottom_of_cement.value(),"summary":self.cement_summary.toPlainText()}
         d = self._preserve_untouched_cement_values(d)
@@ -447,16 +500,21 @@ class CementReportTab(QWidget):
         self.report_name.setText(str(data.get("report_name","") or ""))
         self.cement_type.setCurrentText(str(data.get("cement_type","") or ""))
         self.job_type.setCurrentText(str(data.get("job_type","") or ""))
-        self.slurry_density.setValue(sv("slurry_density",120)); self.slurry_yield.setValue(sv("slurry_yield",1.18))
+        self.slurry_density.setValue(sv("slurry_density",120))
+        self.slurry_yield.setValue(sv("slurry_yield",1.18))
         self.mix_water.setValue(sv("mix_water",5.2))
         tp=str(data.get("thickening_time","04:30") or "04:30").split(":")
         try:
-            self.thickening_hours.setValue(int(tp[0])); self.thickening_minutes.setValue(int(tp[1]))
+            self.thickening_hours.setValue(int(tp[0]))
+            self.thickening_minutes.setValue(int(tp[1]))
         except (IndexError, ValueError):  # silent-ok: malformed thickening time keeps the widget default
             pass
-        self.compressive_strength.setValue(sv("compressive_strength",2500)); self.fluid_loss.setValue(sv("fluid_loss"))
-        self.cement_volume.setValue(sv("cement_volume")); self.displacement_volume.setValue(sv("displacement_volume"))
-        self.top_of_cement.setValue(sv("top_of_cement")); self.bottom_of_cement.setValue(sv("bottom_of_cement"))
+        self.compressive_strength.setValue(sv("compressive_strength",2500))
+        self.fluid_loss.setValue(sv("fluid_loss"))
+        self.cement_volume.setValue(sv("cement_volume"))
+        self.displacement_volume.setValue(sv("displacement_volume"))
+        self.top_of_cement.setValue(sv("top_of_cement"))
+        self.bottom_of_cement.setValue(sv("bottom_of_cement"))
         self.cement_summary.setPlainText(str(data.get("summary","") or ""))
         self.materials_table.setRowCount(0)
         mj=data.get("materials_json")
@@ -484,16 +542,24 @@ class CementReportTab(QWidget):
         self._refresh_cement_source_status()
 
     def clear_form(self):
-        self.report_name.clear(); self.cement_type.setCurrentIndex(0); self.job_type.setCurrentIndex(0)
-        for sp in [self.slurry_density,self.slurry_yield,self.mix_water,self.compressive_strength,self.fluid_loss,self.cement_volume,self.displacement_volume,self.top_of_cement,self.bottom_of_cement]: sp.setValue(0)
-        self.slurry_density.setValue(120); self.slurry_yield.setValue(1.18); self.mix_water.setValue(5.2); self.compressive_strength.setValue(2500)
-        self.materials_table.setRowCount(0); self.cement_summary.clear()
+        self.report_name.clear()
+        self.cement_type.setCurrentIndex(0)
+        self.job_type.setCurrentIndex(0)
+        for sp in [self.slurry_density,self.slurry_yield,self.mix_water,self.compressive_strength,self.fluid_loss,self.cement_volume,self.displacement_volume,self.top_of_cement,self.bottom_of_cement]:
+            sp.setValue(0)
+        self.slurry_density.setValue(120)
+        self.slurry_yield.setValue(1.18)
+        self.mix_water.setValue(5.2)
+        self.compressive_strength.setValue(2500)
+        self.materials_table.setRowCount(0)
+        self.cement_summary.clear()
         self._loaded_cement_source = {}
         self._loaded_cement_display = {}
         self._cement_touched.clear()
         self._refresh_cement_source_status()
 
-    def refresh(self): self.load_data()
+    def refresh(self):
+        self.load_data()
 
 
 # ==================== 2. CasingReportTab ====================
@@ -626,17 +692,22 @@ class CasingReportTab(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        scroll = QScrollArea(); scroll.setWidgetResizable(True)
-        content = QWidget(); cl = QVBoxLayout(content)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        cl = QVBoxLayout(content)
 
         hg = QGroupBox("🔩 Casing Job Information")
         hl = QGridLayout()
         hl.addWidget(QLabel("Report Name:"),0,0)
-        self.report_name = QLineEdit(); hl.addWidget(self.report_name,0,1)
+        self.report_name = QLineEdit()
+        hl.addWidget(self.report_name,0,1)
         hl.addWidget(QLabel("Casing Type:"),0,2)
-        self.casing_type = QComboBox(); self.casing_type.addItems(["Surface","Intermediate","Production","Liner","Tieback"])
+        self.casing_type = QComboBox()
+        self.casing_type.addItems(["Surface","Intermediate","Production","Liner","Tieback"])
         hl.addWidget(self.casing_type,0,3)
-        hg.setLayout(hl); cl.addWidget(hg)
+        hg.setLayout(hl)
+        cl.addWidget(hg)
 
         self.casing_source_status = QLabel()
         self.casing_source_status.setWordWrap(True)
@@ -650,59 +721,103 @@ class CasingReportTab(QWidget):
         self.casing_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         dl.addWidget(self.casing_table)
         cb = QHBoxLayout()
-        ab = QPushButton("➕ Add"); ab.clicked.connect(self.add_casing_row)
-        rb = QPushButton("➖ Remove"); rb.clicked.connect(self.remove_casing_row)
-        cb.addWidget(ab); cb.addWidget(rb); cb.addStretch()
-        dl.addLayout(cb); dg.setLayout(dl); cl.addWidget(dg)
+        ab = QPushButton("➕ Add")
+        ab.clicked.connect(self.add_casing_row)
+        rb = QPushButton("➖ Remove")
+        rb.clicked.connect(self.remove_casing_row)
+        cb.addWidget(ab)
+        cb.addWidget(rb)
+        cb.addStretch()
+        dl.addLayout(cb)
+        dg.setLayout(dl)
+        cl.addWidget(dg)
 
         pg = QGroupBox("⚙️ Properties")
         pl = QGridLayout()
-        self.burst_pressure=QDoubleSpinBox();self.burst_pressure.setRange(0,20000)
-        self.collapse_pressure=QDoubleSpinBox();self.collapse_pressure.setRange(0,20000)
-        self.tensile_strength=QDoubleSpinBox();self.tensile_strength.setRange(0,5000)
-        self.makeup_torque=QDoubleSpinBox();self.makeup_torque.setRange(0,50000)
-        self.drift_diameter=QDoubleSpinBox();self.drift_diameter.setRange(0,100);self.drift_diameter.setDecimals(3)
-        self.internal_yield=QDoubleSpinBox();self.internal_yield.setRange(0,20000)
-        self.running_speed=QDoubleSpinBox();self.running_speed.setRange(0,50);self.running_speed.setDecimals(1)
-        self.fillup_frequency=QSpinBox();self.fillup_frequency.setRange(0,100)
-        self.centralizer_spacing=QDoubleSpinBox();self.centralizer_spacing.setRange(0,100)
-        self.scratcher_spacing=QDoubleSpinBox();self.scratcher_spacing.setRange(0,100)
+        self.burst_pressure=QDoubleSpinBox()
+        self.burst_pressure.setRange(0,20000)
+        self.collapse_pressure=QDoubleSpinBox()
+        self.collapse_pressure.setRange(0,20000)
+        self.tensile_strength=QDoubleSpinBox()
+        self.tensile_strength.setRange(0,5000)
+        self.makeup_torque=QDoubleSpinBox()
+        self.makeup_torque.setRange(0,50000)
+        self.drift_diameter=QDoubleSpinBox()
+        self.drift_diameter.setRange(0,100)
+        self.drift_diameter.setDecimals(3)
+        self.internal_yield=QDoubleSpinBox()
+        self.internal_yield.setRange(0,20000)
+        self.running_speed=QDoubleSpinBox()
+        self.running_speed.setRange(0,50)
+        self.running_speed.setDecimals(1)
+        self.fillup_frequency=QSpinBox()
+        self.fillup_frequency.setRange(0,100)
+        self.centralizer_spacing=QDoubleSpinBox()
+        self.centralizer_spacing.setRange(0,100)
+        self.scratcher_spacing=QDoubleSpinBox()
+        self.scratcher_spacing.setRange(0,100)
         for r,pairs in enumerate([("Burst:",self.burst_pressure,"Collapse:",self.collapse_pressure),("Tensile:",self.tensile_strength,"MU Torque:",self.makeup_torque),("Drift ID:",self.drift_diameter,"Int. Yield:",self.internal_yield),("Run Speed:",self.running_speed,"Fill-up:",self.fillup_frequency),("Centralizer:",self.centralizer_spacing,"Scratcher:",self.scratcher_spacing)]):
-            pl.addWidget(QLabel(pairs[0]),r,0);pl.addWidget(pairs[1],r,1);pl.addWidget(QLabel(pairs[2]),r,2);pl.addWidget(pairs[3],r,3)
-        pg.setLayout(pl); cl.addWidget(pg)
+            pl.addWidget(QLabel(pairs[0]),r,0)
+            pl.addWidget(pairs[1],r,1)
+            pl.addWidget(QLabel(pairs[2]),r,2)
+            pl.addWidget(pairs[3],r,3)
+        pg.setLayout(pl)
+        cl.addWidget(pg)
 
-        sg=QGroupBox("📝 Summary");sl=QVBoxLayout()
-        self.casing_summary=QTextEdit();self.casing_summary.setMaximumHeight(120)
-        sl.addWidget(self.casing_summary);sg.setLayout(sl);cl.addWidget(sg)
+        sg=QGroupBox("📝 Summary")
+        sl=QVBoxLayout()
+        self.casing_summary=QTextEdit()
+        self.casing_summary.setMaximumHeight(120)
+        sl.addWidget(self.casing_summary)
+        sg.setLayout(sl)
+        cl.addWidget(sg)
 
         bl=QHBoxLayout()
-        sb=QPushButton("💾 Save");sb.clicked.connect(self.save_data)
-        lb=QPushButton("📂 Load");lb.clicked.connect(self.load_data)
-        bl.addWidget(sb);bl.addWidget(lb);bl.addStretch()
-        cl.addLayout(bl);cl.addStretch()
-        scroll.setWidget(content);layout.addWidget(scroll)
+        sb=QPushButton("💾 Save")
+        sb.clicked.connect(self.save_data)
+        lb=QPushButton("📂 Load")
+        lb.clicked.connect(self.load_data)
+        bl.addWidget(sb)
+        bl.addWidget(lb)
+        bl.addStretch()
+        cl.addLayout(bl)
+        cl.addStretch()
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
 
     def add_casing_row(self,size=0,od=0,id_s=0,weight=0,grade="",conn="",from_d=0,to_d=0,shoe=0,remarks=""):
-        row=self.casing_table.rowCount();self.casing_table.insertRow(row)
+        row=self.casing_table.rowCount()
+        self.casing_table.insertRow(row)
         for col,val,rng,dec in [(0,size,(0,100),3),(1,od,(0,100),3),(2,id_s,(0,100),3),(3,weight,(0,1000),1),(6,from_d,(0,20000),2),(7,to_d,(0,20000),2),(8,shoe,(0,20000),2)]:
-            sp=QDoubleSpinBox();sp.setRange(*rng);sp.setValue(val);sp.setDecimals(dec);self.casing_table.setCellWidget(row,col,sp)
+            sp=QDoubleSpinBox()
+            sp.setRange(*rng)
+            sp.setValue(val)
+            sp.setDecimals(dec)
+            self.casing_table.setCellWidget(row,col,sp)
         for col,items,cur in [(4,["H-40","J-55","K-55","N-80","L-80","C-90","P-110","Q-125"],grade),(5,["BTC","LTC","STC","Premium","Integral","Buttress"],conn)]:
-            cb=QComboBox();cb.addItems(items);cb.setCurrentText(cur);self.casing_table.setCellWidget(row,col,cb)
+            cb=QComboBox()
+            cb.addItems(items)
+            cb.setCurrentText(cur)
+            self.casing_table.setCellWidget(row,col,cb)
         self.casing_table.setCellWidget(row,9,QLineEdit(remarks))
 
     def remove_casing_row(self):
         r=self.casing_table.currentRow()
-        if r>=0:self.casing_table.removeRow(r)
+        if r>=0:
+            self.casing_table.removeRow(r)
 
     @editor_loaded()
     def load_for_report(self,report_id):
         if self.db_manager:
             data=self.db_manager.get_casing_report(report_id=report_id)
-            if data:self.load_from_dict(data)
-            else:self.clear_form()
+            if data:
+                self.load_from_dict(data)
+            else:
+                self.clear_form()
 
     def save_data_for_report(self,report_id):
-        if not self.current_well:return False
+        if not self.current_well:
+            return False
         cd=[]
         for row in range(self.casing_table.rowCount()):
             cd.append({k:(self.casing_table.cellWidget(row,c).value() if isinstance(self.casing_table.cellWidget(row,c),QDoubleSpinBox) else self.casing_table.cellWidget(row,c).currentText() if isinstance(self.casing_table.cellWidget(row,c),QComboBox) else self.casing_table.cellWidget(row,c).text() if self.casing_table.cellWidget(row,c) else "") for c,k in enumerate(["size","od","id","weight","grade","connection","from","to","shoe","remarks"])})
@@ -776,7 +891,8 @@ class CasingReportTab(QWidget):
         if cj:
             try:
                 cs=json.loads(cj) if isinstance(cj,str) else cj
-                for c in cs:self.add_casing_row(float(c.get("size",0)or 0),float(c.get("od",0)or 0),float(c.get("id",0)or 0),float(c.get("weight",0)or 0),str(c.get("grade","")or""),str(c.get("connection","")or""),float(c.get("from",0)or 0),float(c.get("to",0)or 0),float(c.get("shoe",0)or 0),str(c.get("remarks","")or""))
+                for c in cs:
+                    self.add_casing_row(float(c.get("size",0)or 0),float(c.get("od",0)or 0),float(c.get("id",0)or 0),float(c.get("weight",0)or 0),str(c.get("grade","")or""),str(c.get("connection","")or""),float(c.get("from",0)or 0),float(c.get("to",0)or 0),float(c.get("shoe",0)or 0),str(c.get("remarks","")or""))
             except Exception as e:
                 logger.error(f"Casing JSON error: {e}")
                 raise
@@ -788,15 +904,20 @@ class CasingReportTab(QWidget):
         self._refresh_casing_source_status()
 
     def clear_form(self):
-        self.report_name.clear();self.casing_type.setCurrentIndex(0)
-        for sp in [self.burst_pressure,self.collapse_pressure,self.tensile_strength,self.makeup_torque,self.drift_diameter,self.internal_yield,self.running_speed,self.centralizer_spacing,self.scratcher_spacing]:sp.setValue(0)
-        self.fillup_frequency.setValue(0);self.casing_table.setRowCount(0);self.casing_summary.clear()
+        self.report_name.clear()
+        self.casing_type.setCurrentIndex(0)
+        for sp in [self.burst_pressure,self.collapse_pressure,self.tensile_strength,self.makeup_torque,self.drift_diameter,self.internal_yield,self.running_speed,self.centralizer_spacing,self.scratcher_spacing]:
+            sp.setValue(0)
+        self.fillup_frequency.setValue(0)
+        self.casing_table.setRowCount(0)
+        self.casing_summary.clear()
         self._loaded_casing_source = {}
         self._loaded_casing_display = {}
         self._casing_touched.clear()
         self._refresh_casing_source_status()
 
-    def refresh(self):self.load_data()
+    def refresh(self):
+        self.load_data()
 
 
 # ==================== 3. CasingTallyWidget ====================
@@ -816,7 +937,9 @@ class CasingTallyWidget(QWidget):
         main_layout = QVBoxLayout(self)
         toolbar = QToolBar()
         for text, slot in [("💾 Save",self.save_tally_report),("📂 Load",self.load_tally_report),("📤 Export",self.export_tally_data),("🔄 Calculate",self.calculate_all)]:
-            a=QAction(text,self);a.triggered.connect(slot);toolbar.addAction(a)
+            a=QAction(text,self)
+            a.triggered.connect(slot)
+            toolbar.addAction(a)
         toolbar.addSeparator()
         self.current_well_label = QLabel("No well selected")
         toolbar.addWidget(self.current_well_label)
@@ -827,62 +950,123 @@ class CasingTallyWidget(QWidget):
         self.tab_widget.addTab(self.create_tally_details_tab(), "📊 Tally Details")
         self.tab_widget.addTab(self.create_summary_tab(), "📝 Summary")
         main_layout.addWidget(self.tab_widget)
-        self.status_bar = QStatusBar(); self.status_bar.showMessage("Ready")
+        self.status_bar = QStatusBar()
+        self.status_bar.showMessage("Ready")
         main_layout.addWidget(self.status_bar)
 
     def create_specifications_tab(self):
-        tab=QWidget();layout=QVBoxLayout(tab);scroll=QScrollArea();scroll.setWidgetResizable(True)
-        content=QWidget();cl=QVBoxLayout(content)
-        sg=QGroupBox("Casing Specifications");sl=QVBoxLayout()
+        tab=QWidget()
+        layout=QVBoxLayout(tab)
+        scroll=QScrollArea()
+        scroll.setWidgetResizable(True)
+        content=QWidget()
+        cl=QVBoxLayout(content)
+        sg=QGroupBox("Casing Specifications")
+        sl=QVBoxLayout()
         self.specs_table=QTableWidget(0,12)
         self.specs_table.setHorizontalHeaderLabels(["Size","ID","Weight","Drift ID","MU Torque","Burst","Collapse","Tensile","Coupling","Nominal OD","Grade","Connection"])
-        self.specs_table.setAlternatingRowColors(True);sl.addWidget(self.specs_table)
+        self.specs_table.setAlternatingRowColors(True)
+        sl.addWidget(self.specs_table)
         sb=QHBoxLayout()
         for text,slot in [("➕ Add",self.add_specification_row),("➖ Remove",self.remove_specification_row)]:
-            b=QPushButton(text);b.clicked.connect(slot);sb.addWidget(b)
-        sb.addStretch();sl.addLayout(sb);sg.setLayout(sl);cl.addWidget(sg)
+            b=QPushButton(text)
+            b.clicked.connect(slot)
+            sb.addWidget(b)
+        sb.addStretch()
+        sl.addLayout(sb)
+        sg.setLayout(sl)
+        cl.addWidget(sg)
 
-        pg=QGroupBox("Parameters");pl=QGridLayout()
-        self.rt_depth=QDoubleSpinBox();self.rt_depth.setRange(0,20000);self.rt_depth.setValue(3000);self.rt_depth.setSuffix(" m")
-        self.mud_weight=QDoubleSpinBox();self.mud_weight.setRange(0,200);self.mud_weight.setValue(65);self.mud_weight.setSuffix(" pcf")
-        self.steel_density=QDoubleSpinBox();self.steel_density.setRange(0,500);self.steel_density.setValue(490);self.steel_density.setSuffix(" lb/ft³")
-        self.buoyancy_factor=QDoubleSpinBox();self.buoyancy_factor.setReadOnly(True);self.buoyancy_factor.setRange(0,1);self.buoyancy_factor.setDecimals(3)
-        pl.addWidget(QLabel("RT Depth:"),0,0);pl.addWidget(self.rt_depth,0,1)
-        pl.addWidget(QLabel("Mud Weight:"),0,2);pl.addWidget(self.mud_weight,0,3)
-        pl.addWidget(QLabel("Steel Density:"),1,0);pl.addWidget(self.steel_density,1,1)
-        pl.addWidget(QLabel("Buoyancy:"),1,2);pl.addWidget(self.buoyancy_factor,1,3)
-        pg.setLayout(pl);cl.addWidget(pg)
+        pg=QGroupBox("Parameters")
+        pl=QGridLayout()
+        self.rt_depth=QDoubleSpinBox()
+        self.rt_depth.setRange(0,20000)
+        self.rt_depth.setValue(3000)
+        self.rt_depth.setSuffix(" m")
+        self.mud_weight=QDoubleSpinBox()
+        self.mud_weight.setRange(0,200)
+        self.mud_weight.setValue(65)
+        self.mud_weight.setSuffix(" pcf")
+        self.steel_density=QDoubleSpinBox()
+        self.steel_density.setRange(0,500)
+        self.steel_density.setValue(490)
+        self.steel_density.setSuffix(" lb/ft³")
+        self.buoyancy_factor=QDoubleSpinBox()
+        self.buoyancy_factor.setReadOnly(True)
+        self.buoyancy_factor.setRange(0,1)
+        self.buoyancy_factor.setDecimals(3)
+        pl.addWidget(QLabel("RT Depth:"),0,0)
+        pl.addWidget(self.rt_depth,0,1)
+        pl.addWidget(QLabel("Mud Weight:"),0,2)
+        pl.addWidget(self.mud_weight,0,3)
+        pl.addWidget(QLabel("Steel Density:"),1,0)
+        pl.addWidget(self.steel_density,1,1)
+        pl.addWidget(QLabel("Buoyancy:"),1,2)
+        pl.addWidget(self.buoyancy_factor,1,3)
+        pg.setLayout(pl)
+        cl.addWidget(pg)
         self.add_sample_specifications()
-        scroll.setWidget(content);layout.addWidget(scroll);return tab
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+        return tab
 
     def create_tally_details_tab(self):
-        tab=QWidget();layout=QVBoxLayout(tab);scroll=QScrollArea();scroll.setWidgetResizable(True)
-        content=QWidget();cl=QVBoxLayout(content)
-        tg=QGroupBox("Casing Tally");tl=QVBoxLayout()
+        tab=QWidget()
+        layout=QVBoxLayout(tab)
+        scroll=QScrollArea()
+        scroll.setWidgetResizable(True)
+        content=QWidget()
+        cl=QVBoxLayout(content)
+        tg=QGroupBox("Casing Tally")
+        tl=QVBoxLayout()
         self.tally_table=QTableWidget(0,12)
         self.tally_table.setHorizontalHeaderLabels(["No.","Size","Grade","Order No.","Joint Len(m)","Cum Length","Dist to RT","M/D Weight","String Cap","Centralizers","IN/OUT","Remarks"])
-        self.tally_table.setAlternatingRowColors(True);tl.addWidget(self.tally_table)
+        self.tally_table.setAlternatingRowColors(True)
+        tl.addWidget(self.tally_table)
         tb=QHBoxLayout()
         for text,slot in [("➕ Add Joint",self.add_tally_row),("➖ Remove",self.remove_tally_row),("🗑️ Clear",self.clear_tally_table),("🔄 Auto Fill",self.auto_fill_tally)]:
-            b=QPushButton(text);b.clicked.connect(slot);tb.addWidget(b)
-        tb.addStretch();tl.addLayout(tb);tg.setLayout(tl);cl.addWidget(tg)
+            b=QPushButton(text)
+            b.clicked.connect(slot)
+            tb.addWidget(b)
+        tb.addStretch()
+        tl.addLayout(tb)
+        tg.setLayout(tl)
+        cl.addWidget(tg)
         self.add_sample_tally_rows()
-        scroll.setWidget(content);layout.addWidget(scroll);return tab
+        scroll.setWidget(content)
+        layout.addWidget(scroll)
+        return tab
 
     def create_summary_tab(self):
-        tab=QWidget();layout=QVBoxLayout(tab)
-        rg=QGroupBox("Summary");rl=QVBoxLayout()
-        self.summary_text=QTextEdit();self.summary_text.setMinimumHeight(200);self.summary_text.setReadOnly(True)
+        tab=QWidget()
+        layout=QVBoxLayout(tab)
+        rg=QGroupBox("Summary")
+        rl=QVBoxLayout()
+        self.summary_text=QTextEdit()
+        self.summary_text.setMinimumHeight(200)
+        self.summary_text.setReadOnly(True)
         rl.addWidget(self.summary_text)
         rb=QHBoxLayout()
         for text,slot in [("📊 Generate",self.generate_summary_report),("📤 Export",self.export_summary_report),("🖨️ Print",self.print_report)]:
-            b=QPushButton(text);b.clicked.connect(slot);rb.addWidget(b)
-        rb.addStretch();rl.addLayout(rb);rg.setLayout(rl);layout.addWidget(rg)
-        stg=QGroupBox("Quick Statistics");stl=QGridLayout()
+            b=QPushButton(text)
+            b.clicked.connect(slot)
+            rb.addWidget(b)
+        rb.addStretch()
+        rl.addLayout(rb)
+        rg.setLayout(rl)
+        layout.addWidget(rg)
+        stg=QGroupBox("Quick Statistics")
+        stl=QGridLayout()
         for i,(label,key) in enumerate([("Total Joints:","total_joints"),("Total Length:","total_length"),("Total Weight:","total_weight"),("Total Capacity:","total_capacity"),("IN Joints:","in_joints"),("OUT Joints:","out_joints"),("Avg Joint Length:","avg_length"),("Buoyancy Factor:","buoyancy_factor")]):
-            r,c=i//2,(i%2)*2;stl.addWidget(QLabel(label),r,c)
-            vl=QLabel("0");vl.setStyleSheet("font-weight:bold;color:#0078d4;");stl.addWidget(vl,r,c+1);self.stats_labels[key]=vl
-        stg.setLayout(stl);layout.addWidget(stg);return tab
+            r,c=i//2,(i%2)*2
+            stl.addWidget(QLabel(label),r,c)
+            vl=QLabel("0")
+            vl.setStyleSheet("font-weight:bold;color:#0078d4;")
+            stl.addWidget(vl,r,c+1)
+            self.stats_labels[key]=vl
+        stg.setLayout(stl)
+        layout.addWidget(stg)
+        return tab
 
     def setup_connections(self):
         self.rt_depth.valueChanged.connect(self.calculate_tally)
@@ -894,75 +1078,135 @@ class CasingTallyWidget(QWidget):
             self.add_specification_row(*spec)
 
     def add_specification_row(self,size=13.375,id_s=12.415,weight=61,drift=12.347,torque=22700,burst=6070,collapse=4810,tensile=1126000,coupling="BTC",nom_od=14.375,grade="P-110",connection="Premium"):
-        row=self.specs_table.rowCount();self.specs_table.insertRow(row)
+        row=self.specs_table.rowCount()
+        self.specs_table.insertRow(row)
         for col,val,rng,dec in [(0,size,(0,100),3),(1,id_s,(0,100),3),(2,weight,(0,1000),2),(3,drift,(0,100),3),(4,torque,(0,100000),0),(5,burst,(0,20000),0),(6,collapse,(0,20000),0),(7,tensile,(0,5000000),0),(9,nom_od,(0,100),3)]:
-            sp=QDoubleSpinBox();sp.setRange(*rng);sp.setValue(val);sp.setDecimals(dec)
-            if col in [0,1,2]:sp.valueChanged.connect(lambda:self.calculate_tally())
+            sp=QDoubleSpinBox()
+            sp.setRange(*rng)
+            sp.setValue(val)
+            sp.setDecimals(dec)
+            if col in [0,1,2]:
+                sp.valueChanged.connect(lambda:self.calculate_tally())
             self.specs_table.setCellWidget(row,col,sp)
         for col,items,cur in [(8,["BTC","LTC","STC","Premium","Integral","Buttress"],coupling),(10,["H-40","J-55","K-55","N-80","L-80","C-90","P-110","Q-125"],grade),(11,["VAM","Hydril","Grant","Tenaris","Premium","Other"],connection)]:
-            cb=QComboBox();cb.addItems(items);cb.setCurrentText(cur);self.specs_table.setCellWidget(row,col,cb)
+            cb=QComboBox()
+            cb.addItems(items)
+            cb.setCurrentText(cur)
+            self.specs_table.setCellWidget(row,col,cb)
 
     def remove_specification_row(self):
         r=self.specs_table.currentRow()
-        if r>=0:self.specs_table.removeRow(r)
+        if r>=0:
+            self.specs_table.removeRow(r)
 
     def add_sample_tally_rows(self):
-        for i in range(5):self.add_tally_row(i+1)
+        for i in range(5):
+            self.add_tally_row(i+1)
 
     def add_tally_row(self,joint_no=None):
-        if joint_no is None:joint_no=self.tally_table.rowCount()+1
-        row=self.tally_table.rowCount();self.tally_table.insertRow(row)
-        ni=QTableWidgetItem(str(joint_no));ni.setTextAlignment(Qt.AlignCenter);self.tally_table.setItem(row,0,ni)
-        sc=QComboBox();sc.addItems(["13.375","9.625","7.000","5.500"]);sc.currentTextChanged.connect(lambda:self.calculate_tally());self.tally_table.setCellWidget(row,1,sc)
-        gc=QComboBox();gc.addItems(["P-110","L-80","N-80","K-55"]);self.tally_table.setCellWidget(row,2,gc)
-        oe=QLineEdit(f"ORD-{joint_no:03d}");self.tally_table.setCellWidget(row,3,oe)
-        ls=QDoubleSpinBox();ls.setRange(0,50);ls.setValue(12.0);ls.setDecimals(2);ls.valueChanged.connect(self.calculate_tally);self.tally_table.setCellWidget(row,4,ls)
+        if joint_no is None:
+            joint_no=self.tally_table.rowCount()+1
+        row=self.tally_table.rowCount()
+        self.tally_table.insertRow(row)
+        ni=QTableWidgetItem(str(joint_no))
+        ni.setTextAlignment(Qt.AlignCenter)
+        self.tally_table.setItem(row,0,ni)
+        sc=QComboBox()
+        sc.addItems(["13.375","9.625","7.000","5.500"])
+        sc.currentTextChanged.connect(lambda:self.calculate_tally())
+        self.tally_table.setCellWidget(row,1,sc)
+        gc=QComboBox()
+        gc.addItems(["P-110","L-80","N-80","K-55"])
+        self.tally_table.setCellWidget(row,2,gc)
+        oe=QLineEdit(f"ORD-{joint_no:03d}")
+        self.tally_table.setCellWidget(row,3,oe)
+        ls=QDoubleSpinBox()
+        ls.setRange(0,50)
+        ls.setValue(12.0)
+        ls.setDecimals(2)
+        ls.valueChanged.connect(self.calculate_tally)
+        self.tally_table.setCellWidget(row,4,ls)
         for col in [5,6,7,8]:
-            it=QTableWidgetItem("0.00");it.setTextAlignment(Qt.AlignCenter);self.tally_table.setItem(row,col,it)
-        cc=QComboBox();cc.addItems(["Yes","No"]);self.tally_table.setCellWidget(row,9,cc)
-        ic=QComboBox();ic.addItems(["IN","OUT"]);ic.currentTextChanged.connect(lambda:self.calculate_tally());self.tally_table.setCellWidget(row,10,ic)
-        re=QLineEdit();self.tally_table.setCellWidget(row,11,re)
+            it=QTableWidgetItem("0.00")
+            it.setTextAlignment(Qt.AlignCenter)
+            self.tally_table.setItem(row,col,it)
+        cc=QComboBox()
+        cc.addItems(["Yes","No"])
+        self.tally_table.setCellWidget(row,9,cc)
+        ic=QComboBox()
+        ic.addItems(["IN","OUT"])
+        ic.currentTextChanged.connect(lambda:self.calculate_tally())
+        self.tally_table.setCellWidget(row,10,ic)
+        re=QLineEdit()
+        self.tally_table.setCellWidget(row,11,re)
         self.calculate_tally()
 
     def remove_tally_row(self):
         r=self.tally_table.currentRow()
-        if r>=0:self.tally_table.removeRow(r);self.calculate_tally()
+        if r>=0:
+            self.tally_table.removeRow(r)
+            self.calculate_tally()
 
     def clear_tally_table(self):
-        if QMessageBox.question(self,"Clear","Clear all?")==QMessageBox.Yes:self.tally_table.setRowCount(0)
+        if QMessageBox.question(self,"Clear","Clear all?")==QMessageBox.Yes:
+            self.tally_table.setRowCount(0)
 
     def auto_fill_tally(self):
         if QMessageBox.question(self,"Auto Fill","Add 20 joints?")==QMessageBox.Yes:
-            for i in range(20):self.add_tally_row()
+            for i in range(20):
+                self.add_tally_row()
 
     def calculate_buoyancy(self):
-        mud=self.mud_weight.value();steel=self.steel_density.value()
+        mud=self.mud_weight.value()
+        steel=self.steel_density.value()
         if steel>0:
-            bf=1-(mud/steel);self.buoyancy_factor.setValue(bf)
-            if "buoyancy_factor" in self.stats_labels:self.stats_labels["buoyancy_factor"].setText(f"{bf:.3f}")
+            bf=1-(mud/steel)
+            self.buoyancy_factor.setValue(bf)
+            if "buoyancy_factor" in self.stats_labels:
+                self.stats_labels["buoyancy_factor"].setText(f"{bf:.3f}")
 
     def calculate_tally(self):
-        rt=self.rt_depth.value();bf=self.buoyancy_factor.value();cum_l=cum_w=cum_c=0.0
+        rt=self.rt_depth.value()
+        bf=self.buoyancy_factor.value()
+        cum_l=cum_w=cum_c=0.0
         for row in range(self.tally_table.rowCount()):
-            sc=self.tally_table.cellWidget(row,1);lw=self.tally_table.cellWidget(row,4);io=self.tally_table.cellWidget(row,10)
-            if not all([sc,lw,io]):continue
-            st=sc.currentText();jl=lw.value();inout=io.currentText()
+            sc=self.tally_table.cellWidget(row,1)
+            lw=self.tally_table.cellWidget(row,4)
+            io=self.tally_table.cellWidget(row,10)
+            if not all([sc,lw,io]):
+                continue
+            st=sc.currentText()
+            jl=lw.value()
+            inout=io.currentText()
             if inout=="OUT":
-                for col,val in [(5,cum_l),(6,rt-cum_l),(7,cum_w),(8,cum_c)]:self.tally_table.item(row,col).setText(f"{val:.2f}")
+                for col,val in [(5,cum_l),(6,rt-cum_l),(7,cum_w),(8,cum_c)]:
+                    self.tally_table.item(row,col).setText(f"{val:.2f}")
                 continue
             wpf=id_i=0.0
             for sr in range(self.specs_table.rowCount()):
                 ss=self.specs_table.cellWidget(sr,0)
-                if ss and abs(ss.value()-float(st))<0.001:wpf=self.specs_table.cellWidget(sr,2).value();id_i=self.specs_table.cellWidget(sr,1).value();break
-            cum_l+=jl;jlf=jl*3.28084;aw=wpf*jlf;bw=(aw/1000)*bf;cum_w+=bw
-            idf=id_i/12.0;vol=3.1416*(idf/2)**2*jlf;vb=vol/5.615;cum_c+=vb
+                if ss and abs(ss.value()-float(st))<0.001:
+                    wpf=self.specs_table.cellWidget(sr,2).value()
+                    id_i=self.specs_table.cellWidget(sr,1).value()
+                    break
+            cum_l+=jl
+            jlf=jl*3.28084
+            aw=wpf*jlf
+            bw=(aw/1000)*bf
+            cum_w+=bw
+            idf=id_i/12.0
+            vol=3.1416*(idf/2)**2*jlf
+            vb=vol/5.615
+            cum_c+=vb
             for col,val in [(5,cum_l),(6,rt-cum_l),(7,cum_w),(8,cum_c)]:
                 it=self.tally_table.item(row,col)
-                if it:it.setText(f"{val:.2f}" if col!=8 else f"{val:.3f}")
+                if it:
+                    it.setText(f"{val:.2f}" if col!=8 else f"{val:.3f}")
         self.update_statistics()
 
     def update_statistics(self):
-        if not self.stats_labels:return
+        if not self.stats_labels:
+            return
         total=self.tally_table.rowCount()
         inj=sum(1 for r in range(total) if self.tally_table.cellWidget(r,10) and self.tally_table.cellWidget(r,10).currentText()=="IN")
         tl=tw=tc=0.0
@@ -973,18 +1217,27 @@ class CasingTallyWidget(QWidget):
                 if it:
                     try:
                         v=float(it.text())
-                        if col==5:tl=v
-                        elif col==7:tw=v
-                        else:tc=v
+                        if col==5:
+                            tl=v
+                        elif col==7:
+                            tw=v
+                        else:
+                            tc=v
                     except (TypeError, ValueError):  # silent-ok: non-numeric cell excluded from the loss totals
                         pass
         al=tl/inj if inj>0 else 0
-        self.stats_labels["total_joints"].setText(str(total));self.stats_labels["total_length"].setText(f"{tl:.2f} m")
-        self.stats_labels["total_weight"].setText(f"{tw:.2f} Klbs");self.stats_labels["total_capacity"].setText(f"{tc:.3f} bbl")
-        self.stats_labels["in_joints"].setText(str(inj));self.stats_labels["out_joints"].setText(str(total-inj))
+        self.stats_labels["total_joints"].setText(str(total))
+        self.stats_labels["total_length"].setText(f"{tl:.2f} m")
+        self.stats_labels["total_weight"].setText(f"{tw:.2f} Klbs")
+        self.stats_labels["total_capacity"].setText(f"{tc:.3f} bbl")
+        self.stats_labels["in_joints"].setText(str(inj))
+        self.stats_labels["out_joints"].setText(str(total-inj))
         self.stats_labels["avg_length"].setText(f"{al:.2f} m")
 
-    def calculate_all(self):self.calculate_buoyancy();self.calculate_tally();self.generate_summary_report()
+    def calculate_all(self):
+        self.calculate_buoyancy()
+        self.calculate_tally()
+        self.generate_summary_report()
 
     def generate_summary_report(self):
         self.calculate_tally()
@@ -1052,14 +1305,17 @@ class CasingTallyWidget(QWidget):
         
     @editor_loaded()
     def load_tally_report(self):
-        if not self.current_well or not self.db_manager:return
+        if not self.current_well or not self.db_manager:
+            return
         rpt=self.db_manager.get_casing_report(well_id=self.current_well)
-        if not rpt or not rpt.get("tally_json"):return
+        if not rpt or not rpt.get("tally_json"):
+            return
         try:
             data=json.loads(rpt["tally_json"])
             self.tally_table.setRowCount(0)
             for j in data.get("tally",[]):
-                self.add_tally_row();r=self.tally_table.rowCount()-1
+                self.add_tally_row()
+                r=self.tally_table.rowCount()-1
                 self.tally_table.cellWidget(r,1).setCurrentText(str(j.get("Size","13.375")))
                 self.tally_table.cellWidget(r,2).setCurrentText(str(j.get("Grade","P-110")))
                 self.tally_table.cellWidget(r,3).setText(str(j.get("Order No","")))
@@ -1068,27 +1324,37 @@ class CasingTallyWidget(QWidget):
                 self.tally_table.cellWidget(r,10).setCurrentText(str(j.get("IN/OUT","IN")))
                 self.tally_table.cellWidget(r,11).setText(str(j.get("Remarks","")))
             p=data.get("parameters",{})
-            self.rt_depth.setValue(p.get("rt_depth",3000));self.mud_weight.setValue(p.get("mud_weight",65))
+            self.rt_depth.setValue(p.get("rt_depth",3000))
+            self.mud_weight.setValue(p.get("mud_weight",65))
             self.calculate_tally()
         except Exception as e:
             logger.error(f"Load tally error: {e}")
             raise
 
     @editor_loaded()
-    def load_tally_for_report(self,report_id):self.current_report_id=report_id;self.load_tally_report()
-    def export_tally_data(self):ExportManager(self).export_table_with_dialog(self.tally_table,"casing_tally")
+    def load_tally_for_report(self,report_id):
+        self.current_report_id=report_id
+        self.load_tally_report()
+    def export_tally_data(self):
+        ExportManager(self).export_table_with_dialog(self.tally_table,"casing_tally")
     def export_summary_report(self):
         fn,_=QFileDialog.getSaveFileName(self,"Export","tally_summary.txt","Text (*.txt)")
         if fn:
-            with open(fn,"w",encoding="utf-8") as f:f.write(self.summary_text.toPlainText())
+            with open(fn,"w",encoding="utf-8") as f:
+                f.write(self.summary_text.toPlainText())
     def print_report(self):
-        printer=QPrinter(QPrinter.HighResolution);dlg=QPrintDialog(printer,self)
+        printer=QPrinter(QPrinter.HighResolution)
+        dlg=QPrintDialog(printer,self)
         if dlg.exec()==QPrintDialog.Accepted:
             from PySide6.QtGui import QTextDocument
-            doc=QTextDocument();doc.setHtml(f"<h1>Casing Tally</h1><pre>{self.summary_text.toPlainText()}</pre>");doc.print_(printer)
+            doc=QTextDocument()
+            doc.setHtml(f"<h1>Casing Tally</h1><pre>{self.summary_text.toPlainText()}</pre>")
+            doc.print_(printer)
 
     def set_current_well(self,well_id,well_name=None):
-        self.current_well=well_id;self.current_well_label.setText(f"Well: {well_name or well_id}");self.load_tally_report()
+        self.current_well=well_id
+        self.current_well_label.setText(f"Well: {well_name or well_id}")
+        self.load_tally_report()
 
 
 # ==================== 4. ServiceCompanyTab ====================
@@ -1108,11 +1374,15 @@ class ServiceCompanyTab(QWidget):
         layout.addWidget(QLabel("<b>🏢 Service Company Management</b>"))
 
         fl = QHBoxLayout()
-        self.search_input = QLineEdit(); self.search_input.setPlaceholderText("Search...")
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search...")
         self.search_input.textChanged.connect(self.filter_table)
-        self.status_filter = QComboBox(); self.status_filter.addItems(["All","Active","Completed","Cancelled"])
+        self.status_filter = QComboBox()
+        self.status_filter.addItems(["All","Active","Completed","Cancelled"])
         self.status_filter.currentTextChanged.connect(self.filter_table)
-        fl.addWidget(self.search_input); fl.addWidget(self.status_filter); fl.addStretch()
+        fl.addWidget(self.search_input)
+        fl.addWidget(self.status_filter)
+        fl.addStretch()
         layout.addLayout(fl)
 
         self.table = QTableWidget(0, 15)
@@ -1125,17 +1395,25 @@ class ServiceCompanyTab(QWidget):
 
         bl = QHBoxLayout()
         for text, slot in [("➕ Add",self.add_company),("✏️ Edit",self.edit_company),("🗑️ Delete",self.delete_company),("🔄 Refresh",self.load_data),("📤 Export",self.export_data)]:
-            b = QPushButton(text); b.clicked.connect(slot); bl.addWidget(b)
+            b = QPushButton(text)
+            b.clicked.connect(slot)
+            bl.addWidget(b)
         bl.addStretch()
         layout.addLayout(bl)
 
         sl = QHBoxLayout()
-        self.total_label = QLabel("Total: 0"); self.active_label = QLabel("Active: 0"); self.personnel_label = QLabel("Personnel: 0")
-        sl.addWidget(self.total_label); sl.addWidget(self.active_label); sl.addWidget(self.personnel_label); sl.addStretch()
+        self.total_label = QLabel("Total: 0")
+        self.active_label = QLabel("Active: 0")
+        self.personnel_label = QLabel("Personnel: 0")
+        sl.addWidget(self.total_label)
+        sl.addWidget(self.active_label)
+        sl.addWidget(self.personnel_label)
+        sl.addStretch()
         layout.addLayout(sl)
 
     def set_current_well(self, well_id):
-        self.current_well_id = well_id; self.load_data()
+        self.current_well_id = well_id
+        self.load_data()
 
     def set_current_report(self, report_id):
         self.current_report_id = report_id
@@ -1143,12 +1421,17 @@ class ServiceCompanyTab(QWidget):
             self.load_data()
 
     def load_data(self):
-        if not self.db or not self.current_well_id: self.table.setRowCount(0); return
+        if not self.db or not self.current_well_id:
+            self.table.setRowCount(0)
+            return
         try:
             companies = self.db.get_service_companies(well_id=self.current_well_id, report_id=self.current_report_id)
-            self.table.setRowCount(0); tp = ac = 0; tp_unknown = 0
+            self.table.setRowCount(0)
+            tp = ac = 0
+            tp_unknown = 0
             for c in companies:
-                row = self.table.rowCount(); self.table.insertRow(row)
+                row = self.table.rowCount()
+                self.table.insertRow(row)
                 self.table.setItem(row, 0, QTableWidgetItem(str(c.get("id",""))))
                 self.table.setItem(row, 1, QTableWidgetItem(c.get("company_name","")))
                 self.table.setItem(row, 2, QTableWidgetItem(c.get("service_type","")))
@@ -1156,8 +1439,10 @@ class ServiceCompanyTab(QWidget):
                 dd = c.get("duration_day")
                 self.table.setItem(row, 4, QTableWidgetItem(f"{dd:g}" if dd not in (None, "") else ""))
                 self.table.setItem(row, 5, QTableWidgetItem(c.get("condition","")))
-                sd = c.get("start_datetime"); self.table.setItem(row, 6, QTableWidgetItem(str(sd) if sd else ""))
-                ed = c.get("end_datetime"); self.table.setItem(row, 7, QTableWidgetItem(str(ed) if ed else ""))
+                sd = c.get("start_datetime")
+                self.table.setItem(row, 6, QTableWidgetItem(str(sd) if sd else ""))
+                ed = c.get("end_datetime")
+                self.table.setItem(row, 7, QTableWidgetItem(str(ed) if ed else ""))
                 self.table.setItem(row, 8, QTableWidgetItem(c.get("contact_person","")))
                 self.table.setItem(row, 9, QTableWidgetItem(c.get("contact_phone","")))
                 self.table.setItem(row, 10, QTableWidgetItem(c.get("contact_email","")))
@@ -1170,14 +1455,18 @@ class ServiceCompanyTab(QWidget):
                 nh = c.get("npt_hours")
                 self.table.setItem(row, 12, QTableWidgetItem(f"{nh:g}" if nh not in (None, "") else ""))
                 self.table.setItem(row, 13, QTableWidgetItem(c.get("issue","")))
-                s = c.get("status",""); self.table.setItem(row, 14, QTableWidgetItem(s))
-                if s == "Active": ac += 1
+                s = c.get("status","")
+                self.table.setItem(row, 14, QTableWidgetItem(s))
+                if s == "Active":
+                    ac += 1
                 cm = {"Active":"#d4edda","Completed":"#cce5ff","Cancelled":"#f8d7da"}.get(s)
                 if cm:
                     for col in range(self.table.columnCount()):
                         it = self.table.item(row, col)
-                        if it: it.setBackground(QColor(cm))
-            self.total_label.setText(f"Total: {len(companies)}"); self.active_label.setText(f"Active: {ac}")
+                        if it:
+                            it.setBackground(QColor(cm))
+            self.total_label.setText(f"Total: {len(companies)}")
+            self.active_label.setText(f"Active: {ac}")
             # Unknown headcounts are shown as unknown, never silently dropped from
             # (or added as zero to) the personnel total.
             self.personnel_label.setText(
@@ -1187,34 +1476,43 @@ class ServiceCompanyTab(QWidget):
             raise
 
     def filter_table(self):
-        st = self.search_input.text().lower(); sf = self.status_filter.currentText()
+        st = self.search_input.text().lower()
+        sf = self.status_filter.currentText()
         for row in range(self.table.rowCount()):
             show = True
             if st:
                 show = any(self.table.item(row,c) and st in self.table.item(row,c).text().lower() for c in range(self.table.columnCount()))
             if sf != "All":
                 si = self.table.item(row, 14)
-                if not si or si.text() != sf: show = False
+                if not si or si.text() != sf:
+                    show = False
             self.table.setRowHidden(row, not show)
 
     def add_company(self):
-        if not self.current_well_id: QMessageBox.warning(self,"Warning","Select a well first"); return
+        if not self.current_well_id:
+            QMessageBox.warning(self,"Warning","Select a well first")
+            return
         dlg = _ServiceCompanyDialog(self.db, self.current_well_id, self.current_report_id, self)
-        if dlg.exec(): self.load_data()
+        if dlg.exec():
+            self.load_data()
 
     def edit_company(self):
         row = self.table.currentRow()
-        if row < 0: return
+        if row < 0:
+            return
         cid = int(self.table.item(row,0).text())
         dlg = _ServiceCompanyDialog(self.db, self.current_well_id, self.current_report_id, self, cid)
-        if dlg.exec(): self.load_data()
+        if dlg.exec():
+            self.load_data()
 
     def delete_company(self):
         row = self.table.currentRow()
-        if row < 0: return
+        if row < 0:
+            return
         cid = int(self.table.item(row,0).text())
         if QMessageBox.question(self,"Delete","Delete this company?") == QMessageBox.Yes:
-            if self.db.delete_service_company(cid): self.load_data()
+            if self.db.delete_service_company(cid):
+                self.load_data()
 
     def export_data(self):
         ExportManager(self).export_table_with_dialog(self.table, "service_companies")
@@ -1224,34 +1522,75 @@ class _ServiceCompanyDialog(QDialog):
     """دیالوگ داخلی اضافه/ویرایش شرکت سرویس"""
     def __init__(self, db, well_id, report_id, parent=None, company_id=None):
         super().__init__(parent)
-        self.db=db;self.well_id=well_id;self.report_id=report_id;self.company_id=company_id
-        self.setWindowTitle("Service Company");self.setMinimumWidth(500)
-        layout=QVBoxLayout(self);fl=QFormLayout()
-        self.name_input=QLineEdit();fl.addRow("Company:",self.name_input)
-        self.service_type=QComboBox();self.service_type.addItems(["Mud Logging","Wireline","Directional","Cementing","Casing","Mud Engineering","Well Testing","Other"]);self.service_type.setEditable(True);fl.addRow("Service:",self.service_type)
-        self.hole_section=QLineEdit();fl.addRow("Hole Section:",self.hole_section)
-        self.duration_day=QDoubleSpinBox();self.duration_day.setRange(0,999);self.duration_day.setDecimals(1);fl.addRow("Duration (Day):",self.duration_day)
-        self.condition=QLineEdit();fl.addRow("Condition:",self.condition)
-        self.contact=QLineEdit();fl.addRow("Contact:",self.contact)
-        self.phone=QLineEdit();fl.addRow("Phone:",self.phone)
-        self.email=QLineEdit();fl.addRow("Email:",self.email)
-        self.personnel=QSpinBox();self.personnel.setRange(0,1000);self.personnel.setSpecialValueText("Not recorded");fl.addRow("Personnel:",self.personnel)
-        self.npt_hours=QDoubleSpinBox();self.npt_hours.setRange(0,9999);self.npt_hours.setDecimals(2);fl.addRow("NPT HRS:",self.npt_hours)
-        self.status=QComboBox();self.status.addItems(["Active","Completed","Cancelled"]);fl.addRow("Status:",self.status)
-        self.issue=QTextEdit();self.issue.setMaximumHeight(60);fl.addRow("Problem/Issue:",self.issue)
-        self.description=QTextEdit();self.description.setMaximumHeight(80);fl.addRow("Description:",self.description)
+        self.db=db
+        self.well_id=well_id
+        self.report_id=report_id
+        self.company_id=company_id
+        self.setWindowTitle("Service Company")
+        self.setMinimumWidth(500)
+        layout=QVBoxLayout(self)
+        fl=QFormLayout()
+        self.name_input=QLineEdit()
+        fl.addRow("Company:",self.name_input)
+        self.service_type=QComboBox()
+        self.service_type.addItems(["Mud Logging","Wireline","Directional","Cementing","Casing","Mud Engineering","Well Testing","Other"])
+        self.service_type.setEditable(True)
+        fl.addRow("Service:",self.service_type)
+        self.hole_section=QLineEdit()
+        fl.addRow("Hole Section:",self.hole_section)
+        self.duration_day=QDoubleSpinBox()
+        self.duration_day.setRange(0,999)
+        self.duration_day.setDecimals(1)
+        fl.addRow("Duration (Day):",self.duration_day)
+        self.condition=QLineEdit()
+        fl.addRow("Condition:",self.condition)
+        self.contact=QLineEdit()
+        fl.addRow("Contact:",self.contact)
+        self.phone=QLineEdit()
+        fl.addRow("Phone:",self.phone)
+        self.email=QLineEdit()
+        fl.addRow("Email:",self.email)
+        self.personnel=QSpinBox()
+        self.personnel.setRange(0,1000)
+        self.personnel.setSpecialValueText("Not recorded")
+        fl.addRow("Personnel:",self.personnel)
+        self.npt_hours=QDoubleSpinBox()
+        self.npt_hours.setRange(0,9999)
+        self.npt_hours.setDecimals(2)
+        fl.addRow("NPT HRS:",self.npt_hours)
+        self.status=QComboBox()
+        self.status.addItems(["Active","Completed","Cancelled"])
+        fl.addRow("Status:",self.status)
+        self.issue=QTextEdit()
+        self.issue.setMaximumHeight(60)
+        fl.addRow("Problem/Issue:",self.issue)
+        self.description=QTextEdit()
+        self.description.setMaximumHeight(80)
+        fl.addRow("Description:",self.description)
         layout.addLayout(fl)
-        bl=QHBoxLayout();sb=QPushButton("💾 Save");sb.clicked.connect(self._save);cb=QPushButton("Cancel");cb.clicked.connect(self.reject)
-        bl.addStretch();bl.addWidget(sb);bl.addWidget(cb);layout.addLayout(bl)
-        if company_id:self._load()
+        bl=QHBoxLayout()
+        sb=QPushButton("💾 Save")
+        sb.clicked.connect(self._save)
+        cb=QPushButton("Cancel")
+        cb.clicked.connect(self.reject)
+        bl.addStretch()
+        bl.addWidget(sb)
+        bl.addWidget(cb)
+        layout.addLayout(bl)
+        if company_id:
+            self._load()
 
     def _load(self):
         cs=self.db.get_service_companies()
         c=next((x for x in cs if x.get("id")==self.company_id),None)
-        if not c:return
-        self.name_input.setText(c.get("company_name",""));self.contact.setText(c.get("contact_person",""))
-        self.phone.setText(c.get("contact_phone",""));self.email.setText(c.get("contact_email",""))
-        self.personnel.setValue(c.get("personnel_count") if c.get("personnel_count") is not None else 0);self.description.setText(c.get("description",""))
+        if not c:
+            return
+        self.name_input.setText(c.get("company_name",""))
+        self.contact.setText(c.get("contact_person",""))
+        self.phone.setText(c.get("contact_phone",""))
+        self.email.setText(c.get("contact_email",""))
+        self.personnel.setValue(c.get("personnel_count") if c.get("personnel_count") is not None else 0)
+        self.description.setText(c.get("description",""))
         self.hole_section.setText(c.get("hole_section",""))
         dd = c.get("duration_day")
         if dd not in (None, ""):
@@ -1262,14 +1601,19 @@ class _ServiceCompanyDialog(QDialog):
         if nh not in (None, ""):
             self.npt_hours.setValue(float(nh))
         for combo,key in [(self.service_type,"service_type"),(self.status,"status")]:
-            idx=combo.findText(c.get(key,""));
-            if idx>=0:combo.setCurrentIndex(idx)
+            idx=combo.findText(c.get(key,""))
+            if idx>=0:
+                combo.setCurrentIndex(idx)
 
     def _save(self):
-        if not self.name_input.text().strip():QMessageBox.warning(self,"Error","Name required");return
+        if not self.name_input.text().strip():
+            QMessageBox.warning(self,"Error","Name required")
+            return
         d={"well_id":self.well_id,"report_id":self.report_id,"company_name":self.name_input.text().strip(),"service_type":self.service_type.currentText(),"hole_section":self.hole_section.text().strip(),"duration_day":self.duration_day.value() or None,"condition":self.condition.text().strip(),"contact_person":self.contact.text(),"contact_phone":self.phone.text(),"contact_email":self.email.text(),"personnel_count":(self.personnel.value() if self.personnel.value() > 0 else None),"npt_hours":self.npt_hours.value() or None,"status":self.status.currentText(),"issue":self.issue.toPlainText(),"description":self.description.toPlainText()}
-        if self.company_id:d["id"]=self.company_id
-        if self.db.save_service_company(d):self.accept()
+        if self.company_id:
+            d["id"]=self.company_id
+        if self.db.save_service_company(d):
+            self.accept()
 
 # ==================== 5. FailureReportTab ====================
 class FailureReportTab(QWidget):
@@ -1544,23 +1888,31 @@ class FailureReportTab(QWidget):
             self.equip_table.setItem(row, 1, QTableWidgetItem(str(data.get("material_code", ""))))
             self.equip_table.setItem(row, 2, QTableWidgetItem(str(data.get("part_number", ""))))
             self.equip_table.setItem(row, 3, QTableWidgetItem(str(data.get("description", ""))))
-            qty_sp = QSpinBox(); qty_sp.setRange(0, 9999); qty_sp.setValue(int(data.get("qty", 1)))
+            qty_sp = QSpinBox()
+            qty_sp.setRange(0, 9999)
+            qty_sp.setValue(int(data.get("qty", 1)))
             self.equip_table.setCellWidget(row, 4, qty_sp)
-            unit_combo = QComboBox(); unit_combo.addItems(["pcs", "sets", "m", "ft", "kg", "lb", "ea"])
+            unit_combo = QComboBox()
+            unit_combo.addItems(["pcs", "sets", "m", "ft", "kg", "lb", "ea"])
             unit_combo.setCurrentText(str(data.get("unit", "pcs")))
             self.equip_table.setCellWidget(row, 5, unit_combo)
-            cond_combo = QComboBox(); cond_combo.addItems(self.CONDITION_OPTIONS)
+            cond_combo = QComboBox()
+            cond_combo.addItems(self.CONDITION_OPTIONS)
             cond_combo.setCurrentText(str(data.get("condition", "Repairable")))
             self.equip_table.setCellWidget(row, 6, cond_combo)
         else:
             self.equip_table.setItem(row, 1, QTableWidgetItem(""))
             self.equip_table.setItem(row, 2, QTableWidgetItem(""))
             self.equip_table.setItem(row, 3, QTableWidgetItem(""))
-            qty_sp = QSpinBox(); qty_sp.setRange(0, 9999); qty_sp.setValue(1)
+            qty_sp = QSpinBox()
+            qty_sp.setRange(0, 9999)
+            qty_sp.setValue(1)
             self.equip_table.setCellWidget(row, 4, qty_sp)
-            unit_combo = QComboBox(); unit_combo.addItems(["pcs", "sets", "m", "ft", "kg", "lb", "ea"])
+            unit_combo = QComboBox()
+            unit_combo.addItems(["pcs", "sets", "m", "ft", "kg", "lb", "ea"])
             self.equip_table.setCellWidget(row, 5, unit_combo)
-            cond_combo = QComboBox(); cond_combo.addItems(self.CONDITION_OPTIONS)
+            cond_combo = QComboBox()
+            cond_combo.addItems(self.CONDITION_OPTIONS)
             self.equip_table.setCellWidget(row, 6, cond_combo)
 
     def remove_equipment_row(self):
@@ -1658,15 +2010,22 @@ class FailureReportTab(QWidget):
         self.report_no.clear()
         self.issue_date.setDate(QDate.currentDate())
         self.loc_radios["In Site"].setChecked(True)
-        self.loc_project.clear(); self.loc_well.clear()
-        self.loc_yard.clear(); self.carrier_id.clear(); self.loc_area.clear()
+        self.loc_project.clear()
+        self.loc_well.clear()
+        self.loc_yard.clear()
+        self.carrier_id.clear()
+        self.loc_area.clear()
         self.equip_table.setRowCount(0)
-        self.cause_text.clear(); self.prevention_text.clear()
+        self.cause_text.clear()
+        self.prevention_text.clear()
         self.injury_no.setChecked(True)
-        self.accident_report_no.clear(); self.injury_details.clear()
+        self.accident_report_no.clear()
+        self.injury_details.clear()
         self.recommendation_text.clear()
-        self.filled_by_name.clear(); self.filled_by_position.clear()
-        self.approved_by_name.clear(); self.approved_by_position.clear()
+        self.filled_by_name.clear()
+        self.filled_by_position.clear()
+        self.approved_by_name.clear()
+        self.approved_by_position.clear()
 
     # ==================== Save/Load (JSON in DailyReport.equipment_data) ====================
     def new_report(self):
@@ -2054,18 +2413,23 @@ class SectionDataWidget(DrillTabBase):
         header = QWidget()
         header.setStyleSheet("background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #8e44ad,stop:1 #9b59b6);border-radius:4px;")
         header.setMaximumHeight(45)
-        hl = QHBoxLayout(header); hl.setContentsMargins(10,5,10,5)
+        hl = QHBoxLayout(header)
+        hl.setContentsMargins(10,5,10,5)
         hl.addWidget(QLabel("<span style='color:white;font-size:14px;font-weight:bold'>📐 Section Data</span>"))
         hl.addWidget(QLabel("<span style='color:#d2b4de'>Section:</span>"))
-        self.section_combo = QComboBox(); self.section_combo.setMinimumWidth(250)
+        self.section_combo = QComboBox()
+        self.section_combo.setMinimumWidth(250)
         self.section_combo.setStyleSheet("background:#7d3c98;color:white;padding:4px;border-radius:3px;")
         self.section_combo.currentIndexChanged.connect(self._on_combo_changed)
         hl.addWidget(self.section_combo)
-        self.section_info = QLabel(""); self.section_info.setStyleSheet("color:#d2b4de;font-size:11px;")
-        hl.addWidget(self.section_info); hl.addStretch()
+        self.section_info = QLabel("")
+        self.section_info.setStyleSheet("color:#d2b4de;font-size:11px;")
+        hl.addWidget(self.section_info)
+        hl.addStretch()
         sb = QPushButton("💾 Save Section Data")
         sb.setStyleSheet("background:#27ae60;color:white;font-weight:bold;padding:6px 14px;border-radius:3px;border:none;")
-        sb.clicked.connect(self.save_data); hl.addWidget(sb)
+        sb.clicked.connect(self.save_data)
+        hl.addWidget(sb)
         layout.addWidget(header)
 
         self.tab_widget = QTabWidget()
@@ -2147,7 +2511,8 @@ class SectionDataWidget(DrillTabBase):
         if self.db and well_id:
             for s in self.db.get_sections_by_well(well_id):
                 d = f"{s['name']}"
-                if s.get('code'): d += f" ({s['code']})"
+                if s.get('code'):
+                    d += f" ({s['code']})"
                 d += f" | {s.get('depth_from',0):.0f}-{s.get('depth_to',0):.0f} m"
                 self.section_combo.addItem(d, s['id'])
         self.section_combo.blockSignals(False)

@@ -176,7 +176,8 @@ def test_untouched_widgets_preserve_missingness_and_explicit_zero():
 def test_semantic_scalar_label_does_not_become_measurement():
     from core.excel_intelligence import FieldExtractor, LabelDetector, MergeCellAnalyzer
     from openpyxl import Workbook
-    w = Workbook(); sheet = w.active
+    w = Workbook()
+    sheet = w.active
     sheet.append(["Wind Speed (km/h)", None, "Material Type", 999])
     cells = {(1, c): sheet.cell(1, c).value for c in range(1, 5)}
     extractor = FieldExtractor(cells, MergeCellAnalyzer(sheet), LabelDetector(cells))
@@ -300,7 +301,8 @@ def test_actual_main_window_save_all_method_no_false_success():
 def test_whitespace_does_not_defeat_formula_only_classification():
     from openpyxl import Workbook
     from core.excel_intelligence import DynamicTableExtractor, MergeCellAnalyzer
-    workbook = Workbook(); sheet = workbook.active
+    workbook = Workbook()
+    sheet = workbook.active
     sheet.append(["=1+1", "\n"])
     cells = {(1, 1): "=1+1", (1, 2): "\n"}
     extractor = DynamicTableExtractor(cells, MergeCellAnalyzer(sheet))

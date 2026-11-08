@@ -919,29 +919,29 @@ class ImportValidator:
             if not isinstance(row, dict):
                 report.error(sheet, row_number, "Row must be an object")
                 continue
-            for field in required:
-                if row.get(field) in (None, ""):
-                    report.error(sheet, row_number, "Required value is missing", field)
+            for field_name in required:
+                if row.get(field_name) in (None, ""):
+                    report.error(sheet, row_number, "Required value is missing", field_name)
                     report.add_review(
                         file="",
                         sheet=sheet,
                         detected_table=record_type,
-                        source_cell=f"{field}:{row_number}",
-                        original_value=row.get(field),
+                        source_cell=f"{field_name}:{row_number}",
+                        original_value=row.get(field_name),
                         normalized_value=None,
-                        target_field=f"{record_type}.{field}",
+                        target_field=f"{record_type}.{field_name}",
                         confidence=0.0,
                         decision="REJECT",
                         transform="Missing required",
                     )
-            for field in cls.NUMERIC_FIELDS:
-                value = row.get(field)
+            for field_name in cls.NUMERIC_FIELDS:
+                value = row.get(field_name)
                 if value in (None, ""):
                     continue
                 try:
                     float(value)
                 except (TypeError, ValueError):
-                    report.error(sheet, row_number, "Must be numeric", field, value)
+                    report.error(sheet, row_number, "Must be numeric", field_name, value)
             if "depth_in" in row and "depth_out" in row:
                 try:
                     if float(row["depth_out"]) < float(row["depth_in"]):

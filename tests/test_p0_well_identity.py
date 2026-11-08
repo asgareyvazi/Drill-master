@@ -104,7 +104,7 @@ class WellIdentityTests(unittest.TestCase):
             "report_date": report_date,
             "report_number": 1,
         })
-        report2 = self.db.save_daily_report({
+        self.db.save_daily_report({
             "well_id": well_id,
             "section_id": section_id,
             "report_date": report_date,
