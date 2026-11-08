@@ -247,3 +247,59 @@ def test_a_cancel_inside_the_build_stops_it_and_adopts_nothing(app, world, monke
         assert panel._index is None or panel._index.signature == panel._snapshot_signature
         panel.cancel()
         assert m122._settle(app, lambda: not panel._old_workers, 10)
+
+
+def test_an_index_delivered_the_instant_the_token_is_cancelled_is_adopted(app, world):
+    """CI 3.12 at 28a1fbf: the retired slot was connected AFTER the cancel, so a worker that unwound at once
+    emitted `done` with nobody listening and the index was lost.  Here `done` is emitted inside cancel()."""
+    _tab, panel, _ids, _db = world
+    marker = _a_built_index(panel)
+    with FakeOllama(hold_after_first=20.0) as fake:
+        worker = m122._generating(app, panel, fake)
+        generation, token = panel._generation, panel._cancel
+        real_cancel = token.cancel
+
+        def cancel_and_deliver_at_once():
+            token.cancel = real_cancel                      # one shot: cleanup cancels the token again
+            real_cancel()
+            worker.done.emit(generation, None, marker)      # the worker's thread "won" the race
+        token.cancel = cancel_and_deliver_at_once
+        panel._index = None
+        panel.cancel()
+        assert m122._settle(app, lambda: not panel._old_workers, 10)
+        assert panel._index is marker, "an index emitted right after the cancel was lost"
+        assert panel.current_state == "cancelled" and panel.last_answer is None
+
+
+def test_a_done_queued_before_the_disconnect_offers_its_index_but_not_its_answer(app, world):
+    _tab, panel, _ids, _db = world
+    index = _a_built_index(panel)
+    panel._index, panel._snapshot_signature = None, index.signature
+    state_before = panel.current_state
+    panel._worker_done(panel._generation - 1, "a stale outcome", index)   # delivered after a cancel
+    assert panel._index is index
+    assert panel.last_answer is None and panel.last_error != "a stale outcome"
+    assert panel.current_state == state_before
+
+
+def test_an_adopted_index_of_another_corpus_state_is_never_answered_from(app, world, monkeypatch):
+    _tab, panel, _ids, _db = world
+    stale = _a_built_index(panel)
+    stale.signature = ("a corpus state that is not the current one",)
+    panel._index, panel._snapshot_signature = None, None
+    panel._retired_worker_done(0, None, stale)            # no known state: adopted ...
+    assert panel._index is stale
+    given = []
+    real_init = kat.AskWorker.__init__
+
+    def init(self, generation, snapshot, index, *args, **kwargs):
+        given.append(index)
+        real_init(self, generation, snapshot, index, *args, **kwargs)
+    monkeypatch.setattr(kat.AskWorker, "__init__", init)
+    builds = _count_builds(monkeypatch)
+    with FakeOllama(hold_after_first=20.0) as fake:
+        m122._generating(app, panel, fake)                 # ... but revalidated before the next question
+        assert given and given[-1] is None, "the worker was handed an index of another corpus state"
+        assert len(builds) == 1
+        panel.cancel()
+        assert m122._settle(app, lambda: not panel._old_workers, 10)

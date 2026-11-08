@@ -1063,6 +1063,15 @@ MUTANTS = [
            "        self._index, self._snapshot_signature = index, index.signature\n"
            "        if isinstance(_outcome, ka.Answer):\n            self.show_answer(_outcome)\n\n    def _forget",
            TD46P + T122, "the answer of a cancelled question is shown once its index is adopted"),
+    Mutant("D46P-retired-connect-after-cancel", KA,
+           "            worker.done.connect(self._retired_worker_done)\n        if self._cancel is not None:\n"
+           "            self._cancel.cancel()\n",
+           "            pass\n        if self._cancel is not None:\n            self._cancel.cancel()\n"
+           "        if worker is not None:\n            worker.done.connect(self._retired_worker_done)\n",
+           TD46P, "the retired slot is connected after the cancel: an index emitted at once is lost (CI 3.12 at 28a1fbf)"),
+    Mutant("D46P-stale-done-index-dropped", KA,
+           "            self._retired_worker_done(generation, None, index)\n            return\n",
+           "            return\n", TD46P, "a done queued before the disconnect loses its index"),
 ]
 
 

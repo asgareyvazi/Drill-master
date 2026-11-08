@@ -1053,7 +1053,10 @@ class KnowledgeAssistantPanel(QWidget):
             self._snapshot_signature = index.signature      # the corpus state this answer was read from
             self._semantic_out_of_date(index.signature)
         if generation != self._generation:
-            return                                  # stale: question/scope/library changed meanwhile
+            # stale: question/scope/library changed meanwhile.  The answer is rejected; a `done` queued before
+            # the disconnect still offers its corpus index under the retired-worker rules (D46).
+            self._retired_worker_done(generation, None, index)
+            return
         if isinstance(outcome, str):
             self.last_error = outcome
             self._set_state("error", outcome)
@@ -1075,11 +1078,14 @@ class KnowledgeAssistantPanel(QWidget):
                 worker.done.disconnect()
             except (RuntimeError, TypeError):  # silent-ok: signals already disconnected (worker finished or replaced)
                 pass
+        if worker is not None:
+            # D46: the ANSWER of a retired worker is never used; the corpus index it may still deliver is.
+            # Connected BEFORE the cancel: a worker that unwinds at once would otherwise emit `done` with
+            # nobody listening (CI 3.12 at 28a1fbf - the D28 check-then-connect lesson, again).
+            worker.done.connect(self._retired_worker_done)
         if self._cancel is not None:
             self._cancel.cancel()
         if worker is not None:
-            # D46: the ANSWER of a retired worker is never used; the corpus index it may still deliver is.
-            worker.done.connect(self._retired_worker_done)
             self._keep_until_finished(worker)      # keep a reference until the thread ends (M122)
 
     def _retired_worker_done(self, _generation, _outcome, index):
