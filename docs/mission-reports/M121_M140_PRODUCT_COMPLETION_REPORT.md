@@ -48,13 +48,14 @@ Phase checkpoints (CI on that exact SHA; "no run" = GitHub ran only the pushed t
 | M125 + M126 | `56d5f6c` | ✅ 42120776989 | ✅ 42120776954 |
 | M127 | `82071b2` | ❌ 42126938336 (D46, 3.12) | ✅ 42126938432 |
 | M128 | `45291cd` | ✅ 42132964518 | ✅ 42132964488 |
-| M129–M131 | `7b13a1c` | ❌ 42357828918 (D46 reopened) | ✅ 42357829059 |
-| M132 | `600b2f0` | ❌ 42371267520 (D51 hang) | ✅ 42371267514 |
-| M133 + M134 | `75b2d38` | ❌ 42375856374 (D52) | ✅ 42375856411 |
-| M135 | `f620564` | ❌ 42381281727 (D52) | ✅ 42381281820 |
-| M136 | `76059dd` | ❌ 42387631121 (D52) | ✅ 42387631127 |
+| M129–M131 | `7b13a1c` | ❌ 42357828918 (D46 reopened: 3.12 job 128359704775, 3.13 job 128359705087; 3.11 ✅) | ✅ 42357829059 |
+| M132 | `600b2f0` | ❌ 42371267520 (3.12 D51 hang, job 128399716540; 3.11 D46, job 128399716355; 3.13 ✅) | ✅ 42371267514 |
+| M133 + M134 | `75b2d38` | ❌ 42375856374 (3.11 D46, job 128413157015; 3.12 and 3.13 ✅) | ✅ 42375856411 |
+| M135 | `f620564` | ❌ 42381281727 (D52 on all three legs) | ✅ 42381281820 |
+| M136 | `76059dd` | ❌ 42387631121 (D52 on all three legs) | ✅ 42387631127 |
 | D52 + D53 + M137 | `00ddbe6` | ❌ 42460255134 — 3.11 ✅ (job 128667817522), 3.13 ✅ (128667817652), 3.12 ❌ (128667817789: 4973 passed / 1 failed — D46 load child; D52 did not recur) | ✅ 42460255146 |
 | M138 + M139 + M140 (final code) | `443a1e310afa15405cb36097afcb7daa93225726` | ❌ 42465610612 — 3.11 ✅ (job 128684300945), 3.12 ❌ (128684301142), 3.13 ❌ (128684301121): each 5018 passed / 4 skipped / 1 failed — the same D46 load child | ✅ 42465610586 (job 128684301197) |
+| M140 report, first commit (product and test code identical to `443a1e3`) | `a6e506aa9605ff57616a4ac4a4c04971596553ba` | ❌ 42472656017 — 3.11 ❌ (job 128706856823, Python 3.11.18), 3.12 ❌ (128706856835): each 5018 passed / 4 skipped / 1 failed — D46 load child; 3.13 ✅ (128706856663) | ✅ 42472655975 (job 128706856622) |
 
 A red Source run was never treated as a pass: each one produced a defect row (D40, D46, D51, D52) and a fix or a
 bounded-risk statement.
@@ -74,7 +75,7 @@ bounded-risk statement.
 | D42 Weight / T&D survey source | P2 | resolved for new runs (M127) | |
 | D43 Choke Schedule | P2 | resolved (M128) | |
 | D44 / D45 Comparison / Anti-Collision references | P1 | resolved (M129) | |
-| D46 CI 3.12/3.13 load-test hang | P2 | **OPEN (reopened) — root cause UNKNOWN; now the Source gate blocker.** It failed the Source gate on `00ddbe6` (3.12) and on the final code `443a1e3` (3.12 and 3.13); 3.11 has never failed and it was not reproduced locally. The dumps show a worker inside a SQLite call (`KnowledgeIndex._build_fts` `executemany`; SQLAlchemy `fetchall`) and, at `00ddbe6`, the main thread blocked inside `processEvents()` with no Python frame above it. Bounded: the child watchdog ends the run inside the job timeout and names the threads. The D53 fix did not remove it. **Product risk stated:** the same pattern could stall the desktop when the Knowledge Assistant is cancelled under heavy CPU load (not observed outside this test) | M129, M132, M134, M140 |
+| D46 CI load-test hang (Linux CI, all three Python versions) | P2 | **OPEN (reopened) — root cause UNKNOWN; now the Source gate blocker.** It is not tied to one Python version: it failed on 3.11 (`600b2f0`, `75b2d38`, `a6e506a`), on 3.12 (`82071b2`, `7b13a1c`, `00ddbe6`, `443a1e3`, `a6e506a`) and on 3.13 (`7b13a1c`, `443a1e3`), including the final code `443a1e3` (3.12 and 3.13) and the identical-code report commit `a6e506a` (3.11 and 3.12). It was not reproduced locally. The dumps show a worker inside a SQLite call (`KnowledgeIndex._build_fts` `executemany`; SQLAlchemy `fetchall`) and, at `00ddbe6`, the main thread blocked inside `processEvents()` with no Python frame above it. Bounded: the child watchdog ends the run inside the job timeout and names the threads. The D53 fix did not remove it. **Product risk stated:** the same pattern could stall the desktop when the Knowledge Assistant is cancelled under heavy CPU load (not observed outside this test) | M129, M132, M134, M140 |
 | D47 Bit run cost comparison | P1 | resolved (M130) | |
 | D48 Performance chart lines | P2 | resolved (M131) | |
 | D49 Manager retention of disposed widgets | P1 | resolved (M132) | |
@@ -207,7 +208,7 @@ inventories and the journey index current.
 | Source release gate | 42465610612 | 3.11 128684300945 ✅; 3.12 128684301142 ❌; 3.13 128684301121 ❌ | **FAILURE** — 5018 passed / 4 skipped / 1 failed on 3.12 and 3.13; the failure is D46 (`test_cancel_under_cpu_load_releases_every_worker`: the fresh-interpreter load child hit its 600 s watchdog). Warnings unchanged: 3.11 39 / 12 groups, 3.12 and 3.13 102 / 13 groups |
 | Windows release validation | 42465610586 | windows-release 128684301197 ✅ | success (bundle build and smoke; not desktop acceptance) |
 
-**This is not a passing Source gate and is not reported as one.** Coverage is measured by the 3.12 leg only after its pytest stage passes, so CI produced no coverage figure for the final code; the local figure above is labelled as local. The report commit's own CI is a second sample of identical product and test code; its result is quoted in the final reply.
+**This is not a passing Source gate and is not reported as one.** A second sample of the same product and test code, the first report commit `a6e506a` (Source run 42472656017), failed again with D46 on 3.11 (job 128706856823) and 3.12 (job 128706856835), while 3.13 passed (job 128706856663); Windows release validation 42472655975 passed (job 128706856622). The CI result of this corrected report commit is necessarily not contained in the report itself. Coverage is measured by the 3.12 leg only after its pytest stage passes, so CI produced no coverage figure for the final code; the local figure above is labelled as local. The report commit's own CI is a second sample of identical product and test code; its result is quoted in the final reply.
 
 ## G. Owner register (open decisions; none taken by automation)
 
@@ -238,10 +239,10 @@ inventories and the journey index current.
 scope; Windows desktop acceptance, field acceptance, legal approvals and release authorization remain open.*
 **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.**
 
-**Qualification is not complete on CI:** the Source release gate on the final code SHA failed on Python 3.12 and 3.13 with one failure each (D46, open, root cause unknown); Python 3.11, the Windows release validation, the local full suite (5019 passed / 4 opt-in skips / 0 failed), the complete mutation run and every static gate pass. This report does not turn that red run into a pass; closing D46 (or an owner decision about it) is a precondition of any release decision.
+**Qualification is not complete on CI:** the Source release gate on the final code SHA failed on Python 3.12 and 3.13 with one failure each (D46, open, root cause unknown), and on the first report commit `a6e506a` (identical product and test code) it failed on 3.11 and 3.12 with the same defect; Python 3.11, the Windows release validation, the local full suite (5019 passed / 4 opt-in skips / 0 failed), the complete mutation run and every static gate pass. This report does not turn that red run into a pass; closing D46 (or an owner decision about it) is a precondition of any release decision.
 
 Residual risks carried forward (each in the register):
-- **D46 — the final code's Source gate is red because of it** (3.12 and 3.13: 1 failure of 5023 each; 3.11 green); root cause UNKNOWN, bounded by the child watchdog; a possible desktop stall when cancelling the Knowledge Assistant under heavy load is stated as a product risk. D51 — CI hang, root cause UNKNOWN, bounded by the watchdog.
+- **D46 — the final code's Source gate is red because of it** (3.12 and 3.13: 1 failure of 5023 each on `443a1e3`; 3.11 and 3.12 on the identical-code `a6e506a`; it has failed on every Linux CI Python version); root cause UNKNOWN, bounded by the child watchdog; a possible desktop stall when cancelling the Knowledge Assistant under heavy load is stated as a product risk. D51 — CI hang, root cause UNKNOWN, bounded by the watchdog.
 - D6 and D11 PARTIAL by design — legacy MSE rows cannot gain lineage without audited evidence; no CRS transformation without an owner decision.
 - The `trg_mse_lineage_repair_nodelete_v1` and audit triggers can be dropped by anyone with write access to the database file; the external-key chain is design only.
 - The local test environment needs a GLX stub `libGL.so.1` (offscreen platform; GLX never called) — CI uses the distribution libraries.
