@@ -36,7 +36,6 @@ T125 = ["tests/test_m125_w13_classification.py"]
 T126 = ["tests/test_m126_volumes_hydraulics.py"]
 TD40 = ["tests/test_m126_d40_assistant_late_results.py", "tests/test_m122_assistant_worker_lifecycle.py"]
 WV = "core/well_volumes.py"
-KA = "tabs/knowledge_assistant.py"
 CC = "core/calculator_contracts.py"
 T127 = ["tests/test_m127_weight_casing.py"]
 T128 = ["tests/test_m128_dp_schedule.py"]
@@ -68,7 +67,9 @@ BRC = "core/bit_runs.py"
 PTC = "core/parameter_trends.py"
 TCMP = "core/trajectory_compare.py"
 TPNL = "tabs/trajectory_compare_panel.py"
-T122 = ["tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"]
+# M140: this was a second ``T122`` (7b13a1c), which silently narrowed every KA mutant defined below it to the load
+# test alone; only the two D46 wrapper mutants need the load test by itself.
+T122_LOAD = ["tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"]
 T50F = "tests/test_m122_assistant_worker_lifecycle.py"
 T50 = [f"{T50F}::test_a_hung_child_is_reported_with_its_threads_not_with_empty_output",
        f"{T50F}::test_the_child_is_given_a_watchdog_that_dumps_before_it_is_stopped",
@@ -485,9 +486,9 @@ MUTANTS = [
     # ---- D46: the CPU-load cancel cycles in a fresh interpreter ----------------------------------------
     Mutant("D46-child-not-run", "tests/test_m122_assistant_worker_lifecycle.py",
            'str(tests_dir / "m122_cpu_load_child.py")', 'str(tests_dir / "m122_cpu_load_child_missing.py")',
-           T122, "the wrapper passes without running the load cycles"),
+           T122_LOAD, "the wrapper passes without running the load cycles"),
     Mutant("D46-child-body-fails", "tests/m122_cpu_load_child.py", "    _cpu_load_body(app, world)\n",
-           "    _cpu_load_body(app, world)\n    raise AssertionError('synthetic lifecycle failure')\n", T122,
+           "    _cpu_load_body(app, world)\n    raise AssertionError('synthetic lifecycle failure')\n", T122_LOAD,
            "a failing load body is not reported by the wrapper"),
     # ---- M130 bit run workbench (D47) ----------------------------------------------------------------
     Mutant("BR-incomplete-sum-as-total", BRC,

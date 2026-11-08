@@ -1,0 +1,136 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m122_assistant_worker_lifecycle.py",
+      "tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"
+    ],
+    "exit": 0,
+    "summary": "20 passed in 39.23s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "KA-check-before-connect",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the pre-M122 order: a thread ending between the check and the connect is never released (D28)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 6.14s"
+    },
+    {
+      "id": "KA-immediate-check-dropped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a thread that ended before the connection waits for a finished signal that never comes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 7.69s"
+    },
+    {
+      "id": "KA-stop-worker-not-kept",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "cancel/supersede/scope change drop the worker reference while its thread may run",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 6.19s"
+    },
+    {
+      "id": "KA-retire-not-kept",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a retired scope-list worker is neither tracked nor deleted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 10.26s"
+    },
+    {
+      "id": "KA-completed-worker-leaks",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "every completed question leaves a QThread object on the panel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 8.03s"
+    },
+    {
+      "id": "KA-corpus-check-late-connect",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the pre-M122 corpus-check release: finished has already fired, the worker is never deleted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.97s"
+    },
+    {
+      "id": "KA-cleanup-destroys-running-thread",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "a thread still running at close stays a child of the panel and is destroyed with it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": -6,
+      "summary": "1 failed, 19 passed in 37.61s"
+    },
+    {
+      "id": "D46-child-not-run",
+      "path": "tests/test_m122_assistant_worker_lifecycle.py",
+      "note": "the wrapper passes without running the load cycles",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.90s"
+    },
+    {
+      "id": "D46-child-body-fails",
+      "path": "tests/m122_cpu_load_child.py",
+      "note": "a failing load body is not reported by the wrapper",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m122_assistant_worker_lifecycle.py::test_cancel_under_cpu_load_releases_every_worker"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 24.15s"
+    }
+  ],
+  "killed": [
+    "KA-check-before-connect",
+    "KA-immediate-check-dropped",
+    "KA-stop-worker-not-kept",
+    "KA-retire-not-kept",
+    "KA-completed-worker-leaks",
+    "KA-corpus-check-late-connect",
+    "KA-cleanup-destroys-running-thread",
+    "D46-child-not-run",
+    "D46-child-body-fails"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
