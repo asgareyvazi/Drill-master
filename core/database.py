@@ -784,6 +784,40 @@ class TimeLogMorning(Base):
 
     report = relationship("DailyReport", back_populates="time_logs_morning")
 
+
+class ImportReviewItem(Base):
+    """M150: a DDR review proposal kept after a (partial) import - never lost, never canonical by default.
+
+    One row per proposal and report (``review_id`` is the contract identity, unique even for repeated text).
+    ``state`` is one of ``core.ddr_continuation.REVIEW_STATES``; the original text, its source location and the
+    proposal payload are kept verbatim. Decisions taken later are audited (``ddr_review_decision``).
+    """
+    __tablename__ = "import_review_items"
+    __table_args__ = (UniqueConstraint("report_id", "review_id", name="uq_import_review_item"),)
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=False)
+    review_id = Column(String(80), nullable=False)
+    review_type = Column(String(40), nullable=False, default="field")
+    target_field = Column(String(160))
+    state = Column(String(40), nullable=False, default="DEFERRED_UNRESOLVED")
+    eligible = Column(Boolean, nullable=True)
+    source_file = Column(String(255))
+    source_fingerprint = Column(String(128))
+    source_sheet = Column(String(160))
+    source_page = Column(Integer, nullable=True)
+    source_row = Column(Integer, nullable=True)
+    original_text = Column(Text)
+    reason = Column(Text)
+    payload_json = Column(Text)
+    parent_time_log_id = Column(Integer, ForeignKey("time_logs_24h.id", ondelete="SET NULL"), nullable=True)
+    contract_version = Column(String(40))
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by = Column(String(100), nullable=True)
+    resolution_note = Column(Text, nullable=True)
+
 class DrillingParameters(Base):
     __tablename__ = "drilling_parameters"
 
@@ -5428,6 +5462,128 @@ class DatabaseManager:
                                 details=json.dumps({"fingerprint": fingerprint, "source": source, "result": result},
                                                    ensure_ascii=False, default=str)))
             active.flush()
+
+    # ---- M150: persisted DDR review queue -------------------------------------------------------------------
+    def save_import_review_items(self, report_id: int, items, *, fingerprint: str = "", source: str = "",
+                                 session=None) -> int:
+        """Store review proposals of an import for ``report_id`` (one row per review identity).
+
+        ``items`` are review payloads with a final state (``state`` from ``core.ddr_continuation.REVIEW_STATES``).
+        An identity already stored for the report is left untouched (idempotent re-save).
+        """
+        from core.ddr_continuation import CONTINUATION_CONTRACT_VERSION, REVIEW_STATES
+        with (self.session_scope() if session is None else nullcontext(session)) as active:
+            report = active.get(DailyReport, report_id)
+            if report is None:
+                raise ValueError(f"Report {report_id} does not exist; review items were not stored")
+            known = {row[0] for row in active.query(ImportReviewItem.review_id)
+                     .filter(ImportReviewItem.report_id == report_id).all()}
+            stored = 0
+            for item in items or ():
+                review_id = str(item.get("review_id") or "")
+                state = str(item.get("state") or "")
+                if not review_id or review_id in known:
+                    continue
+                if state not in REVIEW_STATES:
+                    raise ValueError(f"Unknown review state {state!r}")
+                location = item.get("location") if isinstance(item.get("location"), dict) else {}
+                page, row = location.get("page", item.get("page")), location.get("row", item.get("row"))
+                active.add(ImportReviewItem(
+                    well_id=report.well_id, report_id=report_id, review_id=review_id[:80],
+                    review_type=str(item.get("review_type") or "field")[:40],
+                    target_field=str(item.get("target_field") or "")[:160] or None, state=state,
+                    eligible=item.get("eligible"), source_file=(source or "")[:255] or None,
+                    source_fingerprint=(fingerprint or "")[:128] or None,
+                    source_sheet=str(location.get("sheet") or item.get("sheet") or "")[:160] or None,
+                    source_page=int(page) if isinstance(page, int) else None,
+                    source_row=int(row) if isinstance(row, int) else None,
+                    original_text=None if item.get("text") is None else str(item.get("text")),
+                    reason=str(item.get("reason") or "") or None,
+                    payload_json=json.dumps(item, ensure_ascii=False, default=str),
+                    parent_time_log_id=item.get("parent_time_log_id"),
+                    contract_version=str(item.get("contract") or CONTINUATION_CONTRACT_VERSION)[:40]))
+                known.add(review_id)
+                stored += 1
+            active.flush()
+            return stored
+
+    def get_import_review_items(self, well_id: int, *, report_id: Optional[int] = None,
+                                states: Optional[tuple] = None) -> list:
+        """Review items of one well (optionally one report / some states), with the parent activity text."""
+        with self.session_scope() as session:
+            query = session.query(ImportReviewItem).filter(ImportReviewItem.well_id == well_id)
+            if report_id is not None:
+                query = query.filter(ImportReviewItem.report_id == report_id)
+            if states:
+                query = query.filter(ImportReviewItem.state.in_(tuple(states)))
+            out = []
+            for item in query.order_by(ImportReviewItem.report_id, ImportReviewItem.id).all():
+                parent = session.get(TimeLog24H, item.parent_time_log_id) if item.parent_time_log_id else None
+                report = session.get(DailyReport, item.report_id)
+                out.append({
+                    "id": item.id, "well_id": item.well_id, "report_id": item.report_id,
+                    "report_date": report.report_date if report else None, "review_id": item.review_id,
+                    "review_type": item.review_type, "target_field": item.target_field, "state": item.state,
+                    "eligible": item.eligible, "source_file": item.source_file, "source_sheet": item.source_sheet,
+                    "source_page": item.source_page, "source_row": item.source_row,
+                    "original_text": item.original_text, "reason": item.reason,
+                    "payload": json.loads(item.payload_json) if item.payload_json else {},
+                    "parent_time_log_id": item.parent_time_log_id,
+                    "parent": ({"id": parent.id, "time_from": parent.time_from, "time_to": parent.time_to,
+                                "description": parent.activity_description} if parent is not None else None),
+                    "contract_version": item.contract_version, "created_at": item.created_at,
+                    "resolved_at": item.resolved_at, "resolved_by": item.resolved_by,
+                    "resolution_note": item.resolution_note,
+                })
+            return out
+
+    def resolve_import_review_item(self, item_id: int, well_id: int, decision: str, note: str = "") -> dict:
+        """Decide one queued review item of the selected well; audited; returns the new state.
+
+        ``ATTACH_CONTINUATION`` appends the full text (line break kept) to the parent 24-hour activity, only for
+        an eligible continuation whose parent row still exists in the same report and well. ``REJECT`` and
+        ``IGNORED`` close the item without changing canonical data; ``DEFER`` keeps it open. A decided item is
+        never decided again (the first decision is the evidence).
+        """
+        from core.ddr_continuation import (ATTACH_CONTINUATION, DEFERRED_UNRESOLVED, SAFELY_ATTACHED_CONTINUATION,
+                                           VALIDATION_ERROR, attach_text, review_state_for)
+        decision = str(decision or "").strip().upper()
+        state = review_state_for(decision)
+        if decision in {"ACCEPT", "CONFIRMED"}:
+            raise ValueError("A queued review item cannot be accepted here: attach a continuation, reject or "
+                             "ignore it; a field value needs a re-import")
+        with self.session_scope() as session:
+            item = session.get(ImportReviewItem, item_id)
+            if item is None or item.well_id != well_id:
+                raise ValueError("The review item is not an item of the selected well; nothing was changed")
+            if item.state not in (DEFERRED_UNRESOLVED, VALIDATION_ERROR):
+                raise ValueError(f"The review item is already decided ({item.state}); nothing was changed")
+            details = {"item": item.id, "review_id": item.review_id, "report_id": item.report_id,
+                       "before": item.state, "after": state}
+            if decision == ATTACH_CONTINUATION:
+                parent = session.get(TimeLog24H, item.parent_time_log_id) if item.parent_time_log_id else None
+                if item.review_type != "continuation" or not item.eligible:
+                    raise ValueError("Only an eligible continuation can be attached; nothing was changed")
+                if parent is None or parent.report_id != item.report_id:
+                    raise ValueError("The parent activity of this continuation no longer exists in its report; "
+                                     "nothing was changed")
+                before = parent.activity_description or ""
+                record = {"activity_description": before}
+                attach_text(record, item.original_text or "", {"review_id": item.review_id})
+                parent.activity_description = record["activity_description"]
+                details.update(parent=parent.id, description_before_len=len(before),
+                               description_after_len=len(parent.activity_description),
+                               description_after_sha256=hashlib.sha256(
+                                   parent.activity_description.encode("utf-8")).hexdigest()[:16])
+                state = SAFELY_ATTACHED_CONTINUATION
+            if state != DEFERRED_UNRESOLVED:
+                item.state = state
+                item.resolved_at = _now_utc()
+                item.resolved_by = (self._audit_actor()[1] or "")[:100] or None
+                item.resolution_note = note or None
+            self._add_mandatory_audit(session, "ddr_review_decision", "import_review_item", item.id,
+                                      item.review_id, json.dumps(details, default=str))
+            return {"id": item.id, "state": item.state}
 
     def _save_atomic(self, session, model, data: dict):
         """Internal atomic save using provided session."""

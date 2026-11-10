@@ -101,8 +101,11 @@ def save_all(steps):
             if getattr(owner, "_edit_sections", None) == {}:
                 outcome = SaveOutcome()
             elif callable(ready) and not ready():
+                explain = getattr(owner, "context_block_reason", None)
+                detail = explain() if callable(explain) else ""
                 outcome = SaveOutcome(issues=[SaveIssue(section,
-                    "The selected context has not been loaded successfully; stale editor data was not saved.",
+                    "The selected context has not been loaded successfully; stale editor data was not saved."
+                    + (f" ({detail})" if detail else ""),
                     status="REVIEW_REQUIRED", code="CONTEXT_BLOCKED", corrective_action="Open/reload this tab, resolve any load error, and save again.")])
                 owner.last_save_outcome = outcome
             else:

@@ -101,6 +101,9 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     "users": TablePolicy(write=(MANAGE_USERS,), delete=(MANAGE_USERS,)),
     # Reference catalog rows are only written by the catalog import.
     "drill_pipe_specs": TablePolicy(write=(IMPORT,), delete=(MANAGE_USERS,)),
+    # M150 DDR review queue: written by the import; a decision (attach / reject / ignore) updates the state with
+    # the report-edit permission; rows leave only with their report or well.
+    "import_review_items": TablePolicy(write=(EDIT, IMPORT), delete=(DELETE_REPORTS, DELETE_WELL), insert=(IMPORT,)),
     # Audit records are append-only for every signed-in principal.
     "audit_logs": TablePolicy(write=(NOBODY,), delete=(NOBODY,), insert=(ANY_PRINCIPAL,)),
     # Lifecycle records are written by transition_report (operation scope);

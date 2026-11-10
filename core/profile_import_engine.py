@@ -871,9 +871,21 @@ class ProfileImportEngine:
             hrs_raw = cache[r].get(c_hrs)
             
             if not tf_raw and not hrs_raw:
-                # ردیف ادامه‌دار
-                if logs and c_act in cache[r]:
-                    logs[-1]["activity_description"] += " " + str(cache[r][c_act])
+                # M147/M148: a row without From and Hrs used to be merged silently into the previous activity
+                # (no lineage, no review). It is kept as its own source record now; the shared continuation
+                # contract (core.ddr_continuation) decides whether it is an attachable continuation.
+                text = cache[r].get(c_act) if c_act else None
+                if text is None or not str(text).strip():
+                    continue
+                record = {"activity_description": str(text), "_source_row": r, "_source_cells": {},
+                          "_source_sheet": sheet_name}
+                # Any other filled activity cell makes the row incomplete (not narrative): kept verbatim.
+                for key, column in (("time_to", c_to), ("main_phase", c_phase), ("main_code", c_code),
+                                    ("sub_code", c_sub), ("npt_category", c_npt)):
+                    value = cache[r].get(column) if column else None
+                    if value is not None and str(value).strip():
+                        record[key] = str(value)
+                logs.append(record)
                 continue
                 
             # پردازش زمان و ساعت
@@ -925,7 +937,8 @@ class ProfileImportEngine:
                 "main_phase": str(cache[r].get(c_phase, "")),
                 "main_code": normalized_main,
                 "sub_code": normalized_sub,
-                "status": str(cache[r].get(c_status, "PLN")),
+                # No status column means an unknown status (it was an invented "PLN").
+                "status": str(cache[r].get(c_status) or "") if c_status else "",
                 "is_npt": is_npt,
                 "npt_category": npt_val if is_npt else "",
                 "activity_description": str(cache[r].get(c_act, "")),

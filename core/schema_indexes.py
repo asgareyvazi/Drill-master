@@ -43,6 +43,8 @@ SURVEY_ORDER = "survey stations per well ordered by MD"
 SECTION_SCOPE = "section-scoped lookup"
 HIERARCHY = "hierarchy parent lookup"
 AUDIT = "audit trail lookup"
+REVIEW_QUEUE = "pending review items of one well (M151 review workspace)"
+REVIEW_PARENT = "review parent link (ON DELETE SET NULL, M150): the time-log delete scan on re-save"
 
 INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("activity_codes", ('well_id',), WELL_SCOPE),
@@ -161,6 +163,9 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("wellbore_schematics", ('well_id', 'report_date'), WELL_DATED),
     ("wellbores", ('well_id',), WELL_SCOPE),
     ("wells", ('project_id',), HIERARCHY),
+    ("import_review_items", ('report_id',), REPORT_CHILD),
+    ("import_review_items", ('well_id', 'state'), REVIEW_QUEUE),
+    ("import_review_items", ('parent_time_log_id',), REVIEW_PARENT),
 )
 
 

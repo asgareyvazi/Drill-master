@@ -2747,6 +2747,7 @@ class SmartTemplateDialog(QDialog):
                             "activity_description": str(desc_val).strip(),
                             "source_cell": f"R{r}:C{col_map['desc']}",
                             "source_row": r,
+                            "_source_row": r,       # M152: provenance read by core.ddr_continuation
                             "classification": "continuation",
                             "review_reason": "Continuation text has no independent time anchor",
                         })
@@ -2821,7 +2822,8 @@ class SmartTemplateDialog(QDialog):
             # Status
             raw_status = row_cells.get(col_map.get("status", 0))
             status = (
-                str(raw_status).strip() if raw_status else "PLN"
+                # No status in the source is an unknown status (it was an invented "PLN").
+                str(raw_status).strip() if raw_status else ""
             )
 
             # Contractor
@@ -2853,6 +2855,7 @@ class SmartTemplateDialog(QDialog):
                 "npt_category": npt_category,
                 "activity_description": description,
                 "contractor": contractor,
+                "_source_row": r,       # M152: lets the continuation contract prove the source order
             }
             logs.append(log_entry)
 

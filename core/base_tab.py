@@ -149,6 +149,25 @@ class DrillTabBase(QWidget):
                    getattr(self, f"_loaded_{kind}_id") == getattr(self, f"current_{kind}_id")
                    for kind in ("well", "section", "report"))
 
+    def context_block_reason(self) -> str:
+        """M153: why ``save_context_ready`` is False, in words (the guard itself is unchanged).
+
+        A tab that was hidden when the selection changed loads the new context only when it is shown; until
+        then its widgets still hold the previously loaded context and must not be saved into the new one.
+        """
+        parts = []
+        for kind in ("well", "section", "report"):
+            pending = getattr(self, f"_pending_{kind}", None)
+            loaded = getattr(self, f"_loaded_{kind}_id", None)
+            current = getattr(self, f"current_{kind}_id", None)
+            if pending is not None:
+                parts.append(f"{kind} {current} is selected but not loaded yet")
+            elif loaded != current:
+                parts.append(f"{kind} {loaded} is loaded while {kind} {current} is selected")
+        if parts and not self.isVisible():
+            parts.append("the tab has not been opened since the selection changed")
+        return "; ".join(parts)
+
     def _on_well_changed_internal(self, well_id, well_data):
         self.current_well_id = well_id
         self.current_well_data = well_data or {}

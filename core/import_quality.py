@@ -91,6 +91,13 @@ class ReviewItem:
     message: str = ""
     classification: str = ""
     outcome_status: str = ""
+    # M149: one persistent identity per proposal (repeated text never shares one), the kind of review, the
+    # position of the source record in its collection and, for continuations, eligibility and the parent.
+    review_id: str = ""
+    review_type: str = ""
+    record_index: Optional[int] = None
+    eligible: Optional[bool] = None
+    parent: Any = None
 
     def __post_init__(self):
         # Normalize provenance at the contract boundary.  Producers are
@@ -236,7 +243,7 @@ class ReviewItem:
         return cls(**{key: value for key, value in payload.items() if key in allowed})
 
 
-FINAL_REVIEW_DECISIONS = frozenset({"ACCEPT", "CONFIRMED", "REJECT", "IGNORED"})
+FINAL_REVIEW_DECISIONS = frozenset({"ACCEPT", "CONFIRMED", "REJECT", "IGNORED", "ATTACH_CONTINUATION"})
 
 
 def unresolved_review_items(items):
@@ -261,6 +268,8 @@ def review_row_identity(item):
     payload = item.to_dict() if isinstance(item, ReviewItem) else item
     if not isinstance(payload, Mapping):
         return None
+    if payload.get("review_id"):
+        return ("review_id", str(payload["review_id"]))
     location = payload.get("source_location")
     location = location if isinstance(location, Mapping) else {}
     values = (
@@ -361,7 +370,13 @@ def apply_review_decisions(extracted, review_items):
     edits, rejections, and canonical type validation without a desktop runtime.
     """
     from core.canonical_mapper import normalize_canonical_value
+    from core.ddr_continuation import apply_continuation_decisions
 
+    # M149: continuation rows are attached / rejected / deferred through the shared semantic operation, never
+    # written as a "continuation" column on a time log.
+    metadata = extracted.get("metadata") if isinstance(extracted.get("metadata"), dict) else {}
+    apply_continuation_decisions(extracted, review_items,
+                                 continuation_allowed=bool(metadata.get("continuation_allowed", True)))
     storage_by_section = {
         "time_log": "time_logs_24h",
         "time_log_morning": "time_logs_morning",
@@ -374,7 +389,7 @@ def apply_review_decisions(extracted, review_items):
     }
     for item in review_items or ():
         payload = item.to_dict() if isinstance(item, ReviewItem) else item
-        if not isinstance(payload, dict):
+        if not isinstance(payload, dict) or payload.get("review_type") == "continuation":
             continue
         field_path = str(payload.get("target_field") or payload.get("canonical_field") or "")
         if "." not in field_path:
@@ -382,7 +397,9 @@ def apply_review_decisions(extracted, review_items):
         section, key = field_path.split(".", 1)
         storage = storage_by_section.get(section, section)
         decision = str(payload.get("decision", "REVIEW") or "REVIEW").upper()
-        if decision not in FINAL_REVIEW_DECISIONS:
+        # M150: a deferred proposal is kept for review but is never canonical - it leaves the payload like a
+        # rejection while its item stays unresolved.
+        if decision not in FINAL_REVIEW_DECISIONS and decision != "DEFER":
             continue
         accepted = decision in {"ACCEPT", "CONFIRMED"}
         normalized = payload.get("normalized_value", payload.get("value"))
@@ -446,6 +463,15 @@ def apply_review_decisions(extracted, review_items):
             section_data.pop(key, None)
             section_data.pop(f"{key}_source", None)
     _sync_review_matrix(extracted, review_items)
+    # M150: the decided field proposals travel with the payload so the import can keep the deferred ones (and
+    # the evidence of the decided ones) in the persisted review queue.
+    decided = []
+    for item in review_items or ():
+        payload = item.to_dict() if isinstance(item, ReviewItem) else item
+        if isinstance(payload, dict) and payload.get("review_type") != "continuation":
+            decided.append(dict(payload))
+    if isinstance(extracted.get("metadata"), dict):
+        extracted["metadata"]["review_decisions"] = decided
     return extracted
 
 
@@ -661,7 +687,8 @@ class TimeLogValidator:
         return diff / 60.0
 
     @classmethod
-    def validate_logs(cls, logs: List[Dict], sheet="TimeLog", tolerance_hours=0.5) -> ImportReport:
+    def validate_logs(cls, logs: List[Dict], sheet="TimeLog", tolerance_hours=0.5,
+                      continuation_allowed: bool = True) -> ImportReport:
         """Validate a list of time logs (dicts with time_from, time_to, duration).
 
         Returns ImportReport with errors/warnings.
@@ -847,24 +874,16 @@ class TimeLogValidator:
             else:
                 seen_ranges.add(key)
 
-        # Continuation rows: if description continues but no time, it's okay if previous exists
-        # This is handled in import - here we just warn if time missing
+        # Continuation rows (M148): one shared contract decides narrative-only rows and their parent. A review
+        # row is keyed by its own review id and source row (never by list position) and carries the full text.
+        from core.ddr_continuation import analyse_time_rows, continuation_review_rows
+        for payload in continuation_review_rows(logs, continuation_allowed=continuation_allowed, sheet=sheet):
+            report.add_review(**payload)
+        kinds = {a.index: a.kind for a in analyse_time_rows(logs, continuation_allowed=continuation_allowed)}
         for p in parsed:
-            if p["from_m"] is None or p["to_m"] is None:
-                # Could be continuation row - check if log has only description
-                log = p["log"]
-                if log.get("activity_description") and not log.get("time_from"):
-                    report.add_review(
-                        sheet=sheet,
-                        row=p["index"] + 2,
-                        original_value=log.get("activity_description", "")[:50],
-                        target_field="time_log.continuation",
-                        confidence=0.8,
-                        decision="REVIEW",
-                        transform="Continuation row - will be merged",
-                    )
-                else:
-                    report.warning(sheet, p["index"] + 2, "Missing time_from or time_to", "time_range")
+            if (p["from_m"] is None or p["to_m"] is None) and kinds.get(p["index"]) != "continuation":
+                report.warning(sheet, p["log"].get("_source_row") or p["index"] + 2, "Missing time_from or time_to",
+                               "time_range")
 
         return report
 

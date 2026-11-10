@@ -12,6 +12,8 @@ from typing import Optional
 from core.value_normalizer import ValueNormalizer
 from core.canonical_schema import FIELD_SPECS
 from core.text_utils import wrap_text
+from core.ddr_continuation import defer_undecided_continuations, preserve_line_breaks
+from core.import_review_queue import build_review_queue, queue_summary
 from core.import_quality import (
     ImportValidator, find_duplicates, TimeLogValidator, ReviewItem,
     build_review_manifest, restore_missing_review_rows, unresolved_review_items,
@@ -415,7 +417,10 @@ class DDRImportService:
             time_logs = extracted.get("time_logs_24h", []) or []
 
             # Professional time log validation
-            time_validation = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
+            metadata = extracted.get("metadata") if isinstance(extracted.get("metadata"), dict) else {}
+            time_validation = TimeLogValidator.validate_logs(
+                time_logs, sheet="Time Logs 24H",
+                continuation_allowed=bool(metadata.get("continuation_allowed", True)))
             quality.issues.extend(time_validation.issues)
 
             # Keep every source row through the persistence boundary. Invalid
@@ -772,9 +777,16 @@ class DDRImportService:
                 session=session,
             )
 
+            # M148/M150: continuation rows nobody decided are kept as deferred review items (never a time log,
+            # never dropped, never attached silently) - the same result for every import route.
+            stage = "continuation_review"
+            defer_undecided_continuations(
+                extracted, continuation_allowed=bool(metadata.get("continuation_allowed", True)))
+            persistence_reviews = []
             if extracted.get("time_logs_24h"):
                 stage = "time_logs_24h"
                 time_result = self._save_time_logs(report_id, extracted["time_logs_24h"], session=session)
+                persistence_reviews.extend(time_result.get("review", []))
                 results.setdefault("review_items", []).extend(
                     _canonical_review_row(item) for item in time_result.get("review", [])
                 )
@@ -787,6 +799,7 @@ class DDRImportService:
             if extracted.get("time_logs_morning"):
                 stage = "time_logs_morning"
                 morning_result = self._save_morning_logs(report_id, extracted["time_logs_morning"], session=session)
+                persistence_reviews.extend(morning_result.get("review", []))
                 results.setdefault("review_items", []).extend(
                     _canonical_review_row(item) for item in morning_result.get("review", [])
                 )
@@ -852,6 +865,21 @@ class DDRImportService:
                 results["imported"] = 0
                 return results
 
+            # M150: the review queue is stored in the same transaction as the report it belongs to.
+            stage = "review_queue"
+            queue = build_review_queue(
+                extracted, persistence_reviews=persistence_reviews,
+                counted_reviews=(results.get("import_report") or {}).get("review", []))
+            queued = self.db.save_import_review_items(
+                report_id, queue, fingerprint=source_fingerprint,
+                source=str((extracted.get("metadata") or {}).get("source_file") or ""), session=session)
+            summary = queue_summary(queue)
+            results["review_queue"] = summary
+            results["review"] = results.get("review", 0) + summary["pending_not_counted"]
+            if queued:
+                results["details"].append(
+                    f"🗂 Review queue: {summary['pending']} item(s) kept for review, "
+                    f"{summary['attached']} continuation(s) attached, {summary['closed']} decided")
             results["status"] = determine_import_status(
                 persistence_error=False,
                 validation_error=bool(results.get("validation_errors", 0)),
@@ -1168,6 +1196,7 @@ class DDRImportService:
         owns_session = session is None
         session = session or self.db.create_session()
         review_items = []
+        saved_rows = []
         saved = 0
         try:
             from core.database import TimeLog24H
@@ -1237,18 +1266,26 @@ class DDRImportService:
                             "status": "REVIEW_REQUIRED",
                         })
                     continue
-                session.add(TimeLog24H(
+                description = str(log.get("activity_description", ""))
+                row = TimeLog24H(
                     report_id=report_id, time_from=time_from, time_to=time_to,
                     duration=duration, main_phase=str(log.get("main_phase", ""))[:100],
                     main_code=str(log.get("main_code", ""))[:100],
                     sub_code=str(log.get("sub_code", ""))[:100],
                     status=str(log.get("status", ""))[:50], is_npt=bool(log.get("is_npt", False)),
                     npt_category=str(log.get("npt_category", ""))[:100],
-                    activity_description=wrap_text(str(log.get("activity_description", ""))),
+                    # An attached continuation keeps its line break (M148); other text is cleaned as before.
+                    activity_description=(preserve_line_breaks(description) if log.get("_continuations")
+                                          else wrap_text(description)),
                     contractor=str(log.get("contractor") or "")[:100],
-                ))
+                )
+                session.add(row)
+                saved_rows.append((logs[index], row))
                 saved += 1
             session.flush()
+            for source_log, row in saved_rows:
+                if isinstance(source_log, dict):
+                    source_log["_saved_id"] = row.id
             if owns_session:
                 session.commit()
             return {"valid": saved, "review": _enrich_record_reviews(review_items, logs, "time_log")}
@@ -1352,7 +1389,9 @@ class DDRImportService:
                     sub_code=str(log.get("sub_code", ""))[:100],
                     status=str(log.get("status", ""))[:50], is_npt=bool(log.get("is_npt", False)),
                     npt_category=str(log.get("npt_category", ""))[:100],
-                    activity_description=wrap_text(description),
+                    # An attached continuation keeps its line break (M148), as in the 24-hour table.
+                    activity_description=(preserve_line_breaks(description) if log.get("_continuations")
+                                          else wrap_text(description)),
                     contractor=str(log.get("contractor") or "")[:100],
                 ))
                 saved += 1

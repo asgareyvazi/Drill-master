@@ -749,6 +749,7 @@ class MainWindow(QMainWindow):
         for text, slot in [
             ("🧮 Calculator", self.open_calculator),
             ("📊 Import from Excel", self.open_excel_import),
+            ("🗂 Import Review Queue", self.open_import_review),
             ("⚙️ Settings", self.show_settings),
             ("🛡️ Security Status", self.show_security_status),
         ]:
@@ -2075,6 +2076,16 @@ class MainWindow(QMainWindow):
             logger.error(f"Import dialog error: {e}")
             self.status_manager.show_error("MainWindow", str(e))
 
+
+    @require_permission("can_import")
+    def open_import_review(self):
+        """M151: persisted DDR review queue of the selected well (deferred rows, continuations)."""
+        if not self.current_well:
+            QMessageBox.information(self, "Import Review Queue", "Select a well first.")
+            return
+        well_id = self.current_well["id"] if isinstance(self.current_well, dict) else self.current_well.id
+        from dialogs.import_review_dialog import ImportReviewDialog
+        ImportReviewDialog(self.db_manager, well_id, self).exec()
 
     def _on_import_completed(self, results: list):
         """After Import - targeted refresh with IDs"""

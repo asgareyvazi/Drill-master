@@ -29,6 +29,7 @@ from PySide6.QtCore import QEventLoop, Signal, Qt
 from PySide6.QtGui import QColor
 
 from core.import_quality import (
+    FINAL_REVIEW_DECISIONS,
     unresolved_review_items,
     apply_review_decisions,
 )
@@ -125,6 +126,7 @@ class ImportPreviewDialog(QDialog):
         self.extracted = extracted
         self.import_report = import_report
         self.confirmed = False
+        self.deferred_count = 0                 # M150: rows explicitly kept for review by a partial import
         # M61: the report profile's confidence threshold decides acceptance
         # eligibility; without a profile the historical 95%/70% bands apply.
         self.accept_threshold, self.low_threshold = review_thresholds(
@@ -309,6 +311,12 @@ class ImportPreviewDialog(QDialog):
         ignore_col_btn.clicked.connect(self._ignore_column)
         btn_layout.addWidget(ignore_col_btn)
 
+        self.attach_btn = QPushButton("🔗 Attach Eligible Continuations")
+        self.attach_btn.setToolTip("Attach narrative continuation rows to their parent activity - only rows whose "
+                                   "parent is unambiguous (same table and page, source order kept)")
+        self.attach_btn.clicked.connect(self._attach_continuations_clicked)
+        btn_layout.addWidget(self.attach_btn)
+
         layout.addLayout(btn_layout)
 
         # Confirm / Cancel
@@ -377,6 +385,17 @@ class ImportPreviewDialog(QDialog):
             f"Warning: {warning}",
             f"Decision: {payload.get('decision', 'REVIEW')}",
         ]
+        if payload.get("review_type") == "continuation":
+            # M151: the reviewer sees the parent the text would join and why it may or may not be attached.
+            parent = payload.get("parent") if isinstance(payload.get("parent"), dict) else None
+            if parent:
+                span = f"{parent.get('time_from') or '?'}-{parent.get('time_to') or '?'}"
+                parts.append(f"Parent activity (source row {parent.get('row') or '?'}, {span}): "
+                             f"{str(parent.get('description') or '')[:200] or '—'}")
+            else:
+                parts.append("Parent activity: none identified")
+            parts.append("Attachable: yes" if payload.get("eligible")
+                         else f"Attachable: no - {payload.get('reason') or 'not eligible'}")
         return "\n".join(parts)
 
     def _show_field_detail(self, row, _col=0, _prev_row=0, _prev_col=0):
@@ -501,6 +520,8 @@ class ImportPreviewDialog(QDialog):
                 payload = self._payload_for_row(row)
                 if payload is not None and payload.get("validation_state") == "needs_review":
                     continue  # ambiguous/unparsed values are never bulk-accepted
+                if payload is not None and payload.get("review_type") == "continuation":
+                    continue  # a continuation is attached or rejected, never accepted as a value (M148)
                 if conf >= self.accept_threshold:
                     self._set_decision(row, "ACCEPT")
             except (TypeError, ValueError, OverflowError):  # silent-ok: non-numeric confidence is left for manual review
@@ -521,11 +542,59 @@ class ImportPreviewDialog(QDialog):
         if payload is not None:
 
             payload["decision"] = decision
-            payload["review_state"] = (
-                "accepted" if decision in {"ACCEPT", "CONFIRMED"}
-                else "rejected" if decision in {"REJECT", "IGNORED"}
-                else "unreviewed"
-            )
+            payload["review_state"] = self._review_state(decision)
+
+    @staticmethod
+    def _review_state(decision: str) -> str:
+        if decision in {"ACCEPT", "CONFIRMED", "ATTACH_CONTINUATION"}:
+            return "accepted"
+        if decision in {"REJECT", "IGNORED", "IGNORE"}:
+            return "rejected"
+        return "deferred" if decision == "DEFER" else "unreviewed"
+
+    def attach_eligible_continuations(self) -> int:
+        """M151: mark every undecided, eligible continuation row ATTACH_CONTINUATION; returns how many.
+
+        Eligibility comes from the shared contract (unambiguous parent, same table/page, source order kept,
+        allowed by the profile); ineligible rows are left for an explicit decision.
+        """
+        marked = 0
+        for row in range(self.table.rowCount()):
+            payload = self._payload_for_row(row)
+            if not payload or payload.get("review_type") != "continuation" or not payload.get("eligible"):
+                continue
+            current = self.table.item(row, 9).text() if self.table.item(row, 9) else "REVIEW"
+            if current in FINAL_REVIEW_DECISIONS:
+                continue
+            self._set_decision(row, "ATTACH_CONTINUATION")
+            marked += 1
+        return marked
+
+    def _attach_continuations_clicked(self):
+        marked = self.attach_eligible_continuations()
+        QMessageBox.information(
+            self, "Continuation rows",
+            f"{marked} eligible continuation row(s) will be attached to their parent activity on import. "
+            "Rows without a provable parent keep their review decision." if marked else
+            "No undecided continuation row has a provable parent; nothing was marked.")
+
+    def _ask_partial_import(self, pending: list) -> bool:
+        """Offer the M150 partial import; True only when the user chose it explicitly."""
+        examples = [str(item.get("target_field") or item.get("canonical_field") or "unmapped field")
+                    for item in pending[:5] if isinstance(item, dict)]
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("Review Required")
+        box.setText(f"{len(pending)} review row(s) have no decision: " + ", ".join(examples)
+                    + (" and more" if len(pending) > len(examples) else "") + ".")
+        box.setInformativeText(
+            "Import the verified records and keep the undecided rows for review? Undecided values are not "
+            "saved as report data; they stay in the review queue of this report until you decide them.")
+        partial = box.addButton(f"Import verified records and retain {len(pending)} unresolved item(s) for review",
+                                QMessageBox.AcceptRole)
+        box.addButton("Cancel", QMessageBox.RejectRole)
+        box.exec()
+        return box.clickedButton() is partial
 
     def _filter_medium(self):
         for row in range(self.table.rowCount()):
@@ -645,20 +714,19 @@ class ImportPreviewDialog(QDialog):
         # A proposal marked REVIEW is not an operator decision. Block the
         # transition to persistence until every row has a final decision.
         self.get_decisions()
-        pending = unresolved_review_items(self._row_payloads)
+        pending = [item for item in unresolved_review_items(self._row_payloads)
+                   if str(item.get("decision") or "REVIEW").upper() != "DEFER"]
         if pending:
-            examples = [
-                str(item.get("target_field") or item.get("canonical_field") or "unmapped field")
-                for item in pending[:5] if isinstance(item, dict)
-            ]
-            suffix = " and more" if len(pending) > len(examples) else ""
-            QMessageBox.warning(
-                self,
-                "Review Required",
-                f"Resolve every review row before import ({len(pending)} pending): "
-                + ", ".join(examples) + suffix,
-            )
-            return
+            # M150: never a silent acceptance - either the user cancels, or the undecided rows are explicitly
+            # deferred: excluded from the report data and kept in the persisted review queue.
+            if not self._ask_partial_import(pending):
+                return
+            pending_ids = {id(item) for item in pending}
+            for row in range(self.table.rowCount()):
+                payload = self._payload_for_row(row)
+                if payload is not None and id(payload) in pending_ids:
+                    self._set_decision(row, "DEFER")
+            self.deferred_count = len(pending)
         # Check if any critical errors remain
         report = self.import_report or {}
         if report.get("errors", 0) > 0:
@@ -692,11 +760,7 @@ class ImportPreviewDialog(QDialog):
             payload["normalized_value"] = normalized
             payload["value"] = normalized
             payload["proposed_value"] = normalized
-            payload["review_state"] = (
-                "accepted" if decision in {"ACCEPT", "CONFIRMED"}
-                else "rejected" if decision in {"REJECT", "IGNORED"}
-                else "unreviewed"
-            )
+            payload["review_state"] = self._review_state(decision)
         return decisions
 
     def apply_review_changes(self, extracted: dict) -> dict:
@@ -709,6 +773,21 @@ class ExcelImportDialog(QDialog, DDRImportService):
     """
     Main entry point for Excel Import - Professional version
     """
+
+    @staticmethod
+    def _saved_summary(result: dict) -> str:
+        """What a successful import actually saved (M150: a partial import says so)."""
+        if result.get("reimport"):
+            return " - already imported, nothing new saved"
+        queue = result.get("review_queue") or {}
+        parts = []
+        if result.get("report_id"):
+            parts.append(f"report {result['report_id']} saved")
+        if queue.get("attached"):
+            parts.append(f"{queue['attached']} continuation(s) attached")
+        if queue.get("pending"):
+            parts.append(f"{queue['pending']} item(s) kept for review")
+        return (" - " + ", ".join(parts)) if parts else ""
 
     import_completed = Signal(list)
 
@@ -816,7 +895,12 @@ class ExcelImportDialog(QDialog, DDRImportService):
         self.queue_cancel_btn = QPushButton("Cancel remaining")
         self.queue_cancel_btn.setToolTip("Files not yet started are cancelled; the running file stops at its next step unless it is already saving.")
         self.queue_cancel_btn.clicked.connect(self._queue_cancel)
-        for button in (self.queue_remove_btn, self.queue_retry_btn, self.queue_cancel_btn):
+        # M151: the persisted review queue (deferred rows, continuations) of the well just imported.
+        self.review_queue_btn = QPushButton("Review queue…")
+        self.review_queue_btn.setToolTip("Rows kept for review by earlier imports of this well: attach continuations, "
+                                         "reject or ignore them.")
+        self.review_queue_btn.clicked.connect(self.open_review_queue)
+        for button in (self.queue_remove_btn, self.queue_retry_btn, self.queue_cancel_btn, self.review_queue_btn):
             queue_buttons.addWidget(button)
         il.addLayout(queue_buttons)
 
@@ -831,6 +915,15 @@ class ExcelImportDialog(QDialog, DDRImportService):
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
         layout.addWidget(cancel_btn)
+
+    def open_review_queue(self):
+        if not self.well_id:
+            QMessageBox.information(self, "Review queue", "Select a well (or import a report) first.")
+            return None
+        from dialogs.import_review_dialog import ImportReviewDialog
+        dialog = ImportReviewDialog(self.db, self.well_id, self)
+        dialog.exec()
+        return dialog
 
     def refresh_profile_choices(self, select_key=None):
         combo = getattr(self, "profile_combo", None)
@@ -1241,7 +1334,7 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 result_status = result.get("status", ImportStatus.PERSISTENCE_ERROR.value)
                 if result_status in {ImportStatus.ACCEPT.value, ImportStatus.REVIEW_REQUIRED.value}:
                     successful_files.append(
-                        f"{os.path.basename(source)} [{result_status}]"
+                        f"{os.path.basename(source)} [{result_status}]" + self._saved_summary(result)
                     )
                 else:
                     failed_files.append(

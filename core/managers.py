@@ -81,8 +81,32 @@ class AutoSaveManager:
         return timer
 
     @staticmethod
+    def hidden_clean_pending(widget) -> bool:
+        """M153: a hidden tab whose selected context is still pending and which holds no edits.
+
+        Its timer has nothing to save - the CONTEXT_BLOCKED guard would only repeat that every interval. Any
+        doubt (visible, edited, unknown dirtiness, no readiness contract) answers False, so the guard runs.
+        """
+        ready = getattr(widget, "save_context_ready", None)
+        visible = getattr(widget, "isVisible", None)
+        if not callable(ready) or not callable(visible):
+            return False
+        try:
+            return (not ready()) and (not visible()) and getattr(widget, "is_dirty", None) is False
+        except Exception:                      # an unknown state keeps the guard
+            import logging
+            logging.getLogger("core.managers").debug("Auto-save readiness unknown; guard kept", exc_info=True)
+            return False
+
+    @staticmethod
     def save_widget(name, widget):
-        from core.save_outcome import save_all
+        from core.save_outcome import SaveOutcome, save_all
+        if AutoSaveManager.hidden_clean_pending(widget):
+            import logging
+            explain = getattr(widget, "context_block_reason", None)
+            logging.getLogger("core.managers").debug(
+                "Auto-save skipped for %s: no edits; %s", name, explain() if callable(explain) else "context pending")
+            return SaveOutcome()               # nothing edited, no saver called: truthfully NO_CHANGES
         callback = getattr(widget, "save_changes", None) or getattr(widget, "save_data", None)
         result = save_all([(name, callback)] if callable(callback) else [])
         if not result:

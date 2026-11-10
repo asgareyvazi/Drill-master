@@ -39,7 +39,8 @@ from core.mineru_engine import (
 
 logger = logging.getLogger(__name__)
 
-PIPELINE_VERSION = 1
+# v2 (M148): validation applies the ddr-continuation-v1 contract to 24-hour and morning rows.
+PIPELINE_VERSION = 2
 STAGES = ("route", "open", "mapping", "validation", "meaningful_data")
 
 
@@ -391,16 +392,37 @@ def prepare_import(
     return out
 
 
+def continuation_allowed(extracted) -> bool:
+    """M148 condition 7: the report profile decides whether continuation rows may be attached at all.
+
+    The decision is recorded in ``metadata.continuation_allowed`` so the review decisions applied later use the
+    same answer as the preview.
+    """
+    metadata = extracted.get("metadata")
+    if not isinstance(metadata, dict):
+        return True                     # no metadata, no profile: the default of every later step
+    if "continuation_allowed" not in metadata:
+        profile = metadata.get("profile") if isinstance(metadata.get("profile"), dict) else None
+        metadata["continuation_allowed"] = bool(profile.get("continuation", True)) if profile else True
+    return bool(metadata["continuation_allowed"])
+
+
 def _validate(source, extracted) -> Dict[str, Any]:
     """Existing quality and time-log validation; review rows tagged with the file."""
     report_data = extracted.get("daily_report", {})
     quality = ImportValidator.validate_rows([report_data], "daily_report", "Daily Report")
     time_logs = extracted.get("time_logs_24h", []) or []
-    time_report = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H")
+    allowed = continuation_allowed(extracted)
+    time_report = TimeLogValidator.validate_logs(time_logs, sheet="Time Logs 24H", continuation_allowed=allowed)
     quality.total += time_report.total
     quality.issues.extend(time_report.issues)
     for item in time_report.review.items:
         quality.review.items.append(item)
+    # M152: morning rows follow the same continuation contract (they were classified only at persistence).
+    from core.ddr_continuation import continuation_review_rows
+    for payload in continuation_review_rows(extracted.get("time_logs_morning") or [], collection="time_logs_morning",
+                                            continuation_allowed=allowed, sheet="Time Logs 06:00"):
+        quality.review.add(**payload)
     duplicate_indexes = set(find_duplicates(time_logs, "time_log"))
     if duplicate_indexes:
         quality.warning("Time Logs", 0, f"Skipped {len(duplicate_indexes)} duplicate time-log rows")
