@@ -1479,7 +1479,7 @@ class DDRImportService:
 
     def extract_file(self, path, template=None):
         """Actual desktop Excel pipeline without presentation or persistence."""
-        from openpyxl import load_workbook
+        from core.workbook_io import load_workbook_readonly_safe as load_workbook
         from core.excel_intelligence import ExcelIntelligence
         workbook = load_workbook(path, data_only=False, read_only=False)
         cached_workbook = load_workbook(path, data_only=True, read_only=False)

@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QMessageBox, QPushButton, QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout,
     QWidget,
 )
-from openpyxl import load_workbook
+from core.workbook_io import load_workbook_readonly_safe as load_workbook
 from openpyxl.utils import get_column_letter
 from core.import_quality import build_review_manifest, decision_for_confidence
 from core.value_normalizer import ValueNormalizer

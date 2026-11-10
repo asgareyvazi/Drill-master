@@ -193,10 +193,8 @@ def _eligibility(rows, done: List[RowAnalysis], analysis: RowAnalysis, allowed: 
         if later.location.get("page") != earlier.location.get("page"):
             return "A page boundary separates this row from the candidate parent"
         a, b = later.location.get("row"), earlier.location.get("row")
-        if a is None or b is None:
-            return "Source row numbers are not available; order cannot be proven"
         if not all(isinstance(value, int) and not isinstance(value, bool) for value in (a, b)):
-            return "Source row numbers are not comparable; order cannot be proven"
+            return "Source row numbers are missing or not comparable; order cannot be proven"
         if a <= b:
             return "Source order is not preserved between this row and the candidate parent"
     analysis.parent_index = anchor.index

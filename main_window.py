@@ -750,6 +750,7 @@ class MainWindow(QMainWindow):
             ("🧮 Calculator", self.open_calculator),
             ("📊 Import from Excel", self.open_excel_import),
             ("🗂 Import Review Queue", self.open_import_review),
+            ("🔩 Tubular Reference Library", self.open_tubular_reference),
             ("⚙️ Settings", self.show_settings),
             ("🛡️ Security Status", self.show_security_status),
         ]:
@@ -2086,6 +2087,11 @@ class MainWindow(QMainWindow):
         well_id = self.current_well["id"] if isinstance(self.current_well, dict) else self.current_well.id
         from dialogs.import_review_dialog import ImportReviewDialog
         ImportReviewDialog(self.db_manager, well_id, self).exec()
+
+    def open_tubular_reference(self):
+        """M159: browse the versioned tubular reference library (global reference data, no well needed)."""
+        from dialogs.tubular_reference_dialog import TubularReferenceDialog
+        TubularReferenceDialog(self.db_manager, self).exec()
 
     def _on_import_completed(self, results: list):
         """After Import - targeted refresh with IDs"""

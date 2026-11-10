@@ -220,7 +220,7 @@ def read_workbook_rows(
     if not p.exists():
         raise DrillPipeImportError(f"Workbook not found: {path}")
     try:
-        from openpyxl import load_workbook
+        from core.workbook_io import load_workbook_readonly_safe as load_workbook
     except Exception as exc:  # pragma: no cover - openpyxl is a hard dependency
         raise DrillPipeImportError(f"openpyxl unavailable: {exc}") from exc
     try:

@@ -61,7 +61,7 @@ def route_file(
 
 def _sheet_names(path: Path) -> list[str]:
     try:
-        from openpyxl import load_workbook
+        from core.workbook_io import load_workbook_readonly_safe as load_workbook
 
         workbook = load_workbook(path, read_only=True, data_only=True)
         try:

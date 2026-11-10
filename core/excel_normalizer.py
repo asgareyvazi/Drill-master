@@ -1,7 +1,7 @@
 """Normalize XLSX presentation quirks before semantic import."""
 from pathlib import Path
 from copy import copy
-from openpyxl import load_workbook
+from core.workbook_io import load_workbook_readonly_safe as load_workbook
 
 
 class ExcelNormalizationError(Exception):

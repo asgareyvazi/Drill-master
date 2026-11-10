@@ -2429,6 +2429,54 @@ class DrillPipeSpecRecord(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class TubularReferenceSet(Base):
+    """M157: one *version* of a tubular reference library (DP/HWDP/DC/tool joint/casing/tubing/liner).
+
+    Global reference data (no well FK). A set is DRAFT while items are added and becomes immutable once
+    PUBLISHED (the repository refuses any change; ``content_fingerprint`` proves it). A revision is a new row
+    with ``version + 1``; older versions stay readable so calculation snapshots that cite them remain valid.
+    """
+    __tablename__ = "tubular_reference_sets"
+    __table_args__ = (UniqueConstraint("name", "version", name="uq_tubular_reference_set_version"),)
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    status = Column(String(20), nullable=False, default="DRAFT")
+    content_fingerprint = Column(String(64))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=_now_utc)
+    published_at = Column(DateTime)
+    created_by = Column(Integer, ForeignKey("users.id"))
+
+    items = relationship("TubularReferenceItem", back_populates="reference_set", cascade="all, delete-orphan")
+
+
+class TubularReferenceItem(Base):
+    """M157: one typed tubular specification inside a reference set, with full provenance.
+
+    ``payload_json`` holds the lossless spec (every unknown field stays null - never a default) and its
+    provenance (origin manufacturer/user/derived, document, URL, revision, page, units, licence, file
+    fingerprint). ``fingerprint`` is the SHA-256 of that canonical payload.
+    """
+    __tablename__ = "tubular_reference_items"
+    __table_args__ = (UniqueConstraint("set_id", "fingerprint", name="uq_tubular_reference_item"),)
+
+    id = Column(Integer, primary_key=True)
+    set_id = Column(Integer, ForeignKey("tubular_reference_sets.id", ondelete="CASCADE"), nullable=False, index=True)
+    component_type = Column(String(20), nullable=False, index=True)
+    designation = Column(String(200))
+    nominal_od_in = Column(Float)
+    weight_ppf = Column(Float)
+    grade = Column(String(100))
+    connection = Column(String(100))
+    origin = Column(String(20), nullable=False)
+    payload_json = Column(Text, nullable=False)
+    fingerprint = Column(String(64), nullable=False)
+
+    reference_set = relationship("TubularReferenceSet", back_populates="items")
+
+
 class TorqueDragCalculationRecord(Base):
     """A persisted, reproducible Torque & Drag calculation run (history).
 

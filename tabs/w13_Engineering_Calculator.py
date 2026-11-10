@@ -7,6 +7,7 @@ Engineering Calculator - ادغام شده از نرم‌افزار قبلی
 import math
 import logging
 import os
+import warnings
 from typing import Optional
 
 import pandas as pd
@@ -462,12 +463,16 @@ class EngineeringCalculatorTab(DrillTabBase):
         for path in possible_paths:
             if os.path.exists(path):
                 try:
-                    self._drill_pipe_df = pd.read_excel(path, sheet_name="Aa", engine="openpyxl")
+                    with warnings.catch_warnings():   # M160: read-only; dropdown extensions are irrelevant
+                        warnings.filterwarnings("ignore", message="Data Validation extension is not supported")
+                        self._drill_pipe_df = pd.read_excel(path, sheet_name="Aa", engine="openpyxl")
                     logger.info(f"DrillPipe.xlsx loaded from {path}")
                     return
                 except Exception as e:
                     logger.warning(f"Could not load DrillPipe.xlsx: {e}")
-        logger.warning("Optional DrillPipe vendor reference unavailable. Set DRILLMASTER_DRILLPIPE_PATH or place DrillPipe.xlsx in the application data directory. Other calculations remain available. Searched: %s", possible_paths)
+        # M160: an optional resource that is simply absent is not a fault (INFO); a file that exists but cannot be
+        # read is logged as a WARNING above.
+        logger.info("Optional DrillPipe vendor reference unavailable. Set DRILLMASTER_DRILLPIPE_PATH or place DrillPipe.xlsx in the application data directory. Other calculations remain available. Searched: %s", possible_paths)
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)

@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, date, time
 from typing import Dict, List, Any, Optional
-from openpyxl import load_workbook
+from core.workbook_io import load_workbook_readonly_safe as load_workbook
 
 from core.combo_identity import ComboCatalog, DEFAULT_ACTIVITY_CATALOG, resolve_activity_pair
 

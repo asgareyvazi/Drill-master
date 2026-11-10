@@ -161,6 +161,11 @@ def test_m148_changed_row_ownership_is_not_applied_and_application_is_idempotent
     stale = dict(payload, review_id="cont-not-the-same-row")
     apply_continuation_decisions(extracted, [stale])
     assert len(extracted["time_logs_24h"]) == 2 and stale["decision"] == "REVIEW"
+    # Same id but a record index that contradicts it (a corrupted / stale decision payload): not applied.
+    moved = dict(payload, record_index=payload["record_index"] + 1)
+    apply_continuation_decisions(extracted, [moved])
+    assert len(extracted["time_logs_24h"]) == 2 and moved["decision"] == "REVIEW"
+    assert "ownership is not proven" in moved["reason"]
     apply_continuation_decisions(extracted, [payload])
     apply_continuation_decisions(extracted, [payload])                  # second application: no effect
     assert extracted["time_logs_24h"][0]["activity_description"] == "Drill\ntail"
