@@ -1226,3 +1226,28 @@ Technical debt within the documented scope; no owner gate touched. Report: `docs
 | Mutation | PASS | `D60-*` 7/7 KILLED; complete run of `mutation_m121_m140.py` on `20dfe56`: **330 mutants, 329 KILLED, 1 declared EQUIVALENT (`SEC-empty-password-unlocks`), 0 SURVIVED, 0 INVALID, `complete=True`, 2505 s** (`m140-evidence/mutation_m121_m140_complete_20dfe56.json`); anchors of all suites 900 valid, 0 invalid |
 | Gates | PASS | lint 0 ≤ 0 (`verify_release` prints "lint-clean"); E722/F821 0; exception ratchet 0 unexplained silent handlers; privacy 1446 files, 0 findings; schema 26/26 (old `0822a28`); constant / engine / journey inventories `--check` rc 0; `dependency_audit.json` regenerated (0 findings) |
 | CI on `20dfe56` | **PASS** (Source and Windows) | Source run 42514404748: 3.11 ✅ job 128834168345, 3.12 ✅ 128834168502, 3.13 ✅ 128834168486; Windows run 42514404705 ✅ job 128834168328; coverage (3.12) **70.01 % = 71817 / 102585** (floor 45.50, target ≥ 65) |
+
+## M141–M170 – Integrated engineering, DDR repair, product consolidation (code `9b4025d`, base `ba4e0a8`)
+
+UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Report: `docs/mission-reports/M141_M170_INTEGRATED_PRODUCT_COMPLETION_REPORT.md`.
+
+| Item | Status | Evidence |
+|---|---|---|
+| "Resolve every review row before import (34 pending)" (M147) | **ROOT CAUSE FOUND, FIXED** | `validate_logs` raised a "will be merged" `time_log.continuation` review at confidence 0.8, between auto (≥ 0.95) and reject (< 0.70), so `_confirm` blocked; `apply_review_decisions` set a `continuation` field instead of attaching; the profile route merged silently. All routes affected |
+| Continuation contract `ddr-continuation-v1` (M148/M149) | **IMPLEMENTED** | `core/ddr_continuation.py`: attach only with an unambiguous parent in the same report / table / section, proven source order, no boundary, profile permission; text, line break and lineage kept; nothing invented. States ACCEPTED / REJECTED / IGNORED / SAFELY_ATTACHED_CONTINUATION / DEFERRED_UNRESOLVED / VALIDATION_ERROR; ids `cont-` + sha256[:20]; ACCEPT on a continuation refused |
+| Persisted review queue and safe partial import (M150) | **IMPLEMENTED** | `core/import_review_queue.py`, unique (`report_id`, `review_id`); explicit consent; verified records imported transactionally, unresolved items kept as DEFERRED; foreign well / decided item refused; audit `ddr_review_decision` |
+| Review workspace (M151) | **PARTIAL** | filters, multi-select, attach / reject / ignore, parent visible; deferred scalar corrections need a re-import |
+| Route parity (M152) | **PARTIAL** | XLSX profile, generic Excel, native PDF / MinerU profile rule proven; MinerU free-text headers unmapped |
+| Auto-save CONTEXT_BLOCKED (M153) | **FIXED (guard kept)** | hidden clean tabs with a pending context report NO_CHANGES; Daily Report's own navigation is acknowledged by `acknowledge_direct_load` (same well only, nothing newer pending) |
+| Directional UIs (M155/M156) | **PARTIAL** | canonical W6 › Well Trajectory Viewer; the legacy Trajectory Plot stays until plot save / data export are ported |
+| Tubular reference library `tubular-reference-v1` (M157) | **IMPLEMENTED** | 7 types; DRAFT → PUBLISHED (immutable); immutable snapshots, drift reported, never rewritten; 0 is refused, missing stays unavailable |
+| Pipe data (M158) | **BLOCKED (source rights)** | no rows shipped; no licensed source supplied |
+| Search dialog and module integration (M159/M165) | **PARTIAL / OPEN** | dialog done; Architecture, Volumes, Hydraulics, Weight, Casing, T&D not yet storing snapshots |
+| DrillPipe.xlsx / Data Validation warnings (M160) | **FIXED** | `core/workbook_io.py` swallows only the DV-extension warning; an absent optional file logs INFO; the user's workbook is never written |
+| External audit (M161/M162) | **PARTIAL / nothing adopted** | 19 named repositories at exact SHAs; the earlier 50-source list not re-audited |
+| D51 (M143) | **OPEN** | no recurrence, no new frame; no timeout raised, no retry added |
+| Tests | PASS | `test_m147_m152_ddr_continuation` 34, `test_m153_context_blocked_autosave` 10, `test_m157_m160_tubular_reference` 20, `test_m169_end_to_end_journey` 1 × 20 steps (real Qt, real and fresh DB, source file unchanged); all four in the Windows gate |
+| Full suite (local, Python 3.11.2, offscreen, `9b4025d`) | PASS | **5121 passed, 4 skipped** (opt-in), 0 failed, 2128 s |
+| Mutation | PASS | `mutation_m141_m170.py` **28/28 KILLED**, complete; `mutation_m121_m140.py` **330 mutants, 329 KILLED, 1 declared EQUIVALENT, 0 SURVIVED, 0 INVALID**, complete, 2847 s (`docs/mission-reports/m141-m170-evidence/`) |
+| Gates | PASS | lint 0 ≤ 0; E722/F821 0; exception ratchet within ceiling; privacy 0 findings; schema 26/26; dependency audit 26 locked, 0 findings |
+| CI on `9b4025d` | **PASS** (Source and Windows) | Source run 43562099041: 3.11 ✅ 132347826725, 3.12 ✅ 132347826463, 3.13 ✅ 132347826713; Windows run 43562099088 ✅ 132347826381; coverage (3.12) **70.46 %** (73339 / 104089), floor 45.50 |
