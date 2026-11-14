@@ -1015,7 +1015,7 @@ WEIGHT = Contract(
 
 
 _CASING_REQUIRED = ("od_in", "id_in", "wall_in", "yield_psi")
-CASING_ORIGINS = ("architecture", "derived", "preset", "user", "unknown")
+CASING_ORIGINS = ("architecture", "derived", "preset", "reference", "user", "unknown")   # M188: + reference (additive)
 
 
 def _casing_strength(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
@@ -1081,7 +1081,7 @@ CASING_STRENGTH = Contract(
              FieldSpec("tension_sf", "Tension SF (governing / axial)", "ratio")),
     recalculate=_casing_strength, structured=True,
     extras=(ExtraSpec("provenance", "csg_case_provenance", "origin per field (architecture / derived / preset / "
-                      "user / unknown) and the architecture revision pin", "Input provenance",
+                      "reference / user / unknown) and the architecture revision pin or library snapshot", "Input provenance",
                       refresh="_csg_case_provenance_restored"),),
     reference="CasingEngine (API TR 5C3 pipe-body subset: Barlow burst with 87.5 % wall, four-regime collapse, "
               "pipe-body yield, fyax and internal-pressure correction, inner-wall VME; capped-end)",

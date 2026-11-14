@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from core import calculation_cases as cc
+from core.engineering import reference_binding as rb
 from tabs.calculator_finder import _direct_tab_widgets
 
 INPUT_TYPES = (QDoubleSpinBox, QSpinBox, QComboBox, QLineEdit, QCheckBox, QRadioButton)
@@ -293,9 +294,20 @@ class CaseBar(QWidget):
         missing += self._restore_extras(case)
         stored = "; ".join(f"{(v.get('label') if isinstance(v, dict) else '') or k}: {cc._value(v)}"
                            for k, v in list(case["results"].items())[:6])
+        self.last_reference_report = self.reference_report(case)
+        library = rb.summarize(self.last_reference_report)
         self.status.setText(f"Reopened '{case['name']}' (#{case['id']}). Stored results: {stored}"
-                            + (f". Not restored: {', '.join(missing)}" if missing else ""))
+                            + (f". Not restored: {', '.join(missing)}" if missing else "")
+                            + (f". {library} (the stored snapshots are used; nothing is re-read)" if library else ""))
         return missing
+
+    def reference_report(self, case: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """M189: drift of every tubular library snapshot stored in the case (MATCH / DIFFERENT / ...)."""
+        try:
+            return rb.drift_report(self.db, case.get("inputs"))
+        except Exception as exc:  # silent-ok: reported as UNREADABLE in the status line, never as MATCH
+            return [{"path": "/", "designation": None, "set": "?", "state": rb.UNREADABLE,
+                     "message": f"library check failed ({type(exc).__name__})"}]
 
     def compare_current(self, case_id: int) -> Dict[str, Any]:
         case = cc.get_case(self.db, case_id)

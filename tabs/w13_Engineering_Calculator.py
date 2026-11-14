@@ -1437,6 +1437,13 @@ class EngineeringCalculatorTab(DrillTabBase):
             'length': float(self.hy_pipe_table.item(row, 3).text()) if self.hy_pipe_table.item(row, 3) else 0,
             'weight': float(self.hy_pipe_table.item(row, 4).text()) if self.hy_pipe_table.item(row, 4) else 0,
         }
+        binding = self._hy_row_binding(row)
+        if binding:                                      # M185: the library snapshot travels with the row
+            edit_data.update({k: self._hy_cell(self.hy_pipe_table, row, c) for c, k in ((1, 'od'), (2, 'id'),
+                                                                                    (3, 'length'), (4, 'weight'))})
+            from core.engineering import reference_binding as rb
+            edit_data.update({k: v for k, v in rb.bound_values(binding).items() if k in ('grade', 'connection', 'tj_od')})
+            edit_data['tubular_reference'] = binding
         from dialogs.engineering_dialogs import AddPipeDialog
         dlg = AddPipeDialog(self, edit_data=edit_data)
         if dlg.exec():
@@ -1449,7 +1456,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         self._hy_invalidate_results()
         row = self.hy_pipe_table.rowCount() if position == -1 else position
         self.hy_pipe_table.insertRow(row)
-        self.hy_pipe_table.setItem(row, 0, QTableWidgetItem(data.get('type', '')))
+        type_item = QTableWidgetItem(data.get('type', ''))
+        binding = data.get('tubular_reference')
+        if isinstance(binding, dict):                    # M185: kept with the row; checked when rows are read
+            type_item.setData(Qt.UserRole, binding)
+            type_item.setToolTip(f"Library: {binding.get('snapshot', {}).get('spec', {}).get('designation')}")
+        self.hy_pipe_table.setItem(row, 0, type_item)
         # D41 (M126): the cell shows rounded text; the entered value is kept exactly in Qt.UserRole
         for col, key, fmt in ((1, 'od', '.3f'), (2, 'id', '.3f'), (3, 'length', '.1f'), (4, 'weight', '.1f')):
             self.hy_pipe_table.setItem(row, col, self._hy_value_item(data.get(key), fmt))
@@ -1619,12 +1631,23 @@ class EngineeringCalculatorTab(DrillTabBase):
         except ValueError:  # silent-ok: an unreadable cell is None (unknown, refused by the engine set-up), never 0
             return None
 
+    def _hy_row_binding(self, row):
+        item = self.hy_pipe_table.item(row, 0)
+        value = item.data(Qt.UserRole) if item is not None else None
+        return value if isinstance(value, dict) else None
+
     @property
     def hy_pipe_rows(self):
-        """Drill-string rows as shown (surface down); an unreadable cell stays None (M126 case extra)."""
+        """Drill-string rows as shown (surface down); an unreadable cell stays None (M126 case extra).
+
+        M185: a row picked from the tubular library carries its binding while the bound values are unchanged.
+        """
+        from core.engineering import reference_binding as rb
+
         t = self.hy_pipe_table
-        return [{"type": t.item(r, 0).text() if t.item(r, 0) else "", "od": self._hy_cell(t, r, 1),
-                 "id": self._hy_cell(t, r, 2), "length": self._hy_cell(t, r, 3), "weight": self._hy_cell(t, r, 4)}
+        return [rb.attach({"type": t.item(r, 0).text() if t.item(r, 0) else "", "od": self._hy_cell(t, r, 1),
+                           "id": self._hy_cell(t, r, 2), "length": self._hy_cell(t, r, 3),
+                           "weight": self._hy_cell(t, r, 4)}, self._hy_row_binding(r))
                 for r in range(t.rowCount())]
 
     @hy_pipe_rows.setter
@@ -3873,6 +3896,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         arch_row.addWidget(QLabel("Architecture string:"))
         arch_row.addWidget(self.csg_arch_string, 1)
         arch_row.addWidget(self.csg_arch_btn)
+        self.csg_lib_btn = QPushButton("📚 Library…")          # M188: tubular reference library item
+        self.csg_lib_btn.setToolTip("Fill OD / ID / wall / weight from a PUBLISHED tubular library item (stored as "
+                                    "an immutable snapshot); the yield strength is never taken from the library or "
+                                    "inferred from the grade.")
+        self.csg_lib_btn.clicked.connect(self._csg_lib_clicked)
+        arch_row.addWidget(self.csg_lib_btn)
         g1_lay.addLayout(arch_row)
         self.csg_source_label = QLabel(self._CSG_MANUAL_SOURCE)
         self.csg_source_label.setWordWrap(True)
@@ -4108,6 +4137,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             "architecture_revision_id": rev["id"], "architecture_revision": rev["revision"],
             "components_sha256": rev["components_sha256"], "string": name, "grade": data["values"]["grade"],
             "version": data["version"], "loaded": self._csg_values(), "provenance": dict(data["provenance"])}
+        if data.get("tubular_reference"):          # M188: the library snapshot pinned by the architecture revision
+            self._csg_origin["tubular_reference"] = data["tubular_reference"]
         self._csg_last_run = None
         unknown = [label for key, _attr, label in self._CSG_FIELDS if data["provenance"][key] == "unknown"]
         self.csg_source_label.setText(
@@ -4118,8 +4149,56 @@ class EngineeringCalculatorTab(DrillTabBase):
                if unknown else ""))
         return self._csg_origin
 
+    def load_casing_from_library(self, snapshot) -> Optional[dict]:
+        """M188: fill the casing inputs from a tubular library snapshot; unavailable values stay unknown."""
+        from core.engineering import reference_binding as rb
+
+        try:
+            binding = rb.make_binding(snapshot, rb.CASING_STRENGTH_FIELDS)
+        except rb.BindingError as exc:
+            self.csg_source_label.setText(f"Library item NOT USED — {exc}")
+            return None
+        values = rb.bound_values(binding)
+        provenance = {}
+        for key, attr, _label in self._CSG_FIELDS:
+            if key in values:
+                getattr(self, attr).setValue(float(values[key]))
+                provenance[key] = "reference"
+            elif key == "wall_in" and values.get("od_in") is not None and values.get("id_in") is not None \
+                    and values["od_in"] > values["id_in"]:
+                getattr(self, attr).setValue((values["od_in"] - values["id_in"]) / 2.0)
+                provenance[key] = "derived"
+            else:                                       # yield is never in the library; others may be unavailable
+                getattr(self, attr).setValue(0.0)       # 0 shown, recorded as unknown
+                provenance[key] = "unknown"
+        snap = binding["snapshot"]
+        self._csg_origin = {"kind": "reference", "well_id": None, "tubular_reference": binding,
+                            "grade": snap["spec"].get("grade"), "loaded": self._csg_values(),
+                            "provenance": provenance}
+        self._csg_last_run = None
+        unknown = [label for key, _attr, label in self._CSG_FIELDS if provenance[key] == "unknown"]
+        self.csg_source_label.setText(
+            f"Source: tubular library {snap['set_name']} v{snap['set_version']}, {snap['spec'].get('designation')}"
+            + (f" (grade {snap['spec']['grade']})" if snap["spec"].get("grade") else "")
+            + (". Wall derived as (OD - ID) / 2." if provenance["wall_in"] == "derived" else ".")
+            + f" Unknown: {', '.join(unknown)} - enter the value(s); they are recorded as user-entered.")
+        return self._csg_origin
+
+    def _csg_lib_clicked(self, _checked=False):
+        from dialogs.tubular_reference_dialog import TubularReferenceDialog
+
+        if getattr(self, "db", None) is None:
+            self.csg_source_label.setText("No database is open; the tubular library is unavailable.")
+            return
+        dialog = TubularReferenceDialog(self.db, self, component_type="CASING")
+        try:
+            if dialog.exec() and dialog.selected_snapshot:
+                self.load_casing_from_library(dialog.selected_snapshot)
+        finally:
+            dialog.deleteLater()
+
     def csg_provenance(self) -> dict:
-        """Origin of each casing input now: architecture / derived / preset / user / unknown."""
+        """Origin of each casing input now: architecture / derived / preset / reference / user / unknown."""
         origin = getattr(self, "_csg_origin", None)
         if origin is not None and origin.get("well_id") not in (None, getattr(self, "current_well_id", None)):
             self._csg_reset_origin()
@@ -4145,14 +4224,20 @@ class EngineeringCalculatorTab(DrillTabBase):
         restored = getattr(self, "_csg_case_restored", None) or {}
         origin, fields = dict(restored.get("origin") or {}), dict(restored.get("fields") or {})
         self._csg_last_run = None
-        if origin.get("kind") not in ("architecture", "preset") or not fields or \
+        if origin.get("kind") not in ("architecture", "preset", "reference") or not fields or \
                 origin.get("well_id") not in (None, getattr(self, "current_well_id", None)):
             self._csg_origin = None
             self.csg_source_label.setText(self._CSG_MANUAL_SOURCE)
             return
         self._csg_origin = {**origin, "loaded": self._csg_values(), "provenance": fields}
-        where = (f"architecture rev {origin.get('architecture_revision')}, {origin.get('string')}"
-                 if origin.get("kind") == "architecture" else "built-in preset table")
+        if origin.get("kind") == "architecture":
+            where = f"architecture rev {origin.get('architecture_revision')}, {origin.get('string')}"
+        elif origin.get("kind") == "reference":
+            snap = (origin.get("tubular_reference") or {}).get("snapshot") or {}
+            where = (f"tubular library {snap.get('set_name')} v{snap.get('set_version')}, "
+                     f"{(snap.get('spec') or {}).get('designation')}")
+        else:
+            where = "built-in preset table"
         self.csg_source_label.setText(f"Source (restored case): {where}.")
 
     def _csg_arch_clicked(self, _checked=False):

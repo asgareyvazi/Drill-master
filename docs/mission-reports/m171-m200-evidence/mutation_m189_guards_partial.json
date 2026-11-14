@@ -1,0 +1,83 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m184_m189_reference_integration.py"
+    ],
+    "exit": 0,
+    "summary": "17 passed, 14 warnings in 17.77s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "M189-unreadable-as-match",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a tampered stored snapshot is reported against the library",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.16s"
+    },
+    {
+      "id": "M189-fingerprint-ignored",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a changed library set is reported MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.88s"
+    },
+    {
+      "id": "M189-guard-set-frozen",
+      "path": "core/storage_guards.py",
+      "note": "a published reference set can be rewritten by raw SQL",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.90s"
+    },
+    {
+      "id": "M189-guard-item-frozen",
+      "path": "core/storage_guards.py",
+      "note": "a draft item can be moved into a published set",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 17.75s"
+    },
+    {
+      "id": "M189-guard-item-insert",
+      "path": "core/storage_guards.py",
+      "note": "a published set takes new items through raw SQL",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 17.72s"
+    }
+  ],
+  "killed": [
+    "M189-unreadable-as-match",
+    "M189-fingerprint-ignored",
+    "M189-guard-set-frozen",
+    "M189-guard-item-frozen",
+    "M189-guard-item-insert"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

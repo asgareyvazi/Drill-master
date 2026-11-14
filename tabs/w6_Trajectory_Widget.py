@@ -2,24 +2,10 @@
 Trajectory Widget - ابزار مدیریت تراژکتوری چاه با قابلیت‌های پیشرفته (بازنویسی کامل)
 """
 
-import csv
-import json
 import logging
 from core.permissions import require_permission
 from core.text_utils import fmt_num
-from datetime import datetime, date
-from typing import Dict, List
-
-try:
-    import pyqtgraph as pg
-    PYQTGRAPH_AVAILABLE = True
-except ImportError:
-    PYQTGRAPH_AVAILABLE = False
-    pg = None
-    logging.getLogger(__name__).warning(
-        "pyqtgraph not installed. Trajectory plots disabled."
-    )
-
+from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QKeySequence, QShortcut
@@ -485,14 +471,6 @@ class SurveyDataTab(QWidget):
                                     "\n".join(f"Row {r['row']}: {r['reason']}" for r in result["review_items"]))
             if not result["rejected"]:
                 self.load_data()
-                parent = self.parentWidget()
-                # The owner also refreshes plots on report selection; an
-                # explicit save must refresh the sibling plot tab as well.
-                while parent is not None:
-                    if hasattr(parent, "plot_tab"):
-                        parent.plot_tab.load_for_report(self.current_report_id)
-                        break
-                    parent = parent.parentWidget()
             return result["rejected"] == 0
         except Exception as exc:
             logger.exception("Survey persistence/calculation failure")
@@ -544,202 +522,11 @@ class SurveyDataTab(QWidget):
 
 
 # ==================== Trajectory Plot Tab ====================
-class TrajectoryPlotTab(QWidget):
-    """تب نمودارهای تراژکتوری"""
-    
-    def __init__(self, db_manager: DatabaseManager = None, parent=None):
-        super().__init__(parent)
-        self.db_manager = db_manager
-        self.current_report_id = None
-        self.plots = {}
-        self.init_ui()
-    
-    def init_ui(self):
-        layout = QVBoxLayout(self)
- 
-        if not PYQTGRAPH_AVAILABLE:
-            # نمایش پیام جایگزین به جای crash
-            placeholder = QLabel(
-                "📊 Trajectory plots require pyqtgraph.\n"
-                "Install: pip install pyqtgraph"
-            )
-            placeholder.setAlignment(Qt.AlignCenter)
-            placeholder.setStyleSheet(
-                "color: #7f8c8d; font-size: 12px; padding: 20px;"
-            )
-            layout.addWidget(placeholder)
-            
-            # ایجاد placeholder برای جلوگیری از AttributeError
-            self.plot_2d_plan = None
-            self.plot_2d_side = None
-            self.plot_3d_container = QWidget()
-            self.plot_3d_label = QLabel("pyqtgraph not available")
-            
-            control_layout = QHBoxLayout()
-            self.plot_btn = QPushButton("📊 Plot (unavailable)")
-            self.plot_btn.setEnabled(False)
-            control_layout.addWidget(self.plot_btn)
-            layout.addLayout(control_layout)
-            return
-            
-        self.plot_tabs = QTabWidget()
-        self.plot_2d_plan = pg.PlotWidget()
-        self.plot_2d_plan.setBackground("w")
-        self.plot_2d_plan.setLabel("left", "North (m)")
-        self.plot_2d_plan.setLabel("bottom", "East (m)")
-        self.plot_2d_plan.setTitle("2D Plan View")
-        self.plot_2d_plan.showGrid(x=True, y=True)
-        self.plot_tabs.addTab(self.plot_2d_plan, "2D Plan View")
-        
-        self.plot_2d_side = pg.PlotWidget()
-        self.plot_2d_side.setBackground("w")
-        self.plot_2d_side.setLabel("left", "TVD (m)")
-        self.plot_2d_side.setLabel("bottom", "Horizontal Displacement (m)")
-        self.plot_2d_side.setTitle("2D Side View")
-        self.plot_2d_side.showGrid(x=True, y=True)
-        self.plot_tabs.addTab(self.plot_2d_side, "2D Side View")
-        
-        self.plot_3d_container = QWidget()
-        self.plot_3d_layout = QVBoxLayout(self.plot_3d_container)
-        self.plot_3d_label = QLabel("3D Plot (requires additional 3D plotting library)")
-        self.plot_3d_label.setAlignment(Qt.AlignCenter)
-        self.plot_3d_layout.addWidget(self.plot_3d_label)
-        from matplotlib.figure import Figure
-        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-        self.figure_3d = Figure()
-        self.canvas_3d = FigureCanvasQTAgg(self.figure_3d)
-        self.axes_3d = self.figure_3d.add_subplot(111, projection="3d")
-        self.plot_3d_layout.addWidget(self.canvas_3d)
-        self.plot_tabs.addTab(self.plot_3d_container, "3D View")
-        
-        layout.addWidget(self.plot_tabs)
-        
-        control_layout = QHBoxLayout()
-        self.plot_btn = QPushButton("📊 Plot Trajectory")
-        self.plot_btn.clicked.connect(self.plot_trajectory)
-        self.save_plot_btn = QPushButton("💾 Save Plot")
-        self.save_plot_btn.clicked.connect(self.save_plot)
-        self.load_plot_btn = QPushButton("📂 Load Plot")
-        self.load_plot_btn.clicked.connect(self.load_plots)
-        self.clear_plot_btn = QPushButton("🗑️ Clear Plot")
-        self.clear_plot_btn.clicked.connect(self.clear_plots)
-        self.export_plot_btn = QPushButton("📤 Export Data")
-        self.export_plot_btn.clicked.connect(self.export_plot_data)
-        
-        control_layout.addWidget(self.plot_btn)
-        control_layout.addWidget(self.save_plot_btn)
-        control_layout.addWidget(self.load_plot_btn)
-        control_layout.addWidget(self.clear_plot_btn)
-        control_layout.addWidget(self.export_plot_btn)
-        control_layout.addStretch()
-        layout.addLayout(control_layout)
-    
-    def load_for_report(self, report_id: int):
-        self.current_report_id = report_id
-        if report_id:
-            self.load_plots()
-    
-    def plot_trajectory(self, survey_data: List[Dict] = None):
-        from core.survey_records import plot_series
-        if survey_data is None and self.db_manager and self.current_report_id:
-            survey_data = self.db_manager.load_survey_points(report_id=self.current_report_id)
-        series = plot_series(survey_data or [])
-        self.clear_plots()
-        if not series["md"]:
-            self.plot_3d_label.setText("No complete calculated survey stations. Supply missing MD/inclination/azimuth.")
-            return
-        east, north, tvd, hd = (series[k] for k in ("east", "north", "tvd", "hd"))
-        if self.plot_2d_plan is not None:
-            self.plot_2d_plan.plot(east, north, pen=pg.mkPen('b', width=2), symbol='o')
-            self.plot_2d_side.plot(hd, tvd, pen=pg.mkPen('r', width=2), symbol='s')
-            self.plot_2d_side.invertY(True)
-        if hasattr(self, "axes_3d"):
-            from core.trajectory_plot import draw_trajectory_3d
-            draw_trajectory_3d(self.axes_3d, survey_data or [])
-            self.canvas_3d.draw_idle()
-        self.plot_3d_label.setText(f"Measured survey stations: {len(tvd)}")
-        self.plots = {"2d_plan": {"east": east, "north": north},
-                      "2d_side": {"hd": hd, "tvd": tvd}, "3d": series}
-
-    def save_plot(self):
-        if not self.current_report_id:
-            QMessageBox.warning(self, "Trajectory plot", "Select a daily report before saving a plot")
-            return False
-        plot_data = {
-            'report_id': self.current_report_id,
-            'plot_type': '2d_plan',
-            'title': f'Trajectory Plot {datetime.now():%Y-%m-%d %H:%M}',
-            'plot_data': json.dumps(self.plots),
-            'image_data': None,
-            'image_format': 'png'
-        }
-        if self.db_manager:
-            plot_id = self.db_manager.save_trajectory_plot(plot_data)
-            if plot_id:
-                logger.info(f"Plot saved with ID: {plot_id}")
-                return True
-        return False
-    
-    def load_plots(self):
-        # Rebuild from persisted surveys; saved presentation snapshots are not
-        # an authoritative second trajectory and may be stale after edits.
-        self.plot_trajectory()
-
-    def clear_plots(self):
-        for plot in (self.plot_2d_plan, self.plot_2d_side):
-            if plot is not None:
-                plot.clear()
-        if hasattr(self, "axes_3d"):
-            self.axes_3d.clear()
-            self.canvas_3d.draw_idle()
-        self.plots.clear()
-
-    def export_plot_data(self):
-        if not self.plots:
-            QMessageBox.warning(self, "Warning", "No plot data to export")
-            return
-        filename, _ = QFileDialog.getSaveFileName(self, "Export Plot Data", "", "CSV Files (*.csv);;JSON Files (*.json)")
-        if filename:
-            if filename.endswith('.json'):
-                with open(filename, 'w', encoding='utf-8') as f:
-                    json.dump(self.plots, f, indent=2)
-            else:
-                with open(filename, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(['Type', 'Index', 'X', 'Y', 'Z'])
-                    if '2d_plan' in self.plots:
-                        east = self.plots['2d_plan'].get('east', [])
-                        north = self.plots['2d_plan'].get('north', [])
-                        for i, (e, n) in enumerate(zip(east, north)):
-                            writer.writerow(['2D_Plan', i, e, n, 0])
-                    if '2d_side' in self.plots:
-                        hd = self.plots['2d_side'].get('hd', [])
-                        tvd = self.plots['2d_side'].get('tvd', [])
-                        for i, (h, t) in enumerate(zip(hd, tvd)):
-                            writer.writerow(['2D_Side', i, h, t, 0])
-
-
-# ==================== Trajectory Calculation Manager ====================
-class TrajectoryCalculationManager:
-    def __init__(self, db_manager: DatabaseManager = None):
-        self.db_manager = db_manager
-        self.calculations = []
-    
-    def create_calculation(self, well_id: int, report_id: int = None, method: str = "Minimum Curvature", description: str = "") -> int:
-        calculation_data = {
-            'well_id': well_id,
-            'report_id': report_id,
-            'method': method,
-            'calculation_date': date.today(),
-            'parameters': {},
-            'results': {},
-            'description': description
-        }
-        if self.db_manager:
-            calc_id = self.db_manager.save_trajectory_calculation(calculation_data)
-            if calc_id:
-                return calc_id
-        return None
+# M180: the legacy "Trajectory Plot" sub-tab (TrajectoryPlotTab) and the unused TrajectoryCalculationManager were
+# retired. Their save / load / export moved to the Well Trajectory Viewer ("Saved views", core.trajectory_views):
+# named views bound to the well, wellbore and survey revision, reopened from their snapshot, exported with units and
+# without a constant Z = 0. Rows saved by the old tab stay in ``trajectory_plots`` and are listed read-only there
+# (core.trajectory_views.legacy_plots). The forensic inventory is docs/engineering/M177_LEGACY_TRAJECTORY_PLOT.md.
 
 
 # ==================== Main Trajectory Widget ====================
@@ -761,9 +548,7 @@ class TrajectoryWidget(DrillTabBase):
         
         self.trip_sheet_tab = None
         self.survey_data_tab = None
-        self.plot_tab = None
         self.viewer_tab = None
-        self.calculation_manager = TrajectoryCalculationManager(db_manager)
         
         self.init_ui()
         setup_widget_with_managers(self, "TrajectoryWidget", enable_autosave=True, autosave_interval=5, setup_shortcuts=True)
@@ -791,13 +576,11 @@ class TrajectoryWidget(DrillTabBase):
         self.tab_widget = QTabWidget()
         self.trip_sheet_tab = TripSheetTab(self.db)
         self.survey_data_tab = SurveyDataTab(self.db)
-        self.plot_tab = TrajectoryPlotTab(self.db)
         from tabs.trajectory_viewer import TrajectoryViewerTab
         self.viewer_tab = TrajectoryViewerTab(self.db)
         self.tab_widget.addTab(self.viewer_tab, "Well Trajectory Viewer")
         self.tab_widget.addTab(self.trip_sheet_tab, "Trip Sheet")
         self.tab_widget.addTab(self.survey_data_tab, "Survey Data")
-        self.tab_widget.addTab(self.plot_tab, "Trajectory Plot")
         main_layout.addWidget(self.tab_widget)
         
         self.status_label = QLabel("Ready")
@@ -923,11 +706,6 @@ class TrajectoryWidget(DrillTabBase):
             if self.current_well_id:
                 self.survey_data_tab.load_data()
 
-        if self.plot_tab:
-            self.plot_tab.current_report_id = self.current_report_id
-            if self.current_report_id:
-                self.plot_tab.load_plots()
-
         if self.viewer_tab:
             self.viewer_tab.set_context(self.current_well_id, self.current_report_id)
     
@@ -955,8 +733,6 @@ class TrajectoryWidget(DrillTabBase):
         if self.survey_data_tab:
             steps.append(("Survey", self.survey_data_tab.save_data))
         self.last_save_outcome = save_all(steps)
-        if self.plot_tab and self.current_report_id:
-            self.plot_tab.load_for_report(self.current_report_id)
         if self.viewer_tab:
             self.viewer_tab.reload()
         (self.show_success if self.last_save_outcome else self.show_error)(self.last_save_outcome.summary())

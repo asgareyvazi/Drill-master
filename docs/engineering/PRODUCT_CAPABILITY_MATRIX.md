@@ -1239,10 +1239,10 @@ UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Report: `docs/mission-
 | Review workspace (M151) | **PARTIAL** | filters, multi-select, attach / reject / ignore, parent visible; deferred scalar corrections need a re-import |
 | Route parity (M152) | **PARTIAL** | XLSX profile, generic Excel, native PDF / MinerU profile rule proven; MinerU free-text headers unmapped |
 | Auto-save CONTEXT_BLOCKED (M153) | **FIXED (guard kept)** | hidden clean tabs with a pending context report NO_CHANGES; Daily Report's own navigation is acknowledged by `acknowledge_direct_load` (same well only, nothing newer pending) |
-| Directional UIs (M155/M156) | **PARTIAL** | canonical W6 › Well Trajectory Viewer; the legacy Trajectory Plot stays until plot save / data export are ported |
+| Directional UIs (M155/M156) | **PARTIAL** → superseded by M178–M180 (below) | canonical W6 › Well Trajectory Viewer; the legacy Trajectory Plot stays until plot save / data export are ported |
 | Tubular reference library `tubular-reference-v1` (M157) | **IMPLEMENTED** | 7 types; DRAFT → PUBLISHED (immutable); immutable snapshots, drift reported, never rewritten; 0 is refused, missing stays unavailable |
 | Pipe data (M158) | **BLOCKED (source rights)** | no rows shipped; no licensed source supplied |
-| Search dialog and module integration (M159/M165) | **PARTIAL / OPEN** | dialog done; Architecture, Volumes, Hydraulics, Weight, Casing, T&D not yet storing snapshots |
+| Search dialog and module integration (M159/M165) | **PARTIAL / OPEN** → superseded by M184–M189 (below) | dialog done; Architecture, Volumes, Hydraulics, Weight, Casing, T&D not yet storing snapshots |
 | DrillPipe.xlsx / Data Validation warnings (M160) | **FIXED** | `core/workbook_io.py` swallows only the DV-extension warning; an absent optional file logs INFO; the user's workbook is never written |
 | External audit (M161/M162) | **PARTIAL / nothing adopted** | 19 named repositories at exact SHAs; the earlier 50-source list not re-audited |
 | D51 (M143) | **OPEN** | no recurrence, no new frame; no timeout raised, no retry added |
@@ -1251,3 +1251,27 @@ UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Report: `docs/mission-
 | Mutation | PASS | `mutation_m141_m170.py` **28/28 KILLED**, complete; `mutation_m121_m140.py` **330 mutants, 329 KILLED, 1 declared EQUIVALENT, 0 SURVIVED, 0 INVALID**, complete, 2847 s (`docs/mission-reports/m141-m170-evidence/`) |
 | Gates | PASS | lint 0 ≤ 0; E722/F821 0; exception ratchet within ceiling; privacy 0 findings; schema 26/26; dependency audit 26 locked, 0 findings |
 | CI on `9b4025d` | **PASS** (Source and Windows) | Source run 43562099041: 3.11 ✅ 132347826725, 3.12 ✅ 132347826463, 3.13 ✅ 132347826713; Windows run 43562099088 ✅ 132347826381; coverage (3.12) **70.46 %** (73339 / 104089), floor 45.50 |
+
+## M171–M200 – Product integration, data completion, workflow consolidation (report `docs/mission-reports/M171_M200_PRODUCT_INTEGRATION_AND_COMPLETION_REPORT.md`)
+
+| Capability | Status | Evidence |
+|---|---|---|
+| Deferred scalar correction from the review queue (M173) | **IMPLEMENTED** | `core/review_scalar_correction.py` (`ddr-scalar-correction-v1`); Edit → Validate → Preview → Confirm → Save → Reopen → Audit in `tests/test_m173_scalar_correction.py` (real Qt + DB); commit `54fba74` |
+| Profile-driven description-header aliases (M174) | **IMPLEMENTED** | `core/ddr_header_aliases.py` (`ddr-header-aliases-v1`: MAPPED / AMBIGUOUS / NO_MATCH, operator decision for ambiguity, profile rules version 2) |
+| Selected well against workbook well (M175) | **IMPLEMENTED** | `core/ddr_well_identity.py`, `dialogs/well_identity_dialog.py`; explicit audited decision, revalidated before persistence, never auto-created |
+| DDR route parity and provenance (M176) | **IMPLEMENTED (synthetic)**; real-document acceptance **NOT RUN** | `docs/engineering/M176_DDR_ROUTE_PARITY.md`, `tests/test_m176_route_parity.py`; generic Excel is a documented LIMITATION |
+| Saved trajectory views replace the legacy Trajectory Plot (M177–M180) | **IMPLEMENTED** | `core/trajectory_views.py`, `tabs/trajectory_saved_views_panel.py`; named, well / wellbore / revision-bound, revise / clone / compare (by MD, no interpolation) / archive / restore, export with units and empty-not-zero; legacy rows kept read-only; `TrajectoryCalculationManager` had no caller. `tests/test_m178_trajectory_views.py` |
+| Tubular data sources (M181) | **NO PERMITTED SOURCE** — library ships empty | `docs/engineering/M181_TUBULAR_SOURCES.md` (DOE GDR CC-BY casing histories, openwashdata water wells, OSDC schemas evaluated and rejected; no API / ISO tables) |
+| Controlled tubular importer (M182/M183) | **IMPLEMENTED** | `core/engineering/tubular_import.py` (`tubular-import-v1`), `dialogs/tubular_import_dialog.py`, template `docs/engineering/tubular_import_template.csv`; `tests/test_m181_m183_tubular_import.py` |
+| Library references in Architecture, Volumes, Hydraulics, Weight / T&D, Casing (M184–M188) | **IMPLEMENTED** | `core/engineering/reference_binding.py` (`tubular-binding-v1`); only available values filled, yield and ratings never; binding dropped on edit; M126 / M127 goldens unchanged. `tests/test_m184_m189_reference_integration.py`, `docs/engineering/M184_M189_REFERENCE_INTEGRATION.md` |
+| Shared reference drift (M189 / M165) | **COMPLETE (real persistence tests)** | MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE on case reopen; close-and-reopen and backup-restore tests; published tubular sets guarded at the storage layer (`trg_tubular_*`) |
+| 20-step tubular journey (M190) | **PASS** | `tests/test_m190_tubular_journey.py` (real MainWindow, real file DB, source file unchanged) |
+| W13 leaves (M191) | **UNCHANGED 9/10/4/1/1/2** | Kill Sheet TRAINING AID; Anti-Collision has no W13 case and is labelled SCREENING - NO ISCWSA UNCERTAINTY - NOT APPROVED; `tests/test_m125_w13_classification.py` |
+| 7.48 / 7.48052 (M192) | **INVENTORIED, owner decision P8** | 17 × 7.48, 14 × 7.48052, 2 × 7.4805 in 11 files; `tests/test_m192_density_constants.py` |
+| 50-source audit (M193) | **RE-AUDITED** | `tools/quality/oss_reaudit_m193.py`: 46 unchanged, 3 new commits (licence unchanged), 1 archived; no licence change; nothing adopted (M194) |
+| Windows crash-dump annotation (M195) | **CLASSIFIED: harness excerpt, not a dump; FIXED** | marker matched a parametrized test id inside a breadcrumb (`c20f5cd`, job 130135216636); `packaging/junit_report.is_crash_marker`; `tests/test_junit_report.py` |
+| D51 (M195) | **OPEN** | no new frame; no timeout raised, no retry added |
+| Owner decision packages (M196) | **18 packages × 9 fields** | `docs/engineering/M196_OWNER_DECISION_PACKAGES.md` |
+| Success messages on failure (M197) | **AUDITED** | `tools/quality/ux_success_audit_m197.py`, `tests/test_m197_ux_success_audit.py` (0 unreviewed) |
+| Migration / backup / restore of the new data (M198) | **PASS** | `tests/test_m198_backup_restore_qualification.py` (v5 upgrade, BackupService → later changes → RestoreService, guards and snapshots verified) |
+| Mutation | see report §U | `tools/quality/mutation_m171_m200.py` |

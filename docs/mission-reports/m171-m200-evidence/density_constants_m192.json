@@ -1,0 +1,257 @@
+{
+ "by_file": {
+  "core/calculator_contracts.py": {
+   "7.48": 2,
+   "7.48052": 1
+  },
+  "core/engineering/engines/mud_volume.py": {
+   "7.4805": 1
+  },
+  "core/engineering/engines/torque_drag.py": {
+   "7.48": 1
+  },
+  "core/engineering/extended.py": {
+   "7.48052": 2
+  },
+  "core/engineering/well_control_kill_sheet.py": {
+   "7.48": 3
+  },
+  "core/hydraulics_engine.py": {
+   "7.4805": 1,
+   "7.48052": 4
+  },
+  "core/mud_engineering.py": {
+   "7.48052": 1
+  },
+  "core/w13_weight.py": {
+   "7.48": 2,
+   "7.48052": 1
+  },
+  "dialogs/calculator_dialog.py": {
+   "7.48": 2,
+   "7.48052": 1
+  },
+  "tabs/w13_Engineering_Calculator.py": {
+   "7.48": 6,
+   "7.48052": 1
+  },
+  "tabs/w15_Reference_Tables.py": {
+   "7.48": 1,
+   "7.48052": 3
+  }
+ },
+ "contract": "density-constant-inventory-m192-v1",
+ "relative_difference": 6.95187165775657e-05,
+ "scopes": [
+  "core",
+  "tabs",
+  "dialogs",
+  "ui",
+  "main_window.py"
+ ],
+ "sites": [
+  {
+   "constant": "7.48052",
+   "file": "core/calculator_contracts.py",
+   "line": 183,
+   "text": "bh = AdvancedHydraulicsEngine.calc_bit_hydraulics(gpm, mw_pcf / 7.48052, tfa, bit_od)"
+  },
+  {
+   "constant": "7.48",
+   "file": "core/calculator_contracts.py",
+   "line": 247,
+   "text": "r = WellControlEngine.formation_pressure(mw_ppg=values[\"mw\"] / 7.48, tvd_ft=values[\"tvd\"] * 3.28084,"
+  },
+  {
+   "constant": "7.48",
+   "file": "core/calculator_contracts.py",
+   "line": 265,
+   "text": "reference=\"P = 0.052\u00b7MW(ppg)\u00b7TVD(ft); PF = P + SIDPP (pcf\u2192ppg uses 7.48 as the W13 handler does)\","
+  },
+  {
+   "constant": "7.4805",
+   "file": "core/engineering/engines/mud_volume.py",
+   "line": 27,
+   "text": "BBL_FT3 = 42.0 / 7.4805          # ft\u00b3 per bbl (231 in\u00b3 gallon)"
+  },
+  {
+   "constant": "7.48",
+   "file": "core/engineering/engines/torque_drag.py",
+   "line": 235,
+   "text": "mw_ppg = mw_pcf / 7.48"
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/engineering/extended.py",
+   "line": 315,
+   "text": "engine.mud.mw_pcf = mw_ppg * 7.48052"
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/engineering/extended.py",
+   "line": 364,
+   "text": "engine.mud.mw_pcf = mw_ppg * 7.48052"
+  },
+  {
+   "constant": "7.48",
+   "file": "core/engineering/well_control_kill_sheet.py",
+   "line": 13,
+   "text": "(m \u2192 ft ``\u00d7 3.28084``; pcf \u2192 ppg ``\u00f7 7.48``; fracture gradient"
+  },
+  {
+   "constant": "7.48",
+   "file": "core/engineering/well_control_kill_sheet.py",
+   "line": 57,
+   "text": "PCF_PER_PPG = 7.48          # ppg = pcf / 7.48   (pounds/ft^3 -> lb/gal)"
+  },
+  {
+   "constant": "7.48",
+   "file": "core/engineering/well_control_kill_sheet.py",
+   "line": 57,
+   "text": "PCF_PER_PPG = 7.48          # ppg = pcf / 7.48   (pounds/ft^3 -> lb/gal)"
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/hydraulics_engine.py",
+   "line": 124,
+   "text": "return self.mw_pcf / 7.48052"
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/hydraulics_engine.py",
+   "line": 695,
+   "text": "vc_fps * 60.0 * area_ft2 * 7.48052, 1"
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/hydraulics_engine.py",
+   "line": 1492,
+   "text": "\"equiv_mw_pcf\": round(equiv_mw * 7.48052, 2),"
+  },
+  {
+   "constant": "7.4805",
+   "file": "core/hydraulics_engine.py",
+   "line": 1769,
+   "text": "Qc (gpm) = Vc \u00d7 A_annulus(ft\u00b2) \u00d7 60 \u00d7 7.4805."
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/hydraulics_engine.py",
+   "line": 1791,
+   "text": "qc_gpm = vc_fps * 60.0 * area_ft2 * 7.48052"
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/mud_engineering.py",
+   "line": 238,
+   "text": "\"MW pcf / 7.48052 (MudProperties.mw_ppg)\"))"
+  },
+  {
+   "constant": "7.48",
+   "file": "core/w13_weight.py",
+   "line": 17,
+   "text": "the weight card converts pcf to ppg with 7.48 (the 7.48 / 7.48052 choice is an open owner decision)."
+  },
+  {
+   "constant": "7.48",
+   "file": "core/w13_weight.py",
+   "line": 17,
+   "text": "the weight card converts pcf to ppg with 7.48 (the 7.48 / 7.48052 choice is an open owner decision)."
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/w13_weight.py",
+   "line": 17,
+   "text": "the weight card converts pcf to ppg with 7.48 (the 7.48 / 7.48052 choice is an open owner decision)."
+  },
+  {
+   "constant": "7.48",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 204,
+   "text": "mw_ppg = mud_weight_pcf / 7.48"
+  },
+  {
+   "constant": "7.48",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 205,
+   "text": "steel_ppg = steel_density / 7.48"
+  },
+  {
+   "constant": "7.48",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 307,
+   "text": "mw_ppg = mw_pcf / 7.48"
+  },
+  {
+   "constant": "7.48",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 328,
+   "text": "\"equivalent_mw_pcf\": round(v[\"equivalent_mw_ppg\"] * 7.48, 2),"
+  },
+  {
+   "constant": "7.48",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 1852,
+   "text": "mw_ppg = self.hy_mw.value() / 7.48"
+  },
+  {
+   "constant": "7.48052",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 2576,
+   "text": "mw_ppg = mw_pcf / 7.48052 if mw_pcf > 0 else 0.0"
+  },
+  {
+   "constant": "7.48",
+   "file": "tabs/w13_Engineering_Calculator.py",
+   "line": 3618,
+   "text": "ppg = r['final_mw_pcf'] / 7.48"
+  },
+  {
+   "constant": "7.48",
+   "file": "tabs/w15_Reference_Tables.py",
+   "line": 731,
+   "text": "(\"MW Conversion\", \"ppg \u00d7 7.48 = pcf | ppg \u00d7 0.12 = sg\"),"
+  },
+  {
+   "constant": "7.48052",
+   "file": "tabs/w15_Reference_Tables.py",
+   "line": 745,
+   "text": "(\"ppg \u2192 pcf\", \"\u00d7 7.48052\"),"
+  },
+  {
+   "constant": "7.48052",
+   "file": "tabs/w15_Reference_Tables.py",
+   "line": 797,
+   "text": "[\"ppg\", \"pcf\", \"7.48052\", \"10 ppg = 74.8 pcf\"],"
+  },
+  {
+   "constant": "7.48052",
+   "file": "tabs/w15_Reference_Tables.py",
+   "line": 917,
+   "text": "pcf = ppg * 7.48052"
+  },
+  {
+   "constant": "7.48",
+   "file": "dialogs/calculator_dialog.py",
+   "line": 395,
+   "text": "mw_ppg = mw / 7.48  # pcf to ppg"
+  },
+  {
+   "constant": "7.48",
+   "file": "dialogs/calculator_dialog.py",
+   "line": 403,
+   "text": "kmw_pcf = kmw_ppg * 7.48"
+  },
+  {
+   "constant": "7.48052",
+   "file": "dialogs/calculator_dialog.py",
+   "line": 462,
+   "text": "self.ppg_input.setValue(pcf / 7.48052)"
+  }
+ ],
+ "totals": {
+  "7.48": 17,
+  "7.4805": 2,
+  "7.48052": 14
+ }
+}

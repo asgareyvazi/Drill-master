@@ -213,7 +213,12 @@ class AddPipeDialog(EngineeringBaseDialog):
 
     GRADES = ["E-75", "X-95", "G-105", "S-135", "Z-140", "V-150", "4145H", "NM"]
 
-    def __init__(self, parent=None, edit_data=None, reference_repo=None):
+    def __init__(self, parent=None, edit_data=None, reference_repo=None, tubular_db=None):
+        # M184-M186: the versioned tubular reference library (core.engineering.tubular_reference). The database
+        # is the caller's (W13 passes nothing: its own ``db`` is used). A picked item is stored on the component
+        # as an immutable binding (core.engineering.reference_binding) only while its values are unchanged.
+        self._tubular_db = tubular_db if tubular_db is not None else getattr(parent, "db", None)
+        self._tubular_binding = None
         # Optional persisted drill-pipe reference catalog
         # (core.repositories.drill_pipe_reference_repository.DrillPipeReferenceRepository).
         # When supplied, its canonical DrillPipeSpec records are offered in the
@@ -269,6 +274,15 @@ class AddPipeDialog(EngineeringBaseDialog):
         self.quick_combo.addItem("-- Manual Entry --")
         self.quick_combo.currentTextChanged.connect(self._on_quick_selected)
         f1.addRow("📋 Quick Select:", self.quick_combo)
+        self.library_btn = QPushButton("📚 From tubular library…")
+        self.library_btn.setEnabled(self._tubular_db is not None)
+        self.library_btn.setToolTip("Fill OD / ID / weight / grade / connection / TJ OD from a PUBLISHED library item; "
+                                    "the item is stored with the component as an immutable snapshot")
+        self.library_btn.clicked.connect(self._library_clicked)
+        self.library_label = QLabel("")
+        self.library_label.setWordWrap(True)
+        f1.addRow("", self.library_btn)
+        f1.addRow("", self.library_label)
         layout.addWidget(g1)
 
         # Dimensions
@@ -414,6 +428,55 @@ class AddPipeDialog(EngineeringBaseDialog):
                 label.setText("Not assessed: enter measured positive OD and ID")
             self.error.setText("⚠️ Enter measured positive dimensions with OD > ID")
 
+    # ---------------------------------------------------------------- M184-M186 tubular library
+    def apply_library_snapshot(self, snapshot) -> bool:
+        """Fill the fields the library item provides; unavailable values are cleared, never guessed."""
+        from core.engineering import reference_binding as rb
+
+        try:
+            binding = rb.make_binding(snapshot, rb.PIPE_COMPONENT_FIELDS)
+        except rb.BindingError as exc:
+            self.library_label.setText(f"Library item NOT USED — {exc}")
+            return False
+        spec = binding["snapshot"]["spec"]
+        wanted = {code: name for name, code in rb.PIPE_TYPE_TO_COMPONENT.items()}.get(spec.get("component_type"))
+        if wanted and self.type_combo.currentText() != wanted:
+            self.type_combo.setCurrentText(wanted)
+        values = rb.bound_values(binding)
+        for key, widget in (("od", self.od), ("id", self.id_), ("weight", self.weight), ("tj_od", self.tj_od)):
+            widget.setValue(float(values[key]) if key in values else 0.0)     # 0 = not entered (unavailable)
+        self.grade.setCurrentText(str(values.get("grade") or ""))
+        self.conn.setCurrentText(str(values.get("connection") or ""))
+        self._selected_reference_spec = None
+        self._tubular_binding = binding
+        self._show_binding()
+        return True
+
+    def _show_binding(self):
+        binding = self._tubular_binding
+        if not binding:
+            self.library_label.setText("")
+            return
+        snap = binding["snapshot"]
+        missing = ", ".join(binding.get("unavailable") or [])
+        self.library_label.setText(
+            f"Library: {snap['spec'].get('designation')} ({snap['set_name']} v{snap['set_version']})"
+            + (f". Unavailable in the library: {missing} — enter measured values; they are recorded as "
+               f"user-entered." if missing else ".")
+            + " Editing a filled value detaches the library reference.")
+
+    def _library_clicked(self, _checked=False):
+        from core.engineering import reference_binding as rb
+        from dialogs.tubular_reference_dialog import TubularReferenceDialog
+
+        dialog = TubularReferenceDialog(self._tubular_db, self,
+                                        component_type=rb.PIPE_TYPE_TO_COMPONENT.get(self.type_combo.currentText()))
+        try:
+            if dialog.exec() and dialog.selected_snapshot:
+                self.apply_library_snapshot(dialog.selected_snapshot)
+        finally:
+            dialog.deleteLater()
+
     def _load_data(self, d):
         idx = self.type_combo.findText(d.get('type', ''))
         if idx >= 0:
@@ -426,6 +489,12 @@ class AddPipeDialog(EngineeringBaseDialog):
             self.grade.setCurrentText(d['grade'])
         if d.get('connection'):
             self.conn.setCurrentText(d['connection'])
+        if d.get('tj_od') is not None:
+            self.tj_od.setValue(d.get('tj_od') or 0)
+        from core.engineering import reference_binding as rb
+        binding = d.get(rb.BINDING_KEY)
+        self._tubular_binding = dict(binding) if isinstance(binding, dict) else None
+        self._show_binding()
 
     def _save(self):
         errors = []
@@ -454,6 +523,8 @@ class AddPipeDialog(EngineeringBaseDialog):
         fp = self._reference_fingerprint_if_unchanged()
         if fp:
             self.result["reference_fingerprint"] = fp
+        from core.engineering import reference_binding as rb
+        self.result = rb.attach(self.result, self._tubular_binding)    # dropped when a bound value was edited
         self.accept()
 
     def _reference_fingerprint_if_unchanged(self):

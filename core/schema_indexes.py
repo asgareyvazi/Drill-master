@@ -46,6 +46,7 @@ AUDIT = "audit trail lookup"
 REVIEW_QUEUE = "pending review items of one well (M151 review workspace)"
 REVIEW_PARENT = "review parent link (ON DELETE SET NULL, M150): the time-log delete scan on re-save"
 REFERENCE_SET = "reference set child: items of one library version, cascade delete (M157)"
+VIEW_HISTORY = "revisions of one saved trajectory view (M178 reopen / history / optimistic head check)"
 REFERENCE_TYPE = "reference library search by component type (M159)"
 
 INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
@@ -157,6 +158,8 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("survey_revisions", ('well_id',), WELL_SCOPE),
     ("survey_revisions", ('wellbore_id',), HIERARCHY),
     ("survey_revisions", ('parent_id',), LINEAGE),
+    ("trajectory_view_revisions", ('well_id',), WELL_SCOPE),
+    ("trajectory_view_revisions", ('view_key',), VIEW_HISTORY),
     ("well_architecture_revisions", ('well_id',), WELL_SCOPE),
     ("well_architecture_revisions", ('wellbore_id',), HIERARCHY),
     ("well_architecture_revisions", ('survey_revision_id',), LINEAGE),

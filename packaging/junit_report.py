@@ -329,6 +329,27 @@ def build_stage_annotation(title: str, message: str, log_paths: list[Path], tail
     return f"::error title={_escape_property(title)}::{_escape_data(_bounded(' ;; '.join(parts)))}"
 
 
+# What faulthandler itself prints when the interpreter dies: the banner with its colon, or a thread header with
+# its address.  M195: the bare words are not enough -- the c20f5cd Windows run (job 130135216636) quoted a
+# "fatal crash dump" whose marker was the parametrized test id
+# ``test_a_logged_fatal_error_decides_whether_an_exit_code_is_a_native_death[Fatal Python error: Aborted-3-True]``
+# inside a breadcrumb line; no interpreter had died (the run ended with ordinary assertion failures).
+CRASH_MARKERS = (re.compile(r"Fatal Python error: "), re.compile(r"Windows fatal exception: "),
+                 re.compile(r"Current thread 0x[0-9A-Fa-f]+"))
+
+
+def is_crash_marker(line: str) -> bool:
+    """True when ``line`` carries a faulthandler death notice outside a test-start breadcrumb.
+
+    A breadcrumb names the test that is starting, and a test id may quote a banner as a parameter; the text after
+    the breadcrumb token is therefore never a marker.  Progress dots before a real banner (``..Fatal Python
+    error: ...``) still are, because faulthandler writes to the same stream without a newline of its own.
+    """
+    at = line.find(TEST_START_BREADCRUMB)
+    text = line if at < 0 else line[:at]
+    return any(pattern.search(text) for pattern in CRASH_MARKERS)
+
+
 def crash_excerpt(path: Path, limit_lines: int = 20, line_width: int = 200, *, separator: str = " | ",
                   bounded: bool = True, end_lines: int = 4) -> str:
     """Quote a fatal-crash dump from a captured log, anchored on the line that says the run died.
@@ -341,12 +362,11 @@ def crash_excerpt(path: Path, limit_lines: int = 20, line_width: int = 200, *, s
 
     Returns the empty string when the log holds no crash marker, leaving the ordinary tail quote to speak.
     """
-    markers = ("Fatal Python error", "Windows fatal exception", "Current thread")
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as exc:
         return f"{path.name}: the captured log could not be read ({type(exc).__name__})"
-    start = next((index for index, line in enumerate(lines) if any(marker in line for marker in markers)), None)
+    start = next((index for index, line in enumerate(lines) if is_crash_marker(line)), None)
     if start is None:
         return ""
     header = f"crash dump from {path.name}, marker at line {start + 1} of {len(lines)}: "

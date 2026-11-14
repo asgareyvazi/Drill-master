@@ -883,6 +883,9 @@ COVERAGE = (
 NOT_CALCULATIONS = {
     "report_revisions": "daily report revisions (document history, not a calculation)",
     "calculation_source_links": "lineage links between calculation records, not a calculation",
+    "trajectory_view_revisions": ("saved Well Trajectory Viewer views (M178): a presentation snapshot of the "
+                                  "canonical composer's stations; reopen checks it against the current data "
+                                  "(core.trajectory_views.drift), it is not a separate calculation"),
 }
 
 

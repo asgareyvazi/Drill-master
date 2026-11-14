@@ -98,7 +98,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 13,
+    "evidence_tests": 14,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
@@ -109,6 +109,7 @@
      "test_m119_adversarial.py",
      "test_m127_weight_casing.py",
      "test_m132_trajectory_layers.py",
+     "test_m184_m189_reference_integration.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -120,7 +121,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 61,
+    "evidence_tests": 63,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -153,6 +154,8 @@
      "test_m127_weight_casing.py",
      "test_m132_trajectory_layers.py",
      "test_m135_well_package.py",
+     "test_m184_m189_reference_integration.py",
+     "test_m190_tubular_journey.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -190,7 +193,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 13,
+    "evidence_tests": 14,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
@@ -201,6 +204,7 @@
      "test_m119_adversarial.py",
      "test_m127_weight_casing.py",
      "test_m132_trajectory_layers.py",
+     "test_m184_m189_reference_integration.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -520,7 +524,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 21,
+    "evidence_tests": 23,
     "licence": "own code (product licence)",
     "method_id": "survey.azimuth_transform",
     "status": "IMPLEMENTED",
@@ -535,6 +539,8 @@
      "test_m127_weight_casing.py",
      "test_m129_surveys_anticollision.py",
      "test_m132_trajectory_layers.py",
+     "test_m178_trajectory_views.py",
+     "test_m198_backup_restore_qualification.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -550,7 +556,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 21,
+    "evidence_tests": 23,
     "licence": "own code (product licence)",
     "method_id": "survey.datum_transform",
     "status": "IMPLEMENTED",
@@ -565,6 +571,8 @@
      "test_m127_weight_casing.py",
      "test_m129_surveys_anticollision.py",
      "test_m132_trajectory_layers.py",
+     "test_m178_trajectory_views.py",
+     "test_m198_backup_restore_qualification.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -580,7 +588,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 21,
+    "evidence_tests": 23,
     "licence": "own code (product licence)",
     "method_id": "survey.revision",
     "status": "IMPLEMENTED",
@@ -595,6 +603,8 @@
      "test_m127_weight_casing.py",
      "test_m129_surveys_anticollision.py",
      "test_m132_trajectory_layers.py",
+     "test_m178_trajectory_views.py",
+     "test_m198_backup_restore_qualification.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -959,7 +969,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 36,
+    "evidence_tests": 37,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.anti-collision",
     "status": "NOT SUPPORTED",
@@ -981,6 +991,7 @@
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
      "test_m157_m160_tubular_reference.py",
+     "test_m184_m189_reference_integration.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1004,7 +1015,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 36,
+    "evidence_tests": 37,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.multi-survey",
     "status": "NOT SUPPORTED",
@@ -1026,6 +1037,7 @@
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
      "test_m157_m160_tubular_reference.py",
+     "test_m184_m189_reference_integration.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1049,7 +1061,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 36,
+    "evidence_tests": 37,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.dp_database",
     "status": "NOT SUPPORTED",
@@ -1071,6 +1083,7 @@
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
      "test_m157_m160_tubular_reference.py",
+     "test_m184_m189_reference_integration.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1094,7 +1107,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 36,
+    "evidence_tests": 37,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.well_control.kill_sheet",
     "status": "NOT SUPPORTED",
@@ -1116,6 +1129,7 @@
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
      "test_m157_m160_tubular_reference.py",
+     "test_m184_m189_reference_integration.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1776,6 +1790,14 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/tubular_import_dialog.py",
+   "guarded": false,
+   "lines": [
+    12
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/tubular_reference_dialog.py",
    "guarded": false,
    "lines": [
@@ -2011,6 +2033,15 @@
    "module": "PySide6"
   },
   {
+   "file": "tabs/trajectory_saved_views_panel.py",
+   "guarded": false,
+   "lines": [
+    17,
+    18
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "tabs/trajectory_viewer.py",
    "guarded": false,
    "lines": [
@@ -2066,8 +2097,8 @@
     15,
     16,
     17,
-    1986,
-    1987
+    2009,
+    2010
    ],
    "module": "PySide6"
   },
@@ -2142,7 +2173,7 @@
     10,
     11,
     17,
-    690
+    700
    ],
    "module": "PySide6"
   },
@@ -2184,9 +2215,9 @@
    "file": "tabs/w6_Trajectory_Widget.py",
    "guarded": false,
    "lines": [
-    24,
-    25,
-    26
+    10,
+    11,
+    12
    ],
    "module": "PySide6"
   },
@@ -2370,7 +2401,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    1816
+    1839
    ],
    "module": "matplotlib"
   },
@@ -2392,15 +2423,6 @@
     99,
     108,
     112
-   ],
-   "module": "matplotlib"
-  },
-  {
-   "file": "tabs/w6_Trajectory_Widget.py",
-   "guarded": false,
-   "lines": [
-    607,
-    608
    ],
    "module": "matplotlib"
   },
@@ -2541,7 +2563,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    2865
+    2888
    ],
    "module": "openpyxl"
   },
@@ -2620,14 +2642,6 @@
    "module": "pyqtgraph"
   },
   {
-   "file": "tabs/w6_Trajectory_Widget.py",
-   "guarded": true,
-   "lines": [
-    14
-   ],
-   "module": "pyqtgraph"
-  },
-  {
    "file": "tabs/well_plan_designer_panel.py",
    "guarded": true,
    "lines": [
@@ -2702,8 +2716,8 @@
    "file": "core/authorization.py",
    "guarded": false,
    "lines": [
-    268,
-    346
+    271,
+    349
    ],
    "module": "sqlalchemy"
   },
@@ -2732,17 +2746,17 @@
     44,
     628,
     671,
-    3145,
-    3146,
-    3876,
-    4389,
-    5003,
-    3721,
+    3186,
     3187,
-    7967,
-    6332,
-    6379,
-    6561
+    3917,
+    4430,
+    5044,
+    3762,
+    3228,
+    8008,
+    6373,
+    6420,
+    6602
    ],
    "module": "sqlalchemy"
   },
@@ -2883,7 +2897,7 @@
    "file": "core/wellbore_schematic_engine.py",
    "guarded": false,
    "lines": [
-    1717
+    1719
    ],
    "module": "sqlalchemy"
   },

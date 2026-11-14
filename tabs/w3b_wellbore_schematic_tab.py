@@ -240,7 +240,17 @@ class WellboreSchematicTab(DrillTabBase):
         rem_btn.clicked.connect(self._remove_casing)
         btn_layout.addWidget(rem_btn)
 
+        # M184: fill the selected string from the tubular reference library (immutable snapshot).
+        self.casing_lib_btn = QPushButton("📚 Library…")
+        self.casing_lib_btn.setToolTip("Fill OD / ID / weight / grade of the selected string from a PUBLISHED "
+                                       "tubular library item; frozen with the architecture revision")
+        self.casing_lib_btn.clicked.connect(self._casing_library_clicked)
+        btn_layout.addWidget(self.casing_lib_btn)
+        self.casing_lib_label = QLabel("")
+        self.casing_lib_label.setWordWrap(True)
+
         layout.addLayout(btn_layout)
+        layout.addWidget(self.casing_lib_label)
 
         # Cement controls
         g_cement = QGroupBox("Cement Settings")
@@ -868,6 +878,54 @@ class WellboreSchematicTab(DrillTabBase):
         self.schematic.casings.append(new_casing)
         self._sync_tables_to_schematic()
         self.refresh_drawing()
+
+    def apply_library_to_casing(self, row: int, snapshot) -> bool:
+        """M184: set the string's OD / ID / weight / grade from a library snapshot; unavailable stays unknown."""
+        from core.engineering import reference_binding as rb
+
+        if not 0 <= row < len(self.schematic.casings):
+            self.casing_lib_label.setText("Select a casing row first.")
+            return False
+        try:
+            binding = rb.make_binding(snapshot, rb.ARCHITECTURE_FIELDS)
+        except rb.BindingError as exc:
+            self.casing_lib_label.setText(f"Library item NOT USED — {exc}")
+            return False
+        values = rb.bound_values(binding)
+        if "od_in" not in values:
+            self.casing_lib_label.setText("Library item NOT USED — it has no nominal OD; the string needs one.")
+            return False
+        casing = self.schematic.casings[row]
+        casing.od_inch = float(values["od_in"])
+        casing.id_inch = float(values["id_in"]) if "id_in" in values else None       # unknown, never derived
+        casing.weight_ppf = float(values["weight_ppf"]) if "weight_ppf" in values else 0.0   # 0 = not recorded
+        casing.grade = str(values.get("grade") or "")
+        casing.tubular_reference = binding
+        self._sync_tables_to_schematic()
+        self.refresh_drawing()
+        snap = binding["snapshot"]
+        missing = ", ".join(binding["unavailable"])
+        self.casing_lib_label.setText(
+            f"{casing.name}: {snap['spec'].get('designation')} from {snap['set_name']} v{snap['set_version']}"
+            + (f"; unavailable: {missing}" if missing else "") + ". Freeze a revision to keep it.")
+        return True
+
+    def _casing_library_clicked(self, _checked=False):
+        from core.engineering import reference_binding as rb
+        from core.wellbore_schematic_engine import ElementType
+        from dialogs.tubular_reference_dialog import TubularReferenceDialog
+
+        row = self.casing_table.currentRow()
+        if not 0 <= row < len(self.schematic.casings) or not self.db:
+            self.casing_lib_label.setText("Select a casing row (and open a database) first.")
+            return
+        kind = "liner" if self.schematic.casings[row].element_type == ElementType.LINER else "casing"
+        dialog = TubularReferenceDialog(self.db, self, component_type=rb.STRING_KIND_TO_COMPONENT[kind])
+        try:
+            if dialog.exec() and dialog.selected_snapshot:
+                self.apply_library_to_casing(row, dialog.selected_snapshot)
+        finally:
+            dialog.deleteLater()
 
     def _remove_casing(self):
         """حذف کیسینگ انتخاب‌شده."""

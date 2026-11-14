@@ -129,6 +129,9 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     "calculation_cases": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "calculation_source_links": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "survey_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    # M178: saved trajectory views are insert-only (revise / clone / archive / restore add a row); they leave only
+    # with their well.
+    "trajectory_view_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "well_architecture_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # M123 (D6): audited MSE lineage repairs are insert-only; they leave only with their MSE run or well
     # (report/wellbore deletes only unlink the reference, REPORT_DELETE_UNLINK / FK SET NULL).

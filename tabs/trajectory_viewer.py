@@ -154,6 +154,12 @@ class TrajectoryViewerTab(QWidget):
         self.survey_revisions = SurveyRevisionPanel(self.db_manager)      # M72 immutable survey revisions
         self.survey_revisions.revision_saved.connect(lambda _id: self.plan_designer.refresh_tie_ins())
         self.view_tabs.addTab(self.survey_revisions, "Survey revisions")
+        from tabs.trajectory_saved_views_panel import TrajectorySavedViewsPanel
+        self.saved_views = TrajectorySavedViewsPanel(self.db_manager)    # M178 named, revisioned saved views
+        self.saved_views.view_opened.connect(self.show_saved_view)
+        self.survey_revisions.revision_saved.connect(self.saved_views.refresh)
+        self.view_tabs.addTab(self.saved_views, "Saved views")
+        self.saved_view = None          # the saved view currently drawn instead of the live data (M178)
         splitter.addWidget(self.view_tabs)
 
         side = QWidget()
@@ -218,6 +224,9 @@ class TrajectoryViewerTab(QWidget):
         revisions = getattr(self, "survey_revisions", None)
         if revisions is not None:
             revisions.set_well(well_id)
+        saved = getattr(self, "saved_views", None)
+        if saved is not None and well_changed:
+            saved.set_well(well_id)
         if well_changed:
             self.compare_panel.set_well(well_id)
         self.reload()
@@ -256,9 +265,80 @@ class TrajectoryViewerTab(QWidget):
     def unit(self) -> str:
         return self.unit_combo.currentData()
 
+    def view_settings(self) -> dict:
+        """M178: the viewer settings a saved view records (``core.trajectory_views.DEFAULT_SETTINGS`` keys)."""
+        user = self.vs_mode_combo.currentData() == "user"
+        return {"scope": self.scope_combo.currentData(), "unit": self.unit_combo.currentData(),
+                "vs_mode": self.vs_mode_combo.currentData(), "vs_azimuth": self.vs_spin.value() if user else None,
+                "show_stations": self.points_check.isChecked(), "equal_scale": self.aspect_check.isChecked()}
+
+    def _push_saved_view_context(self) -> None:
+        saved = getattr(self, "saved_views", None)
+        if saved is None:
+            return
+        from core.selection_manager import SelectionManager
+
+        wellbore = SelectionManager().wellbore_for(self.well_id, self.db_manager) if self.well_id else None
+        saved.set_viewer_context(well_id=self.well_id, report_id=self.report_id, wellbore_id=wellbore,
+                                 settings=self.view_settings())
+
+    def _apply_settings(self, settings: dict) -> None:
+        widgets = (self.scope_combo, self.unit_combo, self.vs_mode_combo, self.vs_spin, self.points_check,
+                   self.aspect_check)
+        for widget in widgets:
+            widget.blockSignals(True)
+        try:
+            for combo, key in ((self.scope_combo, "scope"), (self.unit_combo, "unit"),
+                               (self.vs_mode_combo, "vs_mode")):
+                index = combo.findData(settings.get(key))
+                if index >= 0:
+                    combo.setCurrentIndex(index)
+            user = settings.get("vs_mode") == "user"
+            self.vs_spin.setEnabled(user)
+            if user and settings.get("vs_azimuth") is not None:
+                self.vs_spin.setValue(float(settings["vs_azimuth"]))
+            self.points_check.setChecked(bool(settings.get("show_stations", True)))
+            self.aspect_check.setChecked(bool(settings.get("equal_scale", True)))
+        finally:
+            for widget in widgets:
+                widget.blockSignals(False)
+
+    def show_saved_view(self, revision_id: int) -> bool:
+        """M178: draw the stored snapshot of a saved view (never recomputed); the banner states the drift of the
+        current data against it. "Reload" returns to the live data."""
+        from core import trajectory_views as tv
+        from core.well_trajectory import ComposedStation, TrajectoryIssue, WellTrajectory
+
+        record = tv.get_view(self.db_manager, revision_id) if self.db_manager is not None else None
+        if record is None or record["integrity"] != "VERIFIED" or record["well_id"] != self.well_id:
+            why = ("it belongs to another well" if record is not None and record["well_id"] != self.well_id
+                   else f"its snapshot is {record['integrity']}" if record is not None else "it does not exist")
+            self._set_banner(ERROR, f"The saved view is not shown: {why}.")
+            return False
+        state = tv.drift(self.db_manager, record)
+        summary = record["trajectory"]
+        stations = [ComposedStation(md=s["md"], inc=s["inc"], azi=s["azi"], tvd=s["tvd"], north=s["north"],
+                                    east=s["east"], vs=s["vs"], hd=s["hd"], dls=s["dls"],
+                                    report_ids=tuple(s.get("report_ids") or ())) for s in record["stations"]]
+        issues = [TrajectoryIssue(i["code"], i["severity"], i["message"], i.get("md"))
+                  for i in summary.get("issues", [])]
+        self.trajectory = WellTrajectory(
+            status=summary.get("status", READY), stations=stations, issues=issues,
+            vs_azimuth=summary.get("vs_azimuth"), vs_azimuth_source=summary.get("vs_azimuth_source", "none"),
+            closure_distance=summary.get("closure_distance"), closure_azimuth=summary.get("closure_azimuth"),
+            input_rows=summary.get("input_rows", 0), excluded_rows=summary.get("excluded_rows", 0))
+        self.stations = list(stations)
+        self.selected_index = None
+        self._apply_settings(record["settings"])
+        self.saved_view = (record, state)
+        self.render()
+        return True
+
     def reload(self):
         """Read the stations and recompose the trajectory."""
+        self.saved_view = None
         self.selected_index = None
+        self._push_saved_view_context()
         if not self.well_id or self.db_manager is None:
             self.trajectory, self.stations = None, []
             self._set_banner(NO_DATA, "Select a well to view its trajectory.")
@@ -344,8 +424,14 @@ class TrajectoryViewerTab(QWidget):
             INSUFFICIENT_DATA: "At least two valid stations are needed to draw a path.",
             ERROR: "The trajectory could not be computed.",
         }
-        self._set_banner(t.status, reasons.get(t.status, "") + (" " if t.status in reasons else "")
+        prefix = ""
+        if self.saved_view is not None:
+            record, state = self.saved_view
+            prefix = (f"SAVED VIEW '{record['name']}' revision {record['revision']} ({record['status']}) — stored "
+                      f"snapshot; current data: {state.state}. {state.reason} ")
+        self._set_banner(t.status, prefix + reasons.get(t.status, "") + (" " if t.status in reasons else "")
                          + self.summary_text())
+        self._push_saved_view_context()
         for issue in t.issues:
             where = f"MD {self._length(issue.md)}: " if issue.md is not None else ""
             item = QListWidgetItem(f"[{issue.severity}] {where}{issue.message}")

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit,
-    QPlainTextEdit, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
 from core.engineering import tubular_reference as tr
@@ -45,8 +45,11 @@ class TubularReferenceDialog(QDialog):
         self.text_edit = QLineEdit()
         self.text_edit.setPlaceholderText("Designation, grade, connection, manufacturer...")
         self.drafts_check = QCheckBox("Include drafts")
+        self.manage_btn = QPushButton("Import / publish…")      # M182: the controlled file importer
+        self.manage_btn.setToolTip("Build a library from a file you are licensed to use: draft set, provenance, "
+                                   "preview, confirm, publish")
         for widget in (QLabel("Type"), self.type_combo, QLabel("Origin"), self.origin_combo, self.od_edit,
-                       self.text_edit, self.drafts_check):
+                       self.text_edit, self.drafts_check, self.manage_btn):
             filters.addWidget(widget)
         layout.addLayout(filters)
 
@@ -74,6 +77,15 @@ class TubularReferenceDialog(QDialog):
         self.od_edit.editingFinished.connect(self.reload)
         self.text_edit.textChanged.connect(self.reload)
         self.table.itemSelectionChanged.connect(self._show_detail)
+        self.manage_btn.clicked.connect(self.open_import)
+        self.reload()
+
+    def open_import(self, _checked=False):
+        from dialogs.tubular_import_dialog import TubularImportDialog
+
+        dialog = TubularImportDialog(self.db, self)
+        dialog.exec()
+        dialog.deleteLater()
         self.reload()
 
     def _od_filter(self) -> Optional[float]:

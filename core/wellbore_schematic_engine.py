@@ -80,6 +80,8 @@ class CasingData:
     cement_bottom_m: float = 0.0
     show_cement: bool = False
     color: str = ""
+    # M184: tubular library binding (core.engineering.reference_binding) - kept only while the values match it.
+    tubular_reference: Optional[dict] = None
 
 
 @dataclass

@@ -2841,6 +2841,47 @@ class NPTEventDecision(Base):
     method_version = Column(String(60), nullable=False)
 
 
+class TrajectoryViewRevision(Base):
+    """M178: one immutable revision of a named, saved Well Trajectory Viewer view.
+
+    Replaces the legacy W6 "Trajectory Plot" save (``trajectory_plots``: report-bound, unnamed, no well, wellbore
+    or revision binding). A view is bound to its well, optionally to a wellbore and to the survey revision it
+    shows, and stores a snapshot of the composed stations (canonical metres / degrees / deg per 30 m) and the
+    SHA-256 of the input stations, so a reopened view is compared with the current data (MATCH / DIFFERENT /
+    NOT_REPRODUCIBLE / UNREADABLE) instead of being silently redrawn from changed surveys.
+
+    Insert-only (storage guard ``trg_trajectory_view_*``; insert-only policy). Revise, clone, archive and
+    restore each insert a new row; ``view_key`` groups the revisions of one view, ``parent_id`` is the lineage.
+    ``source_report_id`` is frozen evidence (a report scope), not a foreign key.
+    """
+    __tablename__ = "trajectory_view_revisions"
+    __table_args__ = (UniqueConstraint("view_key", "revision", name="uq_trajectory_view_revision"),)
+
+    id = Column(Integer, primary_key=True)
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"), nullable=False)
+    wellbore_id = Column(Integer, ForeignKey("wellbores.id", ondelete="SET NULL"))
+    view_key = Column(String(36), nullable=False)
+    revision = Column(Integer, nullable=False)
+    parent_id = Column(Integer, ForeignKey("trajectory_view_revisions.id", ondelete="SET NULL"))
+    action = Column(String(20), nullable=False)            # CREATE | REVISE | CLONE | ARCHIVE | RESTORE
+    status = Column(String(20), nullable=False)            # ACTIVE | ARCHIVED
+    name = Column(String(200), nullable=False)
+    source_kind = Column(String(30), nullable=False)       # survey_points | survey_revision
+    source_report_id = Column(Integer)
+    survey_revision_id = Column(Integer, ForeignKey("survey_revisions.id", ondelete="SET NULL"))
+    source_sha256 = Column(String(64), nullable=False)
+    settings_json = Column(Text, nullable=False)
+    stations_json = Column(Text, nullable=False)
+    station_count = Column(Integer, nullable=False)
+    stations_sha256 = Column(String(64), nullable=False)
+    trajectory_json = Column(Text, nullable=False)
+    method = Column(String(100), nullable=False)
+    method_version = Column(String(100), nullable=False)
+    note = Column(Text)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class MudVolumeCalculationRecord(Base):
     """A persisted, reproducible Mud Volume balance calculation run (history).
 

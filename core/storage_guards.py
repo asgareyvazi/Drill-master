@@ -44,6 +44,11 @@ GUARD_VERSION = 1
 #: trigger on their next start and the v1 trigger is dropped (``install``).
 SURVEY_GUARD_VERSION = 2
 AUDIT_GUARD_VERSION = 1
+#: M189: a PUBLISHED tubular reference set and its items are immutable at the storage layer too (the application
+#: refused changes since M157, raw SQL did not). Drafts stay editable; a published set is never deleted.
+TUBULAR_GUARD_VERSION = 1
+_TUBULAR_SET_FROZEN = ("id", "name", "version", "status", "content_fingerprint", "notes", "created_at",
+                       "published_at")
 PLAN_STATUS_TRANSITIONS = {
     "draft": ("draft", "approved", "archived"),
     "approved": ("approved", "archived"),
@@ -88,6 +93,10 @@ _MSE_REPAIR_FROZEN = ("id", "mse_calculation_id", "well_id", "field", "md_m", "m
 #: M134: an audited NPT reconciliation decision; every column is frozen (the row ids are evidence, not references).
 _NPT_DECISION_FROZEN = ("id", "well_id", "register_ids_json", "time_log_ids_json", "rows_sha256", "decision",
                         "group_label", "evidence", "reason", "confirmed_by", "confirmed_at", "method_version")
+#: M178: a saved trajectory view revision; only the nullable references may be cleared by their FK SET NULL.
+_VIEW_FROZEN = ("id", "well_id", "view_key", "revision", "action", "status", "name", "source_kind",
+                "source_report_id", "source_sha256", "settings_json", "stations_json", "station_count",
+                "stations_sha256", "trajectory_json", "method", "method_version", "note", "created_at")
 _SURVEY_FROZEN = ("id", "well_id", "revision", "mode", "source_type", "source_ref", "source_unit",
                   "azimuth_reference", "depth_datum", "stations_json", "station_count", "stations_sha256",
                   "results_json", "results_sha256", "warnings_json", "method", "method_version", "note",
@@ -124,6 +133,13 @@ def trigger_statements() -> dict[str, str]:
         _nullable_reference("wellbore_id", "wellbores"),
         _nullable_reference("survey_revision_id", "survey_revisions"),
         _nullable_reference("parent_id", "well_architecture_revisions"),
+        _nullable_reference("created_by", "users"),
+    ])
+    view_change = " OR ".join([
+        _frozen(_VIEW_FROZEN),
+        _nullable_reference("wellbore_id", "wellbores"),
+        _nullable_reference("parent_id", "trajectory_view_revisions"),
+        _nullable_reference("survey_revision_id", "survey_revisions"),
         _nullable_reference("created_by", "users"),
     ])
     repair_change = " OR ".join([
@@ -164,12 +180,45 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_npt_event_decision_immutable_v{v} BEFORE UPDATE ON npt_event_decisions "
             f"WHEN {_frozen(_NPT_DECISION_FROZEN)} BEGIN SELECT RAISE(ABORT, "
             "'npt_event_decisions: an audited decision is immutable'); END"),
+        f"trg_trajectory_view_immutable_v{v}": (
+            f"CREATE TRIGGER trg_trajectory_view_immutable_v{v} BEFORE UPDATE ON trajectory_view_revisions "
+            f"WHEN {view_change} BEGIN SELECT RAISE(ABORT, "
+            "'trajectory_view_revisions: a saved view revision is immutable'); END"),
+        **_tubular_guards(),
         f"trg_audit_log_append_only_v{AUDIT_GUARD_VERSION}": (
             f"CREATE TRIGGER trg_audit_log_append_only_v{AUDIT_GUARD_VERSION} BEFORE UPDATE ON audit_logs "
             "BEGIN SELECT RAISE(ABORT, 'audit_logs: an audit record is append-only'); END"),
     }
     guards.update(_insert_and_delete_guards())
     return guards
+
+
+def _tubular_guards() -> dict[str, str]:
+    t = TUBULAR_GUARD_VERSION
+    set_change = " OR ".join([_frozen(_TUBULAR_SET_FROZEN), _nullable_reference("created_by", "users")])
+    published = "EXISTS (SELECT 1 FROM tubular_reference_sets WHERE id = {}.set_id AND status = 'PUBLISHED')"
+    return {
+        f"trg_tubular_set_frozen_v{t}": (
+            f"CREATE TRIGGER trg_tubular_set_frozen_v{t} BEFORE UPDATE ON tubular_reference_sets "
+            f"WHEN OLD.status = 'PUBLISHED' AND ({set_change}) BEGIN SELECT RAISE(ABORT, "
+            "'tubular_reference_sets: a published reference set is immutable'); END"),
+        f"trg_tubular_set_nodelete_v{t}": (
+            f"CREATE TRIGGER trg_tubular_set_nodelete_v{t} BEFORE DELETE ON tubular_reference_sets "
+            "WHEN OLD.status = 'PUBLISHED' BEGIN SELECT RAISE(ABORT, "
+            "'tubular_reference_sets: a published reference set is never deleted'); END"),
+        f"trg_tubular_item_frozen_v{t}": (
+            f"CREATE TRIGGER trg_tubular_item_frozen_v{t} BEFORE UPDATE ON tubular_reference_items "
+            f"WHEN {published.format('OLD')} OR {published.format('NEW')} BEGIN SELECT RAISE(ABORT, "
+            "'tubular_reference_items: an item of a published set is immutable'); END"),
+        f"trg_tubular_item_noinsert_v{t}": (
+            f"CREATE TRIGGER trg_tubular_item_noinsert_v{t} BEFORE INSERT ON tubular_reference_items "
+            f"WHEN {published.format('NEW')} BEGIN SELECT RAISE(ABORT, "
+            "'tubular_reference_items: a published set takes no new items'); END"),
+        f"trg_tubular_item_nodelete_v{t}": (
+            f"CREATE TRIGGER trg_tubular_item_nodelete_v{t} BEFORE DELETE ON tubular_reference_items "
+            f"WHEN {published.format('OLD')} BEGIN SELECT RAISE(ABORT, "
+            "'tubular_reference_items: an item of a published set is never deleted'); END"),
+    }
 
 
 # prefix -> (table, (constraint name, unique key) pairs besides id, SQL condition under which a DELETE is the
@@ -192,6 +241,9 @@ _OWNED = {
                                "NOT EXISTS (SELECT 1 FROM mse_calculations WHERE id = OLD.mse_calculation_id) OR "
                                "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
     "trg_npt_event_decision": ("npt_event_decisions", (), "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_trajectory_view": ("trajectory_view_revisions",
+                            (("uq_trajectory_view_revision", ("view_key", "revision")),),
+                            "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
     # M136: an audit record has no owner whose deletion may take it along - never deleted ("0" = never).
     "trg_audit_log": ("audit_logs", (), "0"),
 }
@@ -225,7 +277,8 @@ _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation
              "trg_calculation_source_link": "calculation_source_links", "trg_survey_revision": "survey_revisions",
              "trg_well_architecture": "well_architecture_revisions",
              "trg_mse_lineage_repair": "mse_lineage_repairs", "trg_npt_event_decision": "npt_event_decisions",
-             "trg_audit_log": "audit_logs"}
+             "trg_trajectory_view": "trajectory_view_revisions", "trg_audit_log": "audit_logs",
+             "trg_tubular_set": "tubular_reference_sets", "trg_tubular_item": "tubular_reference_items"}
 
 
 def install(raw) -> list[str]:

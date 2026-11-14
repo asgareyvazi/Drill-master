@@ -747,3 +747,68 @@ def test_the_abort_note_names_the_dropped_tail_when_no_line_of_it_fits(tmp_path,
     assert "the quoted tail was dropped here" in note, (
         "no line of the tail fitted the budget and the note did not say so")
     assert "pytest exited 139" in note, "the headline has to survive the case the quote could not"
+
+
+# ---- M195: what counts as a crash marker -------------------------------------------------------------------
+def _c20f5cd_shaped_log(tmp_path: Path) -> Path:
+    """The shape of the c20f5cd Windows log (job 130135216636): breadcrumbs, one of them for a test whose
+    parameter quotes a faulthandler banner, and then ordinary assertion failures -- no interpreter died."""
+    crumb = "DRILLMASTER-TEST-START "
+    lines = [
+        "collected 4990 items",
+        crumb + "tests/test_m111_isolated_parse.py::test_the_entry_points_support_frozen_spawn_children",
+        "." + crumb + "tests/test_m52_lifecycle_stress.py::test_a_logged_fatal_error_decides_whether_an_exit_code_"
+        "is_a_native_death[Fatal Python error: Aborted-3-True]",
+        "." + crumb + "tests/test_m52_lifecycle_stress.py::test_a_logged_fatal_error_decides_whether_an_exit_code_"
+        "is_a_native_death[Windows fatal exception: access violation-1-True]",
+        "." + crumb + "tests/test_m52_lifecycle_stress.py::test_something[Current thread 0x1 (most recent call first)]",
+        ".F" + crumb + "tests/test_database_migration_acceptance.py::test_v5_upgrade_adds_the_secondary_indexes",
+        "E   AssertionError: assert {'ix_activity_codes_well_id'} == {'ix_activity_codes_well_id', 'x'}",
+        "the docstring says the current thread must not block",
+        "=========================== 1 failed, 4989 passed in 1500.00s ===========================",
+    ]
+    path = tmp_path / "windows-regressions.log"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def test_a_banner_quoted_in_a_test_id_is_not_a_crash_dump(tmp_path, capsys):
+    """M195: the c20f5cd annotation was an excerpt of the harness output, not an interpreter crash."""
+    module = _parser()
+    log = _c20f5cd_shaped_log(tmp_path)
+    assert module.crash_excerpt(log) == ""
+    module.main(["--junit", str(tmp_path / "absent.xml"), "--annotations", "--pytest-exit", "1",
+                 "--pytest-log", str(log)])
+    captured = capsys.readouterr().out
+    assert "fatal crash dump" not in captured
+    assert "holds a fatal crash marker" not in captured
+
+
+@pytest.mark.parametrize("line, expected", [
+    ("Fatal Python error: Segmentation fault", True),
+    ("..Fatal Python error: Aborted", True),                     # progress dots share faulthandler's line
+    ("Windows fatal exception: access violation", True),
+    ("Current thread 0x00000a4c (most recent call first):", True),
+    ("Current thread 0x1:", True),
+    ("DRILLMASTER-TEST-START tests/x.py::t[Fatal Python error: Aborted-3-True]", False),
+    (".DRILLMASTER-TEST-START tests/x.py::t[Windows fatal exception: access violation]", False),
+    ("DRILLMASTER-TEST-START tests/x.py::t[Current thread 0x1]", False),
+    ("Windows fatal exception: access violation DRILLMASTER-TEST-START tests/x.py::t", True),
+    ("the current thread is the GUI thread", False),
+    ("Current thread state is checked here", False),            # the words alone, as in assertion output
+    ("Fatal Python error", False),                              # no banner colon: prose, not faulthandler
+])
+def test_crash_markers_are_faulthandler_banners_outside_breadcrumbs(line, expected):
+    assert _parser().is_crash_marker(line) is expected
+
+
+def test_a_real_dump_after_a_breadcrumb_that_quotes_a_banner_is_still_found(tmp_path):
+    module = _parser()
+    log = _c20f5cd_shaped_log(tmp_path)
+    text = log.read_text(encoding="utf-8") + (
+        "Windows fatal exception: access violation\n\nCurrent thread 0x00000b34 (most recent call first):\n"
+        '  File "D:\\\\a\\\\tabs\\\\w13.py", line 9 in paintEvent\n')
+    log.write_text(text, encoding="utf-8")
+    excerpt = module.crash_excerpt(log)
+    assert excerpt.startswith("crash dump from windows-regressions.log, marker at line 10 of")
+    assert "w13.py" in excerpt and "access violation" in excerpt

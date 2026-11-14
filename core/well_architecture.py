@@ -32,6 +32,7 @@ POINT_KINDS = ("shoe", "packer", "accessory")
 NUMERIC = ("top_md", "bottom_md", "od_in", "id_in", "hole_in", "weight_ppf")
 TEXT = ("kind", "name", "grade", "note")
 DEPTH_TOLERANCE = 0.01   # m: a shoe "at" a string bottom
+BINDING_KEY = "tubular_reference"   # M184: core.engineering.reference_binding.BINDING_KEY
 CEMENT_WORKSHEET_VERSION = "M89 cement annulus worksheet v1"
 CEMENT_WORKSHEET_METHOD = "m89.cement_annulus"
 CASING_SOURCE_VERSION = "M89 casing inputs from architecture v1"
@@ -65,6 +66,13 @@ def normalize(components: Iterable[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         label = f"#{index} {item['name'] or item['kind'] or '?'}"
         for key in NUMERIC:
             item[key] = _number(raw.get(key), f"{label} {key}", errors)
+        binding = raw.get(BINDING_KEY)
+        if binding is not None and item["kind"] in STRINGS:
+            # M184: a tubular library binding stays only while the string still has the bound values; the key is
+            # absent otherwise, so revisions without a library item keep their SHA-256.
+            from core.engineering import reference_binding as rb
+            if rb.binding_holds(binding, item):
+                item[BINDING_KEY] = json.loads(json.dumps(binding))
         out.append(item)
     return out, errors
 
@@ -240,7 +248,8 @@ def from_schematic(schematic) -> List[Dict[str, Any]]:
         kind = "liner" if casing.element_type == ElementType.LINER else "casing"
         out.append({"kind": kind, "name": casing.name, "top_md": casing.top_depth_m,
                     "bottom_md": casing.bottom_depth_m, "od_in": casing.od_inch, "id_in": casing.id_inch,
-                    "grade": casing.grade, "weight_ppf": casing.weight_ppf or None})
+                    "grade": casing.grade, "weight_ppf": casing.weight_ppf or None,
+                    BINDING_KEY: getattr(casing, BINDING_KEY, None)})
         out.append({"kind": "shoe", "name": casing.name, "top_md": casing.bottom_depth_m})
         if casing.show_cement:
             out.append({"kind": "cement", "name": casing.name, "top_md": casing.cement_top_m,
@@ -275,7 +284,7 @@ def to_schematic(components: Iterable[Dict[str, Any]], *, well_name: str = "", w
                 od_inch=item["od_in"], id_inch=item["id_in"], top_depth_m=item["top_md"],
                 bottom_depth_m=item["bottom_md"], grade=item["grade"], weight_ppf=item["weight_ppf"] or 0.0,
                 cement_top_m=toc["top_md"] if toc else 0.0, cement_bottom_m=toc["bottom_md"] if toc else 0.0,
-                show_cement=toc is not None))
+                show_cement=toc is not None, tubular_reference=item.get(BINDING_KEY)))
         elif item["kind"] == "formation":
             schematic.formations.append(FormationLayer(name=item["name"], top_depth_m=item["top_md"],
                                                        bottom_depth_m=item["bottom_md"], lithology=item["note"]))
@@ -393,9 +402,12 @@ def casing_inputs(components: Iterable[Dict[str, Any]], string_name: str) -> Dic
     else:
         values["wall_in"], provenance["wall_in"] = None, "unknown"
     values["yield_psi"], provenance["yield_psi"] = None, "unknown"
-    return {"string": string_name, "kind": string["kind"], "top_md": string["top_md"],
-            "bottom_md": string["bottom_md"], "values": values, "provenance": provenance,
-            "version": CASING_SOURCE_VERSION}
+    out = {"string": string_name, "kind": string["kind"], "top_md": string["top_md"],
+           "bottom_md": string["bottom_md"], "values": values, "provenance": provenance,
+           "version": CASING_SOURCE_VERSION}
+    if string.get(BINDING_KEY):                    # M184/M188: the library snapshot the revision pinned
+        out[BINDING_KEY] = string[BINDING_KEY]
+    return out
 
 
 # ---- M109: cement worksheet contract, re-run and verification ---------------------------------------

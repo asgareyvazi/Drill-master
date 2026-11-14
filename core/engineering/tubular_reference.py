@@ -226,12 +226,19 @@ def add_item(db, set_id: int, spec: TubularSpec) -> Dict[str, Any]:
             raise TubularReferenceError(f"{ref.name} v{ref.version} is published and immutable; create a revision")
         if session.query(TubularReferenceItem).filter_by(set_id=set_id, fingerprint=fingerprint).first():
             return {"fingerprint": fingerprint, "status": "UNCHANGED"}
-        session.add(TubularReferenceItem(
-            set_id=set_id, component_type=spec.component_type, designation=spec.designation,
-            nominal_od_in=spec.nominal_od_in, weight_ppf=spec.weight_ppf, grade=spec.grade,
-            connection=spec.connection, origin=spec.provenance.origin,
-            payload_json=json.dumps(spec.to_payload(), sort_keys=True, default=str), fingerprint=fingerprint))
+        session.add(item_row(set_id, spec))
         return {"fingerprint": fingerprint, "status": "NEW"}
+
+
+def item_row(set_id: int, spec: TubularSpec):
+    """The ORM row for a validated ``spec`` (M182: shared by ``add_item`` and the file importer)."""
+    from core.database import TubularReferenceItem
+
+    return TubularReferenceItem(
+        set_id=set_id, component_type=spec.component_type, designation=spec.designation,
+        nominal_od_in=spec.nominal_od_in, weight_ppf=spec.weight_ppf, grade=spec.grade,
+        connection=spec.connection, origin=spec.provenance.origin,
+        payload_json=json.dumps(spec.to_payload(), sort_keys=True, default=str), fingerprint=spec.fingerprint())
 
 
 def remove_item(db, set_id: int, fingerprint: str) -> bool:

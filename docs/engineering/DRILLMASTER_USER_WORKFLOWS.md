@@ -163,3 +163,48 @@ Deleting a well removes its sections, reports, revisions, calculation cases, sav
 well-scoped records in one transaction, with one audit entry that lists what was removed. Deleting a section
 keeps the well's procedures but clears their section reference. Viewers cannot delete. If anything fails,
 nothing is deleted. Saved revisions and cases cannot be edited or deleted on their own.
+
+## 18. Saved trajectory views (Trajectory viewer → Saved views, M178–M180)
+
+The legacy "Trajectory Plot" tab is retired (M180); its saving and export live here. With a well selected:
+
+1. Choose the source: the well's survey stations, or a VERIFIED survey revision.
+2. **Save current view…** stores a named view of the stations, the display settings (scope, unit, vertical-section mode and azimuth, station markers, equal scale) and the
+   source fingerprint. Names are unique among the well's active views.
+3. **Open** shows the stored stations exactly as saved and says whether today's data still match
+   (MATCH / DIFFERENT / NOT_REPRODUCIBLE; a damaged snapshot is UNREADABLE and is not drawn).
+4. **Revise with current settings…** (a reason is required) adds revision *n + 1*; the old revision stays
+   readable. **Clone…** starts a new view from the selected one. **Compare with previous revision** pairs
+   stations by MD only (no interpolation). **Archive…** / **Restore…** need a reason.
+5. **Export CSV… / JSON…** writes the stored stations in the displayed unit with a header naming the view,
+   well, revision, units and snapshot SHA-256. A value the snapshot does not hold is left empty (CSV) or
+   `null` (JSON) — never 0.
+
+If anything fails the status line says **NOT SAVED** or **NOT EXPORTED** and nothing is written. If another
+user changed the view first, the action is refused; reopen the view and try again. Plot snapshots saved by
+the old tab are listed read-only as legacy snapshots.
+
+## 19. Tubular reference library (Tools → Tubular Reference Library, M157, M181–M189)
+
+DrillMaster ships **no** pipe or casing data (no licensed source exists yet; see
+`docs/engineering/M181_TUBULAR_SOURCES.md`). You build the library yourself:
+
+1. Click **Import / publish…**, then **New draft set…**. Use **Choose file…** to pick an XLSX, CSV or JSON file
+   in the template layout (`docs/engineering/tubular_import_template.csv`). State once where the values
+   come from: your own measurement (`user`), or a manufacturer document with its licence. Files citing API / ISO
+   tables are refused.
+2. **Read the preview.** Each row is NEW, ALREADY_PRESENT, DUPLICATE_IN_FILE, CONFLICT (never overwritten) or
+   INVALID (with the reason). Blank cells stay unavailable, never 0.
+3. **Confirm and give a reason.** If the file changed after the preview, the set is no longer a draft, or the
+   audit record cannot be written, the import says **NOT IMPORTED** and nothing is written.
+4. **Publish** the set. A published set is immutable; changes become a new version.
+5. **Use an item in a calculation:**
+   - Click **Library…** in the drill-string component dialog (Volumes, Hydraulics, Weight / T&D), on the Casing
+     Strength page, or under the casing table of the Well Architecture page.
+   - Only the values the item holds are filled; the rest stays empty for you to enter.
+   - Yield strength and ratings are never filled. A wall derived as (OD − ID)/2 is labelled DERIVED.
+6. **What a saved case keeps.** It keeps an immutable snapshot of the item. Editing a filled value removes the
+   link; the value then counts as yours.
+7. **Reopening a case** shows on the status line whether the library still matches: MATCH, DIFFERENT,
+   NOT_REPRODUCIBLE (the set is not in this database) or UNREADABLE. The case keeps its stored values either way;
+   nothing is re-read from today's library.
