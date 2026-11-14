@@ -1,0 +1,1369 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_junit_report.py",
+      "tests/test_m173_scalar_correction.py",
+      "tests/test_m174_header_aliases.py",
+      "tests/test_m175_well_identity.py",
+      "tests/test_m176_route_parity.py",
+      "tests/test_m178_trajectory_views.py",
+      "tests/test_m181_m183_tubular_import.py",
+      "tests/test_m184_m189_reference_integration.py",
+      "tests/test_m192_density_constants.py",
+      "tests/test_m193_oss_reaudit.py",
+      "tests/test_m197_ux_success_audit.py",
+      "tests/test_m72_surveys_solver.py"
+    ],
+    "exit": 0,
+    "summary": "294 passed, 14 warnings in 163.79s (0:02:43)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "M173-bool-accepted",
+      "path": "core/review_scalar_correction.py",
+      "note": "a yes/no value is stored as the text 'True' in a text field",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.08s"
+    },
+    {
+      "id": "M173-non-finite-accepted",
+      "path": "core/review_scalar_correction.py",
+      "note": "NaN/inf/overflow reach the canonical record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.08s"
+    },
+    {
+      "id": "M173-empty-becomes-value",
+      "path": "core/review_scalar_correction.py",
+      "note": "an empty edit is saved instead of refused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.08s"
+    },
+    {
+      "id": "M173-bounds-ignored",
+      "path": "core/review_scalar_correction.py",
+      "note": "a value below the field's plausible minimum is saved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.09s"
+    },
+    {
+      "id": "M173-percent-unbounded",
+      "path": "core/review_scalar_correction.py",
+      "note": "a percentage above 100 is saved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.08s"
+    },
+    {
+      "id": "M173-unit-not-converted",
+      "path": "core/review_scalar_correction.py",
+      "note": "a value entered in ft is stored as metres without conversion",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 0.08s"
+    },
+    {
+      "id": "M173-confirmation-skipped",
+      "path": "core/review_scalar_correction.py",
+      "note": "an unconfirmed correction is written",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 9.75s"
+    },
+    {
+      "id": "M173-reason-optional",
+      "path": "core/review_scalar_correction.py",
+      "note": "a correction without a reason is written",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 9.77s"
+    },
+    {
+      "id": "M173-concurrency-ignored",
+      "path": "core/review_scalar_correction.py",
+      "note": "a value someone changed meanwhile is silently overwritten",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 14.36s"
+    },
+    {
+      "id": "M173-foreign-well-item",
+      "path": "core/review_scalar_correction.py",
+      "note": "an item of another well is corrected from the selected well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 18.57s"
+    },
+    {
+      "id": "M173-bulk-table-guessed",
+      "path": "core/review_scalar_correction.py",
+      "note": "a multi-row table value is written to a guessed row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 5.19s"
+    },
+    {
+      "id": "M173-decided-item-overwritten",
+      "path": "core/review_scalar_correction.py",
+      "note": "an already decided item is corrected again without being reopened",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 23.07s"
+    },
+    {
+      "id": "M173-history-lost",
+      "path": "core/review_scalar_correction.py",
+      "note": "earlier decisions are dropped from the item's history",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 22.91s"
+    },
+    {
+      "id": "M173-mud-loss-not-redirected",
+      "path": "core/review_scalar_correction.py",
+      "note": "the mud-loss item cannot be corrected although the import stores it on the mud report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 5.25s"
+    },
+    {
+      "id": "M173-save-without-preview",
+      "path": "dialogs/import_review_dialog.py",
+      "note": "Save is enabled without a valid preview",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 31.52s"
+    },
+    {
+      "id": "M173-snapshot-missing",
+      "path": "core/database.py",
+      "note": "new queue items lose their target-at-creation snapshot",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 5.20s"
+    },
+    {
+      "id": "M174-ambiguity-guessed",
+      "path": "core/ddr_header_aliases.py",
+      "note": "two candidate description columns: the first one is mapped without an operator decision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m174_header_aliases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.15s"
+    },
+    {
+      "id": "M174-outside-time-log",
+      "path": "core/ddr_header_aliases.py",
+      "note": "a generic 'Description' column outside a time log is mapped as activity text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m174_header_aliases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.15s"
+    },
+    {
+      "id": "M174-explicit-overridden",
+      "path": "core/ddr_header_aliases.py",
+      "note": "a generic header overrides an explicitly mapped activity column",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m174_header_aliases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.15s"
+    },
+    {
+      "id": "M174-fuzzy-prefix",
+      "path": "core/ddr_header_aliases.py",
+      "note": "partial matches such as 'Activity Code' are mapped as the description",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m174_header_aliases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.14s"
+    },
+    {
+      "id": "M174-override-ignored",
+      "path": "core/ddr_header_aliases.py",
+      "note": "a profile's own header list (or an explicit off switch) is ignored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m174_header_aliases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 0.16s"
+    },
+    {
+      "id": "M174-persian-forms-lost",
+      "path": "core/ddr_header_aliases.py",
+      "note": "Arabic-script letter variants of a Persian header no longer match",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m174_header_aliases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.14s"
+    },
+    {
+      "id": "M174-provenance-dropped",
+      "path": "core/mineru_engine.py",
+      "note": "the mapped header loses its page and bounding box",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m174_header_aliases.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.12s"
+    },
+    {
+      "id": "M175-twin-hidden",
+      "path": "core/ddr_well_identity.py",
+      "note": "an equivalent spelling on another well is hidden and the import routed to the exact spelling",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m175_well_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 6.32s"
+    },
+    {
+      "id": "M175-stale-decision-accepted",
+      "path": "core/ddr_well_identity.py",
+      "note": "a decision made against another source or database state is applied",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m175_well_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.07s"
+    },
+    {
+      "id": "M175-decision-not-required",
+      "path": "core/ddr_well_identity.py",
+      "note": "a source naming another well is imported into the selected well without a decision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m175_well_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.07s"
+    },
+    {
+      "id": "M175-refusal-ignored",
+      "path": "core/ddr_well_identity.py",
+      "note": "an ambiguous or contradictory identity is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m175_well_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.07s"
+    },
+    {
+      "id": "M175-project-scope-lost",
+      "path": "core/ddr_well_identity.py",
+      "note": "a same-named well in another project makes the selected well's import ambiguous",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m175_well_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.07s"
+    },
+    {
+      "id": "M175-master-overwritten",
+      "path": "core/ddr_import_service.py",
+      "note": "importing into the selected well overwrites its master data with the other well's header",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m175_well_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.19s"
+    },
+    {
+      "id": "M175-decision-in-fingerprint",
+      "path": "core/ddr_import_service.py",
+      "note": "a retry with a fresh decision is not recognised as the same source",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m175_well_identity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 6.45s"
+    },
+    {
+      "id": "M176-wrapped-join-silent",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a PDF line is joined to the row above without a review notice",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.52s"
+    },
+    {
+      "id": "M176-join-row-offset-lost",
+      "path": "core/import_adapters/pdf_generic_tables.py",
+      "note": "a join on page 2 of a continued table points at the wrong row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.52s"
+    },
+    {
+      "id": "M176-row-page-lost",
+      "path": "core/mineru_engine.py",
+      "note": "rows that continue on the next PDF page are recorded on the first page",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.53s"
+    },
+    {
+      "id": "M176-morning-heading-ignored",
+      "path": "core/mineru_engine.py",
+      "note": "a morning time log under an explicit heading is parked unstored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 3.48s"
+    },
+    {
+      "id": "M176-unstored-table-silent",
+      "path": "core/mineru_engine.py",
+      "note": "rows of a mixed table are parked without telling the operator",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 3.43s"
+    },
+    {
+      "id": "M176-sha-missing",
+      "path": "core/ddr_import_pipeline.py",
+      "note": "the imported file's SHA-256 is not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.50s"
+    },
+    {
+      "id": "M176-size-zero",
+      "path": "core/ddr_import_pipeline.py",
+      "note": "an unreadable file size is recorded as 0 instead of unknown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 3.46s"
+    },
+    {
+      "id": "M176-applied-profile-lost",
+      "path": "core/ddr_import_pipeline.py",
+      "note": "the profile that shaped the result is not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m176_route_parity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 3.50s"
+    },
+    {
+      "id": "M178-name-optional",
+      "path": "core/trajectory_views.py",
+      "note": "an unnamed view is saved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.07s"
+    },
+    {
+      "id": "M178-duplicate-name",
+      "path": "core/trajectory_views.py",
+      "note": "two active views of one well get the same name",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 14.58s"
+    },
+    {
+      "id": "M178-foreign-wellbore",
+      "path": "core/trajectory_views.py",
+      "note": "a view is bound to a wellbore of another well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 14.72s"
+    },
+    {
+      "id": "M178-foreign-revision",
+      "path": "core/trajectory_views.py",
+      "note": "a view is built from another well's survey revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 17.96s"
+    },
+    {
+      "id": "M178-tampered-revision-used",
+      "path": "core/trajectory_views.py",
+      "note": "a survey revision that failed its hash is used",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py",
+        "tests/test_m72_surveys_solver.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 19.50s"
+    },
+    {
+      "id": "M178-foreign-report-rows",
+      "path": "core/trajectory_views.py",
+      "note": "survey stations of another well's report are saved into this well's view",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 16.19s"
+    },
+    {
+      "id": "M178-undrawable-saved",
+      "path": "core/trajectory_views.py",
+      "note": "a view without a drawable trajectory is saved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 14.58s"
+    },
+    {
+      "id": "M178-stale-head-accepted",
+      "path": "core/trajectory_views.py",
+      "note": "a revision based on an outdated view silently supersedes another user's revision",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 28 passed in 24.54s"
+    },
+    {
+      "id": "M178-archived-revisable",
+      "path": "core/trajectory_views.py",
+      "note": "an archived view is revised",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 28 passed in 24.39s"
+    },
+    {
+      "id": "M178-reason-optional",
+      "path": "core/trajectory_views.py",
+      "note": "a view is archived or restored without a reason",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 28 passed in 24.60s"
+    },
+    {
+      "id": "M178-hash-not-checked",
+      "path": "core/trajectory_views.py",
+      "note": "a tampered snapshot is reported VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed in 22.76s"
+    },
+    {
+      "id": "M178-drift-always-match",
+      "path": "core/trajectory_views.py",
+      "note": "a reopened view says MATCH although the surveys changed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 21.14s"
+    },
+    {
+      "id": "M178-no-audit",
+      "path": "core/trajectory_views.py",
+      "note": "a saved view leaves no audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.46s"
+    },
+    {
+      "id": "M178-update-guard-missing",
+      "path": "core/storage_guards.py",
+      "note": "a saved view revision can be rewritten by raw SQL",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 32 passed in 27.78s"
+    },
+    {
+      "id": "M178-snapshot-recomputed-on-open",
+      "path": "tabs/trajectory_viewer.py",
+      "note": "opening a saved view redraws the current data instead of the stored snapshot",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 55 passed, 14 warnings in 48.37s"
+    },
+    {
+      "id": "M178-fail-message-claims-saved",
+      "path": "tabs/trajectory_saved_views_panel.py",
+      "note": "a failed save tells the user it was saved",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 55 passed, 14 warnings in 48.21s"
+    },
+    {
+      "id": "M179-compare-interpolates",
+      "path": "core/trajectory_views.py",
+      "note": "stations at different MDs are paired (a comparison by nearest station)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 47 passed in 40.62s"
+    },
+    {
+      "id": "M179-missing-exported-as-zero",
+      "path": "core/trajectory_views.py",
+      "note": "a value the snapshot does not hold is exported as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 51 passed in 43.57s"
+    },
+    {
+      "id": "M179-feet-not-converted",
+      "path": "core/trajectory_views.py",
+      "note": "an export labelled ft holds metres",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 49 passed in 41.96s"
+    },
+    {
+      "id": "M179-dls-not-converted",
+      "path": "core/trajectory_views.py",
+      "note": "DLS labelled deg/100ft holds deg/30m",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 49 passed in 42.30s"
+    },
+    {
+      "id": "M179-tampered-exported",
+      "path": "core/trajectory_views.py",
+      "note": "a snapshot that failed its hash is exported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed in 23.09s"
+    },
+    {
+      "id": "M180-legacy-other-well",
+      "path": "core/trajectory_views.py",
+      "note": "legacy snapshots of another well are listed under this well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 53 passed in 45.49s"
+    },
+    {
+      "id": "M180-legacy-unreadable-hidden",
+      "path": "core/trajectory_views.py",
+      "note": "a broken legacy payload is listed as readable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m178_trajectory_views.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 53 passed in 45.22s"
+    },
+    {
+      "id": "M182-boolean-number",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a TRUE/FALSE cell is imported as 1 / 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 12.60s"
+    },
+    {
+      "id": "M182-formula-accepted",
+      "path": "core/engineering/tubular_import.py",
+      "note": "an Excel formula is imported as a documented value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.96s"
+    },
+    {
+      "id": "M182-nonfinite-accepted",
+      "path": "core/engineering/tubular_import.py",
+      "note": "NaN / inf is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 8.21s"
+    },
+    {
+      "id": "M182-conflict-overwrites",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a row with the identity of a stored item and other values is imported next to it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 14.38s"
+    },
+    {
+      "id": "M182-standards-not-blocked",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a file citing API 5DP / 5CT tables is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 17.05s"
+    },
+    {
+      "id": "M182-partial-without-consent",
+      "path": "core/engineering/tubular_import.py",
+      "note": "invalid / conflicting rows are skipped silently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 13.52s"
+    },
+    {
+      "id": "M182-file-change-ignored",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a file changed after the preview is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 29 passed in 23.02s"
+    },
+    {
+      "id": "M182-published-target",
+      "path": "core/engineering/tubular_import.py",
+      "note": "rows are written into a published (immutable) set",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 29 passed in 22.98s"
+    },
+    {
+      "id": "M182-no-audit",
+      "path": "core/engineering/tubular_import.py",
+      "note": "an import leaves no audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.32s"
+    },
+    {
+      "id": "M182-row-limit",
+      "path": "core/engineering/tubular_import.py",
+      "note": "an oversized file is read whole",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 32 passed in 25.43s"
+    },
+    {
+      "id": "M189-unavailable-filled",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a value missing from the library is bound as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.56s"
+    },
+    {
+      "id": "M189-damaged-snapshot-bound",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a snapshot that failed its fingerprint is bound",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.53s"
+    },
+    {
+      "id": "M189-edit-keeps-binding",
+      "path": "core/engineering/reference_binding.py",
+      "note": "an edited value keeps the library binding",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.28s"
+    },
+    {
+      "id": "M189-absent-key-is-edit",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a module without a grade column always loses the binding",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.30s"
+    },
+    {
+      "id": "M189-tolerance-loose",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a small OD edit keeps the binding",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.25s"
+    },
+    {
+      "id": "M189-unreadable-as-match",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a tampered stored snapshot is reported against the library",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.09s"
+    },
+    {
+      "id": "M189-missing-set-different",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a snapshot from another database is reported MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.81s"
+    },
+    {
+      "id": "M189-fingerprint-ignored",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a changed library set is reported MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.78s"
+    },
+    {
+      "id": "M189-newer-version-hidden",
+      "path": "core/engineering/reference_binding.py",
+      "note": "a newer published version is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.06s"
+    },
+    {
+      "id": "M189-report-failure-match",
+      "path": "tabs/calculation_cases_panel.py",
+      "note": "a failed library check is shown as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed, 14 warnings in 12.76s"
+    },
+    {
+      "id": "M185-dialog-binding-not-saved",
+      "path": "dialogs/engineering_dialogs.py",
+      "note": "a library pick is not stored with the component",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.64s"
+    },
+    {
+      "id": "M185-dialog-unavailable-kept",
+      "path": "dialogs/engineering_dialogs.py",
+      "note": "a stale value stays in a field the library item does not provide",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.36s"
+    },
+    {
+      "id": "M188-yield-not-unknown",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an unknown yield is recorded as a library value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 14 warnings in 11.27s"
+    },
+    {
+      "id": "M188-wall-derived-unlabelled",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "a derived wall is labelled as a library value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed, 14 warnings in 12.14s"
+    },
+    {
+      "id": "M184-architecture-edit-keeps-binding",
+      "path": "core/well_architecture.py",
+      "note": "an edited architecture string keeps the library binding",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed, 14 warnings in 14.91s"
+    },
+    {
+      "id": "M184-w3b-id-derived",
+      "path": "tabs/w3b_wellbore_schematic_tab.py",
+      "note": "an unavailable library ID is guessed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed, 14 warnings in 15.45s"
+    },
+    {
+      "id": "M189-guard-set-frozen",
+      "path": "core/storage_guards.py",
+      "note": "a published reference set can be rewritten by raw SQL",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.77s"
+    },
+    {
+      "id": "M189-guard-item-frozen",
+      "path": "core/storage_guards.py",
+      "note": "a draft item can be moved into a published set",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 17.53s"
+    },
+    {
+      "id": "M189-guard-item-insert",
+      "path": "core/storage_guards.py",
+      "note": "a published set takes new items through raw SQL",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m184_m189_reference_integration.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 17.59s"
+    },
+    {
+      "id": "M195-breadcrumb-marker",
+      "path": "packaging/junit_report.py",
+      "note": "a banner quoted in a test id inside a breadcrumb is reported as a crash dump",
+      "equivalent": "",
+      "tests": [
+        "tests/test_junit_report.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 39 passed in 4.16s"
+    },
+    {
+      "id": "M195-bare-current-thread",
+      "path": "packaging/junit_report.py",
+      "note": "the words 'Current thread' in ordinary output are reported as a crash dump",
+      "equivalent": "",
+      "tests": [
+        "tests/test_junit_report.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 50 passed in 4.15s"
+    },
+    {
+      "id": "M195-banner-without-colon",
+      "path": "packaging/junit_report.py",
+      "note": "prose naming a fatal error is a crash dump",
+      "equivalent": "",
+      "tests": [
+        "tests/test_junit_report.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 51 passed in 4.14s"
+    },
+    {
+      "id": "M195-dotted-banner-missed",
+      "path": "packaging/junit_report.py",
+      "note": "a banner after progress dots is not found",
+      "equivalent": "",
+      "tests": [
+        "tests/test_junit_report.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 41 passed in 4.08s"
+    },
+    {
+      "id": "M192-pattern-prefix",
+      "path": "tools/quality/density_constant_inventory_m192.py",
+      "note": "27.48 is counted as the 7.48 constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m192_density_constants.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.61s"
+    },
+    {
+      "id": "M193-noassertion-changed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "a NOASSERTION licence on an unlicensed repo is a licence change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-licence-change-missed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "MIT -> Apache-2.0 is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-error-as-gone",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "a failed lookup is reported GONE instead of NOT CHECKED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-archived-missed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "an archived repository is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-moved-missed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "new commits are not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M197-prefix-ignored",
+      "path": "tools/quality/ux_success_audit_m197.py",
+      "note": "a reviewed file hides every other success claim in it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m197_ux_success_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.98s"
+    },
+    {
+      "id": "M197-success-anywhere",
+      "path": "tools/quality/ux_success_audit_m197.py",
+      "note": "'NOT SAVED' (a success word inside failure wording) is reported as a success claim",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m197_ux_success_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.50s"
+    },
+    {
+      "id": "M197-whole-file-scanned",
+      "path": "tools/quality/ux_success_audit_m197.py",
+      "note": "success messages outside exception handlers are reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m197_ux_success_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.00s"
+    }
+  ],
+  "killed": [
+    "M173-bool-accepted",
+    "M173-non-finite-accepted",
+    "M173-empty-becomes-value",
+    "M173-bounds-ignored",
+    "M173-percent-unbounded",
+    "M173-unit-not-converted",
+    "M173-confirmation-skipped",
+    "M173-reason-optional",
+    "M173-concurrency-ignored",
+    "M173-foreign-well-item",
+    "M173-bulk-table-guessed",
+    "M173-decided-item-overwritten",
+    "M173-history-lost",
+    "M173-mud-loss-not-redirected",
+    "M173-save-without-preview",
+    "M173-snapshot-missing",
+    "M174-ambiguity-guessed",
+    "M174-outside-time-log",
+    "M174-explicit-overridden",
+    "M174-fuzzy-prefix",
+    "M174-override-ignored",
+    "M174-persian-forms-lost",
+    "M174-provenance-dropped",
+    "M175-twin-hidden",
+    "M175-stale-decision-accepted",
+    "M175-decision-not-required",
+    "M175-refusal-ignored",
+    "M175-project-scope-lost",
+    "M175-master-overwritten",
+    "M175-decision-in-fingerprint",
+    "M176-wrapped-join-silent",
+    "M176-join-row-offset-lost",
+    "M176-row-page-lost",
+    "M176-morning-heading-ignored",
+    "M176-unstored-table-silent",
+    "M176-sha-missing",
+    "M176-size-zero",
+    "M176-applied-profile-lost",
+    "M178-name-optional",
+    "M178-duplicate-name",
+    "M178-foreign-wellbore",
+    "M178-foreign-revision",
+    "M178-tampered-revision-used",
+    "M178-foreign-report-rows",
+    "M178-undrawable-saved",
+    "M178-stale-head-accepted",
+    "M178-archived-revisable",
+    "M178-reason-optional",
+    "M178-hash-not-checked",
+    "M178-drift-always-match",
+    "M178-no-audit",
+    "M178-update-guard-missing",
+    "M178-snapshot-recomputed-on-open",
+    "M178-fail-message-claims-saved",
+    "M179-compare-interpolates",
+    "M179-missing-exported-as-zero",
+    "M179-feet-not-converted",
+    "M179-dls-not-converted",
+    "M179-tampered-exported",
+    "M180-legacy-other-well",
+    "M180-legacy-unreadable-hidden",
+    "M182-boolean-number",
+    "M182-formula-accepted",
+    "M182-nonfinite-accepted",
+    "M182-conflict-overwrites",
+    "M182-standards-not-blocked",
+    "M182-partial-without-consent",
+    "M182-file-change-ignored",
+    "M182-published-target",
+    "M182-no-audit",
+    "M182-row-limit",
+    "M189-unavailable-filled",
+    "M189-damaged-snapshot-bound",
+    "M189-edit-keeps-binding",
+    "M189-absent-key-is-edit",
+    "M189-tolerance-loose",
+    "M189-unreadable-as-match",
+    "M189-missing-set-different",
+    "M189-fingerprint-ignored",
+    "M189-newer-version-hidden",
+    "M189-report-failure-match",
+    "M185-dialog-binding-not-saved",
+    "M185-dialog-unavailable-kept",
+    "M188-yield-not-unknown",
+    "M188-wall-derived-unlabelled",
+    "M184-architecture-edit-keeps-binding",
+    "M184-w3b-id-derived",
+    "M189-guard-set-frozen",
+    "M189-guard-item-frozen",
+    "M189-guard-item-insert",
+    "M195-breadcrumb-marker",
+    "M195-bare-current-thread",
+    "M195-banner-without-colon",
+    "M195-dotted-banner-missed",
+    "M192-pattern-prefix",
+    "M193-noassertion-changed",
+    "M193-licence-change-missed",
+    "M193-error-as-gone",
+    "M193-archived-missed",
+    "M193-moved-missed",
+    "M197-prefix-ignored",
+    "M197-success-anywhere",
+    "M197-whole-file-scanned"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

@@ -1,0 +1,384 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m147_m152_ddr_continuation.py",
+      "tests/test_m153_context_blocked_autosave.py",
+      "tests/test_m157_m160_tubular_reference.py"
+    ],
+    "exit": 0,
+    "summary": "64 passed, 14 warnings in 26.54s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "M148-profile-ignored",
+      "path": "core/ddr_continuation.py",
+      "note": "a profile that forbids continuations still attaches them",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.12s"
+    },
+    {
+      "id": "M148-header-footer-attached",
+      "path": "core/ddr_continuation.py",
+      "note": "a repeated header / page footer / total line is attached as activity text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.11s"
+    },
+    {
+      "id": "M148-order-not-proven",
+      "path": "core/ddr_continuation.py",
+      "note": "rows out of source order are attached to a parent below them",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.11s"
+    },
+    {
+      "id": "M148-missing-row-accepted",
+      "path": "core/ddr_continuation.py",
+      "note": "a row without a source position is attached although order cannot be proven",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.11s"
+    },
+    {
+      "id": "M148-line-break-lost",
+      "path": "core/ddr_continuation.py",
+      "note": "the continuation text is glued onto the parent without its line break",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.11s"
+    },
+    {
+      "id": "M149-accept-continuation-applied",
+      "path": "core/ddr_continuation.py",
+      "note": "ACCEPT on a continuation is applied instead of being refused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.10s"
+    },
+    {
+      "id": "M148-ownership-not-reproven",
+      "path": "core/ddr_continuation.py",
+      "note": "a stale review id attaches to whichever row now sits at its position",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.11s"
+    },
+    {
+      "id": "M150-defer-made-canonical",
+      "path": "core/import_quality.py",
+      "note": "a deferred proposal is written into the canonical record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.12s"
+    },
+    {
+      "id": "M150-partial-without-consent",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "unresolved rows are deferred and the import proceeds without asking",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 27 passed in 5.68s"
+    },
+    {
+      "id": "M150-morning-reviews-dropped",
+      "path": "core/ddr_import_pipeline.py",
+      "note": "morning-report continuation rows are never reviewed or attached",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 31 passed in 11.27s"
+    },
+    {
+      "id": "M149-foreign-well-resolved",
+      "path": "core/database.py",
+      "note": "a review item of another well can be decided",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 3.34s"
+    },
+    {
+      "id": "M147-profile-narrative-dropped",
+      "path": "core/profile_import_engine.py",
+      "note": "the profile route again drops narrative rows instead of reviewing them",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.44s"
+    },
+    {
+      "id": "M153-dirty-tab-skipped",
+      "path": "core/managers.py",
+      "note": "an edited (or unknown) hidden tab is skipped silently: held-back edits are no longer reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m153_context_blocked_autosave.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 14 warnings in 6.44s"
+    },
+    {
+      "id": "M153-visible-tab-skipped",
+      "path": "core/managers.py",
+      "note": "a visible tab whose load failed is skipped instead of reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m153_context_blocked_autosave.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed, 14 warnings in 7.00s"
+    },
+    {
+      "id": "M153-guard-removed",
+      "path": "core/save_outcome.py",
+      "note": "the CONTEXT_BLOCKED guard is disabled: stale widgets save into the new context",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m153_context_blocked_autosave.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 14 warnings in 6.42s"
+    },
+    {
+      "id": "M153-explanation-missing",
+      "path": "core/save_outcome.py",
+      "note": "CONTEXT_BLOCKED no longer says what is pending",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m153_context_blocked_autosave.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 14 warnings in 6.32s"
+    },
+    {
+      "id": "M153-foreign-well-acknowledged",
+      "path": "core/base_tab.py",
+      "note": "a report of another well loaded by the tab is accepted as the context: saved over stale well data",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m153_context_blocked_autosave.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed, 14 warnings in 8.45s"
+    },
+    {
+      "id": "M153-pending-ignored",
+      "path": "core/base_tab.py",
+      "note": "a direct load is acknowledged although a newer selection is still pending",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m153_context_blocked_autosave.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed, 14 warnings in 9.43s"
+    },
+    {
+      "id": "M153-direct-load-unacknowledged",
+      "path": "tabs/w2_Daily_Report.py",
+      "note": "a timeline-loaded report leaves the visible Daily Report CONTEXT_BLOCKED on every save again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m153_context_blocked_autosave.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed, 14 warnings in 7.92s"
+    },
+    {
+      "id": "M157-published-set-mutable",
+      "path": "core/engineering/tubular_reference.py",
+      "note": "items can be added to a published (immutable) reference version",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 1.35s"
+    },
+    {
+      "id": "M158-licence-not-required",
+      "path": "core/engineering/tubular_reference.py",
+      "note": "a manufacturer row from a public page is stored without an explicit licence",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.10s"
+    },
+    {
+      "id": "M157-zero-accepted",
+      "path": "core/engineering/tubular_reference.py",
+      "note": "0 is stored as an engineering value instead of being refused (missing must stay unavailable)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.10s"
+    },
+    {
+      "id": "M157-wall-contradiction-accepted",
+      "path": "core/engineering/tubular_reference.py",
+      "note": "contradictory OD / ID / wall values are stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.10s"
+    },
+    {
+      "id": "M159-draft-citable",
+      "path": "core/engineering/tubular_reference.py",
+      "note": "a calculation can cite a draft that may still change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 3.66s"
+    },
+    {
+      "id": "M159-snapshot-tamper-undetected",
+      "path": "core/engineering/tubular_reference.py",
+      "note": "a stored snapshot can be relabelled without detection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 3.61s"
+    },
+    {
+      "id": "M160-dv-warning-leaks",
+      "path": "core/workbook_io.py",
+      "note": "the misleading openpyxl data-validation warning reaches the user again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 6.88s"
+    },
+    {
+      "id": "M160-other-warnings-swallowed",
+      "path": "core/workbook_io.py",
+      "note": "unrelated workbook warnings are silently swallowed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 6.96s"
+    },
+    {
+      "id": "M160-absent-file-warning",
+      "path": "tabs/w13_Engineering_Calculator.py",
+      "note": "an absent optional file is logged as a fault on every start again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m157_m160_tubular_reference.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 7.26s"
+    }
+  ],
+  "killed": [
+    "M148-profile-ignored",
+    "M148-header-footer-attached",
+    "M148-order-not-proven",
+    "M148-missing-row-accepted",
+    "M148-line-break-lost",
+    "M149-accept-continuation-applied",
+    "M148-ownership-not-reproven",
+    "M150-defer-made-canonical",
+    "M150-partial-without-consent",
+    "M150-morning-reviews-dropped",
+    "M149-foreign-well-resolved",
+    "M147-profile-narrative-dropped",
+    "M153-dirty-tab-skipped",
+    "M153-visible-tab-skipped",
+    "M153-guard-removed",
+    "M153-explanation-missing",
+    "M153-foreign-well-acknowledged",
+    "M153-pending-ignored",
+    "M153-direct-load-unacknowledged",
+    "M157-published-set-mutable",
+    "M158-licence-not-required",
+    "M157-zero-accepted",
+    "M157-wall-contradiction-accepted",
+    "M159-draft-citable",
+    "M159-snapshot-tamper-undetected",
+    "M160-dv-warning-leaks",
+    "M160-other-warnings-swallowed",
+    "M160-absent-file-warning"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
