@@ -959,7 +959,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 35,
+    "evidence_tests": 36,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.anti-collision",
     "status": "NOT SUPPORTED",
@@ -980,6 +980,7 @@
      "test_m127_weight_casing.py",
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
+     "test_m157_m160_tubular_reference.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1003,7 +1004,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 35,
+    "evidence_tests": 36,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.multi-survey",
     "status": "NOT SUPPORTED",
@@ -1024,6 +1025,7 @@
      "test_m127_weight_casing.py",
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
+     "test_m157_m160_tubular_reference.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1047,7 +1049,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 35,
+    "evidence_tests": 36,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.dp_database",
     "status": "NOT SUPPORTED",
@@ -1068,6 +1070,7 @@
      "test_m127_weight_casing.py",
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
+     "test_m157_m160_tubular_reference.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1091,7 +1094,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 35,
+    "evidence_tests": 36,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.well_control.kill_sheet",
     "status": "NOT SUPPORTED",
@@ -1112,6 +1115,7 @@
      "test_m127_weight_casing.py",
      "test_m128_dp_schedule.py",
      "test_m129_surveys_anticollision.py",
+     "test_m157_m160_tubular_reference.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1373,8 +1377,8 @@
    "guarded": false,
    "lines": [
     22,
-    293,
-    314
+    341,
+    362
    ],
    "module": "PySide6"
   },
@@ -1442,11 +1446,11 @@
    "guarded": false,
    "lines": [
     10,
-    130,
-    131,
-    212,
-    263,
-    241
+    154,
+    155,
+    236,
+    287,
+    265
    ],
    "module": "PySide6"
   },
@@ -1655,6 +1659,15 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/import_review_dialog.py",
+   "guarded": false,
+   "lines": [
+    20,
+    21
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/login_dialog.py",
    "guarded": false,
    "lines": [
@@ -1763,6 +1776,14 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/tubular_reference_dialog.py",
+   "guarded": false,
+   "lines": [
+    11
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/well_control_kill_sheet_history_dialog.py",
    "guarded": false,
    "lines": [
@@ -1780,7 +1801,7 @@
     23,
     24,
     25,
-    2779
+    2796
    ],
    "module": "PySide6"
   },
@@ -2034,11 +2055,11 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": false,
    "lines": [
-    14,
     15,
     16,
-    1981,
-    1982
+    17,
+    1986,
+    1987
    ],
    "module": "PySide6"
   },
@@ -2091,7 +2112,7 @@
     9,
     15,
     17,
-    2558
+    2560
    ],
    "module": "PySide6"
   },
@@ -2341,7 +2362,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    1811
+    1816
    ],
    "module": "matplotlib"
   },
@@ -2410,34 +2431,10 @@
    "module": "openpyxl"
   },
   {
-   "file": "core/ddr_import_service.py",
-   "guarded": false,
-   "lines": [
-    1443
-   ],
-   "module": "openpyxl"
-  },
-  {
    "file": "core/document_import.py",
    "guarded": false,
    "lines": [
     23
-   ],
-   "module": "openpyxl"
-  },
-  {
-   "file": "core/engineering/drill_pipe_import.py",
-   "guarded": true,
-   "lines": [
-    223
-   ],
-   "module": "openpyxl"
-  },
-  {
-   "file": "core/excel_normalizer.py",
-   "guarded": false,
-   "lines": [
-    4
    ],
    "module": "openpyxl"
   },
@@ -2453,15 +2450,7 @@
    "file": "core/import_quality.py",
    "guarded": true,
    "lines": [
-    485
-   ],
-   "module": "openpyxl"
-  },
-  {
-   "file": "core/import_router.py",
-   "guarded": true,
-   "lines": [
-    64
+    511
    ],
    "module": "openpyxl"
   },
@@ -2471,14 +2460,6 @@
    "lines": [
     221,
     222
-   ],
-   "module": "openpyxl"
-  },
-  {
-   "file": "core/profile_import_engine.py",
-   "guarded": false,
-   "lines": [
-    15
    ],
    "module": "openpyxl"
   },
@@ -2525,6 +2506,14 @@
    "module": "openpyxl"
   },
   {
+   "file": "core/workbook_io.py",
+   "guarded": false,
+   "lines": [
+    27
+   ],
+   "module": "openpyxl"
+  },
+  {
    "file": "dialogs/planning_dialog.py",
    "guarded": false,
    "lines": [
@@ -2536,7 +2525,6 @@
    "file": "dialogs/smart_template_dialog.py",
    "guarded": false,
    "lines": [
-    32,
     33
    ],
    "module": "openpyxl"
@@ -2545,7 +2533,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    2860
+    2865
    ],
    "module": "openpyxl"
   },
@@ -2561,7 +2549,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": false,
    "lines": [
-    12
+    13
    ],
    "module": "pandas"
   },
@@ -2659,8 +2647,8 @@
    "file": "main_window.py",
    "guarded": true,
    "lines": [
-    878,
-    889
+    880,
+    891
    ],
    "module": "qtribbon"
   },
@@ -2706,8 +2694,8 @@
    "file": "core/authorization.py",
    "guarded": false,
    "lines": [
-    263,
-    341
+    268,
+    346
    ],
    "module": "sqlalchemy"
   },
@@ -2736,17 +2724,17 @@
     44,
     628,
     671,
-    3053,
-    3054,
-    3784,
-    4297,
-    4911,
-    3629,
-    3095,
-    7740,
-    6105,
-    6152,
-    6334
+    3135,
+    3136,
+    3866,
+    4379,
+    4993,
+    3711,
+    3177,
+    7944,
+    6309,
+    6356,
+    6538
    ],
    "module": "sqlalchemy"
   },

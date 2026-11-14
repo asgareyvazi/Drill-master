@@ -45,6 +45,8 @@ HIERARCHY = "hierarchy parent lookup"
 AUDIT = "audit trail lookup"
 REVIEW_QUEUE = "pending review items of one well (M151 review workspace)"
 REVIEW_PARENT = "review parent link (ON DELETE SET NULL, M150): the time-log delete scan on re-save"
+REFERENCE_SET = "reference set child: items of one library version, cascade delete (M157)"
+REFERENCE_TYPE = "reference library search by component type (M159)"
 
 INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("activity_codes", ('well_id',), WELL_SCOPE),
@@ -166,6 +168,8 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("import_review_items", ('report_id',), REPORT_CHILD),
     ("import_review_items", ('well_id', 'state'), REVIEW_QUEUE),
     ("import_review_items", ('parent_time_log_id',), REVIEW_PARENT),
+    ("tubular_reference_items", ('set_id',), REFERENCE_SET),
+    ("tubular_reference_items", ('component_type',), REFERENCE_TYPE),
 )
 
 

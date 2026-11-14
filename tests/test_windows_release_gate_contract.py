@@ -94,6 +94,10 @@ REQUIRED_MODULES = (
     "tests/test_m52_ddr_pdf_split.py",
     "tests/test_m52_lifecycle_stress.py",
     "tests/test_m111_isolated_parse.py",          # M111: spawn parser on Windows
+    "tests/test_m147_m152_ddr_continuation.py",   # M147-M152: DDR continuation contract (user on Windows)
+    "tests/test_m153_context_blocked_autosave.py",  # M153: CONTEXT_BLOCKED lifecycle in the real window
+    "tests/test_m157_m160_tubular_reference.py",  # M157-M160: tubular library, workbook warnings
+    "tests/test_m169_end_to_end_journey.py",      # M169: 20-step journey
 )
 ROOT_MARKERS = ("ROOT", "REPO", "parents[1]", "parent.parent", "Path(__file__)")
 

@@ -74,6 +74,7 @@ class DrillTabBase(QWidget):
         self._loaded_well_id = None
         self._loaded_section_id = None
         self._loaded_report_id = None
+        self._applying_context = None   # the pending level _apply_pending_context is loading right now (M153)
 
         # Connect to SelectionManager
         self.sel_manager.well_changed.connect(
@@ -133,12 +134,15 @@ class DrillTabBase(QWidget):
             pending = getattr(self, f"_pending_{kind}")
             if pending is None:
                 continue
+            self._applying_context = kind
             try:
                 if getattr(self, f"on_{kind}_changed")(*pending) is False:
                     raise RuntimeError(f"{kind} context loader did not succeed")
             except Exception:
                 logger.exception("%s.on_%s_changed (pending)", self.widget_name, kind)
                 return False
+            finally:
+                self._applying_context = None
             setattr(self, f"_loaded_{kind}_id", pending[0])
             setattr(self, f"_pending_{kind}", None)
         return True
@@ -148,6 +152,31 @@ class DrillTabBase(QWidget):
         return all(getattr(self, f"_pending_{kind}") is None and
                    getattr(self, f"_loaded_{kind}_id") == getattr(self, f"current_{kind}_id")
                    for kind in ("well", "section", "report"))
+
+    def acknowledge_direct_load(self, well_id, section_id, report_id) -> bool:
+        """M153: a tab's own navigation (timeline, latest report, after create) loaded ``report_id`` itself.
+
+        It counts as loaded only when nothing is pending and the record belongs to the well this tab has actually
+        loaded; otherwise the guard keeps blocking (a report of another well must never be saved over stale
+        well data). Returns whether the load was acknowledged.
+        """
+        kinds = ("well", "section", "report")
+        applying = getattr(self, "_applying_context", None)
+        # While a pending level is being applied, its loader may load a report itself (e.g. the latest one);
+        # that level and the ones below it are still to be confirmed by _apply_pending_context afterwards.
+        settled = kinds[:kinds.index(applying)] if applying in kinds else kinds
+        if any(getattr(self, f"_pending_{kind}", None) is not None for kind in settled):
+            return False
+        if applying == "well":
+            pending_well = getattr(self, "_pending_well", None)
+            loaded_well = pending_well[0] if pending_well else None
+        else:
+            loaded_well = getattr(self, "_loaded_well_id", None)
+        if well_id is None or report_id is None or well_id != loaded_well:
+            return False
+        self.current_section_id, self.current_report_id = section_id, report_id
+        self._loaded_section_id, self._loaded_report_id = section_id, report_id
+        return True
 
     def context_block_reason(self) -> str:
         """M153: why ``save_context_ready`` is False, in words (the guard itself is unchanged).

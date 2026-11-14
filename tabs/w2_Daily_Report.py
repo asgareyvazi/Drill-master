@@ -2127,6 +2127,8 @@ class DailyReportWidget(DrillTabBase):
                           [(key, getattr(self, key)) for key in ("report_date", "report_number", "rig_day", "depth_0000", "depth_0600", "depth_2400", "mw_pcf")])
             self._update_workflow_controls()
             self.related_documents.set_report(report_id)
+            # M153: a report loaded by this tab's own navigation is the loaded context (same well only).
+            self.acknowledge_direct_load(report_data.get("well_id"), report_data.get("section_id"), report_id)
             self.status_manager.show_success("DailyReport", f"Report #{report_data.get('report_number', '')} loaded")
         except Exception as e:
             logger.error(f"Load report error: {e}")
