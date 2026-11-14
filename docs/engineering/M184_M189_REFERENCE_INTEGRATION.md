@@ -57,6 +57,31 @@ The methods are not changed. The M126 / M127 goldens and the M127 boundaries (so
 TR 5C3 pipe-body subset) are unchanged. Tests confirm that results are identical with and without a library
 pick.
 
+## 2a. Storage guards for published tubular sets (M189)
+
+A snapshot only means something if the published set it points to cannot change underneath it. The
+application refuses edits to a published set, but before M189 a raw SQL writer could still change one (the
+M189 adversarial review found this). `core/storage_guards._tubular_guards()` now installs five SQLite
+triggers, version `TUBULAR_GUARD_VERSION` = 1, on new and on upgraded databases:
+
+| Trigger | Refuses |
+|---|---|
+| `trg_tubular_set_frozen_v1` | any change to the identity, version, status, fingerprint, notes or timestamps of a PUBLISHED set |
+| `trg_tubular_set_nodelete_v1` | deleting a PUBLISHED set |
+| `trg_tubular_item_frozen_v1` | updating an item of a PUBLISHED set, or moving an item into one |
+| `trg_tubular_item_noinsert_v1` | adding an item to a PUBLISHED set |
+| `trg_tubular_item_nodelete_v1` | deleting an item of a PUBLISHED set |
+
+- DRAFT sets stay fully editable, because the importer writes into drafts.
+- The guards survive backup and restore (`tests/test_m198_backup_restore_qualification.py`).
+- **Limit:** anyone who can write the database file can `DROP TRIGGER`. This is stated in
+  `core/security_posture.NON_CLAIMS` ("Tamper evidence against file access: NOT PROVIDED"). Encryption and HMAC
+  are owner decision P13. Snapshots carry their own fingerprint, so a tampered snapshot is still reported
+  UNREADABLE.
+- Tests: `test_a_published_set_is_immutable_at_the_storage_layer_and_drafts_stay_editable`.
+- Mutants: `M189-guard-set-frozen`, `M189-guard-item-frozen` and `M189-guard-item-insert`, all killed
+  (`docs/mission-reports/m171-m200-evidence/mutation_m189_guards_partial.json`).
+
 ## 3. Limitations (recorded, not hidden)
 
 - **Schematic JSON:** the W3b schematic JSON save/load does not carry bindings. A binding is persisted only by

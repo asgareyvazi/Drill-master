@@ -462,6 +462,10 @@ def test_save_open_revise_compare_archive_restore_and_export_from_the_viewer(vie
     monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(out), "")))
     assert panel.export_selected("csv") == 5 and "Exported 5 stored station(s)" in panel.status.text()
     assert widget.unit == "ft" and "MD (ft)" in out.read_text(encoding="utf-8")   # the viewer's display unit
+    out_json = tmp_path / "export.json"                                          # the button path (bound method)
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(out_json), "")))
+    panel.export_json_btn.click()
+    assert out_json.exists() and "Exported 5 stored station(s)" in panel.status.text()
     # Archive (reason required) then restore.
     _answers(monkeypatch, "")
     assert panel.archive_selected() is None and "NOT SAVED" in panel.status.text()

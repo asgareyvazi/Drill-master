@@ -208,3 +208,17 @@ DrillMaster ships **no** pipe or casing data (no licensed source exists yet; see
 7. **Reopening a case** shows on the status line whether the library still matches: MATCH, DIFFERENT,
    NOT_REPRODUCIBLE (the set is not in this database) or UNREADABLE. The case keeps its stored values either way;
    nothing is re-read from today's library.
+
+## 20. What a failure message means (M197)
+
+- When an action fails, DrillMaster says so in capitals and names what did **not** happen: **NOT SAVED**,
+  **NOT UPDATED**, **NOT IMPORTED**, **NOT PUBLISHED**, **NOT CREATED** or **NOT USED**, followed by the reason.
+- After such a message nothing was written: no partial record, no zero, no audit entry claiming success. Correct
+  the cause and repeat the action.
+- In the flows added in M173–M190 (review corrections, saved views, tubular import and publish), a success
+  message is shown only after the transaction has committed.
+- Partial imports are never silent. The import reports how many rows were written and how many were refused, and
+  it needs your explicit consent before writing.
+- For maintainers: `python tools/quality/ux_success_audit_m197.py` lists every success wording inside an
+  exception handler in `tabs/`, `dialogs/` and `main_window.py`. Each one must be reviewed in the tool's
+  `REVIEWED` table, and `tests/test_m197_ux_success_audit.py` fails on any unreviewed new one.

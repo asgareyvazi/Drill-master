@@ -76,8 +76,9 @@ class TrajectorySavedViewsPanel(QWidget):
                              (self.revise_btn, self.revise_selected), (self.clone_btn, self.clone_selected),
                              (self.compare_btn, self.compare_selected), (self.archive_btn, self.archive_selected),
                              (self.restore_btn, self.restore_selected),
-                             (self.export_csv_btn, lambda: self.export_selected("csv")),
-                             (self.export_json_btn, lambda: self.export_selected("json"))):
+                             (self.export_csv_btn, self._export_csv),
+                             (self.export_json_btn, self._export_json)):
+            # bound methods, never lambdas over ``self``: a closure would tie the panel to its own buttons (M132)
             button.clicked.connect(slot)
             buttons.addWidget(button)
         buttons.addStretch(1)
@@ -370,6 +371,12 @@ class TrajectorySavedViewsPanel(QWidget):
         self.details.setPlainText("\n".join(lines))
         self.last_compare = result
         return result
+
+    def _export_csv(self) -> None:
+        self.export_selected("csv")
+
+    def _export_json(self) -> None:
+        self.export_selected("json")
 
     def export_selected(self, kind: str) -> Optional[int]:
         view = self.selected()

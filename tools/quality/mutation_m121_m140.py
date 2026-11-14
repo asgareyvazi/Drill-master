@@ -782,8 +782,9 @@ MUTANTS = [
            T136, "an audit record can be rewritten by raw SQL or a system-scope session"),
     Mutant("SEC-audit-delete-allowed", SECG, '    "trg_audit_log": ("audit_logs", (), "0"),\n',
            '    "trg_audit_log": ("audit_logs", (), "1"),\n', T136, "an audit record can be deleted"),
-    Mutant("SEC-audit-guards-not-installed", SECG, '             "trg_audit_log": "audit_logs"}\n',
-           '             "trg_audit_log": "audit_logs_absent"}\n', T136, "no database gets the audit guards"),
+    # M189 extended _TABLE_OF after this entry was written; the anchor follows the dict, the mutation is unchanged.
+    Mutant("SEC-audit-guards-not-installed", SECG, '"trg_audit_log": "audit_logs",\n',
+           '"trg_audit_log": "audit_logs_absent",\n', T136, "no database gets the audit guards"),
     Mutant("SEC-db-not-protected", "core/database.py",
            "                self.file_protection = file_protection.protect_database_files(str(Path(self.db_path).expanduser()))\n",
            "                self.file_protection = {}\n", T136, "the live database stays readable by group/others"),

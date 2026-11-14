@@ -51,6 +51,29 @@ This register stays the single source of truth. **M53–M60 performed no new rep
 
 All of these are owner decisions.
 
+## M193 re-audit (M171–M200)
+
+The register stays the single source of truth, and **all 50 M52 classifications are unchanged**:
+REUSE ALGORITHM 2 (welleng, cement-calc), INSPIRE ONLY 39, OWNER REVIEW REQUIRED 2 (pwptemp, torque_drag) and
+REJECT 7.
+
+- **Method:** `tools/quality/oss_reaudit_m193.py` read the default-branch head, the licence and the archived flag
+  of every repository through the GitHub REST API. It is read-only: nothing was cloned, installed or run.
+- **Evidence:** `docs/mission-reports/m171-m200-evidence/oss_reaudit_m193.json`.
+- **Tests:** `tests/test_m193_oss_reaudit.py`. A failed lookup is NOT CHECKED, never UNCHANGED.
+- **Result:** 46 UNCHANGED, 3 NEW COMMITS, 1 ARCHIVED, 0 licence changes, 0 repositories gone.
+
+| # | Repository | Recorded → current head | Licence | Outcome |
+|---|---|---|---|---|
+| 11 | Himageo2006/mud-engineer-pro | `e244ce1e2e` → `e1c25144be` | none detected (unchanged) | **NOT RE-REVIEWED** (new commits). Stays INSPIRE ONLY: there is no licence, so nothing may be used beyond ideas |
+| 33 | B0yko/wellbrief | `100cb4a871` → `8dd3b8d8ca` | Apache-2.0 (unchanged) | **NOT RE-REVIEWED** (new commits). Stays INSPIRE ONLY; nothing is used |
+| 41 | ldocallaghan/BoreTHM | `1756c0bb8a` → `30664bf0e2` | Apache-2.0 (unchanged) | **NOT RE-REVIEWED** (new commits). Stays INSPIRE ONLY; not integrated |
+| 48 | api-evangelist/national-oilwell-varco | `1ed5ab7f97` (now archived) | none detected | REJECT unchanged |
+
+- "NOT RE-REVIEWED" means the new commits were not read. A future adoption must review the exact new SHA first.
+- The tool never changes a classification by itself.
+- M194 adopted nothing (see the M171–M200 report, §R), and M171–M200 added no dependency.
+
 ## Overview
 
 | # | Repository | Group | Licence (file) | Classification |

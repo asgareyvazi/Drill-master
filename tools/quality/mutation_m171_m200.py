@@ -51,6 +51,12 @@ TVP = "tabs/trajectory_saved_views_panel.py"
 TVW = "tabs/trajectory_viewer.py"
 GUARDS = "core/storage_guards.py"
 T178 = ["tests/test_m178_trajectory_views.py"]
+DCI = "tools/quality/density_constant_inventory_m192.py"
+OSS = "tools/quality/oss_reaudit_m193.py"
+UX = "tools/quality/ux_success_audit_m197.py"
+T192 = ["tests/test_m192_density_constants.py"]
+T193 = ["tests/test_m193_oss_reaudit.py"]
+T197 = ["tests/test_m197_ux_success_audit.py"]
 
 MUTANTS = [
     # ---- M173 correction of a deferred scalar from the persisted queue ----
@@ -323,6 +329,26 @@ MUTANTS = [
     Mutant("M195-dotted-banner-missed", JR, "    return any(pattern.search(text) for pattern in CRASH_MARKERS)\n",
            "    return any(pattern.match(text) for pattern in CRASH_MARKERS)\n", T195,
            "a banner after progress dots is not found"),
+    # ---- M192 / M193 / M197 audit tools
+    Mutant("M192-pattern-prefix", DCI, 'PATTERNS = {"7.48": re.compile(r"(?<![\\d.])7\\.48(?!\\d)"),',
+           'PATTERNS = {"7.48": re.compile(r"7\\.48(?!\\d)"),', T192, "27.48 is counted as the 7.48 constant"),
+    Mutant("M193-noassertion-changed", OSS, "        return spdx in _SPDX_EQUIVALENT[recorded]\n",
+           "        return spdx is None\n", T193, "a NOASSERTION licence on an unlicensed repo is a licence change"),
+    Mutant("M193-licence-change-missed", OSS, '    return (spdx or "").lower() == recorded.lower()\n',
+           "    return True\n", T193, "MIT -> Apache-2.0 is not reported"),
+    Mutant("M193-error-as-gone", OSS, "    if error:\n        out.update(state=ERROR", "    if False:\n        out.update(state=ERROR",
+           T193, "a failed lookup is reported GONE instead of NOT CHECKED"),
+    Mutant("M193-archived-missed", OSS, '    if remote.get("archived"):\n', "    if False:\n", T193,
+           "an archived repository is not reported"),
+    Mutant("M193-moved-missed", OSS, '    if remote.get("sha") and remote.get("sha") != entry.get("sha"):\n',
+           "    if False:\n", T193, "new commits are not reported"),
+    Mutant("M197-prefix-ignored", UX, "    return sorted(f for f in found if not any(f[0] == path and f[1].startswith(prefix)\n",
+           "    return sorted(f for f in found if not any(f[0] == path\n", T197,
+           "a reviewed file hides every other success claim in it"),
+    Mutant("M197-success-anywhere", UX, 'SUCCESS = re.compile(r"^\\s*(', 'SUCCESS = re.compile(r"^.*?(', T197,
+           "'NOT SAVED' (a success word inside failure wording) is reported as a success claim"),
+    Mutant("M197-whole-file-scanned", UX, "            if not isinstance(node, ast.ExceptHandler):\n                continue\n",
+           "            pass\n", T197, "success messages outside exception handlers are reported"),
 ]
 
 

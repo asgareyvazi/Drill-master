@@ -192,9 +192,9 @@ The nine fields of every package are:
 2. **Current behaviour:** Every catalogue entry is "NOT APPROVED — OWNER REVIEW REQUIRED". There is no approval action, and "Approved By" text is not an approval.
 3. **Evidence:** the Method Catalogue; M92 and M110.
 4. **Licence:** none.
-5. **Options:** (a) none; (b) a named-approver workflow with signatures (needs P15).
+5. **Options:** (a) none; (b) a named-approver workflow with signatures (needs P16).
 6. **Consequences:** (b) is a regulated record.
-7. **Engineering view:** (b) only after signing (P15) exists.
+7. **Engineering view:** (b) only after signing (P16) exists.
 8. **Until decided:** NOT APPROVED everywhere.
 9. **Owner must provide:** the approver roles.
 
@@ -280,3 +280,26 @@ The nine fields of every package are:
 7. **Engineering view:** (a) now; (b) when permission exists.
 8. **Until decided:** empty library.
 9. **Owner must provide:** the M181 source-request package (document, licence, value file, reviewer).
+
+## P19 — ISCWSA error models / welleng (carried over from M112)
+
+1. **Decision:** Whether any wellbore position-uncertainty (ISCWSA error) model may be used, which one, and on
+   what benchmark evidence.
+2. **Current behaviour:**
+   - `core/engineering/adapters/welleng_adapter.py` imports `welleng` inside `try`. welleng is not installed,
+     so the adapter reports unavailable.
+   - Anti-collision is **SCREENING** (centre-to-centre distance only). No separation factor is computed
+     without an uncertainty model, and no ISCWSA error model is shipped.
+3. **Evidence:** `M112_OWNER_DECISION_PACKS.md` (pack "ISCWSA / welleng"); M52 adoption register entry 2;
+   M193 re-audit (`docs/mission-reports/m171-m200-evidence/oss_reaudit_m193.json`: welleng `d29adf906b`
+   UNCHANGED, Apache-2.0); `tests/test_m112_dependency_audit.py` (optional import).
+4. **Licence:**
+   - welleng 0.30.0 is Apache-2.0 (PyPI metadata).
+   - The ISCWSA model tables it carries need their **own** licence review. The code licence does not cover them.
+5. **Options:** (a) keep SCREENING only; (b) adopt welleng after the model-table licence review and a benchmark
+   against published ISCWSA test wells; (c) an own error-model implementation with independent goldens.
+6. **Consequences:** (b) and (c) make separation factors safety-relevant outputs, which then need method approval
+   (P12) and signing (P16).
+7. **Engineering view:** (a) until a benchmark set and the table licence are confirmed.
+8. **Until decided:** SCREENING – NO ISCWSA UNCERTAINTY – NO SEPARATION FACTOR – NOT APPROVED.
+9. **Owner must provide:** the decision, the model-table licence position and the benchmark wells.

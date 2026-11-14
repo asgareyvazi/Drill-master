@@ -1,0 +1,31 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m136_security_hardening.py"
+    ],
+    "exit": 0,
+    "summary": "23 passed in 14.42s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "SEC-audit-guards-not-installed",
+      "path": "core/storage_guards.py",
+      "note": "no database gets the audit guards",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m136_security_hardening.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.44s"
+    }
+  ],
+  "killed": [
+    "SEC-audit-guards-not-installed"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

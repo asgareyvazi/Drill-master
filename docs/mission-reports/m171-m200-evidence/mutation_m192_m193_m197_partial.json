@@ -1,0 +1,137 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m192_density_constants.py",
+      "tests/test_m193_oss_reaudit.py",
+      "tests/test_m197_ux_success_audit.py"
+    ],
+    "exit": 0,
+    "summary": "16 passed in 1.87s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "M192-pattern-prefix",
+      "path": "tools/quality/density_constant_inventory_m192.py",
+      "note": "27.48 is counted as the 7.48 constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m192_density_constants.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.66s"
+    },
+    {
+      "id": "M193-noassertion-changed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "a NOASSERTION licence on an unlicensed repo is a licence change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-licence-change-missed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "MIT -> Apache-2.0 is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-error-as-gone",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "a failed lookup is reported GONE instead of NOT CHECKED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-archived-missed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "an archived repository is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M193-moved-missed",
+      "path": "tools/quality/oss_reaudit_m193.py",
+      "note": "new commits are not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m193_oss_reaudit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "M197-prefix-ignored",
+      "path": "tools/quality/ux_success_audit_m197.py",
+      "note": "a reviewed file hides every other success claim in it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m197_ux_success_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.05s"
+    },
+    {
+      "id": "M197-success-anywhere",
+      "path": "tools/quality/ux_success_audit_m197.py",
+      "note": "'NOT SAVED' (a success word inside failure wording) is reported as a success claim",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m197_ux_success_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.52s"
+    },
+    {
+      "id": "M197-whole-file-scanned",
+      "path": "tools/quality/ux_success_audit_m197.py",
+      "note": "success messages outside exception handlers are reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m197_ux_success_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.10s"
+    }
+  ],
+  "killed": [
+    "M192-pattern-prefix",
+    "M193-noassertion-changed",
+    "M193-licence-change-missed",
+    "M193-error-as-gone",
+    "M193-archived-missed",
+    "M193-moved-missed",
+    "M197-prefix-ignored",
+    "M197-success-anywhere",
+    "M197-whole-file-scanned"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

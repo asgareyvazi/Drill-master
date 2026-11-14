@@ -37,3 +37,29 @@ def test_a_new_success_claim_in_a_handler_is_reported(tmp_path, monkeypatch):
         encoding="utf-8")
     monkeypatch.setattr(tool, "ROOT", tmp_path)
     assert tool.unreviewed(tool.findings()) == [("tabs/x.py", "Saved ✅"), ("tabs/x.py", "Updated")]
+
+
+def test_a_reviewed_file_does_not_hide_a_different_success_claim(tmp_path, monkeypatch):
+    # A REVIEWED entry covers one literal prefix in one file, not the whole file.
+    tool = _tool()
+    (tmp_path / "tabs").mkdir()
+    (tmp_path / "dialogs").mkdir()
+    (tmp_path / "main_window.py").write_text("", encoding="utf-8")
+    (tmp_path / "tabs" / "w1_well_info.py").write_text(
+        "def f(label):\n    try:\n        save()\n    except Exception:\n        label.setText('Success')\n"
+        "        label.setText('Saved anyway')\n", encoding="utf-8")
+    monkeypatch.setattr(tool, "ROOT", tmp_path)
+    assert tool.unreviewed(tool.findings()) == [("tabs/w1_well_info.py", "Saved anyway")]
+
+
+def test_failure_wording_that_names_a_success_word_is_not_a_claim(tmp_path, monkeypatch):
+    tool = _tool()
+    (tmp_path / "tabs").mkdir()
+    (tmp_path / "dialogs").mkdir()
+    (tmp_path / "main_window.py").write_text("", encoding="utf-8")
+    (tmp_path / "tabs" / "x.py").write_text(
+        "def f(label):\n    try:\n        save()\n    except Exception as e:\n"
+        "        label.setText(f'NOT SAVED — {e}')\n        label.setText('Import failed: nothing Imported')\n"
+        "    label.setText('Saved')\n", encoding="utf-8")
+    monkeypatch.setattr(tool, "ROOT", tmp_path)
+    assert tool.findings() == set()

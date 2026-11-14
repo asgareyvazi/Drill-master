@@ -31,12 +31,13 @@
      "core/calculation_history.py": 1,
      "core/engineering/core.py": 3,
      "core/engineering/engines/trajectory.py": 2,
+     "core/trajectory_views.py": 2,
      "core/unit_manager.py": 3,
      "core/well_trajectory.py": 2,
      "tabs/trajectory_viewer.py": 6,
      "tabs/w15_Reference_Tables.py": 2
     },
-    "uses": 19
+    "uses": 21
    },
    "°/30 m": {
     "files": {
@@ -51,18 +52,20 @@
      "core/report_engine.py": 2,
      "core/survey_revisions.py": 1,
      "core/table_record_mapper.py": 1,
+     "core/trajectory_views.py": 3,
      "core/unit_manager.py": 2,
      "core/validators.py": 1,
      "core/well_plan_designer.py": 8,
      "core/well_trajectory.py": 4,
      "dialogs/engineering_dialogs.py": 2,
+     "tabs/trajectory_saved_views_panel.py": 1,
      "tabs/trajectory_viewer.py": 6,
      "tabs/w13_Engineering_Calculator.py": 8,
      "tabs/w15_Reference_Tables.py": 1,
      "tabs/w6_Trajectory_Widget.py": 1,
      "tabs/well_plan_designer_panel.py": 7
     },
-    "uses": 69
+    "uses": 73
    }
   },
   "temperature unit": {
