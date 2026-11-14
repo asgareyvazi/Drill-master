@@ -1662,8 +1662,8 @@
    "file": "dialogs/import_review_dialog.py",
    "guarded": false,
    "lines": [
-    20,
-    21
+    24,
+    25
    ],
    "module": "PySide6"
   },
@@ -1789,6 +1789,14 @@
    "lines": [
     21,
     22
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/well_identity_dialog.py",
+   "guarded": false,
+   "lines": [
+    12
    ],
    "module": "PySide6"
   },
@@ -2724,17 +2732,17 @@
     44,
     628,
     671,
-    3135,
-    3136,
-    3866,
-    4379,
-    4993,
-    3711,
-    3177,
-    7944,
-    6309,
-    6356,
-    6538
+    3145,
+    3146,
+    3876,
+    4389,
+    5003,
+    3721,
+    3187,
+    7967,
+    6332,
+    6379,
+    6561
    ],
    "module": "sqlalchemy"
   },
@@ -2826,6 +2834,14 @@
    "guarded": false,
    "lines": [
     26
+   ],
+   "module": "sqlalchemy"
+  },
+  {
+   "file": "core/review_scalar_correction.py",
+   "guarded": false,
+   "lines": [
+    89
    ],
    "module": "sqlalchemy"
   },

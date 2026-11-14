@@ -8,9 +8,13 @@ would join. Filters: state, type, sheet and free text. Several rows can be selec
 * Reject / Ignore      - closes the item; canonical report data are not changed;
 * Keep for review      - leaves the item open (the deferred state).
 
-Accepting a deferred *field value* after the import is not offered: the value has to come back through a
-re-import of the source so its validation and provenance stay complete (documented limit, M151 PARTIAL).
-Every decision is applied and audited by ``DatabaseManager.resolve_import_review_item``.
+* Correct value…       - M173: a deferred scalar is edited, validated against its canonical field, previewed and
+                         saved only after an explicit confirmation (``core.review_scalar_correction``); no
+                         re-import is needed. The original extracted text is never changed.
+* Reopen…              - M173: a decided item is reopened with a reason; its decision history is kept.
+
+Every decision is applied and audited by ``DatabaseManager.resolve_import_review_item`` or
+``core.review_scalar_correction`` (corrections and reopening).
 """
 from __future__ import annotations
 
@@ -19,13 +23,15 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtWidgets import (
-    QAbstractItemView, QComboBox, QDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton,
-    QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QAbstractItemView, QCheckBox, QComboBox, QDialog, QFormLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
 from core.ddr_continuation import (
-    DEFERRED_UNRESOLVED, REVIEW_STATES, SAFELY_ATTACHED_CONTINUATION, VALIDATION_ERROR,
+    ACCEPTED, DEFERRED_UNRESOLVED, IGNORED, REJECTED, REVIEW_STATES, SAFELY_ATTACHED_CONTINUATION,
+    VALIDATION_ERROR,
 )
+from core.review_scalar_correction import CorrectionRefused, apply_correction, preview_correction, reopen_item
 
 logger = logging.getLogger(__name__)
 
@@ -117,8 +123,11 @@ class ImportReviewDialog(QDialog):
         self.attach_all_btn = QPushButton("🔗 Attach all eligible (shown)")
         self.reject_btn = QPushButton("✖ Reject")
         self.ignore_btn = QPushButton("🚫 Ignore")
+        self.correct_btn = QPushButton("✏ Correct value…")
+        self.reopen_btn = QPushButton("↺ Reopen…")
         close_btn = QPushButton("Close")
-        for button in (self.attach_btn, self.attach_all_btn, self.reject_btn, self.ignore_btn):
+        for button in (self.attach_btn, self.attach_all_btn, self.reject_btn, self.ignore_btn, self.correct_btn,
+                       self.reopen_btn):
             actions.addWidget(button)
         actions.addStretch()
         actions.addWidget(close_btn)
@@ -127,6 +136,8 @@ class ImportReviewDialog(QDialog):
         self.attach_all_btn.clicked.connect(self._attach_all_visible)
         self.reject_btn.clicked.connect(lambda: self._decide_selected("REJECT"))
         self.ignore_btn.clicked.connect(lambda: self._decide_selected("IGNORED"))
+        self.correct_btn.clicked.connect(self._correct_selected)
+        self.reopen_btn.clicked.connect(self._reopen_selected)
         close_btn.clicked.connect(self.accept)
         for combo in (self.state_filter, self.type_filter, self.sheet_filter):
             combo.currentIndexChanged.connect(self.populate)
@@ -198,6 +209,12 @@ class ImportReviewDialog(QDialog):
                          else "Attachable: no (no provable parent in the saved report)")
         if item.get("resolved_at"):
             lines.append(f"Decided {item['resolved_at']} by {item.get('resolved_by') or 'unknown'}")
+        for entry in item.get("decision_history") or ():
+            change = (f" {entry.get('old')!r} → {entry.get('new')!r}" if entry.get("action") == "CORRECTED" else "")
+            lines.append(f"History: {entry.get('at', '?')} {entry.get('action')}{change} "
+                         f"({entry.get('before_state')} → {entry.get('after_state')}) by {entry.get('by') or '?'}"
+                         + (f" - {entry.get('reason') or entry.get('note')}" if entry.get('reason') or
+                            entry.get('note') else ""))
         self.detail.setText("\n".join(lines))
 
     # ---- decisions -----------------------------------------------------------------------------------------
@@ -239,3 +256,153 @@ class ImportReviewDialog(QDialog):
             QMessageBox.information(self, "Import review", "No shown continuation has a provable parent.")
             return
         self._report("ATTACH_CONTINUATION", self.decide(eligible, "ATTACH_CONTINUATION"))
+
+    # ---- M173: correct a deferred scalar / reopen a decided item -------------------------------------------
+    def correctable(self, item: Dict) -> bool:
+        return (item.get("review_type") != "continuation" and bool(item.get("target_field"))
+                and item.get("state") in (DEFERRED_UNRESOLVED, VALIDATION_ERROR))
+
+    def _single(self) -> Optional[Dict]:
+        selected = self.selected_items()
+        if len(selected) != 1:
+            QMessageBox.information(self, "Import review", "Select exactly one row.")
+            return None
+        return selected[0]
+
+    def _correct_selected(self) -> None:
+        item = self._single()
+        if item is None:
+            return
+        if not self.correctable(item):
+            QMessageBox.information(self, "Import review", "Only a pending scalar review item can be corrected.")
+            return
+        dialog = ScalarCorrectionDialog(self.db, self.well_id, item, self)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+        self.reload()
+
+    def reopen(self, item: Dict, reason: str) -> Dict:
+        result = reopen_item(self.db, item["id"], self.well_id, reason)
+        self.reload()
+        return result
+
+    def _reopen_selected(self) -> None:
+        item = self._single()
+        if item is None:
+            return
+        if item.get("state") not in (ACCEPTED, REJECTED, IGNORED):
+            QMessageBox.information(self, "Import review", "Only an accepted, rejected or ignored item can be "
+                                    "reopened.")
+            return
+        reason, ok = QInputDialog.getText(self, "Reopen review item", "Reason (kept in the decision history):")
+        if not ok:
+            return
+        try:
+            self.reopen(item, reason)
+        except (CorrectionRefused, ValueError) as exc:
+            QMessageBox.warning(self, "Import review", f"NOT UPDATED: {exc}")
+
+
+class ScalarCorrectionDialog(QDialog):
+    """M173: edit -> validate/preview -> confirm -> save one deferred scalar (no re-import)."""
+
+    def __init__(self, db, well_id: int, item: Dict, parent=None):
+        super().__init__(parent)
+        self.db, self.well_id, self.item = db, well_id, item
+        self.preview: Optional[Dict] = None
+        self.result: Optional[Dict] = None
+        self.setWindowTitle("Correct review value")
+        layout = QVBoxLayout(self)
+        payload = item.get("payload") or {}
+        info = QFormLayout()
+        info.addRow("Target field:", QLabel(_text(item.get("target_field"))))
+        info.addRow("Source:", QLabel(f"{_text(item.get('source_file'))} / {_text(item.get('source_sheet'))} / "
+                                      f"cell {_text(payload.get('source_cell')) or '—'}"))
+        info.addRow("Original extracted value:", QLabel(_text(item.get("original_text")) or "—"))
+        info.addRow("Proposed normalized value:", QLabel(proposed_value(item) or "— (none)"))
+        info.addRow("Source unit:", QLabel(_text(payload.get("original_unit") or payload.get("unit")) or "—"))
+        layout.addLayout(info)
+        edit = QFormLayout()
+        self.value_edit = QLineEdit()
+        self.unit_edit = QLineEdit()
+        self.unit_edit.setPlaceholderText("blank = canonical unit")
+        self.reason_edit = QLineEdit()
+        self.reason_edit.setPlaceholderText("required, kept in the audit")
+        edit.addRow("Corrected value:", self.value_edit)
+        edit.addRow("Unit of the entered value:", self.unit_edit)
+        edit.addRow("Reason:", self.reason_edit)
+        layout.addLayout(edit)
+        self.preview_label = QLabel("Validate the value to see the change.")
+        self.preview_label.setWordWrap(True)
+        layout.addWidget(self.preview_label)
+        self.confirm_box = QCheckBox("I confirm this changes the canonical report data")
+        layout.addWidget(self.confirm_box)
+        buttons = QHBoxLayout()
+        self.validate_btn = QPushButton("Validate / preview")
+        self.save_btn = QPushButton("Save correction")
+        cancel = QPushButton("Cancel")
+        for button in (self.validate_btn, self.save_btn, cancel):
+            buttons.addWidget(button)
+        layout.addLayout(buttons)
+        self.validate_btn.clicked.connect(self.validate)
+        self.save_btn.clicked.connect(self.save)
+        cancel.clicked.connect(self.reject)
+        for widget in (self.value_edit, self.unit_edit):
+            widget.textChanged.connect(self._invalidate)
+        for signal in (self.reason_edit.textChanged, self.confirm_box.toggled):
+            signal.connect(self._refresh)
+        self._refresh()
+
+    def _invalidate(self, *_args) -> None:
+        self.preview = None
+        self.confirm_box.setChecked(False)
+        self.preview_label.setText("Validate the value to see the change.")
+        self._refresh()
+
+    def _refresh(self, *_args) -> None:
+        ready = bool(self.preview and not self.preview.get("conflict") and self.confirm_box.isChecked()
+                     and self.reason_edit.text().strip())
+        self.save_btn.setEnabled(ready)
+        self.confirm_box.setEnabled(bool(self.preview and not self.preview.get("conflict")))
+
+    def validate(self) -> Optional[Dict]:
+        try:
+            self.preview = preview_correction(self.db, self.item["id"], self.well_id, self.value_edit.text(),
+                                              self.unit_edit.text().strip() or None)
+        except (CorrectionRefused, ValueError) as exc:
+            self.preview = None
+            self.preview_label.setText(f"Not valid - nothing will be saved: {exc}")
+            self._refresh()
+            return None
+        p = self.preview
+        target = p["target"]
+        text = (f"{target['model']} #{target['record_id']} . {target['column']} ({p['quantity']}, canonical unit "
+                f"{p['canonical_unit'] or '—'}): current {p['current_value']!r} → new {p['new_value']!r}")
+        if p.get("factor_applied"):
+            text += f" (converted from {p['entered_value']} {p['entered_unit']})"
+        if p["conflict"]:
+            text += (f"\nCONFLICT: the field holds {p['current_value']!r}, expected {p['expected_value']!r} "
+                     f"({p['expected_basis']}); the correction cannot be saved.")
+        self.preview_label.setText(text)
+        self._refresh()
+        return p
+
+    def save(self) -> Optional[Dict]:
+        if not self.preview:
+            return None
+        try:
+            self.result = apply_correction(self.db, self.item["id"], self.well_id, self.value_edit.text(),
+                                           reason=self.reason_edit.text(), token=self.preview["token"],
+                                           confirmed=self.confirm_box.isChecked(),
+                                           unit=self.unit_edit.text().strip() or None)
+        except (CorrectionRefused, ValueError, PermissionError) as exc:
+            self.result = None
+            self.preview_label.setText(f"NOT SAVED: {exc}")
+            self.preview = None
+            self._refresh()
+            return None
+        self.preview_label.setText(f"Saved: {self.result['old']!r} → {self.result['new']!r}")
+        self.accept()
+        return self.result

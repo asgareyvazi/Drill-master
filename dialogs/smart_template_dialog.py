@@ -3187,6 +3187,11 @@ class SmartTemplateDialog(QDialog):
                 self.base_extracted.get("metadata", {})
             ),
         }
+        if getattr(self, "filepath", None):           # M176: same file-level provenance as the other routes
+            from core.ddr_import_pipeline import source_provenance
+            result["metadata"]["source_provenance"] = source_provenance(
+                self.filepath, route="smart_template", route_reason="operator-assigned smart template",
+                extracted=result)
         result["metadata"]["review_matrix"] = [
             {"sheet": a.get("sheet", ""), "row": a.get("row", 0), "column": a.get("col", ""), "source_value": a.get("original_value", a.get("value", "")), "normalized_value": a.get("normalized_value", a.get("value", "")), "canonical_field": a.get("canonical_field", fp), "confidence": a.get("confidence", 0), "decision": a.get("decision", "REVIEW"), "transform": a.get("transform", "")}
             for fp, a in self.assignments.items()

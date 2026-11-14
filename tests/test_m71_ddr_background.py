@@ -144,6 +144,12 @@ def dialog(monkeypatch, tmp_path):
     import dialogs.excel_import_dialog as module
 
     dlg = module.ExcelImportDialog(db_manager=SimpleNamespace(), well_id=1)
+
+    # Persistence is stubbed on a database stand-in without wells, so the M175 well-identity step (it reads
+
+    # the wells table) is stubbed with it; that step is tested on a real database in test_m175.
+
+    monkeypatch.setattr(dlg, "_confirm_well_identity", lambda extracted: True)
     persisted, seen = [], {}
     monkeypatch.setattr(dlg, "_do_import", lambda extracted, refresh_ui=False: persisted.append(extracted) or {
         "status": "ACCEPT", "details": ["ok"], "imported": 1, "failed": 0})

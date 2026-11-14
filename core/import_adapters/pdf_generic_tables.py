@@ -195,8 +195,12 @@ def _column_for(cell: Tuple[float, float, str], anchors: List[Tuple[float, float
     return min(range(len(anchors)), key=lambda i: abs((anchors[i][0] + anchors[i][1]) / 2 - centre))
 
 
-def _consume_rows(cells_by_line, index, anchors, width):
-    """Assign lines to columns from ``index``; returns ``(rows, next_index)``."""
+def _consume_rows(cells_by_line, index, anchors, width, joins=None):
+    """Assign lines to columns from ``index``; returns ``(rows, next_index)``.
+
+    M176: every wrapped-line join is recorded in ``joins`` (row number within the table, column index, text)
+    so the join is visible for review instead of silent.
+    """
     rows: List[List[str]] = []
     while index < len(cells_by_line):
         row_cells = cells_by_line[index]
@@ -212,6 +216,8 @@ def _consume_rows(cells_by_line, index, anchors, width):
             col = _column_for(row_cells[0], anchors)
             if col > 0:
                 rows[-1][col] = (rows[-1][col] + " " + row_cells[0][2]).strip()
+                if joins is not None:
+                    joins.append({"row": len(rows), "column": col, "text": row_cells[0][2]})
                 index += 1
                 continue
         break
@@ -241,9 +247,10 @@ def text_tables(lines: List[Tuple[float, List[Word]]], carry: Optional[Dict[str,
         if len(first) >= 2 and any(is_value_token(c[2]) for c in first) and not all(
             is_header_cell(c[2]) for c in first
         ):
-            rows, index = _consume_rows(cells_by_line, 0, carry["anchors"], len(carry["headers"]))
+            joins: List[Dict[str, Any]] = []
+            rows, index = _consume_rows(cells_by_line, 0, carry["anchors"], len(carry["headers"]), joins)
             tables.append({"headers": list(carry["headers"]), "rows": rows, "anchors": carry["anchors"],
-                           "continuation_of_previous": True})
+                           "continuation_of_previous": True, "wrapped_joins": _named(joins, carry["headers"])})
             ends_at_bottom = index >= len(cells_by_line)
     while index < len(cells_by_line):
         cells = cells_by_line[index]
@@ -260,10 +267,19 @@ def text_tables(lines: List[Tuple[float, List[Word]]], carry: Optional[Dict[str,
             continue
         anchors = [(c[0], c[1]) for c in cells]
         headers = unique_headers([c[2] for c in cells])
-        rows, index = _consume_rows(cells_by_line, index + 1, anchors, len(headers))
-        tables.append({"headers": headers, "rows": rows, "anchors": anchors})
+        joins = []
+        rows, index = _consume_rows(cells_by_line, index + 1, anchors, len(headers), joins)
+        tables.append({"headers": headers, "rows": rows, "anchors": anchors,
+                       "wrapped_joins": _named(joins, headers)})
         ends_at_bottom = index >= len(cells_by_line)
     return tables, leftover, ends_at_bottom
+
+
+def _named(joins, headers):
+    """Wrapped-line joins with the column header name (1-based column number kept)."""
+    return [{"row": j["row"], "column": j["column"] + 1,
+             "header": headers[j["column"]] if j["column"] < len(headers) else "", "text": j["text"]}
+            for j in joins]
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +299,8 @@ def join_continuations(
     previous_page = None
     for page_no, tables, starts_at_top in page_tables:
         for position, table in enumerate(tables):
-            table = {**table, "pages": [page_no], "row_pages": [page_no] * len(table["rows"])}
+            table = {**table, "pages": [page_no], "row_pages": [page_no] * len(table["rows"]),
+                     "wrapped_joins": [dict(j, page=page_no) for j in table.get("wrapped_joins", [])]}
             last = joined[-1] if joined else None
             if (
                 join
@@ -293,6 +310,9 @@ def join_continuations(
                 and previous_page == page_no - 1
                 and last["headers"] == table["headers"]
             ):
+                offset = len(last["rows"])
+                last.setdefault("wrapped_joins", []).extend(
+                    dict(j, row=j["row"] + offset) for j in table["wrapped_joins"])
                 last["rows"].extend(table["rows"])
                 last["row_pages"].extend(table["row_pages"])
                 last["pages"].append(page_no)
@@ -372,6 +392,7 @@ def generic_document_tables(
                 "pages": table["pages"],
                 "row_pages": table["row_pages"],
                 "continued": bool(table.get("continued")),
+                "wrapped_joins": list(table.get("wrapped_joins", [])),
                 "method": "pymupdf-text-columns",
                 "header_detected": True,
                 "version": GENERIC_TABLES_VERSION,

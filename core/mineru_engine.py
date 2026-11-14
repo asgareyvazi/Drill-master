@@ -97,7 +97,13 @@ def resolve_mineru_method(requested: str) -> str:
 
 # M61: version of the profile-driven normalization rules (date formats,
 # table rules, continuation, confidence threshold). Bump when they change.
-PROFILE_RULES_VERSION = 1
+# v2 (M174): time-log description headers (core.ddr_header_aliases). Results
+# recorded under v1 stay readable; v1 simply had no description-header rule.
+PROFILE_RULES_VERSION = 2
+
+CONTRACT_HEADER_ALIASES = "ddr-header-aliases-v1"
+PDF_WRAPPED_LINE_RULE = "pdf-wrapped-line-v1"
+
 
 class MinerUError(RuntimeError):
     """Base class for actionable MinerU errors."""
@@ -309,6 +315,18 @@ class DocumentTable:
     rows: list[list[str]]
     provenance: Provenance
     name: str = ""
+    # M176: layout repairs made while reading the table (e.g. PDF wrapped-line joins), shown for review.
+    notes: list = field(default_factory=list)
+    # M176: page of each row when a table continues over pages (empty: every row is on ``provenance.source_page``).
+    row_pages: list = field(default_factory=list)
+
+
+def _row_page(table: "DocumentTable", row_number: int) -> Optional[int]:
+    """Page of the 1-based ``row_number`` of ``table``; the table's page when no per-row page is known."""
+    pages = getattr(table, "row_pages", None) or []
+    if 0 < row_number <= len(pages) and pages[row_number - 1] is not None:
+        return pages[row_number - 1]
+    return table.provenance.source_page
 
 
 @dataclass
@@ -933,6 +951,9 @@ def parse_pdf_native_fallback(input_path: str | os.PathLike[str], continuation: 
                     bounding_box=tuple(report.get("bbox")) if report.get("bbox") else None,
                 ),
                 name=section_name.replace("_", " ") if section_name else f"PDF table {table_number}",
+                notes=[dict(note, kind=PDF_WRAPPED_LINE_RULE) for note in report.get("wrapped_joins") or []],
+                row_pages=list(report.get("row_pages") or []) if len(report.get("row_pages") or []) == len(rows)
+                else [],
             )
         )
 
@@ -1198,12 +1219,14 @@ class NormalizedDocument:
     backend: str = ""
     method: str = ""
     profile_info: Optional[dict[str, Any]] = None
+    header_aliases: list = field(default_factory=list)
 
     def metadata(self) -> dict[str, Any]:
         return {
             "source": "MinerU",
             "profile": self.profile_info,
             "profile_rules_version": PROFILE_RULES_VERSION,
+            "header_aliases": self.header_aliases,
             "backend": self.backend,
             "method": self.method,
             "pages": self.pages,
@@ -1230,6 +1253,8 @@ class DocumentNormalizer:
         # Profile aliases are tried first; every hit is recorded for review.
         self.profile = profile
         self.profile_mappings: list[dict[str, Any]] = []
+        # M174: one outcome per time-log table whose description header was resolved or found ambiguous.
+        self.header_alias_outcomes: list[dict[str, Any]] = []
 
     def _resolve_mapped(self, label: str, context: str = "") -> Optional[str]:
         profile = getattr(self, "profile", None)
@@ -1241,6 +1266,57 @@ class DocumentNormalizer:
                 )
                 return hit
         return self._resolve_field(label, context)
+
+    def _bind_time_log_section(self, context, fields, table):
+        """M176: a table heading that explicitly names the morning or the 24-hour time log decides the section.
+
+        Bare "From"/"To" resolve to the 24-hour log while "Hrs" under a morning heading resolves to the morning
+        log, so the table was mixed and its rows were not stored. Only time-log fields are rebound, and only to a
+        field that exists in the named section. A heading that names neither section changes nothing.
+        """
+        from core.canonical_mapper import _SECTION_ALIASES
+
+        def named(section):
+            return any(re.search(rf"\b{re.escape(alias)}\b", context) for alias in _SECTION_ALIASES[section])
+
+        # The morning aliases contain "time log", so the more specific morning heading wins.
+        target = "time_log_morning" if named("time_log_morning") else "time_log" if named("time_log") else None
+        if target is None:
+            return fields
+        other = "time_log" if target == "time_log_morning" else "time_log_morning"
+        rebound, out = [], []
+        for field_path in fields:
+            section, _, leaf = (field_path or "").partition(".")
+            if section == other and f"{target}.{leaf}" in FIELD_SPECS:
+                rebound.append({"from": field_path, "to": f"{target}.{leaf}"})
+                field_path = f"{target}.{leaf}"
+            out.append(field_path)
+        if rebound:
+            self.header_alias_outcomes.append({
+                "contract": "ddr-time-log-section-v1", "state": "SECTION_FROM_HEADING", "section": target,
+                "rebound": rebound, "source": self._table_source(table.provenance, table),
+                "profile_rules_version": PROFILE_RULES_VERSION})
+        return out
+
+    def _description_header(self, headers, fields, table):
+        """M174: resolve a time log's generic description header (Activity, Description, ...), never fuzzily."""
+        from core.ddr_header_aliases import resolve_description_headers
+
+        profile = getattr(self, "profile", None)
+        fields, outcome = resolve_description_headers(
+            headers, fields, table_rules=(profile.table_rules or {}) if profile is not None else {},
+            profile_key=getattr(profile, "key", ""), profile_version=getattr(profile, "version", None))
+        if outcome["state"] in ("MAPPED", "AMBIGUOUS"):
+            outcome = dict(outcome, source=self._table_source(table.provenance, table),
+                           profile_rules_version=PROFILE_RULES_VERSION)
+            self.header_alias_outcomes.append(outcome)
+            if outcome["state"] == "MAPPED":
+                self.profile_mappings.append({
+                    "label": outcome["header"], "field": outcome["field"], "column": outcome["column"],
+                    "method": outcome["method"], "profile": getattr(profile, "key", None),
+                    "version": getattr(profile, "version", None), "rules_version": PROFILE_RULES_VERSION,
+                    "source": outcome["source"]})
+        return fields, outcome
 
     def _profile_header(self, header: str, field_path: Optional[str]) -> str:
         """Header with the profile's declared source unit when the header has none."""
@@ -1497,14 +1573,36 @@ class DocumentNormalizer:
                     stripped_header = re.sub(r"\s*[\[(].*?[\])]?\s*$", "", str(header)).strip()
                     field_path = self._resolve_mapped(stripped_header, table_context)
                 table_fields.append(field_path)
+            table_fields = self._bind_time_log_section(table_context, table_fields, table)
+            table_fields, alias_outcome = self._description_header(headers, table_fields, table)
+            for note in getattr(table, "notes", None) or []:
+                # M176: a layout repair is evidence for review, never a silent change of the source rows.
+                warnings.append({
+                    "level": "review",
+                    "message": (f"PDF layout: the line {note.get('text')!r} stood alone under column "
+                                f"'{note.get('header')}' and was read as wrapped text of row {note.get('row')}. "
+                                "Check that it is not a separate entry."),
+                    "value": note.get("text"),
+                    "rule": note.get("kind", PDF_WRAPPED_LINE_RULE),
+                    "source": Provenance(document.source_file, note.get("page", table.provenance.source_page),
+                                         table.provenance.source_sheet, note.get("row"), note.get("column"),
+                                         table.provenance.bounding_box, table.provenance.extraction_method,
+                                         table.provenance.confidence, source_table=table.name).to_dict(),
+                })
+            for column, (header, field_path) in enumerate(zip(headers, table_fields), 1):
                 if field_path is None and header.strip():
-                    warnings.append(
-                        {
-                            "level": "review",
-                            "message": f"No unambiguous canonical field for table column '{header}'.",
-                            "source": self._table_source(table.provenance, table),
-                        }
-                    )
+                    ambiguous = alias_outcome.get("state") == "AMBIGUOUS" and any(
+                        c["column"] == column for c in alias_outcome["candidates"])
+                    warning = {
+                        "level": "review",
+                        "message": f"No unambiguous canonical field for table column '{header}'.",
+                        "source": self._table_source(table.provenance, table),
+                    }
+                    if ambiguous:
+                        warning.update(message=alias_outcome["message"], value=header, rule=CONTRACT_HEADER_ALIASES,
+                                       profile_rules_version=PROFILE_RULES_VERSION,
+                                       source=dict(warning["source"], source_column=column))
+                    warnings.append(warning)
             storage_key = self._storage_key(table_context, table_fields)
             table_skip = self._profile_table_skip(table_context)
             if table_skip is not None:
@@ -1533,7 +1631,7 @@ class DocumentNormalizer:
                                 "value": " | ".join(str(cell) for cell in row if cell not in (None, "")),
                                 "source": Provenance(
                                     document.source_file,
-                                    table.provenance.source_page,
+                                    _row_page(table, row_number),
                                     table.provenance.source_sheet,
                                     row_number,
                                     None,
@@ -1554,7 +1652,7 @@ class DocumentNormalizer:
                                 "value": " | ".join(str(cell) for cell in row if cell not in (None, "")),
                                 "source": Provenance(
                                     document.source_file,
-                                    table.provenance.source_page,
+                                    _row_page(table, row_number),
                                     table.provenance.source_sheet,
                                     row_number,
                                     None,
@@ -1600,7 +1698,7 @@ class DocumentNormalizer:
                                         ),
                                         "source": Provenance(
                                             document.source_file,
-                                            table.provenance.source_page,
+                                            _row_page(table, row_number),
                                             table.provenance.source_sheet,
                                             row_number,
                                             index + 1,
@@ -1624,7 +1722,7 @@ class DocumentNormalizer:
                         fields_extracted += 1
                         item_provenance = Provenance(
                             source_file=document.source_file,
-                            source_page=table.provenance.source_page,
+                            source_page=_row_page(table, row_number),
                             source_sheet=table.provenance.source_sheet,
                             source_row=row_number,
                             source_column=index + 1,
@@ -1656,7 +1754,7 @@ class DocumentNormalizer:
                         record["_source_row"] = row_number
                         record["_source_cells"] = {
                             str(field_path or headers[index]): {
-                                "page": table.provenance.source_page,
+                                "page": _row_page(table, row_number),
                                 "row": row_number,
                                 "column": index + 1,
                             }
@@ -1686,6 +1784,17 @@ class DocumentNormalizer:
                         )
                 elif table_records:
                     canonical.setdefault(storage_key, []).extend(table_records)
+                if storage_key == "document_tables" and table_records:
+                    # M176: never park rows silently - a mixed table is kept for review only, so say so.
+                    sections = sorted({f.split(".", 1)[0] for f in table_fields if f})
+                    warnings.append({
+                        "level": "review",
+                        "message": (f"Table '{table.name or 'unnamed'}' mixes fields of {', '.join(sections)}; its "
+                                    f"{len(table_records)} row(s) are kept for review only and were NOT stored. "
+                                    "Map the table with a report profile."),
+                        "rule": "document-table-not-stored-v1",
+                        "source": self._table_source(table.provenance, table),
+                    })
 
         text_values = [item[0] for item in raw_document.text_blocks]
         table_contexts = [
@@ -1860,6 +1969,7 @@ class DocumentNormalizer:
             raw_document=raw_document,
             backend=document.backend,
             method=document.method,
+            header_aliases=list(self.header_alias_outcomes),
             profile_info=(
                 {
                     "key": self.profile.key,

@@ -233,6 +233,9 @@ def mineru_extracted(source, parse_result, *, profile=None, source_label="MinerU
             or {}
         ),
         "fallback_diagnostics": fallback_diagnostics or {},
+        # M174: time-log description headers mapped or left for an operator decision, with provenance.
+        "header_aliases": list(normalized.header_aliases),
+        "profile_rules_version": PROFILE_RULES_VERSION,
         # M54: which report profile (if any) supplied mappings.
         "profile": (
             {"key": profile.key, "version": profile.version, "name": profile.name,
@@ -377,6 +380,11 @@ def prepare_import(
             if isinstance(extracted.get("metadata"), dict):
                 extracted["metadata"]["column_mapping"] = columns
         out.import_report["pipeline_version"] = PIPELINE_VERSION
+        provenance = source_provenance(source, route=decision.engine, route_reason=decision.reason,
+                                       fallback_engine=decision.fallback_engine, extracted=extracted)
+        out.import_report["source_provenance"] = provenance
+        if isinstance(extracted, dict):
+            extracted.setdefault("metadata", {})["source_provenance"] = provenance
 
         if not meaningful(extracted):
             out.stage = "meaningful_data"
@@ -390,6 +398,45 @@ def prepare_import(
         out.error, out.extracted = exc, None
         logger.info("DDR preparation stopped for %s at %s: %s", os.path.basename(str(source)), out.stage, exc)
     return out
+
+
+SOURCE_PROVENANCE_CONTRACT = "ddr-source-provenance-v1"
+
+
+def source_provenance(source, *, route: str, route_reason: str = "", fallback_engine: Optional[str] = None,
+                      extracted: Optional[dict] = None) -> Dict[str, Any]:
+    """M176: one provenance record per imported file, the same on every route.
+
+    It holds the file's SHA-256 and size, the route that read it, the reading engine, and every rules version
+    that shaped the result. Row/cell/page provenance stays on the records (``_source_row``/``_source_cells``) and
+    in the review rows. A value that cannot be determined is recorded as ``None``, never guessed.
+    """
+    from core.ddr_header_aliases import HEADER_RULES_VERSION
+    from core.ddr_import_queue import file_fingerprint
+
+    metadata = (extracted or {}).get("metadata") if isinstance((extracted or {}).get("metadata"), dict) else {}
+    try:
+        size = os.path.getsize(source)
+    except OSError:  # silent-ok: an unreadable size is recorded as unknown (None), never as 0
+        size = None
+    return {
+        "contract": SOURCE_PROVENANCE_CONTRACT,
+        "file_name": Path(str(source)).name,
+        "sha256": file_fingerprint(str(source)),
+        "size_bytes": size,
+        "route": route,
+        "route_reason": route_reason,
+        "fallback_engine": fallback_engine,
+        "engine": metadata.get("source_engine") or metadata.get("source") or route,
+        "backend": metadata.get("backend"),
+        "method": metadata.get("method"),
+        "pipeline_version": PIPELINE_VERSION,
+        "profile_rules_version": PROFILE_RULES_VERSION,
+        "header_rules_version": HEADER_RULES_VERSION,
+        # The profile that actually shaped the result (MinerU/PDF normaliser), not merely one that was offered.
+        "profile": ({"key": applied.get("key"), "version": applied.get("version")}
+                    if isinstance(applied := metadata.get("profile"), dict) and applied.get("key") else None),
+    }
 
 
 def continuation_allowed(extracted) -> bool:

@@ -510,6 +510,9 @@ def test_m152_generic_excel_route_attaches_the_fixture_continuations_end_to_end(
         item["decision"] = "ATTACH_CONTINUATION"
     extracted = out.extracted
     apply_review_decisions(extracted, out.import_report["review"])
+    from core.ddr_well_identity import CHOOSE_SELECTED, make_decision    # M175: explicit target decision
+    extracted["metadata"]["well_identity_decision"] = make_decision(
+        DDRImportService(db, 1).assess_well_identity(extracted["well_info"]), CHOOSE_SELECTED, "synthetic test")
     result = DDRImportService(db, 1).import_records(extracted)
     assert result["report_id"], result
     assert result["review_queue"]["attached"] == 4

@@ -817,6 +817,14 @@ class ImportReviewItem(Base):
     resolved_at = Column(DateTime, nullable=True)
     resolved_by = Column(String(100), nullable=True)
     resolution_note = Column(Text, nullable=True)
+    # M173: every operator decision of this item, oldest first (JSON list); never rewritten, only appended.
+    decision_history_json = Column(Text, nullable=True)
+
+
+def _review_history(item) -> list:
+    from core.review_scalar_correction import history
+    return history(item)
+
 
 class DrillingParameters(Base):
     __tablename__ = "drilling_parameters"
@@ -2070,6 +2078,8 @@ def report_reference_action(model) -> str:
 
 
 ADDITIVE_COLUMNS = (
+    # M173: decision history of a queued DDR review item (legacy rows stay NULL = no recorded history).
+    ("import_review_items", "decision_history_json", "TEXT"),
     ("survey_revisions", "results_sha256", "VARCHAR(64)"),
     # M104: MSE lineage, recorded for new saves only (legacy rows stay NULL = unknown).
     ("mse_calculations", "wellbore_id", "INTEGER REFERENCES wellbores(id) ON DELETE SET NULL"),
@@ -5536,7 +5546,7 @@ class DatabaseManager:
                     raise ValueError(f"Unknown review state {state!r}")
                 location = item.get("location") if isinstance(item.get("location"), dict) else {}
                 page, row = location.get("page", item.get("page")), location.get("row", item.get("row"))
-                active.add(ImportReviewItem(
+                row = ImportReviewItem(
                     well_id=report.well_id, report_id=report_id, review_id=review_id[:80],
                     review_type=str(item.get("review_type") or "field")[:40],
                     target_field=str(item.get("target_field") or "")[:160] or None, state=state,
@@ -5549,7 +5559,16 @@ class DatabaseManager:
                     reason=str(item.get("reason") or "") or None,
                     payload_json=json.dumps(item, ensure_ascii=False, default=str),
                     parent_time_log_id=item.get("parent_time_log_id"),
-                    contract_version=str(item.get("contract") or CONTINUATION_CONTRACT_VERSION)[:40]))
+                    contract_version=str(item.get("contract") or CONTINUATION_CONTRACT_VERSION)[:40])
+                active.add(row)
+                if row.review_type != "continuation" and row.target_field:
+                    # M173: the canonical target and its value now - the optimistic-concurrency baseline of a
+                    # later correction from the queue (or the reason the item can never be corrected there).
+                    from core.review_scalar_correction import snapshot_target
+                    active.flush()
+                    payload = dict(item)
+                    payload["target_at_creation"] = snapshot_target(active, row)
+                    row.payload_json = json.dumps(payload, ensure_ascii=False, default=str)
                 known.add(review_id)
                 stored += 1
             active.flush()
@@ -5582,6 +5601,7 @@ class DatabaseManager:
                     "contract_version": item.contract_version, "created_at": item.created_at,
                     "resolved_at": item.resolved_at, "resolved_by": item.resolved_by,
                     "resolution_note": item.resolution_note,
+                    "decision_history": _review_history(item),
                 })
             return out
 
@@ -5591,15 +5611,15 @@ class DatabaseManager:
         ``ATTACH_CONTINUATION`` appends the full text (line break kept) to the parent 24-hour activity, only for
         an eligible continuation whose parent row still exists in the same report and well. ``REJECT`` and
         ``IGNORED`` close the item without changing canonical data; ``DEFER`` keeps it open. A decided item is
-        never decided again (the first decision is the evidence).
+        not decided again unless it is reopened (M173); every decision stays in its decision history.
         """
         from core.ddr_continuation import (ATTACH_CONTINUATION, DEFERRED_UNRESOLVED, SAFELY_ATTACHED_CONTINUATION,
                                            VALIDATION_ERROR, attach_text, review_state_for)
         decision = str(decision or "").strip().upper()
         state = review_state_for(decision)
         if decision in {"ACCEPT", "CONFIRMED"}:
-            raise ValueError("A queued review item cannot be accepted here: attach a continuation, reject or "
-                             "ignore it; a field value needs a re-import")
+            raise ValueError("A queued review item cannot be accepted blindly: attach a continuation, reject or "
+                             "ignore it, or correct a scalar value (preview and confirm)")
         with self.session_scope() as session:
             item = session.get(ImportReviewItem, item_id)
             if item is None or item.well_id != well_id:
@@ -5629,6 +5649,9 @@ class DatabaseManager:
                 item.resolved_at = _now_utc()
                 item.resolved_by = (self._audit_actor()[1] or "")[:100] or None
                 item.resolution_note = note or None
+            from core.review_scalar_correction import append_history
+            append_history(item, {"action": decision, "before_state": details["before"], "after_state": item.state,
+                                  "note": note or None, "by": (self._audit_actor()[1] or "")[:100] or None})
             self._add_mandatory_audit(session, "ddr_review_decision", "import_review_item", item.id,
                                       item.review_id, json.dumps(details, default=str))
             return {"id": item.id, "state": item.state}

@@ -774,6 +774,35 @@ class ExcelImportDialog(QDialog, DDRImportService):
     Main entry point for Excel Import - Professional version
     """
 
+    def _ask_well_identity(self, assessment):
+        """Modal decision (M175); returns the decision dict or ``None`` when the operator cancels."""
+        from dialogs.well_identity_dialog import WellIdentityDialog
+        actor = ""
+        try:
+            actor = self.db._audit_actor()[1] or ""
+        except Exception:                      # silent-ok: the actor name is optional evidence only
+            actor = ""
+        dialog = WellIdentityDialog(assessment, self, decided_by=actor)
+        try:
+            return dialog.decision if dialog.exec() == QDialog.Accepted else None
+        finally:
+            dialog.deleteLater()
+
+    def _confirm_well_identity(self, extracted) -> bool:
+        """M175: a source naming another well than the selected one needs an explicit target decision.
+
+        Returns ``False`` when the operator cancels (nothing is saved). Refused identities (ambiguous or
+        contradictory) are reported by the persistence boundary itself, which re-validates every decision.
+        """
+        assessment = self.assess_well_identity((extracted or {}).get("well_info") or {})
+        if not assessment.requires_decision:
+            return True
+        decision = self._ask_well_identity(assessment)
+        if not decision:
+            return False
+        extracted.setdefault("metadata", {})["well_identity_decision"] = decision
+        return True
+
     @staticmethod
     def _saved_summary(result: dict) -> str:
         """What a successful import actually saved (M150: a partial import says so)."""
@@ -1322,6 +1351,14 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 if identity_problem:
                     raise RuntimeError(identity_problem)
                 preview.apply_review_changes(extracted)
+                if not self._confirm_well_identity(extracted):
+                    results.append({"file": source, "skipped": 1, "imported": 0, "failed": 0,
+                                    "details": [f"⏭️ {os.path.basename(source)}: NOT SAVED - the target well "
+                                                "was not confirmed"]})
+                    failed_files.append(f"{os.path.basename(source)}: Cancelled (well identity)")
+                    if dialog is not None:
+                        dialog.deleteLater()
+                    continue
                 # Decisions and edits are now part of the audit payload and
                 # the exact canonical object sent to the atomic save boundary.
                 pipeline_stage = self._queue_stage("persistence")

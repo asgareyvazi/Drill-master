@@ -6,6 +6,7 @@ the dialog tests, where ``_do_import`` and the preview are replaced so nothing i
 """
 from __future__ import annotations
 
+import hashlib
 import multiprocessing
 import os
 import shutil
@@ -245,6 +246,12 @@ def dialog(monkeypatch, tmp_path):
     import dialogs.excel_import_dialog as module
 
     dlg = module.ExcelImportDialog(db_manager=SimpleNamespace(), well_id=1)
+
+    # Persistence is stubbed on a database stand-in without wells, so the M175 well-identity step (it reads
+
+    # the wells table) is stubbed with it; that step is tested on a real database in test_m175.
+
+    monkeypatch.setattr(dlg, "_confirm_well_identity", lambda extracted: True)
     persisted, reports = [], []
     monkeypatch.setattr(dlg, "_do_import", lambda extracted, refresh_ui=False: persisted.append(extracted) or {
         "status": "ACCEPT", "details": ["ok"], "imported": 1, "failed": 0})
@@ -332,7 +339,12 @@ def test_injected_parsers_keep_the_worker_thread_and_mineru_success_is_not_sent(
     monkeypatch.setattr(dlg, "extract_file", lambda path: (None, {"daily_report": {"depth_2400": 1}}))
     assert not dlg._parsers_can_be_isolated(kwargs, None)
     _run(dlg, [source])
-    assert dlg._last_parse_mode == "worker thread" and persisted == [{"daily_report": {"depth_2400": 1}}]
+    assert dlg._last_parse_mode == "worker thread"
+    # The injected payload is persisted unchanged; the pipeline adds only its M176 file provenance record.
+    [saved] = persisted
+    assert set(saved) == {"daily_report", "metadata"} and saved["daily_report"] == {"depth_2400": 1}
+    assert set(saved["metadata"]) == {"source_provenance"}
+    assert saved["metadata"]["source_provenance"]["sha256"] == hashlib.sha256(Path(source).read_bytes()).hexdigest()
 
 
 def test_the_entry_points_support_frozen_spawn_children():

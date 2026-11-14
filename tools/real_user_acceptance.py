@@ -118,7 +118,7 @@ def schema_crud_probe(db, ids):
     return result
 
 
-def run(workbook, output):
+def run(workbook, output, well_decision=None):
     workbook, output = Path(workbook).resolve(), Path(output).resolve()
     output.mkdir(parents=True, exist_ok=False)
     os.environ["DRILLMASTER_ENV"] = "production"
@@ -170,6 +170,17 @@ def run(workbook, output):
                                                      "sections": section, "daily_reports": report, "users": 1})
     service = DDRImportService(db, well)
     extraction, payload = service.extract_file(str(workbook))
+    # M175: a workbook naming another well than TEST-WELL-001 needs an explicit decision; never rerouted.
+    assessment = service.assess_well_identity(payload.get("well_info") or {})
+    evidence["well_identity"] = assessment.to_dict()
+    if assessment.requires_decision:
+        if well_decision not in assessment.options:
+            raise RuntimeError(f"{assessment.message} Re-run with --well-decision one of "
+                               f"{', '.join(assessment.options)}; nothing was imported.")
+        from core.ddr_well_identity import make_decision
+        payload.setdefault("metadata", {})["well_identity_decision"] = make_decision(
+            assessment, well_decision, "real-user acceptance: explicit --well-decision on the command line",
+            decided_by="real_user_acceptance")
     result = service.import_records(payload)
     assert result["report_id"] and result["failed"] == 0, result
     imported_well, imported_report = result["well_id"], result["report_id"]
@@ -273,5 +284,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("workbook", type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--well-decision", choices=("IMPORT_INTO_SELECTED_WELL", "IMPORT_INTO_SOURCE_WELL", "CREATE_SOURCE_WELL"),
+                        help="M175: explicit target when the workbook names another well than TEST-WELL-001")
     args = parser.parse_args()
-    run(args.workbook, args.output)
+    run(args.workbook, args.output, args.well_decision)

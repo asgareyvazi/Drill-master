@@ -131,8 +131,14 @@ def _source_fingerprint(source_snapshot: dict) -> str:
     if isinstance(raw_ir, dict) and (raw_ir.get("cell_values") or raw_ir.get("cells")):
         identity = {"raw_ir": raw_ir}
     else:
-        # Non-document callers still receive deterministic payload idempotency.
+        # Non-document callers still receive deterministic payload idempotency. The M175 target-well
+        # decision is an operator decision, not source evidence: a retry with a fresh decision is the same source.
+        # M176: the file-level provenance record (name, SHA-256, rules versions) is evidence about the file,
+        # not report content; a renamed copy of the same payload is the same source.
         identity = source_snapshot
+        if isinstance(metadata, dict) and {"well_identity_decision", "source_provenance"} & set(metadata):
+            identity = dict(source_snapshot, metadata={k: v for k, v in metadata.items()
+                                                       if k not in ("well_identity_decision", "source_provenance")})
     encoded = json.dumps(identity, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
@@ -228,104 +234,82 @@ class DDRImportService:
         result["outcome_status"] = public_status(result["status"])
         return result
 
-    def _find_existing_import_well(self, well_info, session):
-        """Read-only well identity lookup used before source-idempotency checks."""
-        from core.database import Well
-        from core.combo_identity import ComboOption, resolve_options
-
-        name_candidates = (
-            "name", "well_name", "well", "well_number", "well_id",
-            "well_number_text", "نام چاه", "well designation", "wellname",
-        )
-        name = next((
-            str((well_info or {}).get(key)).strip()
-            for key in name_candidates
-            if (well_info or {}).get(key) and str((well_info or {}).get(key)).strip()
-        ), "")
-        code = self._safe_text((well_info or {}).get("code"), "") or self._safe_text(
-            (well_info or {}).get("well_code"), ""
-        )
-        if not name and not code:
-            return None
-
-        fallback = session.get(Well, self.well_id) if self.well_id else None
-        query = session.query(Well)
-        if fallback:
-            query = query.filter(Well.project_id == fallback.project_id)
-        local_options = [ComboOption(w.id, w.name, w.code) for w in query.all()]
-        local = resolve_options(code or name, local_options, field="well.identity")
-        if local.accepted:
-            return local.identity
-        if local.method == "ambiguous":
-            raise ValueError("Well identity is ambiguous in the selected project; select a unique well/code")
-
-        # Check global identity read-only before a create attempt. This allows
-        # a source fingerprint to find its existing report before a unique
-        # well-code constraint can turn a retry into an uncontrolled rollback.
-        global_options = [
-            ComboOption(w.id, w.name, w.code) for w in session.query(Well).all()
-        ]
-        global_match = resolve_options(code or name, global_options, field="well.identity")
-        if global_match.accepted:
-            return global_match.identity
-        if global_match.method == "ambiguous":
-            raise ValueError("Well identity is ambiguous across projects; select a unique well/code")
-        return None
-
-    def _resolve_import_well(self, well_info, session=None):
-        """Resolve workbook well with universal aliases."""
-        from core.database import Well, Project
-        # Universal alias handling
-        name_candidates = ["name", "well_name", "well", "well_number", "well_id", "well_number_text", "نام چاه", "well designation", "wellname"]
-        name = ""
-        for k in name_candidates:
-            v = (well_info or {}).get(k)
-            if v and str(v).strip():
-                name = str(v).strip()
-                break
-        code = self._safe_text((well_info or {}).get("code"), "") or self._safe_text((well_info or {}).get("well_code"), "")
-
-        if not name and not code:
-            return self.well_id
-
+    def assess_well_identity(self, well_info, session=None):
+        """M175: compare the selected well with the well the source names (read-only)."""
+        from core.database import Project, Well
+        from core.ddr_well_identity import WellRef, assess
         owns_session = session is None
         session = session or self.db.create_session()
         try:
-            fallback = session.get(Well, self.well_id) if self.well_id else None
-            existing_id = self._find_existing_import_well(well_info, session)
-            if existing_id is not None:
-                existing = session.get(Well, existing_id)
-                if fallback and existing and existing.project_id != fallback.project_id:
-                    raise ValueError(
-                        "Source well identity belongs to another project; select the matching well/project"
-                    )
-                self.well_id = existing_id
-                return self.well_id
-            project_ids = [r[0] for r in session.query(Project.id).all()]
-            if fallback:
-                project_id = fallback.project_id
-            elif len(project_ids) == 1:
-                project_id = project_ids[0]
-            else:
-                raise ValueError("Select a well/project context before importing: project identity is ambiguous")
-            if not project_id:
-                raise ValueError("Cannot create imported well: no project exists")
-            valid_keys = {c.name for c in Well.__table__.columns}
-            values = {k: v for k, v in (well_info or {}).items() if k in valid_keys and k != "id"}
-            values.update({"project_id": project_id, "name": name or code})
-            if code:
-                values["code"] = code
-            values = self.db.coerce_model_values(Well, values)
-            well = Well(**values)
-            session.add(well)
-            session.flush()
-            if owns_session:
-                session.commit()
-            self.well_id = well.id
-            return well.id
+            projects = {row[0]: row[1] for row in session.query(Project.id, Project.name).all()}
+            wells = [WellRef(w.id, self._safe_text(w.name, ""), self._safe_text(w.code, ""), w.project_id,
+                             self._safe_text(projects.get(w.project_id), ""))
+                     for w in session.query(Well).all()]
+            selected = next((w for w in wells if self.well_id and w.id == self.well_id), None)
+            return assess(selected, well_info or {}, wells, project_count=len(projects))
         finally:
             if owns_session:
                 session.close()
+
+    def _find_existing_import_well(self, well_info, session):
+        """Read-only lookup: the existing well the source identity resolves to (``None`` when there is none).
+
+        Refuses an ambiguous or self-contradictory identity (:class:`core.ddr_well_identity.WellIdentityRefused`).
+        """
+        from core.ddr_well_identity import WellIdentityRefused
+        assessment = self.assess_well_identity(well_info, session)
+        if assessment.refused and (assessment.source_name or assessment.source_code):
+            raise WellIdentityRefused(assessment.message, assessment)
+        return assessment.matches[0].id if len(assessment.matches) == 1 else None
+
+    def _resolve_import_well(self, well_info, session=None, decision=None):
+        """Resolve the import target well under ``ddr-well-identity-v1`` (M175).
+
+        The target is never switched silently: when the source names another well than the selected one, an
+        explicit operator ``decision`` (``core.ddr_well_identity.make_decision``) is required and re-validated
+        here. A new well is created only from an unambiguous identity - with no well selected and exactly one
+        project, or on the explicit ``CREATE_SOURCE_WELL`` choice.
+        """
+        from core.ddr_well_identity import validate_decision
+        owns_session = session is None
+        session = session or self.db.create_session()
+        try:
+            assessment = self.assess_well_identity(well_info, session)
+            target, create = validate_decision(assessment, decision)
+            if not create:
+                self.well_id = target
+                return self.well_id
+            well_id = self._create_import_well(well_info, assessment, session)
+            if owns_session:
+                session.commit()
+            return well_id
+        finally:
+            if owns_session:
+                session.close()
+
+    def _create_import_well(self, well_info, assessment, session):
+        from core.database import Project, Well
+        if assessment.selected is not None:
+            project_id = assessment.selected.project_id
+        else:
+            project_ids = [r[0] for r in session.query(Project.id).all()]
+            if len(project_ids) != 1:
+                raise ValueError("Select a well/project context before importing: project identity is ambiguous")
+            project_id = project_ids[0]
+        if not project_id:
+            raise ValueError("Cannot create imported well: no project exists")
+        name, code = assessment.source_name, assessment.source_code
+        valid_keys = {c.name for c in Well.__table__.columns}
+        values = {k: v for k, v in (well_info or {}).items() if k in valid_keys and k != "id"}
+        values.update({"project_id": project_id, "name": name or code})
+        if code:
+            values["code"] = code
+        values = self.db.coerce_model_values(Well, values)
+        well = Well(**values)
+        session.add(well)
+        session.flush()
+        self.well_id = well.id
+        return well.id
 
 
     def _do_import(self, extracted, refresh_ui=True):
@@ -395,20 +379,51 @@ class DDRImportService:
             # Review edits can change canonical proposals, but they must not
             # turn a retry of an already-imported source into a new report or
             # a conflicting Well insert.
-            identity_well_id = self._find_existing_import_well(
-                extracted.get("well_info", {}), session
-            )
-            duplicate_scope = identity_well_id or selected_well_id
-            previous = self.db.find_import_audit(
-                source_fingerprint, session=session, well_id=duplicate_scope
-            )
+            # M175: the target well is decided before anything else and never switched silently.
+            from core.ddr_well_identity import (CHOOSE_SELECTED, SAME, WELL_IDENTITY_CONTRACT,
+                                                WellIdentityRefused, validate_decision)
+            identity_metadata = extracted.get("metadata") if isinstance(extracted.get("metadata"), dict) else {}
+            identity_decision = identity_metadata.get("well_identity_decision")
+            identity = self.assess_well_identity(extracted.get("well_info", {}), session)
+            # Idempotency first (read-only): an identical source already imported under the selected well or
+            # under the well the source identifies is returned, nothing is written.
+            scopes = [w for w in dict.fromkeys(
+                [selected_well_id, identity.matches[0].id if len(identity.matches) == 1 else None]) if w]
+            previous = None
+            for scope in scopes or [None]:
+                previous = self.db.find_import_audit(source_fingerprint, session=session, well_id=scope)
+                if previous:
+                    break
+            if not previous:
+                try:
+                    planned_well_id, create_well = validate_decision(identity, identity_decision)
+                except WellIdentityRefused as refusal:
+                    results["status"] = ImportStatus.VALIDATION_ERROR.value
+                    results["failed"] = 1
+                    results["well_identity"] = {"assessment": refusal.assessment.to_dict(),
+                                                "decision": identity_decision}
+                    results["diagnostics"].append({
+                        "stage": "import.well_identity", "entity": "well", "field": "well_info.name",
+                        "status": ImportStatus.VALIDATION_ERROR.value, "outcome_status": "INVALID_SOURCE",
+                        "message": str(refusal), "contract": WELL_IDENTITY_CONTRACT,
+                        "well_identity_status": refusal.assessment.status})
+                    results["details"].append(f"❌ {refusal}")
+                    return results
+                results["well_identity"] = {"assessment": identity.to_dict(), "decision": identity_decision}
+            # Overriding the source's well keeps its identity as evidence only: its header values are not
+            # written onto the selected well's master data.
+            keep_selected_master = bool(isinstance(identity_decision, dict)
+                                        and identity_decision.get("choice") == CHOOSE_SELECTED
+                                        and identity.status != SAME)
             if previous:
                 prior_result = dict(previous["result"])
                 prior_result.update(imported=0, reimport=True)
                 prior_result["details"] = [
-                    "Identical source already imported for the selected well; existing report retained without duplicate records"
+                    "Identical source already imported for well id "
+                    f"{prior_result.get('well_id')}; existing report retained without duplicate records - "
+                    "nothing saved"
                 ]
-                self.well_id = prior_result.get("well_id", duplicate_scope)
+                self.well_id = prior_result.get("well_id", scopes[0] if scopes else selected_well_id)
                 return prior_result
 
             from core.database import Section
@@ -495,9 +510,24 @@ class DDRImportService:
                     and _wkey not in wi
                 ):
                     wi[_wkey] = _dr_header[_wkey]
-            if not self.well_id or wi.get("name") or wi.get("code"):
-                self._resolve_import_well(wi, session=session)
-                results["well_id"] = self.well_id
+            if create_well:
+                self._create_import_well(wi, identity, session)
+            elif planned_well_id is not None:
+                self.well_id = planned_well_id
+            results["well_id"] = self.well_id
+            if identity.requires_decision:
+                self.db._add_mandatory_audit(
+                    session, "ddr_well_identity_decision", "well", self.well_id, identity.status,
+                    # Compact (the audit detail column holds 500 characters); the full assessment and decision
+                    # are part of the ddr_import audit result of the same transaction.
+                    json.dumps({"contract": WELL_IDENTITY_CONTRACT, "status": identity.status,
+                                "selected": selected_well_id,
+                                "source": {"name": identity.source_name[:60], "code": identity.source_code[:40]},
+                                "matches": [m.id for m in identity.matches][:5],
+                                "choice": identity_decision.get("choice"), "target": self.well_id,
+                                "reason": str(identity_decision.get("reason") or "")[:120],
+                                "by": str(identity_decision.get("decided_by") or "")[:40],
+                                "fingerprint": source_fingerprint[:16]}, ensure_ascii=False, default=str))
             previous = self.db.find_import_audit(source_fingerprint, session=session, well_id=self.well_id)
             if previous:
                 prior_result = dict(previous["result"])
@@ -506,7 +536,10 @@ class DDRImportService:
                 self.well_id = prior_result["well_id"]
                 return prior_result
 
-            if wi:
+            if wi and keep_selected_master:
+                results["details"].append("ℹ️ Well Info: source well header kept as evidence only "
+                                          "(imported into the selected well by operator decision)")
+            elif wi:
                 wi_save = dict(wi)
                 wi_save["id"] = self.well_id
                 if self.db.save_well(wi_save, session=session):

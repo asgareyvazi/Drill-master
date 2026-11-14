@@ -213,6 +213,9 @@ def dialog(monkeypatch):
         "status": "ACCEPT", "details": ["ok"], "imported": 1, "failed": 0})
     monkeypatch.setattr(module, "ImportPreviewDialog", _Preview)
     monkeypatch.setattr(module.QMessageBox, "warning", staticmethod(lambda *a, **k: None))
+    # Persistence is stubbed on a database stand-in without wells, so the M175 well-identity step (which
+    # reads the wells table) is stubbed with it; that step is tested on a real database in test_m175.
+    monkeypatch.setattr(dlg, "_confirm_well_identity", lambda extracted: True)
     _Preview.confirm = True
     yield dlg, saved
     dlg.deleteLater()

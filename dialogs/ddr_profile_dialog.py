@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from core.ddr_header_aliases import DEFAULT_DESCRIPTION_HEADERS, RULE_KEY
 from core.ddr_report_profiles import (
     FORMATS,
     KNOWN_SOURCE_UNITS,
@@ -94,6 +95,16 @@ class ReportProfileDialog(QDialog):
         self.skip_rows_edit.setToolTip("Semicolon-separated text; matching rows are ignored and listed for review")
         self.skip_tables_edit = QLineEdit()
         self.skip_tables_edit.setToolTip("Semicolon-separated text; tables whose name/headers match are ignored and listed")
+        # M174: labels for a time log's free-text column; exact matches only, ambiguity left to the operator.
+        self.description_override_check = QCheckBox("Use this profile's own list instead of the built-in list")
+        self.description_headers_edit = QLineEdit()
+        self.description_headers_edit.setToolTip(
+            "Semicolon-separated time-log headers for the activity description, e.g. Activity; شرح عملیات. "
+            "Matched exactly. When two headers of one table match, none is mapped and the operator adds an "
+            "alias. An empty overriding list turns the rule off.")
+        self.description_headers_edit.setPlaceholderText("; ".join(DEFAULT_DESCRIPTION_HEADERS))
+        self.description_headers_edit.setEnabled(False)
+        self.description_override_check.toggled.connect(self.description_headers_edit.setEnabled)
         self.note_edit = QLineEdit()
         self.note_edit.setPlaceholderText("What changed in this version")
         for label, widget in (("Key", self.key_edit), ("Name", self.name_edit), ("Operator", self.operator_edit),
@@ -101,7 +112,9 @@ class ReportProfileDialog(QDialog):
                               ("Review below confidence", self.confidence_spin), ("Continuation", self.continuation_check),
                               ("Table stop markers", self.stop_markers_edit),
                               ("Skip rows containing", self.skip_rows_edit),
-                              ("Skip tables containing", self.skip_tables_edit), ("Version note", self.note_edit)):
+                              ("Skip tables containing", self.skip_tables_edit),
+                              ("Description headers", self.description_override_check),
+                              ("", self.description_headers_edit), ("Version note", self.note_edit)):
             form.addRow(label, widget)
         right.addLayout(form)
 
@@ -242,6 +255,8 @@ class ReportProfileDialog(QDialog):
         self.stop_markers_edit.setText("; ".join(rules.get("stop_markers", [])))
         self.skip_rows_edit.setText("; ".join(rules.get("skip_rows_containing", [])))
         self.skip_tables_edit.setText("; ".join(rules.get("skip_tables_containing", [])))
+        self.description_override_check.setChecked(RULE_KEY in rules)
+        self.description_headers_edit.setText("; ".join(rules.get(RULE_KEY, [])))
         self.note_edit.clear()
         self.alias_table.setRowCount(0)
         self.unit_table.setRowCount(0)
@@ -271,17 +286,20 @@ class ReportProfileDialog(QDialog):
             field_combo, unit_combo = self.unit_table.cellWidget(row, 0), self.unit_table.cellWidget(row, 1)
             if field_combo and field_combo.currentText().strip():
                 units[field_combo.currentText().strip()] = unit_combo.currentText() if unit_combo else ""
+        table_rules = {
+            name: values for name, values in (
+                ("stop_markers", _split(self.stop_markers_edit.text(), ";")),
+                ("skip_rows_containing", _split(self.skip_rows_edit.text(), ";")),
+                ("skip_tables_containing", _split(self.skip_tables_edit.text(), ";")),
+            ) if values or name == "stop_markers"
+        }
+        if self.description_override_check.isChecked():
+            table_rules[RULE_KEY] = _split(self.description_headers_edit.text(), ";")
         return ReportProfile(
             key=self.key_edit.text().strip(), version=0, name=self.name_edit.text().strip(),
             operator=self.operator_edit.text().strip(), report_format=self.format_combo.currentText(),
             aliases=aliases, units=units, date_formats=tuple(_split(self.date_formats_edit.text(), ",")),
-            table_rules={
-                name: values for name, values in (
-                    ("stop_markers", _split(self.stop_markers_edit.text(), ";")),
-                    ("skip_rows_containing", _split(self.skip_rows_edit.text(), ";")),
-                    ("skip_tables_containing", _split(self.skip_tables_edit.text(), ";")),
-                ) if values or name == "stop_markers"
-            },
+            table_rules=table_rules,
             continuation=self.continuation_check.isChecked(),
             confidence_threshold=float(self.confidence_spin.value()), note=self.note_edit.text().strip(),
         )

@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from core.ddr_header_aliases import RULE_KEY, resolve_description_headers, validate_rule
+
 PROFILE_SCHEMA_VERSION = "M54 report profile v1"
 FORMATS = ("pdf", "xlsx", "any")
 KNOWN_SOURCE_UNITS = (
@@ -149,6 +151,8 @@ def validate_profile(profile: ReportProfile) -> List[str]:
         value = profile.table_rules.get(name, [])
         if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
             errors.append(f"Table rule '{name}' must be a list of text values.")
+    if RULE_KEY in profile.table_rules:          # M174: optional per-profile description headers
+        errors.extend(validate_rule(profile.table_rules[RULE_KEY]))
     return errors
 
 
@@ -167,6 +171,15 @@ def map_headers(profile: Optional[ReportProfile], headers: List[str]) -> List[Di
         rows.append({"header": header, "field": canonical or "",
                      "method": "canonical alias" if canonical else "unmapped — review",
                      "unit": (profile.source_unit(canonical) if profile and canonical else "") or ""})
+    # M174: the same time-log description rule as the PDF/MinerU normaliser.
+    fields, outcome = resolve_description_headers(
+        headers, [row["field"] or None for row in rows], table_rules=profile.table_rules if profile else {},
+        profile_key=profile.key if profile else "", profile_version=profile.version if profile else None)
+    if outcome["state"] == "MAPPED":
+        rows[outcome["column"] - 1].update(field=outcome["field"], method=outcome["method"])
+    elif outcome["state"] == "AMBIGUOUS":
+        for candidate in outcome["candidates"]:
+            rows[candidate["column"] - 1]["method"] = "ambiguous description header — operator decision"
     return rows
 
 

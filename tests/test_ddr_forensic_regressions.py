@@ -246,9 +246,18 @@ def test_real_workbook_actual_application_service_and_disk_reload(db):
     path = Path(__file__).resolve().parent / "fixtures" / "synthetic_ddr_golden_a.xlsx"
     service = DDRImportService(db, 1)
     report, extracted = service.extract_file(str(path))
+    # M175: the workbook names a well (SYNW-101) other than the selected one; nothing is saved until the
+    # operator decides explicitly - here: create the source well.
+    refused = service.import_records(copy.deepcopy(extracted))
+    assert refused["status"] == "VALIDATION_ERROR" and not refused["report_id"], refused
+    assert refused["well_identity"]["assessment"]["status"] == "UNKNOWN_SOURCE_WELL"
+    from core.ddr_well_identity import CHOOSE_CREATE, make_decision
+    extracted["metadata"]["well_identity_decision"] = make_decision(
+        service.assess_well_identity(extracted["well_info"]), CHOOSE_CREATE, "synthetic workbook of a new well")
     before = copy.deepcopy(extracted)
     result = service.import_records(extracted)
     assert result["failed"] == 0, result
+    assert service.well_id != 1
     assert result["report_id"] and extracted == before
     db.engine.dispose()  # force fresh SQLite connections on reload
     rid = result["report_id"]

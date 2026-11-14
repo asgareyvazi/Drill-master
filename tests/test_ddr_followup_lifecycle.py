@@ -201,6 +201,9 @@ def test_real_golden_source_reviews_and_domain_roundtrip(db):
     assert header_provenance["source_unit"] == "pcf"
     assert header_provenance["normalized_unit"] == "pcf"
     assert not any(r["canonical_field"] == "mud_report.mw" for r in payload["metadata"]["review_matrix"])
+    from core.ddr_well_identity import CHOOSE_CREATE, make_decision      # M175: explicit target decision
+    payload["metadata"]["well_identity_decision"] = make_decision(
+        service.assess_well_identity(payload["well_info"]), CHOOSE_CREATE, "synthetic workbook of a new well")
     result = service.import_records(payload)
     assert result["failed"] == 0
     rid, wid = result["report_id"], result["well_id"]

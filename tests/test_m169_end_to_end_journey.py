@@ -31,7 +31,11 @@ def _tab(win, name):
                 if type(win.tab_widget.widget(i)).__name__ == name)
 
 
-def test_m169_twenty_step_journey(window, tmp_path, caplog):  # noqa: F811
+def test_m169_twenty_step_journey(window, tmp_path, caplog, monkeypatch):  # noqa: F811
+    from PySide6.QtWidgets import QMessageBox
+    for name, answer in (("information", QMessageBox.Ok), ("warning", QMessageBox.Ok),
+                         ("critical", QMessageBox.Ok), ("question", QMessageBox.No)):
+        monkeypatch.setattr(QMessageBox, name, staticmethod(lambda *a, _answer=answer, **k: _answer))
     from core import ddr_import_pipeline as pipe
     from core.database import AuditLog, TimeLog24H
     from core.ddr_continuation import DEFERRED_UNRESOLVED, SAFELY_ATTACHED_CONTINUATION
@@ -72,12 +76,19 @@ def test_m169_twenty_step_journey(window, tmp_path, caplog):  # noqa: F811
     day[0]["decision"] = "ATTACH_CONTINUATION"
     extracted = out.extracted
     apply_review_decisions(extracted, out.import_report["review"])
-    result = DDRImportService(db, well).import_records(extracted)
+    # M175: the workbook names another well than the selected one -> explicit operator decision, audited.
+    from core.ddr_well_identity import CHOOSE_SELECTED, make_decision
+    target = DDRImportService(db, well)
+    assessment = target.assess_well_identity(extracted["well_info"])
+    assert assessment.requires_decision, assessment.to_dict()
+    extracted["metadata"]["well_identity_decision"] = make_decision(
+        assessment, CHOOSE_SELECTED, "the selected well is the operated well of this synthetic report")
+    result = target.import_records(extracted)
     assert result["report_id"], result
     report_id = result["report_id"]
     with db.session_scope() as session:
         from core.database import DailyReport
-        well = session.get(DailyReport, report_id).well_id       # the import files under the workbook's well
+        assert session.get(DailyReport, report_id).well_id == well     # filed under the selected well
 
     # 5. Truthful outcome: one attached; every undecided row (continuations AND scalar reviews) retained.
     queue = result["review_queue"]
