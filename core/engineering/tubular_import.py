@@ -19,7 +19,12 @@ Contract ``tubular-import-v1``. The importer never decides what a value means:
   or INVALID. :func:`apply_import` writes only NEW rows, in one transaction with a mandatory audit record,
   after checking that the file is byte-identical to the previewed one and that the set is still a DRAFT.
   INVALID or CONFLICT rows block the import unless the operator explicitly accepts a partial import.
-* **The raw file is not stored** - only the values, the file name and its SHA-256.
+* **The raw file is not stored** - only the values, the file name and its SHA-256. The source is opened for
+  reading only and never rewritten.
+* **Nothing hidden or ambiguous is imported (M220).** A row hidden in the workbook is INVALID; a hidden sheet, a
+  hidden header row or a hidden column that maps to a field blocks the file; a value in a column without a header
+  makes its row INVALID; a JSON object that repeats a key is refused (``json`` would keep the last value); XLSX /
+  XLSM files are checked against the M213 workbook limits (size, uncompressed size, sheets, cells) first.
 """
 from __future__ import annotations
 
@@ -29,6 +34,7 @@ import json
 import math
 import os
 import re
+import zipfile
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -152,12 +158,28 @@ def _read_csv(path: str) -> Tuple[List[Any], List[Tuple[int, List[Any]]]]:
     return numbered[0][1], numbered[1:]
 
 
-def _read_xlsx(path: str, sheet: Optional[str]) -> Tuple[List[Any], List[Tuple[int, List[Any]]], str]:
-    from core.workbook_io import load_workbook_readonly_safe
+def _read_xlsx(path: str, sheet: Optional[str]) -> Tuple[List[Any], List[Tuple[int, List[Any]]], str, Dict[str, Any]]:
+    """Header, numbered body rows, sheet name and what the workbook hides (M220).
 
-    # data_only=False: a formula is seen as a formula (its cached result would be a derived value).
-    workbook = load_workbook_readonly_safe(path, read_only=True, data_only=False)
+    The M213 workbook limits are checked before and after opening. The workbook is opened in full (not read-only)
+    mode so hidden rows, columns and sheets are visible to the importer: hidden content is never imported silently.
+    """
+    from core.workbook_io import WorkbookLimitError, check_workbook_file, check_workbook_shape, load_workbook_readonly_safe
+
     try:
+        check_workbook_file(path)
+    except WorkbookLimitError as exc:
+        raise TubularImportError(str(exc)) from exc
+    # data_only=False: a formula is seen as a formula (its cached result would be a derived value).
+    try:
+        workbook = load_workbook_readonly_safe(path, data_only=False)
+    except (KeyError, OSError, ValueError, zipfile.BadZipFile) as exc:
+        raise TubularImportError(f"Not a readable XLSX / XLSM workbook ({type(exc).__name__}); nothing was read") from exc
+    try:
+        try:
+            check_workbook_shape(workbook)
+        except WorkbookLimitError as exc:
+            raise TubularImportError(str(exc)) from exc
         names = list(workbook.sheetnames)
         if sheet is None:
             if len(names) != 1:
@@ -165,18 +187,38 @@ def _read_xlsx(path: str, sheet: Optional[str]) -> Tuple[List[Any], List[Tuple[i
             sheet = names[0]
         if sheet not in names:
             raise TubularImportError(f"Sheet {sheet!r} is not in the workbook ({', '.join(names)})")
-        rows = [(i + 1, list(r)) for i, r in enumerate(workbook[sheet].iter_rows(values_only=True))]
+        worksheet = workbook[sheet]
+        hidden_columns = set()
+        for dimension in worksheet.column_dimensions.values():
+            if dimension.hidden and dimension.min:
+                hidden_columns.update(range(int(dimension.min) - 1, int(dimension.max or dimension.min)))
+        hidden = {"sheet": worksheet.sheet_state != "visible",
+                  "rows": {n for n, d in worksheet.row_dimensions.items() if d.hidden},
+                  "columns": hidden_columns}
+        rows = [(i + 1, list(r)) for i, r in enumerate(worksheet.iter_rows(values_only=True))]
     finally:
         workbook.close()
     rows = [(n, r) for n, r in rows if any(c is not None and str(c).strip() for c in r)]
     if not rows:
-        return [], [], sheet
-    return rows[0][1], rows[1:], sheet
+        return [], [], sheet, hidden
+    return rows[0][1], rows[1:], sheet, dict(hidden, header_row=rows[0][0])
 
 
 def _read_json(path: str) -> Tuple[List[Any], List[Tuple[int, List[Any]]], List[str]]:
+    def _no_duplicate_keys(pairs):
+        keys = [k for k, _v in pairs]
+        repeated = sorted({k for k in keys if keys.count(k) > 1})
+        if repeated:
+            # json.load would keep the last value silently (M220).
+            raise TubularImportError(f"A JSON object repeats the key(s) {repeated}; nothing was read")
+        return dict(pairs)
+
     with open(path, encoding="utf-8") as handle:
-        data = json.load(handle)
+        try:
+            data = json.load(handle, object_pairs_hook=_no_duplicate_keys)
+        except json.JSONDecodeError as exc:
+            raise TubularImportError(f"Not a valid JSON file ({exc.msg} at line {exc.lineno}); nothing was read") \
+                from exc
     notes: List[str] = []
     if isinstance(data, Mapping):
         notes = [f"top-level key {k!r} ignored" for k in data if k != "items"]
@@ -373,16 +415,24 @@ def preview_file(db, set_id: int, path: str, provenance: tr.Provenance, *,
     if status != tr.DRAFT:
         blocking.append(f"{label} is {status} and immutable; create a revision (a new draft) first")
     notes: List[str] = []
+    hidden: Dict[str, Any] = {}
     if file_format == "csv":
         header, body = _read_csv(str(source))
     elif file_format == "xlsx":
-        header, body, sheet = _read_xlsx(str(source), sheet)
+        header, body, sheet, hidden = _read_xlsx(str(source), sheet)
     else:
         header, body, notes = _read_json(str(source))
     if len(body) > MAX_ROWS:
         raise TubularImportError(f"The file has {len(body)} rows; the limit is {MAX_ROWS}")
     by_index, shown, ignored, problems = map_columns(header)
     blocking += problems
+    # M220: hidden workbook content is never imported silently.
+    if hidden.get("sheet"):
+        blocking.append(f"sheet {sheet!r} is hidden in the workbook; unhide it to import it")
+    if hidden.get("header_row") in hidden.get("rows", ()):
+        blocking.append("the header row is hidden in the workbook; unhide it to import the file")
+    for index in sorted(set(by_index) & set(hidden.get("columns", ()))):
+        blocking.append(f"column {header[index]!r} is hidden in the workbook; unhide it to import it")
     if not body:
         blocking.append("the file has no data rows")
     row_prov = replace(provenance, file_fingerprint=sha,
@@ -391,6 +441,12 @@ def preview_file(db, set_id: int, path: str, provenance: tr.Provenance, *,
     for number, cells in body:
         values: Dict[str, Any] = {}
         issues: List[str] = []
+        if number in hidden.get("rows", ()):
+            issues.append("the row is hidden in the workbook; unhide it or delete it - hidden rows are never imported")
+        orphans = [i + 1 for i in range(len(header), len(cells))
+                   if cells[i] is not None and str(cells[i]).strip()]
+        if orphans:
+            issues.append(f"value(s) in column(s) {orphans} without a header; nothing in this row is imported")
         for index, name in by_index.items():
             cell = cells[index] if index < len(cells) else None
             if name in TEXT_FIELDS:

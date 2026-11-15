@@ -8061,16 +8061,17 @@ class DatabaseManager:
                     FuelWaterInventory.well_id == well_id,
                     FuelWaterInventory.report_date < report_date,
                 ).order_by(FuelWaterInventory.report_date.desc()).all()[:1]
-                # Mark the previous record as a carried-forward preview.
+                # Mark the previous record as a carried-forward preview. Only the closing balance is projected;
+                # the day's movements are unknown (None), never a measured 0 (M217 / D71 residual).
                 carry = []
                 for previous in inventories:
                     carry.append({
                         "id": None, "well_id": well_id, "section_id": previous.section_id,
                         "report_id": report_id, "report_date": report_date,
-                        "fuel_type": previous.fuel_type, "fuel_consumed": 0.0,
-                        "fuel_stock": previous.fuel_remaining, "fuel_received": 0.0,
-                        "fuel_remaining": previous.fuel_remaining, "water_consumed": 0.0,
-                        "water_stock": previous.water_remaining, "water_received": 0.0,
+                        "fuel_type": previous.fuel_type, "fuel_consumed": None,
+                        "fuel_stock": previous.fuel_remaining, "fuel_received": None,
+                        "fuel_remaining": previous.fuel_remaining, "water_consumed": None,
+                        "water_stock": previous.water_remaining, "water_received": None,
                         "water_remaining": previous.water_remaining,
                         "days_remaining_fuel": previous.days_remaining_fuel,
                         "days_remaining_water": previous.days_remaining_water,

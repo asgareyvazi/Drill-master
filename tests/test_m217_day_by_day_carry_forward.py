@@ -330,3 +330,15 @@ def test_the_new_daily_report_dialog_copies_nothing_by_itself(world, monkeypatch
         assert dialog._copy_all_report_data(session, previous, created, ["bha"], confirmed=True)
     assert _counts(db, created)["bha"] == 1 and _counts(db, created)["mud"] == 0
     dialog.deleteLater()
+
+
+def test_the_fuel_water_preview_projects_the_balance_and_leaves_movements_unknown(world):
+    """D71 residual: the read-only preview of a day without a record shows yesterday's closing balance only."""
+    db, ids = world
+    preview = db.get_fuel_water_inventory(well_id=ids["well"], report_id=ids["two"], report_date=date(2026, 3, 2))
+    assert len(preview) == 1 and preview[0]["is_carry_forward_preview"] is True
+    assert preview[0]["fuel_stock"] == 80.0 and preview[0]["water_stock"] is None       # balance; unknown stays None
+    for movement in ("fuel_consumed", "fuel_received", "water_consumed", "water_received"):
+        assert preview[0][movement] is None, movement                                   # never a measured 0
+    with db.session_scope() as session:
+        assert session.query(FuelWaterInventory).filter_by(report_id=ids["two"]).count() == 0   # nothing written

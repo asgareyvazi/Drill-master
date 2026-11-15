@@ -750,6 +750,7 @@ class MainWindow(QMainWindow):
             ("🧮 Calculator", self.open_calculator),
             ("📊 Import from Excel", self.open_excel_import),
             ("🗂 Import Review Queue", self.open_import_review),
+            ("🩺 Data Quality Workspace", self.open_data_quality),
             ("🔩 Tubular Reference Library", self.open_tubular_reference),
             ("⚙️ Settings", self.show_settings),
             ("🛡️ Security Status", self.show_security_status),
@@ -2087,6 +2088,35 @@ class MainWindow(QMainWindow):
         well_id = self.current_well["id"] if isinstance(self.current_well, dict) else self.current_well.id
         from dialogs.import_review_dialog import ImportReviewDialog
         ImportReviewDialog(self.db_manager, well_id, self).exec()
+
+    def open_data_quality(self):
+        """M227: read-only list of record-level data issues of the selected well; opens each source record."""
+        if not self.current_well:
+            QMessageBox.information(self, "Data Quality Workspace", "Select a well first.")
+            return None
+        well_id = self.current_well["id"] if isinstance(self.current_well, dict) else self.current_well.id
+        name = self.current_well.get("name", "") if isinstance(self.current_well, dict) else ""
+        from dialogs.data_quality_dialog import DataQualityDialog
+        dialog = DataQualityDialog(self.db_manager, well_id, self, well_label=name,
+                                   navigate=self.open_data_quality_target)
+        self._data_quality_dialog = dialog
+        dialog.show()
+        return dialog
+
+    def open_data_quality_target(self, target):
+        """Resolve a data-quality navigation target to the screen that owns the record."""
+        if (target or {}).get("type") == "import_review":
+            return self._open_review_for_report(target["well_id"], target.get("report_id"))
+        return self.navigate_to(target)
+
+    @require_permission("can_import")
+    def _open_review_for_report(self, well_id, report_id):
+        """The review queue of one report - the same permission as Tools > Import Review Queue."""
+        from dialogs.import_review_dialog import ImportReviewDialog
+        dialog = ImportReviewDialog(self.db_manager, well_id, self, report_id=report_id)
+        self._data_quality_review = dialog
+        dialog.show()
+        return dialog
 
     def open_tubular_reference(self):
         """M159: browse the versioned tubular reference library (global reference data, no well needed)."""

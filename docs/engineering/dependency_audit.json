@@ -98,7 +98,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 15,
+    "evidence_tests": 17,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
@@ -111,6 +111,8 @@
      "test_m132_trajectory_layers.py",
      "test_m184_m189_reference_integration.py",
      "test_m205_m207_schematic_provenance.py",
+     "test_m223_library_architecture_cement_lineage.py",
+     "test_m229_product_journey.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -122,7 +124,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 64,
+    "evidence_tests": 66,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -158,6 +160,8 @@
      "test_m184_m189_reference_integration.py",
      "test_m190_tubular_journey.py",
      "test_m205_m207_schematic_provenance.py",
+     "test_m223_library_architecture_cement_lineage.py",
+     "test_m229_product_journey.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -195,7 +199,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 15,
+    "evidence_tests": 17,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
@@ -208,6 +212,8 @@
      "test_m132_trajectory_layers.py",
      "test_m184_m189_reference_integration.py",
      "test_m205_m207_schematic_provenance.py",
+     "test_m223_library_architecture_cement_lineage.py",
+     "test_m229_product_journey.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -219,7 +225,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 64,
+    "evidence_tests": 66,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -253,6 +259,8 @@
      "test_m119_adversarial.py",
      "test_m137_dependency_reconciliation.py",
      "test_m205_m207_schematic_provenance.py",
+     "test_m223_library_architecture_cement_lineage.py",
+     "test_m229_product_journey.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -1614,6 +1622,15 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/data_quality_dialog.py",
+   "guarded": false,
+   "lines": [
+    10,
+    11
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/database_maintenance_dialog.py",
    "guarded": false,
    "lines": [
@@ -1844,7 +1861,7 @@
     23,
     24,
     25,
-    2796
+    2826
    ],
    "module": "PySide6"
   },
@@ -2683,8 +2700,8 @@
    "file": "main_window.py",
    "guarded": true,
    "lines": [
-    880,
-    891
+    881,
+    892
    ],
    "module": "qtribbon"
   },

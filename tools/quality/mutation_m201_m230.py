@@ -48,6 +48,11 @@ T215 = ["tests/test_m215_scalar_correction_adversarial.py", "tests/test_m173_sca
 T216 = ["tests/test_m216_import_context_switch.py"]
 T217 = ["tests/test_m217_day_by_day_carry_forward.py"]
 T218 = ["tests/test_m218_ddr_revision_lineage.py"]
+TI = "core/engineering/tubular_import.py"
+DQW = "core/data_quality_workspace.py"
+DQD = "dialogs/data_quality_dialog.py"
+T220 = ["tests/test_m220_tubular_import_hardening.py", "tests/test_m181_m183_tubular_import.py"]
+T227 = ["tests/test_m227_data_quality_workspace.py"]
 
 MUTANTS = [
     # M203 (D61 residual): REPLACE / upsert into a tubular set or item.
@@ -177,6 +182,42 @@ MUTANTS = [
            "            box.setEnabled(not item[\"blocked\"])\n",
            "            box.setEnabled(not item[\"blocked\"])\n            box.setChecked(True)\n", T217,
            "sections are preselected"),
+    Mutant("M217-preview-movement-zero", DB, '"fuel_type": previous.fuel_type, "fuel_consumed": None,',
+           '"fuel_type": previous.fuel_type, "fuel_consumed": 0.0,', T217,
+           "the fuel / water preview shows a measured 0 consumption"),
+    # M220 (D72): the tubular importer never imports hidden or ambiguous content.
+    Mutant("M220-hidden-sheet", TI, "    if hidden.get(\"sheet\"):\n", "    if False:\n", T220,
+           "a hidden sheet is imported"),
+    Mutant("M220-hidden-header-row", TI, "    if hidden.get(\"header_row\") in hidden.get(\"rows\", ()):\n",
+           "    if False:\n", T220, "a hidden header row is imported"),
+    Mutant("M220-hidden-mapped-column", TI,
+           "    for index in sorted(set(by_index) & set(hidden.get(\"columns\", ()))):\n",
+           "    for index in []:\n", T220, "a hidden column that maps to a field is imported"),
+    Mutant("M220-hidden-row", TI, "        if number in hidden.get(\"rows\", ()):\n", "        if False:\n", T220,
+           "a hidden row is imported"),
+    Mutant("M220-orphan-cells", TI, "        if orphans:\n            issues.append(", "        if False:\n"
+           "            issues.append(", T220, "a value without a header is dropped silently"),
+    Mutant("M220-json-duplicate-key", TI, "        if repeated:\n", "        if False:\n", T220,
+           "a repeated JSON key keeps the last value silently"),
+    Mutant("M220-workbook-file-limit", TI, "        check_workbook_file(path)\n", "        pass\n", T220,
+           "the M213 file limits are skipped"),
+    Mutant("M220-workbook-shape-limit", TI, "            check_workbook_shape(workbook)\n", "            pass\n",
+           T220, "the M213 sheet / cell limits are skipped"),
+    # M227: the data-quality workspace.
+    Mutant("M227-missing-depth", DQW, "            if missing:\n                issues.append(Issue(CATEGORY_REPORT,",
+           "            if False:\n                issues.append(Issue(CATEGORY_REPORT,", T227,
+           "a report without depth or section is not listed"),
+    Mutant("M227-carried-unconfirmed", DQW, "if entry.get(\"state\") == carry.CARRIED and",
+           "if entry.get(\"state\") == carry.CONFIRMED and", T227,
+           "an unconfirmed carried section is not listed (a confirmed one is)"),
+    Mutant("M227-review-well-filter", DQW,
+           ".filter(ImportReviewItem.well_id == well_id, ImportReviewItem.state.in_(OPEN_REVIEW_STATES))",
+           ".filter(ImportReviewItem.state.in_(OPEN_REVIEW_STATES))", T227,
+           "review items of another well leak into the workspace"),
+    Mutant("M227-read-only-table", DQD, "        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)\n",
+           "        pass\n", T227, "the workspace table accepts edit triggers"),
+    Mutant("M227-read-only-cells", DQD, "                cell.setFlags(cell.flags() & ~Qt.ItemIsEditable)\n",
+           "                pass\n", T227, "the workspace cells are editable"),
 ]
 
 
