@@ -47,6 +47,12 @@ AUDIT_GUARD_VERSION = 1
 #: M189: a PUBLISHED tubular reference set and its items are immutable at the storage layer too (the application
 #: refused changes since M157, raw SQL did not). Drafts stay editable; a published set is never deleted.
 TUBULAR_GUARD_VERSION = 1
+#: M218: a daily-report revision (the snapshot taken at submit / approve / reject) was immutable only for enforced
+#: ORM sessions (``authorization.TABLE_POLICY``); raw SQL, Core statements and unenforced sessions could rewrite or
+#: REPLACE it. UPDATE and INSERT-over-an-existing-id are refused for every writer. Deleting a report still deletes
+#: its revisions (``delete_daily_report`` removes the children first, so no BEFORE DELETE guard is added).
+REPORT_REVISION_GUARD_VERSION = 1
+_REPORT_REVISION_FROZEN = ("id", "report_id", "revision_no", "status", "snapshot", "created_at", "comment")
 _TUBULAR_SET_FROZEN = ("id", "name", "version", "status", "content_fingerprint", "notes", "created_at",
                        "published_at")
 PLAN_STATUS_TRANSITIONS = {
@@ -185,6 +191,15 @@ def trigger_statements() -> dict[str, str]:
             f"WHEN {view_change} BEGIN SELECT RAISE(ABORT, "
             "'trajectory_view_revisions: a saved view revision is immutable'); END"),
         **_tubular_guards(),
+        f"trg_report_revision_immutable_v{REPORT_REVISION_GUARD_VERSION}": (
+            f"CREATE TRIGGER trg_report_revision_immutable_v{REPORT_REVISION_GUARD_VERSION} BEFORE UPDATE ON "
+            f"report_revisions WHEN {_frozen(_REPORT_REVISION_FROZEN)} OR "
+            f"{_nullable_reference('created_by', 'users')} BEGIN SELECT RAISE(ABORT, "
+            "'report_revisions: a report revision snapshot is immutable'); END"),
+        f"trg_report_revision_noreplace_v{REPORT_REVISION_GUARD_VERSION}": (
+            f"CREATE TRIGGER trg_report_revision_noreplace_v{REPORT_REVISION_GUARD_VERSION} BEFORE INSERT ON "
+            "report_revisions WHEN EXISTS (SELECT 1 FROM report_revisions WHERE id = NEW.id) "
+            "BEGIN SELECT RAISE(ABORT, 'report_revisions: a stored record cannot be replaced'); END"),
         f"trg_audit_log_append_only_v{AUDIT_GUARD_VERSION}": (
             f"CREATE TRIGGER trg_audit_log_append_only_v{AUDIT_GUARD_VERSION} BEFORE UPDATE ON audit_logs "
             "BEGIN SELECT RAISE(ABORT, 'audit_logs: an audit record is append-only'); END"),
@@ -308,7 +323,8 @@ _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation
              "trg_well_architecture": "well_architecture_revisions",
              "trg_mse_lineage_repair": "mse_lineage_repairs", "trg_npt_event_decision": "npt_event_decisions",
              "trg_trajectory_view": "trajectory_view_revisions", "trg_audit_log": "audit_logs",
-             "trg_tubular_set": "tubular_reference_sets", "trg_tubular_item": "tubular_reference_items"}
+             "trg_tubular_set": "tubular_reference_sets", "trg_tubular_item": "tubular_reference_items",
+             "trg_report_revision": "report_revisions"}
 
 
 def install(raw) -> list[str]:

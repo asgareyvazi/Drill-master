@@ -1302,7 +1302,7 @@ class NewDailyReportDialog(BaseHierarchyDialog):
         form_layout.addWidget(self.date_edit, 1, 1)
 
         # کپی از روز قبل
-        self.copy_previous_cb = QCheckBox("Copy data from previous day")
+        self.copy_previous_cb = QCheckBox("Carry forward from the previous day (choose and confirm)")
         self.copy_previous_cb.setChecked(False)
         form_layout.addWidget(self.copy_previous_cb, 2, 0, 1, 2)
 
@@ -1368,144 +1368,18 @@ class NewDailyReportDialog(BaseHierarchyDialog):
             logger.error(f"Error loading next report number: {e}")
 
     @require_permission("can_edit_reports")
-    def _copy_all_report_data(self, session, source_report_id, target_report_id):
+    def _copy_all_report_data(self, session, source_report_id, target_report_id, sections=(), *,
+                              confirmed=False, derive_header=()):
+        """M217: carry the operator's chosen sections of the previous report (``core.ddr_carry_forward``).
+
+        Daily measurements and events are never carried, existing rows of the new day are never replaced, and
+        the carry is committed together with its lineage. Raises ``CarryForwardRefused`` (a ``ValueError``).
         """
-        کپی تمام داده‌های گزارش – با استفاده از .all() برای همه جداول
-        (به جز جداول موجودی که منطق خاص دارند)
-        """
-        from core.database import (
-            TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
-            CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
-            FormationReport, LogisticsPersonnel, ServiceCompanyPOB, FuelWaterInventory,
-            BulkMaterials, TransportLog, BOPComponent,
-            WasteRecord, ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
-            SevenDaysLookahead, TripSheetEntry, SurveyPoint, WellboreSchematic
-        )
-        from datetime import timedelta
-
-        from copy import deepcopy
-        from sqlalchemy import null
-        from core.report_lifecycle import is_editable
-        source = session.get(DailyReport, source_report_id)
-        target = session.get(DailyReport, target_report_id)
-        if source is None or target is None or source.id == target.id or source.well_id != target.well_id:
-            raise ValueError("Copy requires distinct source/target reports in the same well")
-        if not is_editable(target.status):
-            raise ValueError("Target report is not editable")
-        target_date = target.report_date
-
-        # 1. TimeLogMorning -> TimeLog24H
-        logs_morning = session.query(TimeLogMorning).filter(TimeLogMorning.report_id == source_report_id).all()
-        for log in logs_morning:
-            new_log = TimeLog24H(
-                report_id=target_report_id,
-                time_from=log.time_from,
-                time_to=log.time_to,
-                duration=log.duration,
-                main_phase=log.main_phase,
-                main_code=log.main_code,
-                sub_code=log.sub_code,
-                status=log.status,
-                is_npt=log.is_npt,
-                activity_description=log.activity_description,
-                contractor=log.contractor
-            )
-            session.add(new_log)
-
-        # 2. لیست جداولی که باید با .all() و حلقه کپی شوند
-        tables = {
-            'DrillingParameters': DrillingParameters,
-            'MudReport': MudReport,
-            'CementReport': CementReport,
-            'CasingReport': CasingReport,
-            'BitReport': BitReport,
-            'BHAReport': BHAReport,
-            'DownholeEquipment': DownholeEquipment,
-            'FormationReport': FormationReport,
-            # Do not manufacture a safety assessment from yesterday.
-            'WellboreSchematic': WellboreSchematic,
-            'TripSheetEntry': TripSheetEntry,
-            'SurveyPoint': SurveyPoint,
-            'LogisticsPersonnel': LogisticsPersonnel,
-            'ServiceCompanyPOB': ServiceCompanyPOB,
-            'BulkMaterials': BulkMaterials,
-            'TransportLog': TransportLog,
-            'ServiceCompany': ServiceCompany,
-            'ServiceNote': ServiceNote,
-            'MaterialRequest': MaterialRequest,
-            'EquipmentLog': EquipmentLog,
-            'BOPComponent': BOPComponent,
-            'WasteRecord': WasteRecord,
-        }
-
-        for name, model in tables.items():
-            records = session.query(model).filter(model.report_id == source_report_id).all()
-            for rec in records:
-                # ایجاد دیکشنری از داده‌ها به جز id و report_id (برای جداول معمولی)
-                if name in ('FuelWaterInventory', 'SevenDaysLookahead'):
-                    continue  # این جداول جداگانه پردازش می‌شوند
-                # برای سایر جداول، همه فیلدها را کپی می‌کنیم
-                data = {c.name: deepcopy(getattr(rec, c.name)) for c in model.__table__.columns
-                        if c.name not in ('id', 'report_id')}
-                data['report_id'] = target_report_id
-                if 'section_id' in data:
-                    data['section_id'] = target.section_id
-                if 'report_date' in data:
-                    data['report_date'] = target_date
-                new_rec = model(**data)
-                session.add(new_rec)
-
-        # 3. FuelWaterInventory (فقط موجودی نهایی روز قبل به عنوان stock جدید)
-        fw_records = session.query(FuelWaterInventory).filter(FuelWaterInventory.report_id == source_report_id).all()
-        for fw in fw_records:
-            new_fw = FuelWaterInventory(
-                well_id=fw.well_id,
-                section_id=target.section_id,
-                report_id=target_report_id,
-                report_date=target_date,
-                fuel_type=fw.fuel_type,
-                fuel_consumed=0.0,
-                fuel_stock=(fw.fuel_remaining if fw.fuel_remaining is not None else null()),
-                fuel_received=0.0,
-                water_consumed=0.0,
-                water_stock=(fw.water_remaining if fw.water_remaining is not None else null()),
-                water_received=0.0,
-                fuel_remaining=(fw.fuel_remaining if fw.fuel_remaining is not None else null()),
-                water_remaining=(fw.water_remaining if fw.water_remaining is not None else null()),
-                days_remaining_fuel=None,
-                days_remaining_water=None,
-                created_by=fw.created_by
-            )
-            session.add(new_fw)
-
-        # 4. SevenDaysLookahead (حداکثر 7 روز اول)
-        lookaheads = session.query(SevenDaysLookahead).filter(SevenDaysLookahead.report_id == source_report_id).all()
-        today = target_date
-        for i, la in enumerate(lookaheads):
-            if i >= 7:
-                break
-            new_la = SevenDaysLookahead(
-                well_id=la.well_id,
-                section_id=target.section_id,
-                report_id=target_report_id,
-                plan_date=today + timedelta(days=i),
-                day_number=i+1,
-                activity=la.activity,
-                tools=la.tools,
-                responsible=la.responsible,
-                remarks=la.remarks,
-                status=la.status,
-                priority=la.priority,
-                progress_percentage=la.progress_percentage,
-                actual_start=la.actual_start,
-                actual_end=la.actual_end,
-                created_by=la.created_by
-            )
-            session.add(new_la)
-
+        from core import ddr_carry_forward as carry
+        carry.apply(session, source_report_id, target_report_id, sections, confirmed=confirmed,
+                    derive_header=derive_header)
         session.commit()
         return True
-        
 
     @require_permission("can_edit_reports")
     def create_daily_report(self):
@@ -1539,10 +1413,9 @@ class NewDailyReportDialog(BaseHierarchyDialog):
                     DailyReport.report_date == previous_date
                 ).one_or_none()
                 if prev_report:
-                    report_data["depth_0000"] = prev_report.depth_2400
-                    report_data["depth_0600"] = prev_report.depth_2400
-                    report_data["rig_day"] = (prev_report.rig_day or 0) + 1
-                    report_data["summary"] = prev_report.summary or ""
+                    # M217: nothing is copied here. The operator chooses and confirms what is carried (and
+                    # which header values are derived) after the report exists; yesterday's summary and a
+                    # 06:00 depth are never copied.
                     previous_report_id = prev_report.id
                 else:
                     QMessageBox.information(self, "Info", "No previous report found. Creating an empty report.")

@@ -106,6 +106,40 @@ def test_the_ddr_service_and_pipeline_refuse_an_oversized_workbook_and_leave_it_
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
 
 
+def test_the_profile_shape_limits_reach_the_extractor_and_legacy_extractors_still_work(service, tmp_path):
+    """The pipeline used to check only the file-size limits of the profile; sheets / cells fell back to the
+    built-in limits inside the extractor (M213 residual)."""
+    from core import isolated_parse
+    from core.import_router import route_file
+    from dialogs.excel_import_dialog import has_meaningful_canonical_data
+    path = tmp_path / "ddr.xlsx"
+    shutil.copyfile(FIXTURES / "synthetic_ddr_golden_a.xlsx", path)
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    kwargs = dict(route=route_file, template_matcher=service._auto_match_template,
+                  extract_file=service.extract_file, meaningful=has_meaningful_canonical_data)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for rule, text in (({"max_sheets": 1}, "sheets exceed"), ({"max_cells_per_sheet": 10}, "cells), above"),
+                           ({"max_cells_total": 10}, "above the limit of 10")):
+            refused = pipe.prepare_import(str(path), profile=_profile(rule), **kwargs)
+            assert isinstance(refused.error, wio.WorkbookLimitError), (rule, refused.error)
+            assert text in str(refused.error) and "profile syn-limits v3" in str(refused.error)
+            assert refused.extracted is None
+        # the profile crosses the isolated-parser boundary with its limits
+        dto = isolated_parse.profile_from_dto(isolated_parse.profile_to_dto(_profile({"max_sheets": 1})))
+        assert wio.limits_from_profile(dto).max_sheets == 1
+        # an injected extractor without ``limits`` keeps working when no profile tightens anything
+        calls = []
+
+        def legacy_extract(p):
+            calls.append(p)
+            return service.extract_file(p)
+
+        accepted = pipe.prepare_import(str(path), profile=_profile(), **dict(kwargs, extract_file=legacy_extract))
+    assert accepted.error is None and accepted.extracted and calls == [str(path)]
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+
+
 @pytest.fixture
 def db():
     import tempfile

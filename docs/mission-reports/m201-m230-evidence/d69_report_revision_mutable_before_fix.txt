@@ -1,0 +1,12 @@
+D69 - daily-report revision snapshots were mutable at the storage layer (found by M218)
+Test: tests/test_m218_ddr_revision_lineage.py (19 tests). Python 3.11.2, synthetic file database.
+
+ReportRevision is documented "Immutable snapshot of a daily report", but it was only protected by the
+ORM authorization policy (TABLE_POLICY report_revisions write=NOBODY), which applies to enforced sessions.
+Run with the new report_revisions triggers removed from core/storage_guards.trigger_statements():
+  15 of 19 tests FAILED - every raw writer was accepted with recursive_triggers OFF and ON
+  (UPDATE snapshot / status / comment / revision_no, REPLACE INTO, INSERT OR REPLACE,
+  INSERT ... ON CONFLICT DO UPDATE) and an unenforced ORM session rewrote the snapshot.
+With trg_report_revision_immutable_v1 + trg_report_revision_noreplace_v1: 19/19 passed; new revisions
+(submit / reject / approve), report deletion and well deletion still work. No BEFORE DELETE guard: the
+report deletion removes its revisions before the report row.

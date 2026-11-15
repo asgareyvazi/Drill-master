@@ -1578,6 +1578,15 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/carry_forward_dialog.py",
+   "guarded": false,
+   "lines": [
+    9,
+    82
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/casing_history_dialog.py",
    "guarded": false,
    "lines": [
@@ -2155,7 +2164,7 @@
     9,
     15,
     17,
-    2560
+    2505
    ],
    "module": "PySide6"
   },
@@ -2778,6 +2787,14 @@
    "module": "sqlalchemy"
   },
   {
+   "file": "core/ddr_carry_forward.py",
+   "guarded": false,
+   "lines": [
+    139
+   ],
+   "module": "sqlalchemy"
+  },
+  {
    "file": "core/directional_plans.py",
    "guarded": false,
    "lines": [
@@ -2904,14 +2921,6 @@
    "guarded": false,
    "lines": [
     1724
-   ],
-   "module": "sqlalchemy"
-  },
-  {
-   "file": "dialogs/hierarchy_dialogs.py",
-   "guarded": false,
-   "lines": [
-    1387
    ],
    "module": "sqlalchemy"
   },

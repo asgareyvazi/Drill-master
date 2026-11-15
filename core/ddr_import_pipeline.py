@@ -353,10 +353,13 @@ def prepare_import(
         if extracted is None and decision.engine == "excel_intelligence":
             step("mapping")
             # M213: the profile's (tighter) workbook limits apply before anything is read.
-            from core.workbook_io import check_workbook_file, limits_from_profile
+            from core.workbook_io import HARD_LIMITS, check_workbook_file, limits_from_profile
             limits = limits_from_profile(profile)
             check_workbook_file(path, limits)
-            _rep, extracted = extract_file(path)
+            # The sheet / cell (shape) limits of the profile are checked by the extractor, which opens the
+            # workbook; an injected extractor without the keyword is still called as before when no profile
+            # tightens anything.
+            _rep, extracted = extract_file(path) if limits is HARD_LIMITS else extract_file(path, limits=limits)
 
         if extracted is None:
             if decision.engine == "csv":

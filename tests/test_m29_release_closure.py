@@ -331,7 +331,9 @@ def test_copy_previous_uses_target_date_zero_closing_and_no_safety_assessment(en
             )
         )
     with db.session_scope() as s:
-        assert NewDailyReportDialog._copy_all_report_data(SimpleNamespace(), s, ids["report"], target_id)
+        # M217: only chosen, carryable sections, with confirmation (measurements are never carried).
+        assert NewDailyReportDialog._copy_all_report_data(SimpleNamespace(), s, ids["report"], target_id,
+                                                          ["fuel_water_opening"], confirmed=True)
     with db.session_scope() as s:
         row = s.query(FuelWaterInventory).filter_by(report_id=target_id).one()
         assert row.report_date == date(2026, 2, 1)
@@ -341,7 +343,8 @@ def test_copy_previous_uses_target_date_zero_closing_and_no_safety_assessment(en
         s.get(DailyReport, target_id).status = "Final"
     with db.session_scope() as s:
         with pytest.raises(ValueError, match="not editable"):
-            NewDailyReportDialog._copy_all_report_data(SimpleNamespace(), s, ids["report"], target_id)
+            NewDailyReportDialog._copy_all_report_data(SimpleNamespace(), s, ids["report"], target_id,
+                                                       ["bha"], confirmed=True)
 
 
 def test_snapshot_nested_json_detached_in_both_directions(env):

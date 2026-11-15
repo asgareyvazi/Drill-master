@@ -1521,6 +1521,12 @@ class DDRImportService:
         from core.excel_intelligence import ExcelIntelligence
         limits = limits or HARD_LIMITS
         check_workbook_file(path, limits)
+        # The declared dimensions first (read-only mode reads no cells), then the real used range below.
+        declared = load_workbook(path, read_only=True)
+        try:
+            check_workbook_shape(declared, limits)
+        finally:
+            declared.close()
         workbook = load_workbook(path, data_only=False, read_only=False)
         check_workbook_shape(workbook, limits)
         cached_workbook = load_workbook(path, data_only=True, read_only=False)

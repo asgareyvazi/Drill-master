@@ -1350,6 +1350,9 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 identity_problem = queue.verify_identity(entry)      # M84: same bytes as previewed
                 if identity_problem:
                     raise RuntimeError(identity_problem)
+                if self.well_id != batch_well_id:                    # M216 (D68): re-checked at the save, too
+                    raise RuntimeError("The import target well changed while the preview was open; "
+                                       "nothing was saved")
                 preview.apply_review_changes(extracted)
                 if not self._confirm_well_identity(extracted):
                     results.append({"file": source, "skipped": 1, "imported": 0, "failed": 0,
@@ -1363,7 +1366,13 @@ class ExcelImportDialog(QDialog, DDRImportService):
                 # the exact canonical object sent to the atomic save boundary.
                 pipeline_stage = self._queue_stage("persistence")
                 self.import_status.setText(f"Importing {os.path.basename(source)} - Atomic transaction...")
-                result = self._do_import(extracted, refresh_ui=False)
+                try:
+                    result = self._do_import(extracted, refresh_ui=False)
+                finally:
+                    # M216: a file routed to its own well (an explicit decision) or re-found in another well
+                    # does not retarget the rest of the batch; each next file is assessed against the
+                    # selected well again. The saved well is reported in ``result["well_id"]``.
+                    self.well_id = batch_well_id
                 result["file"] = source
                 result["import_report"] = import_report_dict
                 results.append(result)

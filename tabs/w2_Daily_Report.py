@@ -457,6 +457,10 @@ class DailyReportWidget(DrillTabBase):
             "Prepare an unsaved draft for the next day from this report; review it, then Save Report."
         )
         self.duplicate_btn.clicked.connect(lambda: self.duplicate_report_for_review())
+        # M217: state of every section of the open report (carried / confirmed / imported / ...).
+        self.day_states_btn = QPushButton("🗂 Day states…")
+        self.day_states_btn.setObjectName("day_states_btn")
+        self.day_states_btn.clicked.connect(lambda: self.show_day_states())
         
         
         self.print_btn = QPushButton("🖨️ Print")
@@ -483,6 +487,7 @@ class DailyReportWidget(DrillTabBase):
         button_layout.addWidget(self.load_btn)
         button_layout.addWidget(self.new_btn)
         button_layout.addWidget(self.duplicate_btn)
+        button_layout.addWidget(self.day_states_btn)
         button_layout.addWidget(self.print_btn)
         button_layout.addWidget(export_pdf_btn)
         button_layout.addWidget(self.submit_btn)
@@ -2168,26 +2173,11 @@ class DailyReportWidget(DrillTabBase):
             if dialog.exec():
                 created_id = getattr(dialog, 'created_id', None)
                 if created_id:
-                    # ✅ FIX: اکنون copy data واقعاً فراخوانی می‌شود
+                    # M217: the operator chooses and confirms what is carried from the previous day.
                     if hasattr(dialog, 'copy_previous_cb') and dialog.copy_previous_cb.isChecked():
                         previous_id = getattr(dialog, 'previous_report_id', None)
                         if previous_id:
-                            try:
-                                session = self.db_manager.create_session()
-                                try:
-                                    if not dialog._copy_all_report_data(session, previous_id, created_id):
-                                        raise PermissionError("Copy denied")
-                                finally:
-                                    session.close()
-                                self.status_manager.show_success(
-                                    "DailyReport", "Data copied from previous report"
-                                )
-                            except Exception as copy_err:
-                                logger.error(f"Copy error: {copy_err}")
-                                self.status_manager.show_warning(
-                                    "DailyReport",
-                                    "Could not copy all data from previous report"
-                                )
+                            self._carry_into_new_report(previous_id, created_id)
 
                     # به‌روزرسانی SelectionManager
                     self.sel_manager.select_report(
@@ -2253,115 +2243,75 @@ class DailyReportWidget(DrillTabBase):
             session.close()
 
     @require_permission("can_edit_reports")
-    def copy_data_from_report(self, source_report_id: int, target_report_id: int) -> bool:
+    def copy_data_from_report(self, source_report_id: int, target_report_id: int, sections=(), *,
+                              confirmed: bool = False, derive_header=()) -> bool:
+        """M217: carry the chosen ``sections`` of an earlier report into ``target_report_id`` (with confirmation).
+
+        Delegates to ``core.ddr_carry_forward.apply``: never-carried measurements are refused, rows already on
+        the target day are never replaced, and the carry is stored with its lineage in one transaction.
         """
-        کپی تمام داده‌های مرتبط با یک گزارش روزانه به گزارش دیگر.
-        شامل: TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
-        CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
-        FormationReport, SafetyReport, WellboreSchematic, و ...
-        """
-        session = self.db.create_session()
+        from core import ddr_carry_forward as carry
         try:
-            from copy import deepcopy
-            from core.report_lifecycle import is_editable
-            source = session.get(DailyReport, source_report_id)
-            target = session.get(DailyReport, target_report_id)
-            if source is None or target is None or source.id == target.id or source.well_id != target.well_id:
-                raise ValueError("Copy requires distinct source/target reports in the same well")
-            if not is_editable(target.status):
-                raise ValueError("Target report is not editable")
-            from core.database import (
-                TimeLog24H, TimeLogMorning, DrillingParameters, MudReport,
-                CementReport, CasingReport, BitReport, BHAReport, DownholeEquipment,
-                FormationReport, WellboreSchematic,
-                TripSheetEntry, SurveyPoint, LogisticsPersonnel, ServiceCompanyPOB,
-                FuelWaterInventory, BulkMaterials, TransportLog, TransportNotes,
-                ServiceCompany, ServiceNote, MaterialRequest, EquipmentLog,
-                SevenDaysLookahead, NPTReport
-            )
-            import logging
-            logger = logging.getLogger(__name__)
-
-            # لیست مدل‌هایی که باید کپی شوند (به جز TimeLogها که جداگانه)
-            models_to_copy = [
-                (DrillingParameters, 'report_id'),
-                (MudReport, 'report_id'),
-                (CementReport, 'report_id'),
-                (CasingReport, 'report_id'),
-                (BitReport, 'report_id'),
-                (BHAReport, 'report_id'),
-                (DownholeEquipment, 'report_id'),
-                (FormationReport, 'report_id'),
-                # A previous safety observation is not a new assessment.
-                (WellboreSchematic, 'report_id'),
-                (TripSheetEntry, 'report_id'),
-                (SurveyPoint, 'report_id'),
-                (LogisticsPersonnel, 'report_id'),
-                (ServiceCompanyPOB, 'report_id'),
-                (FuelWaterInventory, 'report_id'),
-                (BulkMaterials, 'report_id'),
-                (TransportLog, 'report_id'),
-                (TransportNotes, 'report_id'),
-                (ServiceCompany, 'report_id'),
-                (ServiceNote, 'report_id'),
-                (MaterialRequest, 'report_id'),
-                (EquipmentLog, 'report_id'),
-                (SevenDaysLookahead, 'report_id'),
-                (NPTReport, 'report_id'),
-            ]
-
-            session.query(TimeLog24H).filter(TimeLog24H.report_id == target_report_id).delete()
-            session.query(TimeLogMorning).filter(TimeLogMorning.report_id == target_report_id).delete()
-
-            # فقط کپی TimeLogMorning از منبع به TimeLog24H در هدف
-            logs_morning = session.query(TimeLogMorning).filter(TimeLogMorning.report_id == source_report_id).all()
-            for log in logs_morning:
-                new_log = TimeLog24H(   # تبدیل به 24 Hours
-                    report_id=target_report_id,
-                    time_from=log.time_from,
-                    time_to=log.time_to,
-                    duration=log.duration,
-                    main_phase=log.main_phase,
-                    main_code=log.main_code,
-                    sub_code=log.sub_code,
-                    status=log.status,
-                    is_npt=log.is_npt,
-                    activity_description=log.activity_description,
-                    contractor=log.contractor
-                )
-                session.add(new_log)
-
-
-            # 2. کپی سایر مدل‌ها
-            for model, fk_field in models_to_copy:
-                # حذف رکوردهای قبلی target (در صورت نیاز – برای جلوگیری از تکرار)
-                session.query(model).filter(getattr(model, fk_field) == target_report_id).delete()
-                # دریافت رکوردهای source
-                source_records = session.query(model).filter(getattr(model, fk_field) == source_report_id).all()
-                for rec in source_records:
-                    # ایجاد دیکشنری از تمام فیلدها به جز id و report_id
-                    data = {}
-                    for column in model.__table__.columns:
-                        if column.name not in ('id', fk_field):
-                            data[column.name] = deepcopy(getattr(rec, column.name))
-                    data[fk_field] = target_report_id
-                    if 'section_id' in data:
-                        data['section_id'] = target.section_id
-                    if 'report_date' in data:
-                        data['report_date'] = target.report_date
-                    # ایجاد نمونه جدید
-                    new_rec = model(**data)
-                    session.add(new_rec)
-
-            session.commit()
+            user_id, username = self.db._audit_actor() if hasattr(self.db, "_audit_actor") else (None, None)
+            with self.db.session_scope() as session:
+                carry.apply(session, source_report_id, target_report_id, sections, confirmed=confirmed,
+                            derive_header=derive_header, actor={"user_id": user_id, "username": username})
             return True
-
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Error copying report data: {e}")
+        except carry.CarryForwardRefused as refusal:
+            self.show_error(str(refusal))
             return False
-        finally:
-            session.close() 
+        except Exception as e:
+            logger.error("Carry-forward failed: %s", type(e).__name__)
+            return False
+
+    def _carry_into_new_report(self, previous_id, created_id) -> bool:
+        from core import ddr_carry_forward as carry
+        try:
+            with self.db.session_scope() as session:
+                plan = carry.plan(session, previous_id, created_id)
+        except carry.CarryForwardRefused as refusal:
+            self.status_manager.show_warning("DailyReport", str(refusal))
+            return False
+        choice = self._ask_carry_forward(plan)
+        if choice is None:
+            self.status_manager.show_message("DailyReport", "Nothing was carried forward", 3000)
+            return False
+        sections, header = choice
+        if not self.copy_data_from_report(previous_id, created_id, sections, confirmed=True, derive_header=header):
+            self.status_manager.show_warning("DailyReport", "Nothing was carried forward")
+            return False
+        self.status_manager.show_success("DailyReport", f"Carried {len(sections)} section(s) from the previous "
+                                                         "report; confirm them under Day states…")
+        return True
+
+    def _ask_carry_forward(self, plan):
+        """The operator's choice: ``(sections, derived header fields)`` or ``None`` (cancelled)."""
+        from dialogs.carry_forward_dialog import CarryForwardDialog
+        dialog = CarryForwardDialog(plan, self)
+        if dialog.exec() != QDialog.Accepted or not dialog.confirmed():
+            return None
+        return dialog.selected_sections(), dialog.selected_header()
+
+    def show_day_states(self):
+        """M217: NEW / CARRIED / CONFIRMED / IMPORTED / DERIVED / MISSING per section of the open report."""
+        from core import ddr_carry_forward as carry
+        from dialogs.carry_forward_dialog import DayStatesDialog
+        report_id = self.current_report_id
+        if not report_id:
+            self.show_error("Open a saved report first")
+            return None
+        with self.db.session_scope() as session:
+            states = carry.section_states(session, report_id)
+        dialog = DayStatesDialog(states, self)
+        dialog.exec()
+        if dialog.confirm_requested:
+            carried = [k for k, e in states.items() if e["state"] == carry.CARRIED]
+            user_id, username = self.db._audit_actor() if hasattr(self.db, "_audit_actor") else (None, None)
+            with self.db.session_scope() as session:
+                carry.confirm(session, report_id, carried, actor={"user_id": user_id, "username": username})
+            self.show_success(f"{len(carried)} carried section(s) confirmed for this day")
+        return states
+
     # -------- متدهای کمکی برای سازگاری با سایر تب‌ها --------
     def set_current_report(self, report_id):
         """برای سازگاری با فراخوانی‌های خارجی."""
@@ -2466,18 +2416,18 @@ class DailyReportWidget(DrillTabBase):
 
     @require_permission("can_edit_reports")
     def copy_previous_day(self, source_report_id=None):
+        """M217: carry chosen sections of the previous report into this one, only after confirmation."""
+        from core import ddr_carry_forward as carry
         well_id = self.current_well_id
         section_id = self.current_section_id
 
         if not well_id or not section_id:
             self.show_error("Well or section not selected")
-            return
+            return False
 
         current_date = self.report_date.date().toPython()
         previous_date = current_date - timedelta(days=1)
-
-        session = self.db.create_session()
-        try:
+        with self.db.session_scope() as session:
             if source_report_id is None:
                 prev_report = session.query(DailyReport).filter(
                     DailyReport.well_id == well_id,
@@ -2486,39 +2436,34 @@ class DailyReportWidget(DrillTabBase):
                 ).one_or_none()
             else:
                 prev_report = session.query(DailyReport).filter(
-                    DailyReport.id == source_report_id
-                ).one_or_none()
+                    DailyReport.id == source_report_id, DailyReport.well_id == well_id).one_or_none()
+            prev_id, prev_number = (prev_report.id, prev_report.report_number) if prev_report else (None, None)
+        if prev_id is None:
+            self.show_message("No previous report found", 3000)
+            return False
+        if not self.current_report_id:
+            self.save_report()                       # the target day must exist before anything is carried
+        if not self.current_report_id:
+            return False
+        target_id = self.current_report_id
+        try:
+            with self.db.session_scope() as session:
+                plan = carry.plan(session, prev_id, target_id)
+        except carry.CarryForwardRefused as refusal:
+            self.show_error(str(refusal))
+            return False
+        choice = self._ask_carry_forward(plan)
+        if choice is None:
+            self.show_message("Nothing was carried forward", 3000)
+            return False
+        sections, header = choice
+        if not self.copy_data_from_report(prev_id, target_id, sections, confirmed=True, derive_header=header):
+            return False
+        self.load_report_by_id(target_id)
+        self.show_success(f"Carried {len(sections)} section(s) from Report #{prev_number}; "
+                          "they stay CARRIED until confirmed (Day states…)")
+        return True
 
-            if not prev_report:
-                self.show_message("No previous report found", 3000)
-                return
-
-            # 1. ابتدا گزارش جدید (فعلی) را ذخیره کن
-            if not self.current_report_id:
-                # اگر گزارش جدید هنوز ذخیره نشده، یک رکورد خالی ایجاد کن
-                self.save_report()
-            if not self.current_report_id:
-                return
-
-            new_report_id = self.current_report_id
-
-            # 2. داده‌های گزارش قبلی را مستقیماً در session کپی کن (بدون load)
-            if not self.copy_data_from_report(prev_report.id, new_report_id):
-                self.show_error("Copy failed; existing target data was not replaced")
-                return False
-
-            # 3. مجدداً گزارش جدید را از دیتابیس بارگذاری کن تا داده‌های کپی شده نمایش داده شوند
-            self.load_report_by_id(new_report_id)
-
-            self.show_success(f"Copied data from Report #{prev_report.report_number}")
-
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Copy error: {e}")
-            self.show_error(f"Copy failed: {str(e)}")
-        finally:
-            session.close()
-            
     def new_report(self):
         """پاک کردن فرم برای گزارش جدید"""
         if self._has_unsaved_edits() and not self.confirm_discard_edits():

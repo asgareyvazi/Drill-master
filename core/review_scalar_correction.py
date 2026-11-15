@@ -258,8 +258,11 @@ def claim_review_item(session, item_id: int) -> None:
     (a continuation could be attached twice). A no-op UPDATE starts the write transaction, so a second decision
     waits (``busy_timeout``) and then reads the first one's outcome - and is refused as "already decided".
     """
-    from sqlalchemy import text
-    session.execute(text("UPDATE import_review_items SET state = state WHERE id = :id"), {"id": item_id})
+    from sqlalchemy import update
+    from core.database import ImportReviewItem
+    # An ORM statement (not textual SQL): enforced sessions authorize it like any other review-item write.
+    session.execute(update(ImportReviewItem).where(ImportReviewItem.id == item_id)
+                    .values(state=ImportReviewItem.state).execution_options(synchronize_session=False))
 
 
 def _item(session, item_id: int, well_id: int):

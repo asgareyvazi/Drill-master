@@ -1,0 +1,17 @@
+D68 - DDR batch import target context (found by M216, tests/test_m216_import_context_switch.py)
+Tree: da53eb6 (before the fix), Python 3.11.2, QT_QPA_PLATFORM=offscreen, M71 dialog fixture
+(real routing / extraction in the worker, _do_import replaced, synthetic fixtures).
+
+1) test_a_well_switch_during_the_preview_is_refused_before_the_save
+   The selected well changes while the modal preview is open. Before the fix the payload
+   reached _do_import (the target was only re-checked after preparation, not at the save):
+     AssertionError: assert [{'surveys': ...2920.0}, ...}] == []
+2) test_a_file_routed_to_another_well_does_not_retarget_the_rest_of_the_batch
+   After file 1 was saved into another well by an explicit decision (DDRImportService sets
+   self.well_id), file 2 of the same batch was refused:
+     Universal import failed for .../SYN_b.xlsx at validation: The import target well changed
+     during preparation; nothing was saved
+
+Fix (dialogs/excel_import_dialog.py): the batch target is re-checked immediately before the
+atomic save, and restored after each file's save (the saved well stays in result["well_id"]).
+After the fix: test_m216 4/4; m71, m84, import_dialog_reentrancy, m175 unchanged (green).
