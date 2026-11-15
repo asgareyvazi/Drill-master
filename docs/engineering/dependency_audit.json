@@ -2544,7 +2544,7 @@
    "file": "core/workbook_io.py",
    "guarded": false,
    "lines": [
-    27
+    28
    ],
    "module": "openpyxl"
   },
@@ -2758,10 +2758,10 @@
     5044,
     3762,
     3228,
-    8008,
-    6373,
-    6420,
-    6602
+    8010,
+    6375,
+    6422,
+    6604
    ],
    "module": "sqlalchemy"
   },
@@ -2860,7 +2860,8 @@
    "file": "core/review_scalar_correction.py",
    "guarded": false,
    "lines": [
-    89
+    89,
+    261
    ],
    "module": "sqlalchemy"
   },

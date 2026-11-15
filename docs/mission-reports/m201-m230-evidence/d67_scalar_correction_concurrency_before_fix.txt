@@ -1,0 +1,16 @@
+D67 - DDR review decision race (found by M215, tests/test_m215_scalar_correction_adversarial.py)
+Tree: c47a791 (before the fix), Python 3.11.2, QT_QPA_PLATFORM=offscreen.
+
+test_two_operators_applying_the_same_preview_give_exactly_one_correction
+  Operator A and operator B both apply the same previewed correction token for
+  mud_report.oil_percent; A is paused after reading the item (still open).
+  Result before the fix:
+    AssertionError: {'B': 7.0, 'A': 5.0}
+  Both applies succeeded: B silently replaced A's value and the item carried two
+  CORRECTED history entries although the item was "already decided" after A.
+
+Fix: core/review_scalar_correction.claim_review_item takes the SQLite write lock
+(no-op UPDATE of the item row) before the item is read, in apply_correction,
+reopen_item and Database.resolve_import_review_item. The second decision waits
+for busy_timeout, then reads the first outcome and is refused ("already decided").
+After the fix: 11/11 in tests/test_m215_scalar_correction_adversarial.py.

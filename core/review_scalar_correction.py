@@ -250,6 +250,18 @@ def snapshot_target(session, item) -> Dict[str, Any]:
             "value": _json_value(getattr(target.record, target.column))}
 
 
+def claim_review_item(session, item_id: int) -> None:
+    """M215 (D67): take the database write lock for this decision BEFORE reading the item.
+
+    Without it two operators (two windows or processes) who previewed the same correction both read the item as
+    open and both wrote: the second value silently replaced the first and the item carried two CORRECTED entries
+    (a continuation could be attached twice). A no-op UPDATE starts the write transaction, so a second decision
+    waits (``busy_timeout``) and then reads the first one's outcome - and is refused as "already decided".
+    """
+    from sqlalchemy import text
+    session.execute(text("UPDATE import_review_items SET state = state WHERE id = :id"), {"id": item_id})
+
+
 def _item(session, item_id: int, well_id: int):
     from core.database import ImportReviewItem
     item = session.get(ImportReviewItem, item_id)
@@ -294,6 +306,7 @@ def apply_correction(db, item_id: int, well_id: int, raw: Any, *, reason: str, t
     if not str(reason or "").strip():
         raise CorrectionRefused("A reason is required for a correction; nothing was changed")
     with db.session_scope() as session:
+        claim_review_item(session, item_id)
         item = _item(session, item_id, well_id)
         if item.state not in (DEFERRED_UNRESOLVED, VALIDATION_ERROR):
             raise CorrectionRefused(f"The review item is already decided ({item.state}); nothing was changed")
@@ -334,6 +347,7 @@ def reopen_item(db, item_id: int, well_id: int, reason: str) -> Dict[str, Any]:
     if not str(reason or "").strip():
         raise CorrectionRefused("A reason is required to reopen a review item")
     with db.session_scope() as session:
+        claim_review_item(session, item_id)
         item = _item(session, item_id, well_id)
         if item.state not in (ACCEPTED, REJECTED, IGNORED):
             raise CorrectionRefused(f"Only an accepted, rejected or ignored item can be reopened ({item.state})")

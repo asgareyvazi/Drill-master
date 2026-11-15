@@ -5661,7 +5661,9 @@ class DatabaseManager:
         if decision in {"ACCEPT", "CONFIRMED"}:
             raise ValueError("A queued review item cannot be accepted blindly: attach a continuation, reject or "
                              "ignore it, or correct a scalar value (preview and confirm)")
+        from core.review_scalar_correction import claim_review_item
         with self.session_scope() as session:
+            claim_review_item(session, item_id)          # M215 (D67): one decision at a time per database
             item = session.get(ImportReviewItem, item_id)
             if item is None or item.well_id != well_id:
                 raise ValueError("The review item is not an item of the selected well; nothing was changed")

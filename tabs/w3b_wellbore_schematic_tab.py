@@ -1166,7 +1166,7 @@ class WellboreSchematicTab(DrillTabBase):
     def _import_owner_ok(self, text) -> bool:
         try:
             schematic_document.loads(text, expected_well_id=self.current_well_id)
-        except schematic_document.SchematicOwnershipError:
+        except schematic_document.SchematicOwnershipError:  # silent-ok: foreign owner -> confirmation path
             return False
         return True
 

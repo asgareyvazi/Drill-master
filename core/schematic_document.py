@@ -37,7 +37,7 @@ def _num(value: Any) -> Optional[float]:
         return None
     try:
         number = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # silent-ok: a non-numeric value is a missing value (None), never 0
         return None
     return number if math.isfinite(number) else None
 
@@ -190,7 +190,7 @@ def loads(text_or_data: Any, *, expected_well_id: Optional[int], stored_well_id:
         depth = _num(row.get("depth"))
         try:
             etype = ElementType(row.get("type"))
-        except ValueError:
+        except ValueError:  # silent-ok: an unknown completion type is not drawn (no element is guessed)
             continue
         if depth is None:
             continue
