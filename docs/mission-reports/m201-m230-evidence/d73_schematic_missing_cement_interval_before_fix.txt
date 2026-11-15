@@ -1,0 +1,33 @@
+D73 before-fix evidence (M205 re-trace, code at 50e6b034e78780d63c2b838306461d9018ad3663, Python 3.11.2, offscreen)
+SYNTHETIC document; no DDR or protected file involved.
+
+--- probe source ---
+"""D73 probe: a schematic JSON casing that asks for cement but omits the cement top / bottom."""
+import json, sys
+sys.path.insert(0, "/home/user/Drill-master")
+from core import schematic_document as sd
+from core import well_architecture as wa
+doc = {"schema": sd.SCHEMA, "well_id": 1, "casings": [
+    {"name": "SYN csg", "type": "casing", "od": 9.611, "id": 8.703, "top": 0.0, "bottom": 1000.0,
+     "show_cement": True, "cement_bottom": 1000.0},                       # cement top missing
+    {"name": "SYN liner", "type": "liner", "od": 7.0, "id": 6.184, "top": 900.0, "bottom": 2000.0,
+     "show_cement": True}]}                                               # whole interval missing
+out = sd.loads(json.dumps(doc), expected_well_id=1)
+schematic, report = (out if isinstance(out, tuple) else (out, None))
+for c in schematic.casings:
+    print("casing", c.name, "show_cement", c.show_cement, "cement_top_m", c.cement_top_m, "cement_bottom_m", c.cement_bottom_m)
+print("report.missing", (report or {}).get("missing"))
+comps = wa.from_schematic(schematic)
+print("architecture cement components:", [c for c in comps if c["kind"] == "cement"])
+
+--- output ---
+casing SYN csg show_cement True cement_top_m 0.0 cement_bottom_m 1000.0
+casing SYN liner show_cement True cement_top_m 0.0 cement_bottom_m 0.0
+report.missing ["casing 'SYN csg': weight_ppf", "casing 'SYN liner': weight_ppf"]
+architecture cement components: [{'kind': 'cement', 'name': 'SYN csg', 'grade': '', 'note': '', 'top_md': 0.0, 'bottom_md': 1000.0, 'od_in': None, 'id_in': None, 'hole_in': None, 'weight_ppf': None}, {'kind': 'cement', 'name': 'SYN liner', 'grade': '', 'note': '', 'top_md': 0.0, 'bottom_md': 2000.0, 'od_in': None, 'id_in': None, 'hole_in': None, 'weight_ppf': None}]
+
+--- code ---
+173:                            cement_top_m=_num(row.get("cement_top")) or 0.0,
+174:                            cement_bottom_m=_num(row.get("cement_bottom")) or 0.0,
+175:                            show_cement=bool(row.get("show_cement", bool(_num(row.get("cement_bottom"))))),
+256:                        "bottom_md": casing.cement_bottom_m or casing.bottom_depth_m})

@@ -103,14 +103,16 @@ After the fix all 68 statements are refused with `recursive_triggers` OFF and ON
 
 ## 3. Limitations (recorded, not hidden)
 
-- **Schematic JSON:** the W3b schematic JSON save/load does not carry bindings. A binding is persisted only by
-  freezing an architecture revision. A loaded schematic file therefore has no library link, and the values stay
-  as user values.
+- **Schematic JSON (superseded by M207, `3497a91`):** the W3b schematic JSON is now `drillmaster-schematic-v2`
+  (`core/schematic_document.py`). It carries each casing's binding (set name, version, fingerprints), the field
+  origins and the missing values; a binding whose snapshot fails its fingerprint is dropped and reported; a file
+  from another well is imported only with its foreign status reported; legacy (unversioned) files stay readable
+  as user values. Evidence: `tests/test_m205_m207_schematic_provenance.py`.
 - **Cement:** Cement Volume, Balanced Plug and Buoyancy are scalar worksheets. They have no library button.
   Architecture-derived cement worksheets cite the frozen revision, which carries the binding.
-- **Display of unknown weight:** in the W3b table, an unavailable library weight is shown as not recorded.
-  `to_schematic` still writes 0.0 for an unknown architecture weight. This is a pre-existing behaviour, and
-  `casing_inputs` never uses it to infer anything.
+- **Unknown weight (superseded by M205, `3497a91`):** an unknown weight stays None through the domain, the
+  schematic JSON (`null`), save / load and export; the W3b table shows it as not recorded, and a 0 is used only
+  as a drawing placeholder. Evidence: `tests/test_m205_m207_schematic_provenance.py`.
 - **No owner-approved tubular data exists** (M181). The feature is qualified with synthetic sets only.
 
 ## 4. Evidence

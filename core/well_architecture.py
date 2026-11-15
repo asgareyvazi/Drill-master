@@ -251,9 +251,11 @@ def from_schematic(schematic) -> List[Dict[str, Any]]:
                     "grade": casing.grade, "weight_ppf": casing.weight_ppf,
                     BINDING_KEY: getattr(casing, BINDING_KEY, None)})
         out.append({"kind": "shoe", "name": casing.name, "top_md": casing.bottom_depth_m})
-        if casing.show_cement:
+        # D73: only a known interval (top < bottom, the rule the drawing uses) becomes a cement component; a
+        # missing bottom is never replaced by the shoe depth.
+        if casing.show_cement and casing.cement_bottom_m and casing.cement_top_m < casing.cement_bottom_m:
             out.append({"kind": "cement", "name": casing.name, "top_md": casing.cement_top_m,
-                        "bottom_md": casing.cement_bottom_m or casing.bottom_depth_m})
+                        "bottom_md": casing.cement_bottom_m})
     for layer in schematic.formations:
         out.append({"kind": "formation", "name": layer.name, "top_md": layer.top_depth_m,
                     "bottom_md": layer.bottom_depth_m, "note": layer.lithology})

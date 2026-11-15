@@ -166,13 +166,23 @@ def loads(text_or_data: Any, *, expected_well_id: Optional[int], stored_well_id:
             report["dropped_bindings"].append(str(row.get("name")))
             binding = None
         preset = row.get("legacy_preset") if not legacy else None
+        # D73: a cement interval is drawn only when both ends are known and top < bottom. A missing end is
+        # reported and the cement is not shown - it is never read as 0 (cement to surface). The 0.0 kept in the
+        # dataclass fields is a placeholder of the hidden cement only (render-only, show_cement False).
+        cement_top, cement_bottom = _num(row.get("cement_top")), _num(row.get("cement_bottom"))
+        show_cement = bool(row.get("show_cement", cement_bottom is not None and cement_bottom > 0))
+        cement_known = cement_top is not None and cement_bottom is not None and cement_top < cement_bottom
+        if show_cement and not cement_known:
+            report["missing"].append(f"casing '{row.get('name')}': cement interval (top and bottom) - cement "
+                                     "not shown")
+            show_cement = False
         casing = CasingData(name=str(row.get("name") or ""), element_type=etype, od_inch=values["od"],
                             id_inch=values["id"], top_depth_m=values["top"], bottom_depth_m=values["bottom"],
                             grade=str(row.get("grade") or ""), connection=str(row.get("connection") or ""),
                             weight_ppf=values["weight_ppf"] if not legacy else None,
-                            cement_top_m=_num(row.get("cement_top")) or 0.0,
-                            cement_bottom_m=_num(row.get("cement_bottom")) or 0.0,
-                            show_cement=bool(row.get("show_cement", bool(_num(row.get("cement_bottom"))))),
+                            cement_top_m=cement_top if cement_known else 0.0,
+                            cement_bottom_m=cement_bottom if cement_known else 0.0,
+                            show_cement=show_cement,
                             tubular_reference=binding, legacy_preset=preset,
                             value_source=vp.UNKNOWN_DEFAULT_LABEL if legacy else str(row.get("value_source") or ""))
         for key in ("id", "weight_ppf"):

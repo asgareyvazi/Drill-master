@@ -293,3 +293,33 @@ def test_w3b_save_reload_export_and_cross_well_import(w3b, tmp_path):
     assert tab.import_schematic_json(str(path), confirm_foreign=lambda owner: owner == ids["A"][0])
     assert len(tab.schematic.casings) == len(before) and tab.last_document_report["foreign"]
     assert "imported from well id" in tab.canvas_status.text()
+
+
+def _cement_doc(**cement):
+    row = {"name": "SYN csg", "type": "casing", "od": 9.611, "id": 8.703, "top": 0.0, "bottom": 1000.0,
+           "weight_ppf": 46.1, **cement}
+    return json.dumps({"schema": sd.SCHEMA, "well_id": 1, "casings": [row]})
+
+
+@pytest.mark.parametrize("cement", [
+    {"show_cement": True, "cement_bottom": 1000.0},                       # top missing
+    {"show_cement": True, "cement_top": 400.0},                           # bottom missing
+    {"show_cement": True},                                                # whole interval missing
+    {"show_cement": True, "cement_top": 900.0, "cement_bottom": 500.0},   # top below bottom
+])
+def test_d73_a_missing_cement_interval_is_reported_never_read_as_cement_to_surface(cement):
+    schematic, report = sd.loads(_cement_doc(**cement), expected_well_id=1)
+    casing = schematic.casings[0]
+    assert casing.show_cement is False
+    assert any("cement interval" in m for m in report["missing"]), report["missing"]
+    assert [c for c in wa.from_schematic(schematic) if c["kind"] == "cement"] == []   # nothing reaches a worksheet
+
+
+def test_d73_a_known_cement_interval_including_cement_to_surface_is_kept():
+    schematic, report = sd.loads(_cement_doc(show_cement=True, cement_top=0.0, cement_bottom=1000.0),
+                                 expected_well_id=1)
+    assert schematic.casings[0].show_cement is True and not any("cement" in m for m in report["missing"])
+    cement = [c for c in wa.from_schematic(schematic) if c["kind"] == "cement"]
+    assert [(c["top_md"], c["bottom_md"]) for c in cement] == [(0.0, 1000.0)]        # an entered 0 stays 0
+    schematic, _report = sd.loads(_cement_doc(cement_top=500.0, cement_bottom=1000.0), expected_well_id=1)
+    assert schematic.casings[0].show_cement is True                                 # default: shown when known

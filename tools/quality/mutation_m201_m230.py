@@ -203,6 +203,13 @@ MUTANTS = [
            "the M213 file limits are skipped"),
     Mutant("M220-workbook-shape-limit", TI, "            check_workbook_shape(workbook)\n", "            pass\n",
            T220, "the M213 sheet / cell limits are skipped"),
+    # M205 re-trace (D73): a missing cement interval is never cement to surface.
+    Mutant("M205-cement-interval-known", SD,
+           "        if show_cement and not cement_known:\n", "        if False:\n", T205,
+           "a schematic with a missing cement end shows cement from 0"),
+    Mutant("M205-architecture-cement-guess", "core/well_architecture.py",
+           "        if casing.show_cement and casing.cement_bottom_m and casing.cement_top_m < casing.cement_bottom_m:\n",
+           "        if casing.show_cement:\n", T205, "an unknown cement interval becomes an architecture component"),
     # M227: the data-quality workspace.
     Mutant("M227-missing-depth", DQW, "            if missing:\n                issues.append(Issue(CATEGORY_REPORT,",
            "            if False:\n                issues.append(Issue(CATEGORY_REPORT,", T227,
