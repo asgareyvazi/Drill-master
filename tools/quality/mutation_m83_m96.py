@@ -135,9 +135,13 @@ MUTANTS = [
            "                    with operation_scope(HIERARCHY_DELETE_UNLINK):\n                        counts[table]",
            "                    if True:\n                        counts[table]",
            T96, "a deleter without edit rights cannot delete a section that has procedures"),
+    # M210 re-anchor: M203 (3497a91) added the same WHEN clause for the tubular guards; the next line pins this
+    # mutant to its original site (the history-record noreplace guard). Same fault class, same mutation.
     Mutant("SG-replace-allowed", SG,
-           "f\"WHEN EXISTS (SELECT 1 FROM {table} WHERE id = NEW.id) \"",
-           "f\"WHEN 0 AND EXISTS (SELECT 1 FROM {table} WHERE id = NEW.id) \"",
+           "f\"WHEN EXISTS (SELECT 1 FROM {table} WHERE id = NEW.id) \"\n"
+           "                     f\"BEGIN SELECT RAISE(ABORT, '{table}: a stored record cannot be replaced'); END\")",
+           "f\"WHEN 0 AND EXISTS (SELECT 1 FROM {table} WHERE id = NEW.id) \"\n"
+           "                     f\"BEGIN SELECT RAISE(ABORT, '{table}: a stored record cannot be replaced'); END\")",
            T96, "INSERT OR REPLACE overwrites an immutable history record"),
     Mutant("SG-single-delete-allowed", SG,
            "BEFORE DELETE ON {table} WHEN NOT ({owner_gone}) \"",

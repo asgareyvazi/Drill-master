@@ -174,3 +174,28 @@ def test_the_profile_dialog_configures_reloads_and_refuses_limits(db):
         assert dialog.max_sheets_spin.maximum() == wio.HARD_LIMITS.max_sheets   # the UI cannot raise a limit
     finally:
         dialog.deleteLater()
+
+
+def test_an_oversized_used_range_is_refused_from_the_declared_dimensions_before_any_cell_is_loaded(service,
+                                                                                                    tmp_path,
+                                                                                                    monkeypatch):
+    """The read-only open reads only the declared ``<dimension>``; the full (cell-reading) open must not happen."""
+    from openpyxl import load_workbook as openpyxl_load
+    path = tmp_path / "wide.xlsx"
+    shutil.copyfile(FIXTURES / "synthetic_ddr_golden_a.xlsx", path)
+    workbook = openpyxl_load(path)
+    workbook.worksheets[0].cell(row=1_000_000, column=6, value="SYN far cell")   # >= 6 000 000 cells
+    workbook.save(path)
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    modes = []
+    original = wio.load_workbook_readonly_safe
+
+    def recording_load(p, *args, **kwargs):
+        modes.append(bool(kwargs.get("read_only")))
+        return original(p, *args, **kwargs)
+
+    monkeypatch.setattr(wio, "load_workbook_readonly_safe", recording_load)
+    with pytest.raises(wio.WorkbookLimitError, match=r"cells\), above the limit of 5000000"):
+        service.extract_file(str(path))
+    assert modes == [True], modes                     # refused by the declared shape; no full load was started
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before

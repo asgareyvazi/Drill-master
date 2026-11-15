@@ -53,6 +53,9 @@ DQW = "core/data_quality_workspace.py"
 DQD = "dialogs/data_quality_dialog.py"
 T220 = ["tests/test_m220_tubular_import_hardening.py", "tests/test_m181_m183_tubular_import.py"]
 T227 = ["tests/test_m227_data_quality_workspace.py"]
+W7 = "tabs/w7_logistics_Widget.py"
+T229W7 = ["tests/test_m229_w7_unknown_movements.py", "tests/test_w7_null_zero_ui_smoke.py",
+          "tests/test_fuel_water_truth.py"]
 
 MUTANTS = [
     # M203 (D61 residual): REPLACE / upsert into a tubular set or item.
@@ -225,6 +228,19 @@ MUTANTS = [
            "        pass\n", T227, "the workspace table accepts edit triggers"),
     Mutant("M227-read-only-cells", DQD, "                cell.setFlags(cell.flags() & ~Qt.ItemIsEditable)\n",
            "                pass\n", T227, "the workspace cells are editable"),
+    # D75: an unknown fuel / water movement survives the W7 round-trip (load, save, balance) and the save API.
+    Mutant("D75-w7-load-unknown-movement", W7, '_set_stock_value(self.fuel_consumed, _stock("fuel_consumed"))',
+           'self.fuel_consumed.setValue(_stock("fuel_consumed") or 0.0)', T229W7,
+           "a stored NULL consumption loads into W7 as 0.0"),
+    Mutant("D75-w7-save-unknown-movement", W7, '"fuel_received": _stock_value(self.fuel_received),',
+           '"fuel_received": self.fuel_received.value(),', T229W7,
+           "W7 saves the unknown mark of a receipt as a number"),
+    Mutant("D75-w7-balance-unknown-part", W7, "    if stock is None or received is None or consumed is None:",
+           "    if stock is None:", T229W7, "a remaining figure is derived from an unknown movement"),
+    Mutant("D75-db-none-movement-zero", DB,
+           "                return _stock_in(key) if key in inventory_data else 0.0",
+           "                return _stock_in(key) or 0.0", T229W7,
+           "the save API turns a None movement into 0.0"),
 ]
 
 

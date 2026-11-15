@@ -165,3 +165,78 @@ def test_an_undecided_item_cannot_be_reopened(imported):  # noqa: F811
     with pytest.raises(rsc.CorrectionRefused, match="Only an accepted, rejected or ignored item"):
         rsc.reopen_item(db, oil["id"], well, "no decision to reopen")
     assert _item(db, well, oil["id"])["state"] == DEFERRED_UNRESOLVED
+
+
+def _race(pause_in, operator_a, operator_b):
+    """A pauses where ``pause_in`` is reached in thread A; B decides meanwhile; returns both outcomes.
+
+    With the M215 claim A holds the write lock while paused, so B waits and then reads A's decision (or gives up
+    on the lock); without it B decides on the same open item and both decisions are written.
+    """
+    paused, resume, outcome = threading.Event(), threading.Event(), {}
+
+    def hook():
+        if threading.current_thread().name == "operator-A":
+            paused.set()
+            resume.wait(2.0)
+
+    def run(name, call):
+        try:
+            outcome[name] = call()
+        except Exception as exc:          # a refusal or "database is locked" - either way nothing was written
+            outcome[name] = exc
+
+    pause_in(hook)
+    a = threading.Thread(target=run, args=("A", operator_a), name="operator-A")
+    a.start()
+    assert paused.wait(10)
+    b = threading.Thread(target=run, args=("B", operator_b), name="operator-B")
+    b.start()
+    b.join(1.0)
+    resume.set()
+    a.join(60)
+    b.join(60)
+    return outcome
+
+
+def test_two_operators_resolving_the_same_queue_item_give_exactly_one_decision(imported, monkeypatch):  # noqa: F811
+    from core import ddr_continuation
+    db, (well, _), report_id, _items = imported
+    item = next(i for i in db.get_import_review_items(well) if i["review_type"] == "continuation" and i["eligible"]
+                and i.get("detected_table", "time_logs_24h") == "time_logs_24h")
+    original = ddr_continuation.attach_text
+
+    def pause_in(hook):
+        def slow_attach(*args, **kwargs):
+            hook()                                  # A has read the item as open
+            return original(*args, **kwargs)
+        monkeypatch.setattr(ddr_continuation, "attach_text", slow_attach)
+
+    outcome = _race(pause_in, lambda: db.resolve_import_review_item(item["id"], well, "ATTACH_CONTINUATION"),
+                    lambda: db.resolve_import_review_item(item["id"], well, "REJECT"))
+    assert not isinstance(outcome["A"], Exception), outcome
+    assert isinstance(outcome["B"], Exception), outcome
+    history = _item(db, well, item["id"])["decision_history"]
+    assert len(history) == 1, history
+
+
+def test_two_operators_reopening_the_same_item_give_exactly_one_reopen(imported, monkeypatch):  # noqa: F811
+    db, (well, _), report_id, items = imported
+    oil = items["mud_report.oil_percent"]
+    db.resolve_import_review_item(oil["id"], well, "REJECT")
+    original = rsc._item
+
+    def pause_in(hook):
+        def slow_item(session, item_id, well_id):
+            found = original(session, item_id, well_id)
+            hook()                                  # A has read the item as decided
+            return found
+        monkeypatch.setattr(rsc, "_item", slow_item)
+
+    outcome = _race(pause_in, lambda: rsc.reopen_item(db, oil["id"], well, "A reopens"),
+                    lambda: rsc.reopen_item(db, oil["id"], well, "B reopens"))
+    assert not isinstance(outcome["A"], Exception), outcome
+    assert isinstance(outcome["B"], Exception), outcome
+    history = _item(db, well, oil["id"])["decision_history"]
+    assert [h["action"] for h in history].count("REOPENED") == 1, history
+    assert _item(db, well, oil["id"])["state"] == DEFERRED_UNRESOLVED

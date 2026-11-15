@@ -1,0 +1,47 @@
+"""D75 probe: an UNKNOWN fuel/water movement (NULL, as the DDR importer and the carry-forward preview leave it)
+loaded in W7 and saved again. Synthetic data only; prints the stored row before and after the widget round-trip."""
+import os
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+from datetime import date
+from sqlalchemy import create_engine, null
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+from core.database import Base, DatabaseManager, Company, Project, Well, DailyReport, FuelWaterInventory
+from core.permissions import permissions
+
+m = DatabaseManager()
+m.engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+Base.metadata.create_all(m.engine)
+m.Session = sessionmaker(bind=m.engine, autoflush=False, autocommit=False)
+s = m.create_session()
+c = Company(name="SYN", code="SYN"); s.add(c); s.flush()
+p = Project(name="SYN", code="SYN", company_id=c.id); s.add(p); s.flush()
+w = Well(name="SYN-W", code="SYN-W", project_id=p.id); s.add(w); s.flush()
+r = DailyReport(well_id=w.id, report_date=date(2026, 5, 1)); s.add(r); s.flush()
+# As the DDR importer stores a day whose consumption / receipts were not reported: explicit NULL movements.
+s.add(FuelWaterInventory(well_id=w.id, report_id=r.id, report_date=date(2026, 5, 1), fuel_type="Diesel",
+                         fuel_stock=1000.0, fuel_consumed=null(), fuel_received=null(), water_stock=500.0,
+                         water_consumed=null(), water_received=null()))
+s.commit()
+wid, rid = w.id, r.id
+s.close()
+KEYS = ("fuel_stock", "fuel_consumed", "fuel_received", "fuel_remaining", "days_remaining_fuel",
+        "water_stock", "water_consumed", "water_received", "water_remaining")
+print("stored before W7:", {k: m.get_fuel_water_inventory(well_id=wid, report_id=rid)[0][k] for k in KEYS})
+
+from PySide6.QtCore import QDate
+from PySide6.QtWidgets import QApplication, QMessageBox
+app = QApplication.instance() or QApplication([])
+for name in ("information", "warning", "critical"):
+    setattr(QMessageBox, name, staticmethod(lambda *a, **k: None))
+permissions.set_user({"id": 1, "username": "eng", "role": "engineer"})
+from tabs.w7_logistics_Widget import FuelWaterTab
+tab = FuelWaterTab(db_manager=m)
+tab.current_well_id, tab.current_report_id = wid, rid
+tab.report_date.setDate(QDate(2026, 5, 1))
+tab.load_fuel_water_from_db()
+print("W7 shows consumed:", repr(tab.fuel_consumed.text()), "received:", repr(tab.fuel_received.text()))
+print("W7 results:", tab.results_label.text())
+tab.save_fuel_water_to_db()
+print("stored after W7 save (no edit):", {k: m.get_fuel_water_inventory(well_id=wid, report_id=rid)[0][k]
+                                          for k in KEYS})

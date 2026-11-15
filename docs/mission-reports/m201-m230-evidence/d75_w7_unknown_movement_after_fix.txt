@@ -1,0 +1,6 @@
+D75 probe after the fix (same script, working tree with the D75 change)
+
+stored before W7: {'fuel_stock': 1000.0, 'fuel_consumed': None, 'fuel_received': None, 'fuel_remaining': None, 'days_remaining_fuel': None, 'water_stock': 500.0, 'water_consumed': None, 'water_received': None, 'water_remaining': None}
+W7 shows consumed: '—' received: '—'
+W7 results: <b>Fuel:</b> remaining unknown (—)<br><b>Water:</b> remaining unknown (—)
+stored after W7 save (no edit): {'fuel_stock': 1000.0, 'fuel_consumed': None, 'fuel_received': None, 'fuel_remaining': None, 'days_remaining_fuel': None, 'water_stock': 500.0, 'water_consumed': None, 'water_received': None, 'water_remaining': None}

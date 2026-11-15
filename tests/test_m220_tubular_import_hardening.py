@@ -133,3 +133,17 @@ def test_a_published_set_is_never_updated_in_place(db, tmp_path):  # noqa: F811
     with pytest.raises(ti.TubularImportError):
         ti.apply_import(db, preview, confirmed=True, reason="synthetic")
     assert sorted(i["spec"].designation for i in _items(db, set_id)) == ["SYN-DC-1", "SYN-DP-1"]
+
+
+def test_an_over_limit_used_range_is_refused_and_the_source_is_unchanged(db, tmp_path):  # noqa: F811
+    # One far cell gives a used range of 500 001 rows x 10 columns, above the 5 000 000-cell limit of a sheet.
+    path = _workbook(tmp_path / "wide.xlsx")
+    from openpyxl import load_workbook
+    workbook = load_workbook(path)
+    workbook.active.cell(row=500_001, column=10, value="SYN far cell")
+    workbook.save(path)
+    before = _sha(path)
+    set_id = _draft(db)
+    with pytest.raises(ti.TubularImportError, match=r"cells\), above the limit of 5000000"):
+        ti.preview_file(db, set_id, str(path), USER)
+    assert _items(db, set_id) == [] and _sha(path) == before

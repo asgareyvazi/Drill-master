@@ -1,0 +1,7 @@
+D75 probe on the committed tree 9f784a8 (before the fix); synthetic in-memory database; source: d75_w7_unknown_movement_probe_source.py.txt
+Command: PYTHONPATH=. QT_QPA_PLATFORM=offscreen python d75_probe.py
+
+stored before W7: {'fuel_stock': 1000.0, 'fuel_consumed': None, 'fuel_received': None, 'fuel_remaining': None, 'days_remaining_fuel': None, 'water_stock': 500.0, 'water_consumed': None, 'water_received': None, 'water_remaining': None}
+W7 shows consumed: '0.00 L' received: '0.00 L'
+W7 results: <b>Fuel:</b> 1,000.0 L remaining (N/A)<br><b>Water:</b> 500.0 L remaining (N/A)
+stored after W7 save (no edit): {'fuel_stock': 1000.0, 'fuel_consumed': 0.0, 'fuel_received': 0.0, 'fuel_remaining': 1000.0, 'days_remaining_fuel': None, 'water_stock': 500.0, 'water_consumed': 0.0, 'water_received': 0.0, 'water_remaining': 500.0}

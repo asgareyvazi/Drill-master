@@ -57,6 +57,10 @@ def test_scores_are_exact_or_whole_word_never_partial():
     assert trm._score("Depth", "h") == 0                         # a 1-letter alias is exact-only
     assert trm._score("To", "attributed to") == 0                # never "header inside the alias"
     assert trm._score("Hrs", "hrs") == trm.EXACT and trm._score("", "x") == 0
+    # A 1-2 character alias is exact-only even as a whole word: "Bit OD" is not the OD column, "Joint ID" is not
+    # the serial number ("id" is a serial_number alias) and "Pump No 2" is not a field called "2".
+    assert trm._score("Bit OD (in)", "od") == 0 and trm._score("Joint ID", "id") == 0
+    assert trm._score("Pump No 2", "2") == 0 and trm._score("OD", "od") == trm.EXACT
 
 
 def _extractor(cells_by_ref):

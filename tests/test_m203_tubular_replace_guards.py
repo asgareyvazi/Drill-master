@@ -133,6 +133,11 @@ def _attacks(lib):
          set_insert("INSERT", full_set)[0] + " ON CONFLICT(id) DO UPDATE SET status = 'DRAFT'",
          set_insert("INSERT", full_set)[1]),
         ("set plain INSERT duplicate name/version",) + set_insert("INSERT", full_set, id=None),
+        # M210: the same id with ANOTHER unique key - only the id guard can refuse these (the key guard sees a new
+        # key), and the conflict on the id would delete the published row without its DELETE trigger.
+        ("set REPLACE INTO, same id, another name and version",)
+        + set_insert("REPLACE", full_set, name="SYN other", version=77, status="DRAFT"),
+        ("item REPLACE INTO, same id, another fingerprint",) + item_insert("REPLACE", fingerprint="syn-other"),
     ]
     return out
 
@@ -176,6 +181,17 @@ def test_drafts_stay_editable_replaceable_and_publishable(lib, kind):
     assert tr.publish_set(lib["db"], nxt)["version"] == 2
     statuses = {s["id"]: s["status"] for s in tr.list_sets(lib["db"])}
     assert statuses[nxt] == tr.PUBLISHED and statuses[draft] == tr.DRAFT
+
+
+def test_a_draft_row_with_another_key_may_not_be_replaced_either(lib):
+    with sqlite3.connect(lib["path"]) as c:
+        cols = [r[1] for r in c.execute("PRAGMA table_info(tubular_reference_sets)")]
+        row = dict(zip(cols, _set_row(lib["path"], lib["draft"])), name="SYN renamed", version=55)
+        with pytest.raises(sqlite3.IntegrityError, match="cannot be replaced"):
+            c.execute(f"REPLACE INTO tubular_reference_sets ({', '.join(row)}) VALUES ({', '.join('?' * len(row))})",
+                      tuple(row.values()))
+        assert c.execute("SELECT COUNT(*) FROM tubular_reference_items WHERE set_id = ?",
+                         (lib["draft"],)).fetchone()[0] == 1
 
 
 def test_a_draft_row_may_not_be_replaced_either_because_replace_cascades_silently(lib):

@@ -7948,9 +7948,16 @@ class DatabaseManager:
                 except (TypeError, ValueError):  # silent-ok: non-numeric inventory value is unknown (None)
                     return None
 
-            fuel_consumed = float(inventory_data.get("fuel_consumed", 0.0) or 0.0)
+            def _movement_in(key):
+                """D75: a movement given as None / blank is UNKNOWN and stays NULL (the W7 widget sends None for
+                its "—" mark, the DDR importer stores NULL); only an omitted key keeps the legacy 0.0 default."""
+                return _stock_in(key) if key in inventory_data else 0.0
+
+            fuel_consumed = _movement_in("fuel_consumed")
+            fuel_received = _movement_in("fuel_received")
             fuel_stock = _stock_in("fuel_stock")
-            water_consumed = float(inventory_data.get("water_consumed", 0.0) or 0.0)
+            water_consumed = _movement_in("water_consumed")
+            water_received = _movement_in("water_received")
             water_stock = _stock_in("water_stock")
             # Carry the previous day's closing balance forward, but ONLY to fill
             # a MISSING opening (None). A new day with no movement must not reset
@@ -7974,15 +7981,15 @@ class DatabaseManager:
                             if previous.water_remaining is not None
                             else previous.water_stock
                         )
-            # An unknown opening yields an unknown remaining — never a value
-            # derived from a fabricated 0 stock.
+            # An unknown opening or movement yields an unknown remaining — never a
+            # value derived from a fabricated 0 stock or 0 movement.
             fuel_remaining = (
-                None if fuel_stock is None
-                else fuel_stock + float(inventory_data.get("fuel_received", 0.0) or 0.0) - fuel_consumed
+                None if None in (fuel_stock, fuel_received, fuel_consumed)
+                else fuel_stock + fuel_received - fuel_consumed
             )
             water_remaining = (
-                None if water_stock is None
-                else water_stock + float(inventory_data.get("water_received", 0.0) or 0.0) - water_consumed
+                None if None in (water_stock, water_received, water_consumed)
+                else water_stock + water_received - water_consumed
             )
 
             # Runway is UNKNOWN (None -> "N/A"), never a fabricated 0, when
@@ -8014,18 +8021,18 @@ class DatabaseManager:
                     report_id=inventory_data.get("report_id"),
                     report_date=inventory_data["report_date"],
                     fuel_type=inventory_data.get("fuel_type", "Diesel"),
-                    fuel_consumed=fuel_consumed,
+                    fuel_consumed=(_sql_null() if fuel_consumed is None else fuel_consumed),
                     fuel_stock=(_sql_null() if fuel_stock is None else fuel_stock),
-                    fuel_received=inventory_data.get("fuel_received", 0.0),
+                    fuel_received=(_sql_null() if fuel_received is None else fuel_received),
                     fuel_camp_consumed=inventory_data.get("fuel_camp_consumed"),
                     fuel_camp_stock=inventory_data.get("fuel_camp_stock"),
                     fuel_camp_received=inventory_data.get("fuel_camp_received"),
                     dw_consumed=inventory_data.get("dw_consumed"),
                     dw_stock=inventory_data.get("dw_stock"),
                     dw_received=inventory_data.get("dw_received"),
-                    water_consumed=water_consumed,
+                    water_consumed=(_sql_null() if water_consumed is None else water_consumed),
                     water_stock=(_sql_null() if water_stock is None else water_stock),
-                    water_received=inventory_data.get("water_received", 0.0),
+                    water_received=(_sql_null() if water_received is None else water_received),
                     fuel_remaining=fuel_remaining,
                     water_remaining=water_remaining,
                     days_remaining_fuel=days_remaining_fuel,

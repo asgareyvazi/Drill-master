@@ -323,3 +323,15 @@ def test_d73_a_known_cement_interval_including_cement_to_surface_is_kept():
     assert [(c["top_md"], c["bottom_md"]) for c in cement] == [(0.0, 1000.0)]        # an entered 0 stays 0
     schematic, _report = sd.loads(_cement_doc(cement_top=500.0, cement_bottom=1000.0), expected_well_id=1)
     assert schematic.casings[0].show_cement is True                                 # default: shown when known
+
+
+@pytest.mark.parametrize("top, bottom", [(0.0, 0.0), (800.0, 0.0), (900.0, 500.0)])
+def test_d73_a_schematic_built_in_code_never_turns_an_unknown_cement_interval_into_a_component(top, bottom):
+    # The W3b tab builds CasingData directly (not through loads); an unentered cement bottom stays 0 there and must
+    # not become the shoe depth or a cement-to-surface interval in the architecture.
+    from core.wellbore_schematic_engine import CasingData, ElementType, WellboreSchematic
+    schematic = WellboreSchematic(well_name="SYN")
+    schematic.casings.append(CasingData(name="SYN csg", element_type=ElementType.CASING, od_inch=9.611,
+                                        id_inch=8.703, top_depth_m=0.0, bottom_depth_m=1000.0,
+                                        cement_top_m=top, cement_bottom_m=bottom, show_cement=True))
+    assert [c for c in wa.from_schematic(schematic) if c["kind"] == "cement"] == []
