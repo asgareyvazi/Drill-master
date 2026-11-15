@@ -153,6 +153,9 @@ def validate_profile(profile: ReportProfile) -> List[str]:
             errors.append(f"Table rule '{name}' must be a list of text values.")
     if RULE_KEY in profile.table_rules:          # M174: optional per-profile description headers
         errors.extend(validate_rule(profile.table_rules[RULE_KEY]))
+    from core.workbook_io import LIMITS_RULE_KEY, validate_limits_rule
+    if LIMITS_RULE_KEY in profile.table_rules:   # M213: a profile may only tighten the generic workbook limits
+        errors.extend(validate_limits_rule(profile.table_rules[LIMITS_RULE_KEY]))
     return errors
 
 

@@ -1510,11 +1510,19 @@ class DDRImportService:
             raise ValueError("Ambiguous workbook templates; select explicitly: " + ", ".join(candidates))
         return best
 
-    def extract_file(self, path, template=None):
-        """Actual desktop Excel pipeline without presentation or persistence."""
+    def extract_file(self, path, template=None, limits=None):
+        """Actual desktop Excel pipeline without presentation or persistence.
+
+        M213: the file is refused before it is read when it exceeds the generic workbook limits
+        (``core.workbook_io.WorkbookLimits``; a report profile can only tighten them).
+        """
+        from core.workbook_io import HARD_LIMITS, check_workbook_file, check_workbook_shape
         from core.workbook_io import load_workbook_readonly_safe as load_workbook
         from core.excel_intelligence import ExcelIntelligence
+        limits = limits or HARD_LIMITS
+        check_workbook_file(path, limits)
         workbook = load_workbook(path, data_only=False, read_only=False)
+        check_workbook_shape(workbook, limits)
         cached_workbook = load_workbook(path, data_only=True, read_only=False)
         try:
             template = template if template is not None else self._auto_match_template([ws.title for ws in workbook.worksheets])

@@ -1,0 +1,5 @@
+core/table_record_mapper.map_table at a38c54c (before the M214 fix): field -> source column
+time_log ['Activity Code', 'Depth'] -> {'main_code': 'col1', 'activity_description': 'col1', 'duration': 'col2'}
+time_log ['Total Depth'] -> {'time_to': 'col1', 'duration': 'col1'}
+bit ['Bit Size Code'] -> {'bit_no': 'col1', 'bit_size': 'col1', 'iadc_code': 'col1'}
+time_log ['From', 'To', 'Hrs', 'Code', 'Activity Description'] -> {'time_from': 'col1', 'time_to': 'col2', 'contractor': 'col2', 'duration': 'col3', 'main_phase': 'col4', 'main_code': 'col4', 'sub_code': 'col4', 'npt_category': 'col4', 'activity_description': 'col5'}

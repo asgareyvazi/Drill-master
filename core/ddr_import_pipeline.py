@@ -352,6 +352,10 @@ def prepare_import(
         # Known structured workbooks: openpyxl -> ExcelIntelligence -> canonical JSON.
         if extracted is None and decision.engine == "excel_intelligence":
             step("mapping")
+            # M213: the profile's (tighter) workbook limits apply before anything is read.
+            from core.workbook_io import check_workbook_file, limits_from_profile
+            limits = limits_from_profile(profile)
+            check_workbook_file(path, limits)
             _rep, extracted = extract_file(path)
 
         if extracted is None:

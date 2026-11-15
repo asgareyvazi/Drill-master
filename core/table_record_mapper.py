@@ -117,47 +117,73 @@ ALIASES = {
 
 
 def _norm(value: str) -> str:
-    """Normalize for fuzzy matching: lower, alnum only."""
+    """Compact form: lower, alnum only."""
     return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
 
 
-def _match(header: str, aliases: tuple) -> bool:
-    h = _norm(header)
-    if not h:
-        return False
-    for alias in aliases:
-        a = _norm(alias)
-        if not a:
-            continue
-        # Exact or substring both ways
-        if h == a or a in h or h in a:
-            return True
-        # For short aliases (<=3 chars), require word boundary to avoid false positives
-        if len(a) <= 3:
-            # Check if header contains alias as separate token
-            header_lower = str(header).lower()
-            if re.search(rf"\b{re.escape(alias)}\b", header_lower):
-                return True
-    return False
+def _tokens(value: str) -> List[str]:
+    """Words of a header or alias; a parenthesised unit such as "(m)" is not part of the name."""
+    text = re.sub(r"\([^)]*\)", " ", str(value or "").lower())
+    return [t for t in re.split(r"[^a-z0-9#]+", text) if t]
 
 
-def map_table(cells: Dict[tuple, Any], region: Dict, record_type: str) -> List[Dict]:
-    """Map a detected table region to records of given type using header aliases."""
+#: M214: how a header matches an alias. Nothing partial inside a word, nothing "header inside alias".
+EXACT, PHRASE = 3, 2
+
+
+def _score(header: str, alias: str) -> int:
+    """3 = the same name (ignoring case, punctuation and a unit in parentheses); 2 = the alias appears as whole
+    word(s) in the header (aliases of 3+ characters only); 0 = no match."""
+    compact_header = _norm(re.sub(r"\([^)]*\)", " ", str(header or "")))
+    compact_alias = _norm(re.sub(r"\([^)]*\)", " ", str(alias or "")))
+    if not compact_header or not compact_alias:
+        return 0
+    if compact_header == compact_alias or _norm(header) == _norm(alias):
+        return EXACT
+    words, phrase = _tokens(header), _tokens(alias)
+    if len(compact_alias) < 3 or not phrase or len(phrase) > len(words):
+        return 0
+    for start in range(len(words) - len(phrase) + 1):
+        if words[start:start + len(phrase)] == phrase:
+            return PHRASE
+    return 0
+
+
+def header_fields(headers: List[Any], record_type: str) -> Dict[str, Any]:
+    """M214: which field each header maps to. A header maps to the ONE field it matches best; when two fields
+    match equally well it is ambiguous and maps to none (listed for the operator); a field takes one column."""
     aliases = ALIASES.get(record_type, {})
-    headers = region.get("headers", [])
-    columns = region.get("columns", [])
-
-    # Build column mapping: field -> col index
     mapping: Dict[str, int] = {}
+    ambiguous: List[Dict[str, Any]] = []
     for index, header in enumerate(headers):
         if not header or not str(header).strip():
             continue
-        for field, names in aliases.items():
-            if field in mapping:
-                continue  # already mapped
-            if _match(header, names):
-                col_num = columns[index].get("column", region.get("min_col", 1) + index) if index < len(columns) else region.get("min_col", 1) + index
-                mapping[field] = col_num
+        scores = {field: max((_score(header, alias) for alias in names), default=0)
+                  for field, names in aliases.items()}
+        best = max(scores.values(), default=0)
+        if not best:
+            continue
+        top = sorted(field for field, value in scores.items() if value == best)
+        if len(top) > 1:
+            ambiguous.append({"header": str(header), "index": index, "fields": top})
+            continue
+        if top[0] not in mapping:
+            mapping[top[0]] = index
+    return {"mapping": mapping, "ambiguous": ambiguous}
+
+
+def map_table(cells: Dict[tuple, Any], region: Dict, record_type: str) -> List[Dict]:
+    """Map a detected table region to records of given type using header aliases (M214: exact or whole-word only;
+    ambiguous headers are left unmapped and listed in ``region["ambiguous_headers"]``)."""
+    headers = region.get("headers", [])
+    columns = region.get("columns", [])
+
+    resolved = header_fields(headers, record_type)
+    region["ambiguous_headers"] = resolved["ambiguous"]
+    mapping: Dict[str, int] = {}
+    for field, index in resolved["mapping"].items():
+        mapping[field] = (columns[index].get("column", region.get("min_col", 1) + index) if index < len(columns)
+                          else region.get("min_col", 1) + index)
 
     if not mapping:
         return []

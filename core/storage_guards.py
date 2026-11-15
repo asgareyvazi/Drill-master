@@ -222,7 +222,8 @@ def _tubular_guards() -> dict[str, str]:
     }
 
 
-#: M203 (D65): REPLACE (``INSERT OR REPLACE`` / ``REPLACE INTO``, also on a UNIQUE key) deletes the conflicting row
+#: M203 (D61 residual, reopened by evidence): REPLACE (``INSERT OR REPLACE`` / ``REPLACE INTO``, also on a UNIQUE
+#: key) deletes the conflicting row
 #: WITHOUT running its DELETE triggers unless ``PRAGMA recursive_triggers`` is ON - and the FK ``ON DELETE CASCADE``
 #: of the replaced set still removes its items. The M189 guards were therefore bypassed by a REPLACE. A BEFORE INSERT
 #: trigger runs before the conflict resolution, so these refuse any insert whose id or unique key already exists -

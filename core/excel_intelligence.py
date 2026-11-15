@@ -174,6 +174,10 @@ class ImportReport:
 
 # ==================== Confidence Policy ====================
 
+#: M214: candidate sources that can only ever be proposed for review.
+NEVER_ACCEPTED_SOURCES = frozenset({"fuzzy_match", "spatial"})
+
+
 def confidence_decision(confidence: float, critical: bool = False) -> str:
     """Enforce confidence policy from canonical schema.
     
@@ -837,6 +841,10 @@ class FieldExtractor:
             # generic spatial threshold expects 0.95/0.99.
             decision = "ACCEPT"
         if validation not in {"valid", "missing"} and status == "OK":
+            status = "REVIEW_REQUIRED"
+        elif best.source in NEVER_ACCEPTED_SOURCES and status == "OK":
+            # M214: a fuzzy-label or purely spatial candidate is a suggestion, never an accepted fact - whatever
+            # its numeric score.
             status = "REVIEW_REQUIRED"
         elif decision != "ACCEPT" and status == "OK":
             # A confidence-tier REVIEW/REJECT is not an accepted fact, even

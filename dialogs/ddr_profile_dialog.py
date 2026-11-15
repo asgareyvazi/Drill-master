@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -105,6 +106,21 @@ class ReportProfileDialog(QDialog):
         self.description_headers_edit.setPlaceholderText("; ".join(DEFAULT_DESCRIPTION_HEADERS))
         self.description_headers_edit.setEnabled(False)
         self.description_override_check.toggled.connect(self.description_headers_edit.setEnabled)
+        # M213: optional, tighter limits for Excel workbooks imported with this profile (0 = built-in limit).
+        from core.workbook_io import HARD_LIMITS
+        self.max_sheets_spin = QSpinBox()
+        self.max_sheets_spin.setRange(0, HARD_LIMITS.max_sheets)
+        self.max_sheets_spin.setSpecialValueText(f"built-in ({HARD_LIMITS.max_sheets})")
+        self.max_cells_spin = QSpinBox()
+        self.max_cells_spin.setRange(0, HARD_LIMITS.max_cells_per_sheet)
+        self.max_cells_spin.setSingleStep(10000)
+        self.max_cells_spin.setSpecialValueText(f"built-in ({HARD_LIMITS.max_cells_per_sheet})")
+        self.max_mb_spin = QSpinBox()
+        self.max_mb_spin.setRange(0, HARD_LIMITS.max_bytes // (1024 * 1024))
+        self.max_mb_spin.setSuffix(" MB")
+        self.max_mb_spin.setSpecialValueText(f"built-in ({HARD_LIMITS.max_bytes // (1024 * 1024)} MB)")
+        for spin in (self.max_sheets_spin, self.max_cells_spin, self.max_mb_spin):
+            spin.setToolTip("A profile can only tighten the built-in Excel import limits; 0 keeps the built-in one")
         self.note_edit = QLineEdit()
         self.note_edit.setPlaceholderText("What changed in this version")
         for label, widget in (("Key", self.key_edit), ("Name", self.name_edit), ("Operator", self.operator_edit),
@@ -114,7 +130,10 @@ class ReportProfileDialog(QDialog):
                               ("Skip rows containing", self.skip_rows_edit),
                               ("Skip tables containing", self.skip_tables_edit),
                               ("Description headers", self.description_override_check),
-                              ("", self.description_headers_edit), ("Version note", self.note_edit)):
+                              ("", self.description_headers_edit),
+                              ("Excel: max sheets", self.max_sheets_spin),
+                              ("Excel: max cells per sheet", self.max_cells_spin),
+                              ("Excel: max file size", self.max_mb_spin), ("Version note", self.note_edit)):
             form.addRow(label, widget)
         right.addLayout(form)
 
@@ -257,6 +276,10 @@ class ReportProfileDialog(QDialog):
         self.skip_tables_edit.setText("; ".join(rules.get("skip_tables_containing", [])))
         self.description_override_check.setChecked(RULE_KEY in rules)
         self.description_headers_edit.setText("; ".join(rules.get(RULE_KEY, [])))
+        limits = rules.get("excel_limits") or {}
+        self.max_sheets_spin.setValue(int(limits.get("max_sheets", 0) or 0))
+        self.max_cells_spin.setValue(int(limits.get("max_cells_per_sheet", 0) or 0))
+        self.max_mb_spin.setValue(int(limits.get("max_bytes", 0) or 0) // (1024 * 1024))
         self.note_edit.clear()
         self.alias_table.setRowCount(0)
         self.unit_table.setRowCount(0)
@@ -295,6 +318,12 @@ class ReportProfileDialog(QDialog):
         }
         if self.description_override_check.isChecked():
             table_rules[RULE_KEY] = _split(self.description_headers_edit.text(), ";")
+        limits = {name: value for name, value in (
+            ("max_sheets", self.max_sheets_spin.value()),
+            ("max_cells_per_sheet", self.max_cells_spin.value()),
+            ("max_bytes", self.max_mb_spin.value() * 1024 * 1024)) if value}
+        if limits:
+            table_rules["excel_limits"] = limits
         return ReportProfile(
             key=self.key_edit.text().strip(), version=0, name=self.name_edit.text().strip(),
             operator=self.operator_edit.text().strip(), report_format=self.format_combo.currentText(),
