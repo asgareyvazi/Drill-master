@@ -1,0 +1,33 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_document_links.py",
+      "tests/test_document_links_audit_m46.py"
+    ],
+    "exit": 0,
+    "summary": "29 passed in 14.35s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "L-duplicate-classify",
+      "path": "core/document_links.py",
+      "note": "lost race against the unique constraint not reported as duplicate",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.42s"
+    }
+  ],
+  "killed": [
+    "L-duplicate-classify"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

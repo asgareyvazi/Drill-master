@@ -1006,9 +1006,26 @@ class RestoreService:
         snapshot(source, staged)
         if migrate:
             self._migrate_staged(staged)
+        self._guard_staged(staged)
         verify_database_file(staged, max_version=int(self.manager.schema_version),
                              require_version=int(self.manager.schema_version))
         return staged
+
+    @staticmethod
+    def _guard_staged(staged: Path) -> None:
+        """M204 (D70): give the STAGED copy every current storage guard before it replaces the live file.
+
+        Guards are added without a schema bump (M203, M218), so a backup at the current version can lack some; the
+        application installs them only on start, which left the restored live database unguarded for the session.
+        """
+        from core import storage_guards
+
+        connection = sqlite3.connect(str(staged))
+        try:
+            with connection:
+                storage_guards.install(connection)
+        finally:
+            connection.close()
 
     def _migrate_staged(self, staged: Path) -> None:
         """Apply the application's own migrations to the STAGED copy only."""

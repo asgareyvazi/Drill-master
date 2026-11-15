@@ -82,6 +82,25 @@ triggers, version `TUBULAR_GUARD_VERSION` = 1, on new and on upgraded databases:
 - Mutants: `M189-guard-set-frozen`, `M189-guard-item-frozen` and `M189-guard-item-insert`, all killed
   (`docs/mission-reports/m171-m200-evidence/mutation_m189_guards_partial.json`).
 
+### 2b. D61 residual: REPLACE and upsert (M203)
+
+The five triggers above are `BEFORE UPDATE` / `INSERT` / `DELETE` guards on the row being changed. `INSERT OR
+REPLACE`, `REPLACE INTO` and `INSERT … ON CONFLICT DO UPDATE` on an existing id or unique key resolve the conflict
+by deleting the stored row, and SQLite fires that implicit delete's triggers only when `recursive_triggers` is ON
+(it is OFF by default). M203 reproduced 18 accepted statements out of 68 adversarial ones against a published set
+(`docs/mission-reports/m201-m230-evidence/d61_replace_probe_before_fix.txt`). Version 1 of four more guards closes
+this independently of `recursive_triggers`:
+
+| Trigger | Refuses |
+|---|---|
+| `trg_tubular_set_noreplace_v1` / `trg_tubular_item_noreplace_v1` | an INSERT whose id already exists (any REPLACE / upsert form) |
+| `trg_tubular_set_nodupkey_v1` / `trg_tubular_item_nodupkey_v1` | an INSERT whose unique key (set name + version; item key within its set) already exists |
+
+After the fix all 68 statements are refused with `recursive_triggers` OFF and ON
+(`d61_replace_probe_after_fix.txt`; `tests/test_m203_tubular_replace_guards.py`,
+`tests/test_m204_immutable_write_paths.py`). This is the D61 residual, reopened by evidence and resolved in
+`3497a91`; no new defect id was opened for it.
+
 ## 3. Limitations (recorded, not hidden)
 
 - **Schematic JSON:** the W3b schematic JSON save/load does not carry bindings. A binding is persisted only by

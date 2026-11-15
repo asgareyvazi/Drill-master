@@ -155,3 +155,18 @@ def test_two_application_instances_racing_on_one_link_store_one_link_and_one_aud
         finally:
             for manager in managers:
                 manager.engine.dispose()
+
+
+def test_a_lost_race_against_the_unique_constraint_is_reported_as_duplicate(world, monkeypatch):  # noqa: F811
+    """M210: the race test above cannot force the losing writer past the pre-check (whether a loser meets the
+    committed row in ``_duplicate`` or in the unique index depends on timing), so the IntegrityError path is pinned
+    deterministically: the pre-check is made to miss, and the unique index must still produce "duplicate"."""
+    db, ids, service = world
+    doc = ids["docs"]["alpha"]
+    service.create_link(doc, ids["alpha"], report_id=ids["report_1"])
+    before = _state(db)
+    monkeypatch.setattr(DocumentLinkService, "_duplicate", staticmethod(lambda *a, **k: False))
+    with pytest.raises(DocumentLinkError) as error:
+        service.create_link(doc, ids["alpha"], report_id=ids["report_1"])
+    assert error.value.code == "duplicate"
+    assert _state(db) == before                           # no second link, no audit row

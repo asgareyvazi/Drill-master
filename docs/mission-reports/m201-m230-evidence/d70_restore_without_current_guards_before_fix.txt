@@ -1,0 +1,13 @@
+D70 before-fix evidence (M204 remainder), tree ac81b04 + tests/test_m204_restore_migration_cascade.py, 2026-11-15T07:18:57Z
+Python 3.11.2, QT_QPA_PLATFORM=offscreen. Synthetic data only.
+
+A backup taken at the CURRENT schema version but without the report-revision guards (as any backup taken
+before M218, or before M203 for the tubular noreplace guards: those guards were added without a schema bump)
+was restored by RestoreService; the live database came back WITHOUT those guards for the rest of the session:
+
+E   AssertionError: assert {'trg_audit_l...lace_v1', ...} <= {'trg_audit_l...lace_v1', ...}
+E     
+E     Extra items in the left set:
+E     'trg_report_revision_noreplace_v1'
+E     'trg_report_revision_immutable_v1'
+FAILED tests/test_m204_restore_migration_cascade.py::test_a_same_version_backup_without_guards_is_restored_with_every_current_guard

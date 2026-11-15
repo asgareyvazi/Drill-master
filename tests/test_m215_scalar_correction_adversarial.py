@@ -128,3 +128,40 @@ def test_after_the_claim_a_second_apply_sees_the_decision(imported):  # noqa: F8
     assert rsc.apply_correction(db, kcl["id"], well, "3", reason="r", confirmed=True, token=token)["state"] == ACCEPTED
     with pytest.raises(rsc.CorrectionRefused, match="already decided"):
         rsc.apply_correction(db, kcl["id"], well, "3", reason="r", confirmed=True, token=token)
+
+
+def test_two_mud_records_on_the_report_make_the_target_ambiguous(imported):  # noqa: F811
+    from core.database import MudReport
+    db, (well, _), report_id, items = imported
+    oil = items["mud_report.oil_percent"]
+    with db.session_scope() as session:
+        first = session.query(MudReport).filter_by(report_id=report_id).one()
+        session.add(MudReport(well_id=well, report_id=report_id, report_date=first.report_date, oil_percent=9.0))
+    with pytest.raises(rsc.CorrectionRefused, match="ambiguous"):
+        rsc.preview_correction(db, oil["id"], well, "5")
+    assert _item(db, well, oil["id"])["state"] == DEFERRED_UNRESOLVED
+
+
+def test_an_audit_failure_leaves_no_partial_correction(imported, monkeypatch):  # noqa: F811
+    db, (well, _), report_id, items = imported
+    oil = items["mud_report.oil_percent"]
+    before_value = _mud(db, report_id, "oil_percent")
+    token = rsc.preview_correction(db, oil["id"], well, "5")["token"]
+
+    def failing_audit(*_a, **_k):
+        raise RuntimeError("SYNTHETIC audit store failure")
+
+    monkeypatch.setattr(db, "_add_mandatory_audit", failing_audit)
+    with pytest.raises(RuntimeError, match="SYNTHETIC"):
+        rsc.apply_correction(db, oil["id"], well, "5", reason="r", confirmed=True, token=token)
+    item = _item(db, well, oil["id"])
+    assert item["state"] == DEFERRED_UNRESOLVED and item["decision_history"] in (None, [])
+    assert _mud(db, report_id, "oil_percent") == before_value
+
+
+def test_an_undecided_item_cannot_be_reopened(imported):  # noqa: F811
+    db, (well, _), _report_id, items = imported
+    oil = items["mud_report.oil_percent"]
+    with pytest.raises(rsc.CorrectionRefused, match="Only an accepted, rejected or ignored item"):
+        rsc.reopen_item(db, oil["id"], well, "no decision to reopen")
+    assert _item(db, well, oil["id"])["state"] == DEFERRED_UNRESOLVED

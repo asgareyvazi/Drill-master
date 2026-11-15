@@ -30,6 +30,12 @@ sessions only): ``BEFORE UPDATE`` and ``BEFORE DELETE`` always abort, and ``INSE
 is rejected. No application path updates or deletes an audit record. Limit: anyone who can write the database
 file can drop the triggers — tamper evidence against file access needs an external key (owner gate).
 
+M189 froze PUBLISHED tubular reference sets and their items; M203 (the D61 residual) added BEFORE INSERT guards so
+``INSERT OR REPLACE`` / ``REPLACE INTO`` / upsert on their id or unique key cannot delete-and-reinsert a published
+row whatever ``PRAGMA recursive_triggers`` says. M218 made ``report_revisions`` (the snapshot taken at submit /
+approve / reject) immutable and non-replaceable for every writer; report and well deletion still remove them.
+Guards are added without a schema bump, so ``RestoreService`` installs the current set on the staged copy (M204).
+
 Trigger names carry a version suffix; changing a rule means a new name (old
 databases get the new trigger on their next start, and the old one is dropped).
 Installed on every start inside the atomic schema migration

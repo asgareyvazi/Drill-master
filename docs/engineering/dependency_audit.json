@@ -2782,7 +2782,7 @@
     633,
     634,
     635,
-    1064
+    1081
    ],
    "module": "sqlalchemy"
   },
@@ -2790,7 +2790,7 @@
    "file": "core/ddr_carry_forward.py",
    "guarded": false,
    "lines": [
-    139
+    148
    ],
    "module": "sqlalchemy"
   },

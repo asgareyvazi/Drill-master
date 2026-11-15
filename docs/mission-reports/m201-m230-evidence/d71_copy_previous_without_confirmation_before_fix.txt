@@ -1,0 +1,76 @@
+D71 before-fix evidence (M217), source at da53eb6 (`git show da53eb6:tabs/w2_Daily_Report.py`,
+`git show da53eb6:dialogs/hierarchy_dialogs.py`). Static evidence from the committed pre-fix source; the fixed
+behaviour is tested by tests/test_m217_day_by_day_carry_forward.py (21 tests). Synthetic data only.
+
+Defect: "copy previous day" carried measurements into the next daily report with no confirmation and no marker.
+
+Route 1 - toolbar / W2 button: MainWindow.copy_previous_from_toolbar -> DailyReportTab.copy_previous_day
+  -> copy_data_from_report(source, target). No question was asked between the click and the copy:
+    |             # 1. ابتدا گزارش جدید (فعلی) را ذخیره کن
+    |             if not self.current_report_id:
+    |                 # اگر گزارش جدید هنوز ذخیره نشده، یک رکورد خالی ایجاد کن
+    |                 self.save_report()
+    |             if not self.current_report_id:
+    |                 return
+    | 
+    |             new_report_id = self.current_report_id
+    | 
+    |             # 2. داده‌های گزارش قبلی را مستقیماً در session کپی کن (بدون load)
+    |             if not self.copy_data_from_report(prev_report.id, new_report_id):
+    |                 self.show_error("Copy failed; existing target data was not replaced")
+    |                 return False
+
+  copy_data_from_report DELETED the target's rows and then copied every row of each model below (sample of
+  tabs/w2_Daily_Report.py at da53eb6, lines 2290-2312, plus the time logs), including measured, day-specific
+  data such as casing, bit, formation, trip sheet, surveys, bulk materials and NPT:
+    |                 (CasingReport, 'report_id'),
+    |                 (BitReport, 'report_id'),
+    |                 (BHAReport, 'report_id'),
+    |                 (DownholeEquipment, 'report_id'),
+    |                 (FormationReport, 'report_id'),
+    |                 # A previous safety observation is not a new assessment.
+    |                 (WellboreSchematic, 'report_id'),
+    |                 (TripSheetEntry, 'report_id'),
+    |                 (SurveyPoint, 'report_id'),
+    |                 (LogisticsPersonnel, 'report_id'),
+    |                 (ServiceCompanyPOB, 'report_id'),
+    |                 (FuelWaterInventory, 'report_id'),
+    |                 (BulkMaterials, 'report_id'),
+    |                 (TransportLog, 'report_id'),
+    |                 (TransportNotes, 'report_id'),
+    |                 (ServiceCompany, 'report_id'),
+    |                 (ServiceNote, 'report_id'),
+    |                 (MaterialRequest, 'report_id'),
+    |                 (EquipmentLog, 'report_id'),
+    |                 (SevenDaysLookahead, 'report_id'),
+    |                 (NPTReport, 'report_id'),
+    |             ]
+    | 
+    |             for model, fk_field in models_to_copy:
+    |                 # حذف رکوردهای قبلی target (در صورت نیاز – برای جلوگیری از تکرار)
+    |                 session.query(model).filter(getattr(model, fk_field) == target_report_id).delete()
+    |                 # دریافت رکوردهای source
+
+Route 2 - Hierarchy > New Daily Report with 'copy previous': NewDailyReportDialog._copy_all_report_data
+  copied the same sections, derived depth_0600 from the previous depth_2400 and set fuel / water movements to 0.0
+  (a fabricated measured zero instead of a missing value):
+    |                 report_id=target_report_id,
+    |                 report_date=target_date,
+    |                 fuel_type=fw.fuel_type,
+    |                 fuel_consumed=0.0,
+    |                 fuel_stock=(fw.fuel_remaining if fw.fuel_remaining is not None else null()),
+    |                 fuel_received=0.0,
+    |                 water_consumed=0.0,
+    |                 water_stock=(fw.water_remaining if fw.water_remaining is not None else null()),
+    |                 water_received=0.0,
+    |                 fuel_remaining=(fw.fuel_remaining if fw.fuel_remaining is not None else null()),
+    |                 if prev_report:
+    |                     report_data["depth_0000"] = prev_report.depth_2400
+    |                     report_data["depth_0600"] = prev_report.depth_2400
+    |                     report_data["rig_day"] = (prev_report.rig_day or 0) + 1
+
+Fix (M217, ac81b04): core/ddr_carry_forward.py (contract ddr-carry-forward-v1). Both routes now go through
+CarryForwardDialog: nothing preselected, 17 measured sections never carried (each with a reason), OK enabled
+only with a selection and the confirmation box, refused when the target already has rows; carried rows are
+audited (ddr_carry_forward / ddr_carry_confirm) and shown as CARRIED until confirmed; fuel / water movements
+stay None; header derivation only into an unentered header and shown as DERIVED.

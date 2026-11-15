@@ -20,6 +20,15 @@ Now:
 * A carried section stays **CARRIED** until the operator confirms it for the new day (``ddr_carry_confirm``).
 
 ``section_states`` reports, per section of a report, one of NEW / CARRIED / CONFIRMED / IMPORTED / DERIVED / MISSING.
+
+Separate from this module and unchanged by M217 (recorded so it is not mistaken for a silent copy): the
+inventory ledgers derive a **missing opening balance** from the latest earlier closing balance when the operator
+saves a day's movements - ``Database.save_fuel_water_inventory`` (fuel / water opening stock),
+``save_inventory_items`` and ``save_bulk_material`` (opening quantity). It is a DERIVED value under a stated rule
+(opening = previous closing), applied only when the opening is None (an entered opening, including 0, is never
+replaced) and only on an explicit save; the item and bulk ledgers leave it None when two earlier rows of the item
+share the latest date (the fuel / water ledger takes the latest earlier row of the well). W7 shows
+the projection under a "PREVIEW - carried forward ...; not yet saved" banner until the operator saves.
 """
 from __future__ import annotations
 
