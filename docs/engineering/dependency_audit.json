@@ -98,7 +98,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 14,
+    "evidence_tests": 15,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
@@ -110,6 +110,7 @@
      "test_m127_weight_casing.py",
      "test_m132_trajectory_layers.py",
      "test_m184_m189_reference_integration.py",
+     "test_m205_m207_schematic_provenance.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -121,7 +122,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 63,
+    "evidence_tests": 64,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -156,6 +157,7 @@
      "test_m135_well_package.py",
      "test_m184_m189_reference_integration.py",
      "test_m190_tubular_journey.py",
+     "test_m205_m207_schematic_provenance.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -193,7 +195,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 14,
+    "evidence_tests": 15,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
@@ -205,6 +207,7 @@
      "test_m127_weight_casing.py",
      "test_m132_trajectory_layers.py",
      "test_m184_m189_reference_integration.py",
+     "test_m205_m207_schematic_provenance.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -216,7 +219,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 63,
+    "evidence_tests": 64,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -249,6 +252,7 @@
      "test_m113_constant_inventory.py",
      "test_m119_adversarial.py",
      "test_m137_dependency_reconciliation.py",
+     "test_m205_m207_schematic_provenance.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -2173,7 +2177,8 @@
     10,
     11,
     17,
-    700
+    718,
+    1183
    ],
    "module": "PySide6"
   },
@@ -2897,7 +2902,7 @@
    "file": "core/wellbore_schematic_engine.py",
    "guarded": false,
    "lines": [
-    1719
+    1724
    ],
    "module": "sqlalchemy"
   },

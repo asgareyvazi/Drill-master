@@ -218,7 +218,36 @@ def _tubular_guards() -> dict[str, str]:
             f"CREATE TRIGGER trg_tubular_item_nodelete_v{t} BEFORE DELETE ON tubular_reference_items "
             f"WHEN {published.format('OLD')} BEGIN SELECT RAISE(ABORT, "
             "'tubular_reference_items: an item of a published set is never deleted'); END"),
+        **_tubular_insert_guards(),
     }
+
+
+#: M203 (D65): REPLACE (``INSERT OR REPLACE`` / ``REPLACE INTO``, also on a UNIQUE key) deletes the conflicting row
+#: WITHOUT running its DELETE triggers unless ``PRAGMA recursive_triggers`` is ON - and the FK ``ON DELETE CASCADE``
+#: of the replaced set still removes its items. The M189 guards were therefore bypassed by a REPLACE. A BEFORE INSERT
+#: trigger runs before the conflict resolution, so these refuse any insert whose id or unique key already exists -
+#: independent of the recursive-trigger setting. They apply to drafts too: a REPLACE of a draft set would delete its
+#: items silently; drafts are edited with UPDATE / DELETE / INSERT (what the importer does). The wording of the
+#: unique-key refusal is SQLite's own, so a caller reporting a duplicate name / version keeps doing so.
+TUBULAR_INSERT_GUARD_VERSION = 1
+_TUBULAR_UNIQUE = {"tubular_reference_sets": ("trg_tubular_set", "uq_tubular_reference_set_version", ("name", "version")),
+                   "tubular_reference_items": ("trg_tubular_item", "uq_tubular_reference_item", ("set_id", "fingerprint"))}
+
+
+def _tubular_insert_guards() -> dict[str, str]:
+    v = TUBULAR_INSERT_GUARD_VERSION
+    out = {}
+    for table, (prefix, constraint, key) in _TUBULAR_UNIQUE.items():
+        name = f"{prefix}_noreplace_v{v}"
+        out[name] = (f"CREATE TRIGGER {name} BEFORE INSERT ON {table} "
+                     f"WHEN EXISTS (SELECT 1 FROM {table} WHERE id = NEW.id) "
+                     f"BEGIN SELECT RAISE(ABORT, '{table}: a stored row cannot be replaced'); END")
+        match = " AND ".join(f"{c} = NEW.{c}" for c in key)
+        name = f"{prefix}_nodupkey_v{v}"
+        out[name] = (f"CREATE TRIGGER {name} BEFORE INSERT ON {table} WHEN EXISTS (SELECT 1 FROM {table} WHERE {match}) "
+                     f"BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed: {constraint} "
+                     f"(a stored row cannot be replaced)'); END")
+    return out
 
 
 # prefix -> (table, (constraint name, unique key) pairs besides id, SQL condition under which a DELETE is the

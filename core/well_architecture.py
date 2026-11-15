@@ -248,7 +248,7 @@ def from_schematic(schematic) -> List[Dict[str, Any]]:
         kind = "liner" if casing.element_type == ElementType.LINER else "casing"
         out.append({"kind": kind, "name": casing.name, "top_md": casing.top_depth_m,
                     "bottom_md": casing.bottom_depth_m, "od_in": casing.od_inch, "id_in": casing.id_inch,
-                    "grade": casing.grade, "weight_ppf": casing.weight_ppf or None,
+                    "grade": casing.grade, "weight_ppf": casing.weight_ppf,
                     BINDING_KEY: getattr(casing, BINDING_KEY, None)})
         out.append({"kind": "shoe", "name": casing.name, "top_md": casing.bottom_depth_m})
         if casing.show_cement:
@@ -282,9 +282,10 @@ def to_schematic(components: Iterable[Dict[str, Any]], *, well_name: str = "", w
             schematic.casings.append(CasingData(
                 name=item["name"], element_type=ElementType.LINER if item["kind"] == "liner" else ElementType.CASING,
                 od_inch=item["od_in"], id_inch=item["id_in"], top_depth_m=item["top_md"],
-                bottom_depth_m=item["bottom_md"], grade=item["grade"], weight_ppf=item["weight_ppf"] or 0.0,
+                bottom_depth_m=item["bottom_md"], grade=item["grade"], weight_ppf=item["weight_ppf"],
                 cement_top_m=toc["top_md"] if toc else 0.0, cement_bottom_m=toc["bottom_md"] if toc else 0.0,
-                show_cement=toc is not None, tubular_reference=item.get(BINDING_KEY)))
+                show_cement=toc is not None, tubular_reference=item.get(BINDING_KEY),
+                value_source="architecture revision"))
         elif item["kind"] == "formation":
             schematic.formations.append(FormationLayer(name=item["name"], top_depth_m=item["top_md"],
                                                        bottom_depth_m=item["bottom_md"], lithology=item["note"]))

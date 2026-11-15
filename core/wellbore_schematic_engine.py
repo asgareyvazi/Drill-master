@@ -75,13 +75,18 @@ class CasingData:
     # Unknown metallurgy stays "" — never a fabricated grade/connection.
     grade: str = ""
     connection: str = ""
-    weight_ppf: float = 0.0
+    # M205: None = weight not recorded (never 0.0); a placeholder is a rendering matter only.
+    weight_ppf: Optional[float] = None
     cement_top_m: float = 0.0
     cement_bottom_m: float = 0.0
     show_cement: bool = False
     color: str = ""
     # M184: tubular library binding (core.engineering.reference_binding) - kept only while the values match it.
     tubular_reference: Optional[dict] = None
+    # M206: the built-in template the values were copied from (core.engineering.value_provenance.preset_record);
+    # kept only while the copied values are unchanged. Where the row came from, for the operator ("" = typed).
+    legacy_preset: Optional[dict] = None
+    value_source: str = ""
 
 
 @dataclass
@@ -1845,6 +1850,11 @@ class SchematicAutoBuilder:
                     c.get("connection") or c.get("thread") or ""
                 ).strip()
 
+                # M205: the reported weight, or None - never 0.0.
+                weight = _to_float(c.get("weight") if c.get("weight") is not None else c.get("weight_ppf"))
+                if weight is not None and weight <= 0:
+                    weight = None
+
                 schematic.casings.append(CasingData(
                     name=ctype,
                     element_type=element_type,
@@ -1854,6 +1864,8 @@ class SchematicAutoBuilder:
                     bottom_depth_m=to_d,
                     grade=grade,
                     connection=connection,
+                    weight_ppf=weight,
+                    value_source="casing report",
                     # Cement: the casing source carries no cement data,
                     # so none is drawn or persisted.
                     cement_top_m=0.0,

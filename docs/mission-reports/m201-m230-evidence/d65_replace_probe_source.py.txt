@@ -1,0 +1,19 @@
+import sqlite3, pytest
+from tests.test_m203_tubular_replace_guards import lib, _attacks, _connect, _state, KINDS  # noqa
+@pytest.mark.parametrize("kind", KINDS)
+@pytest.mark.parametrize("n", range(17))
+def test_probe(lib, kind, n):
+    attacks=_attacks(lib)
+    if n >= len(attacks): return
+    label, sql, params = attacks[n]
+    before=_state(lib["path"])
+    c=_connect(lib["path"], kind)
+    try:
+        c.execute(sql, params); c.commit(); out="ACCEPTED"
+    except sqlite3.IntegrityError as e: out="refused: "+str(e)[:60]
+    finally: c.close()
+    after=_state(lib["path"])
+    d = ""
+    if after!=before:
+        d = f"sets {len(before[0])}->{len(after[0])} items {len(before[1])}->{len(after[1])} fk {len(after[2])}"
+    print(f"\nROW {kind:13} | {label:62} | {out:70} | {'CHANGED '+d if d else 'unchanged'}")

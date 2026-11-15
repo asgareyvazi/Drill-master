@@ -4237,7 +4237,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             where = (f"tubular library {snap.get('set_name')} v{snap.get('set_version')}, "
                      f"{(snap.get('spec') or {}).get('designation')}")
         else:
-            where = "built-in preset table"
+            from core.engineering import value_provenance as vp
+            where = f"built-in preset table — {vp.PRESET_LABEL}"
         self.csg_source_label.setText(f"Source (restored case): {where}.")
 
     def _csg_arch_clicked(self, _checked=False):
@@ -4262,10 +4263,13 @@ class EngineeringCalculatorTab(DrillTabBase):
                     self.csg_collapse_res.setText(f"{data['collapse']:.0f} psi (preset ref)")
                 provenance = {key: "preset" for key in ("od_in", "id_in", "wall_in", "weight_ppf")}
                 provenance["yield_psi"] = "user"
+                # M206: the case records which unverified table and entry the values came from (registry version).
+                from core.engineering import value_provenance as vp
                 self._csg_origin = {"kind": "preset", "well_id": None, "loaded": self._csg_values(),
-                                    "provenance": provenance}
-                self.csg_source_label.setText("Source: built-in preset table (convenience values, not a catalog); "
-                                              "yield strength entered by the user.")
+                                    "provenance": provenance, "label": vp.PRESET_LABEL,
+                                    "legacy_preset": data.get("legacy_preset")}
+                self.csg_source_label.setText(f"Source: built-in preset table — {vp.PRESET_LABEL} (not manufacturer "
+                                              "data, not a catalog); yield strength entered by the user.")
 
     def _csg_calc_strength(self):
         from core.engineering.engines.casing import CasingEngine

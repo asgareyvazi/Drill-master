@@ -16,12 +16,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtSvg import QSvgGenerator
 
+from core import schematic_document
 from core.editor_state import editor_loaded
 from core.base_tab import DrillTabBase
 from core.wellbore_schematic_engine import (
     WellboreSchematic, WellboreSchematicRenderer, SchematicConfig,
     SchematicAutoBuilder, CasingData, FormationLayer, CompletionItem,
-    ElementType, SchematicColors, completion_od_status,
+    ElementType, SchematicColors,
 )
 
 logger = logging.getLogger(__name__)
@@ -123,8 +124,18 @@ class WellboreSchematicTab(DrillTabBase):
         )
         export_btn.clicked.connect(self.export_schematic)
 
+        # M207: reopen the saved (versioned) schematic of this well / import an exported one (ownership-checked).
+        load_btn = QPushButton("📂 Load Saved")
+        load_btn.setToolTip("Reopen the latest schematic saved for the selected well")
+        load_btn.clicked.connect(self._load_saved_clicked)
+        import_btn = QPushButton("📥 Import JSON…")
+        import_btn.setToolTip("Import an exported schematic JSON; another well's file needs confirmation")
+        import_btn.clicked.connect(self._import_json_clicked)
+
         btn_layout.addWidget(refresh_btn)
         btn_layout.addWidget(export_btn)
+        btn_layout.addWidget(load_btn)
+        btn_layout.addWidget(import_btn)
         layout.addLayout(btn_layout)
 
         return panel
@@ -200,9 +211,10 @@ class WellboreSchematicTab(DrillTabBase):
         layout = QVBoxLayout(tab)
 
         # جدول کیسینگ‌ها
-        self.casing_table = QTableWidget(0, 5)
+        # M205/M206: weight ("—" = not recorded, never 0) and where the values came from.
+        self.casing_table = QTableWidget(0, 7)
         self.casing_table.setHorizontalHeaderLabels([
-            "Type", "OD\"", "ID\"", "Top", "Bottom"
+            "Type", "OD\"", "ID\"", "Top", "Bottom", "Wt (ppf)", "Source"
         ])
         self.casing_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
@@ -223,9 +235,13 @@ class WellboreSchematicTab(DrillTabBase):
             ("🟣 Liner", ElementType.LINER, 5.0, 4.276),
         ]
 
+        # M206: these OD / ID pairs are built-in templates of unverified origin - the operator sees it.
+        from core.engineering import value_provenance as vp
         combo = QComboBox()
         for name, _, _, _ in add_types:
-            combo.addItem(name)
+            combo.addItem(vp.display_name(name))
+        combo.setToolTip(f"Template OD / ID values: {vp.PRESET_LABEL}. Not manufacturer data - "
+                         "replace them from 📚 Library… or type measured values.")
         self._casing_add_combo = combo
         self._casing_add_types = add_types
         btn_layout.addWidget(combo)
@@ -636,13 +652,15 @@ class WellboreSchematicTab(DrillTabBase):
         filename, _ = QFileDialog.getSaveFileName(
             self, "Export Wellbore Schematic",
             f"wellbore_{self.schematic.well_name or 'schematic'}.png",
-            "PNG Image (*.png);;SVG Vector (*.svg);;PDF Document (*.pdf)"
+            "PNG Image (*.png);;SVG Vector (*.svg);;PDF Document (*.pdf);;Schematic JSON (*.json)"
         )
         if not filename:
             return
 
         try:
-            if filename.endswith('.svg'):
+            if filename.endswith('.json'):
+                self.export_schematic_json(filename)
+            elif filename.endswith('.svg'):
                 self._export_svg(filename)
             elif filename.endswith('.pdf'):
                 self._export_pdf(filename)
@@ -747,6 +765,13 @@ class WellboreSchematicTab(DrillTabBase):
             self.casing_table.setItem(
                 row, 4, QTableWidgetItem(f"{c.bottom_depth_m:.0f}")
             )
+            self.casing_table.setItem(
+                row, 5, QTableWidgetItem(f"{c.weight_ppf:g}" if c.weight_ppf is not None else "—")
+            )
+            source = QTableWidgetItem(self.casing_source_text(c))
+            source.setFlags(source.flags() & ~Qt.ItemIsEditable)
+            source.setToolTip(self.casing_source_text(c, detail=True))
+            self.casing_table.setItem(row, 6, source)
 
         # Formation table
         self.formation_table.setRowCount(0)
@@ -814,9 +839,41 @@ class WellboreSchematicTab(DrillTabBase):
                 if bot_item:
                     casing.bottom_depth_m = float(bot_item.text())
                     casing.cement_bottom_m = float(bot_item.text())
+                wt_item = self.casing_table.item(i, 5)
+                if wt_item:
+                    # M205: "—"/empty = weight not recorded (None); a number is a fact.
+                    wt_text = wt_item.text().strip()
+                    casing.weight_ppf = None if wt_text in ("", "—", "-") else float(wt_text)
 
             except (ValueError, IndexError):  # silent-ok: non-numeric depth cell keeps the stored casing depth
                 pass
+            self._refresh_casing_source(i, casing)
+
+    def _refresh_casing_source(self, row: int, casing) -> None:
+        item = self.casing_table.item(row, 6)
+        if item is not None:
+            item.setText(self.casing_source_text(casing))
+            item.setToolTip(self.casing_source_text(casing, detail=True))
+
+    @staticmethod
+    def casing_source_text(casing, detail: bool = False) -> str:
+        """M206/M221: where this row's values come from - a preset is never shown as manufacturer data."""
+        from core import schematic_document as sd
+        from core.engineering import reference_binding as rb
+        from core.engineering import value_provenance as vp
+
+        values = sd.casing_values(casing)
+        if rb.binding_holds(casing.tubular_reference, values):
+            snap = casing.tubular_reference["snapshot"]
+            text = f"Library {snap.get('set_name')} v{snap.get('set_version')}"
+        elif vp.preset_holds(casing.legacy_preset, {"od": casing.od_inch, "id": casing.id_inch}):
+            text = vp.PRESET_LABEL
+        else:
+            text = casing.value_source or "user-entered"
+        if not detail:
+            return text
+        origins = sd.casing_origins(casing)
+        return text + " — " + "; ".join(f"{k}: {vp.describe(v)}" for k, v in origins.items())
 
     def _on_formation_table_changed(self, item):
         """وقتی جدول سازند تغییر می‌کند."""
@@ -866,6 +923,7 @@ class WellboreSchematicTab(DrillTabBase):
             min(last_bottom + 500, td) if td is not None else last_bottom + 500
         )
 
+        from core.engineering import value_provenance as vp
         new_casing = CasingData(
             name=name.split()[-1],
             element_type=etype,
@@ -874,6 +932,9 @@ class WellboreSchematicTab(DrillTabBase):
             cement_top_m=max(0, new_bottom - 300),
             cement_bottom_m=new_bottom,
             show_cement=True,
+            # M206: the template values carry their (unverified) origin until edited or replaced from the library.
+            legacy_preset=vp.preset_record("w3b_casing_templates", name, {"od": od, "id": id_}),
+            value_source="typed (template edited)",
         )
         self.schematic.casings.append(new_casing)
         self._sync_tables_to_schematic()
@@ -898,9 +959,12 @@ class WellboreSchematicTab(DrillTabBase):
         casing = self.schematic.casings[row]
         casing.od_inch = float(values["od_in"])
         casing.id_inch = float(values["id_in"]) if "id_in" in values else None       # unknown, never derived
-        casing.weight_ppf = float(values["weight_ppf"]) if "weight_ppf" in values else 0.0   # 0 = not recorded
+        # M205: a weight the library does not give stays None (not recorded) - never 0.0.
+        casing.weight_ppf = float(values["weight_ppf"]) if values.get("weight_ppf") is not None else None
         casing.grade = str(values.get("grade") or "")
         casing.tubular_reference = binding
+        casing.legacy_preset = None               # M206: the library replaces the template; the snapshot keeps it
+        casing.value_source = "tubular library"
         self._sync_tables_to_schematic()
         self.refresh_drawing()
         snap = binding["snapshot"]
@@ -1031,54 +1095,10 @@ class WellboreSchematicTab(DrillTabBase):
                 "well_id": self.current_well_id,
                 "report_date": __import__('datetime').date.today(),
                 "schematic_name": f"Schematic_{self.schematic.well_name}",
-                "elements_json": json.dumps({
-                    "casings": [
-                        {
-                            "name": c.name,
-                            "type": c.element_type.value,
-                            "od": c.od_inch,
-                            "id": c.id_inch,
-                            "top": c.top_depth_m,
-                            "bottom": c.bottom_depth_m,
-                            "cement_top": c.cement_top_m,
-                            "cement_bottom": c.cement_bottom_m,
-                        }
-                        for c in self.schematic.casings
-                    ],
-                    "formations": [
-                        {
-                            "name": f.name,
-                            "top": f.top_depth_m,
-                            "bottom": f.bottom_depth_m,
-                            "lithology": f.lithology,
-                            "color": f.color,
-                        }
-                        for f in self.schematic.formations
-                    ],
-                    "completion": [
-                        {
-                            "type": i.element_type.value,
-                            "depth": i.depth_m,
-                            "od_inch": (
-                                i.od_inch
-                                if completion_od_status(
-                                    i.od_inch, i.od_source_status
-                                ) == "RECORDED" else None
-                            ),
-                            "od_status": completion_od_status(
-                                i.od_inch, i.od_source_status
-                            ),
-                            "length": i.length_m,
-                        }
-                        for i in self.schematic.completion
-                    ],
-                    "config": {
-                        "total_depth": self.schematic.total_depth_m,
-                        "well_name": self.schematic.well_name,
-                        "show_tubing": self.schematic.show_tubing,
-                        "show_xmas_tree": self.schematic.show_xmas_tree,
-                    }
-                }, default=str),
+                # M207: versioned document - missing values stay null, bindings / presets / origins kept.
+                "elements_json": schematic_document.dumps(
+                    self.schematic, well_id=self.current_well_id,
+                    wellbore_id=getattr(self, "current_wellbore_id", None)),
             }
             result = self.db.save_wellbore_schematic(schematic_data)
             if result:
@@ -1088,6 +1108,91 @@ class WellboreSchematicTab(DrillTabBase):
             logger.error(f"Save schematic error: {e}")
             self.show_error(f"Save failed: {str(e)}")
         return False
+
+    # ---------------------------------------------------------------- M207 versioned schematic documents
+    def _apply_document(self, text_or_data, *, stored_well_id=None, accept_foreign=False, origin="") -> bool:
+        try:
+            schematic, report = schematic_document.loads(
+                text_or_data, expected_well_id=self.current_well_id, stored_well_id=stored_well_id,
+                accept_foreign=accept_foreign)
+        except schematic_document.SchematicDocumentError as exc:
+            self.canvas_status.setText(f"⛔ Not loaded — {exc}")
+            return False
+        self.schematic = schematic
+        self._sync_tables_to_schematic()
+        self.refresh_drawing()
+        notes = []
+        if report["legacy"]:
+            notes.append("legacy format: weight / grade not stored (unknown)")
+        if report["foreign"]:
+            notes.append(f"imported from well id {report['owner_well_id']} after confirmation")
+        if report["dropped_bindings"]:
+            notes.append("library reference dropped (snapshot altered): " + ", ".join(report["dropped_bindings"]))
+        missing = [m for m in report["missing"] if "weight_ppf" in m or "skipped" in m]
+        if missing:
+            notes.append(f"{len(missing)} value(s) not recorded")
+        self.last_document_report = report
+        self.canvas_status.setText(f"✅ Loaded {origin}" + (" — " + "; ".join(notes) if notes else ""))
+        return True
+
+    def load_saved_schematic(self) -> bool:
+        """The latest schematic saved for the selected well (refuses another well's document)."""
+        if not self.current_well_id or not self.db:
+            self.canvas_status.setText("No well selected")
+            return False
+        row = self.db.get_wellbore_schematic(well_id=self.current_well_id)
+        if not row or not row.get("elements_json"):
+            self.canvas_status.setText("No saved schematic for this well.")
+            return False
+        return self._apply_document(row["elements_json"], stored_well_id=row.get("well_id"),
+                                    origin=f"saved schematic of {row.get('report_date')}")
+
+    def export_schematic_json(self, path: str) -> None:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(schematic_document.dumps(self.schematic, well_id=self.current_well_id,
+                                                  wellbore_id=getattr(self, "current_wellbore_id", None)))
+
+    def import_schematic_json(self, path: str, *, confirm_foreign=None) -> bool:
+        """Import an exported document. Another well's document needs ``confirm_foreign(owner) -> bool``."""
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+        try:
+            return self._apply_document(text, origin=path) if self._import_owner_ok(text) else \
+                self._import_foreign(text, path, confirm_foreign)
+        except schematic_document.SchematicDocumentError as exc:
+            self.canvas_status.setText(f"⛔ Not loaded — {exc}")
+            return False
+
+    def _import_owner_ok(self, text) -> bool:
+        try:
+            schematic_document.loads(text, expected_well_id=self.current_well_id)
+        except schematic_document.SchematicOwnershipError:
+            return False
+        return True
+
+    def _import_foreign(self, text, path, confirm_foreign) -> bool:
+        owner = (json.loads(text) or {}).get("well_id")
+        if confirm_foreign is None:
+            confirm_foreign = self._ask_foreign_import
+        if not confirm_foreign(owner):
+            self.canvas_status.setText(f"⛔ Not loaded — the file belongs to well id {owner}.")
+            return False
+        return self._apply_document(text, accept_foreign=True, origin=path)
+
+    def _ask_foreign_import(self, owner) -> bool:
+        from PySide6.QtWidgets import QMessageBox
+        return QMessageBox.question(
+            self, "Schematic of another well",
+            f"This file belongs to well id {owner}, not to the selected well. Import it into the selected well "
+            "anyway?") == QMessageBox.Yes
+
+    def _load_saved_clicked(self, _checked=False):
+        self.load_saved_schematic()
+
+    def _import_json_clicked(self, _checked=False):
+        path, _ = QFileDialog.getOpenFileName(self, "Import schematic JSON", "", "Schematic JSON (*.json)")
+        if path:
+            self.import_schematic_json(path)
 
     def refresh(self):
         if self.current_well_id:

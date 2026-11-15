@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QSpinBox, QTextEdit, QVBoxLayout,
 )
 
+from core.engineering import value_provenance
+
 logger = logging.getLogger(__name__)
 
 
@@ -368,7 +370,7 @@ class AddPipeDialog(EngineeringBaseDialog):
         for label in self._reference_specs:
             self.quick_combo.addItem(label)
         for name in self.PIPE_DB.get(ptype, {}):
-            self.quick_combo.addItem(name)
+            self.quick_combo.addItem(value_provenance.display_name(name))   # M206: visibly unverified
 
     def _on_quick_selected(self, name):
         if not name or name == "-- Manual Entry --":
@@ -389,14 +391,23 @@ class AddPipeDialog(EngineeringBaseDialog):
             return
         # Any non-reference selection clears the remembered reference.
         self._selected_reference_spec = None
-        # Built-in curated preset
-        data = self.PIPE_DB.get(self.type_combo.currentText(), {}).get(name)
+        # Built-in preset (M206: LEGACY_PRESET — SOURCE UNVERIFIED, never manufacturer data)
+        entry = value_provenance.entry_name(name)
+        data = self.PIPE_DB.get(self.type_combo.currentText(), {}).get(entry)
         if data:
             self.od.setValue(data["od"])
             self.id_.setValue(data["id"])
             self.weight.setValue(data["wt"])
             self.grade.setCurrentText(data.get("grade", ""))
             self.conn.setCurrentText(data.get("conn", ""))
+            self._legacy_preset = value_provenance.preset_record(
+                "pipe_db", entry, {"od": self.od.value(), "id": self.id_.value(), "weight": self.weight.value(),
+                                   "grade": self.grade.currentText(), "connection": self.conn.currentText()},
+                table_values={"od": data["od"], "id": data["id"], "weight": data["wt"],
+                              "grade": data.get("grade"), "connection": data.get("conn")})
+            self.library_label.setText(f"Values from a built-in preset: {value_provenance.PRESET_LABEL}. "
+                                       "Not manufacturer data — replace from the tubular library or enter "
+                                       "measured values.")
 
     def _joints_to_length(self, n):
         if n > 0:
@@ -449,6 +460,7 @@ class AddPipeDialog(EngineeringBaseDialog):
         self.conn.setCurrentText(str(values.get("connection") or ""))
         self._selected_reference_spec = None
         self._tubular_binding = binding
+        self._legacy_preset = None                  # M206: the library replaces the preset
         self._show_binding()
         return True
 
@@ -520,6 +532,10 @@ class AddPipeDialog(EngineeringBaseDialog):
             "joints": self.joints.value(),
             "serial": self.serial.text(),
         }
+        # M206: the preset origin is kept only while every copied value is unchanged.
+        preset = getattr(self, "_legacy_preset", None)
+        if value_provenance.preset_holds(preset, self.result):
+            self.result["legacy_preset"] = dict(preset)
         fp = self._reference_fingerprint_if_unchanged()
         if fp:
             self.result["reference_fingerprint"] = fp
@@ -629,6 +645,9 @@ class AddCasingDialog(EngineeringBaseDialog):
         self.quick_combo.addItem("-- Manual Entry --")
         self.quick_combo.currentTextChanged.connect(self._on_quick_selected)
         f1.addRow("📋 Quick Select:", self.quick_combo)
+        self.preset_label = QLabel("")
+        self.preset_label.setWordWrap(True)
+        f1.addRow("", self.preset_label)
         layout.addWidget(g1)
 
         # Dimensions
@@ -715,7 +734,7 @@ class AddCasingDialog(EngineeringBaseDialog):
         self.quick_combo.clear()
         self.quick_combo.addItem("-- Manual Entry --")
         for name in self.CASING_DB.get(ctype, {}):
-            self.quick_combo.addItem(name)
+            self.quick_combo.addItem(value_provenance.display_name(name))   # M206: visibly unverified
         is_oh = "Open" in ctype
         self.wt.setEnabled(not is_oh)
         self.grade.setEnabled(not is_oh)
@@ -727,7 +746,8 @@ class AddCasingDialog(EngineeringBaseDialog):
     def _on_quick_selected(self, name):
         if name == "-- Manual Entry --":
             return
-        data = self.CASING_DB.get(self.type_combo.currentText(), {}).get(name)
+        entry = value_provenance.entry_name(name)
+        data = self.CASING_DB.get(self.type_combo.currentText(), {}).get(entry)
         if data:
             self.od.setValue(data["od"])
             self.id_.setValue(data["id"])
@@ -735,6 +755,15 @@ class AddCasingDialog(EngineeringBaseDialog):
             self.grade.setCurrentText(data.get("grade", ""))
             self.burst.setValue(data.get("burst", 0))
             self.collapse.setValue(data.get("collapse", 0))
+            # M206: LEGACY_PRESET — SOURCE UNVERIFIED (also the burst / collapse figures)
+            self._legacy_preset = value_provenance.preset_record(
+                "casing_db", entry, {"od": self.od.value(), "id": self.id_.value(), "weight": self.wt.value(),
+                                     "grade": self.grade.currentText(), "burst": self.burst.value(),
+                                     "collapse": self.collapse.value()},
+                table_values={"od": data["od"], "id": data["id"], "weight": data["wt"], "grade": data.get("grade"),
+                              "burst": data.get("burst"), "collapse": data.get("collapse")})
+            self.preset_label.setText(f"Values from a built-in preset: {value_provenance.PRESET_LABEL}. "
+                                      "Not manufacturer data.")
 
     def _update_calc(self):
         id_ = self.id_.value()
@@ -789,6 +818,9 @@ class AddCasingDialog(EngineeringBaseDialog):
             "tensile": self.tensile.value(),
             "drift": self.drift.value(),
         }
+        preset = getattr(self, "_legacy_preset", None)
+        if value_provenance.preset_holds(preset, self.result):
+            self.result["legacy_preset"] = dict(preset)
         self.accept()
 
 

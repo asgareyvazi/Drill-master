@@ -1,0 +1,68 @@
+ROW application   | item DELETE                                                    | refused: tubular_reference_items: an item of a published set is never  | unchanged
+ROW application   | item INSERT OR REPLACE on the unique key (set_id, fingerprint), new id | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW application   | item INSERT OR REPLACE, same id, same published set            | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW application   | item REPLACE INTO, same id, moved to a draft set               | ACCEPTED                                                               | CHANGED sets 4->4 items 5->4 fk 0
+ROW application   | item REPLACE INTO, same id, moved to the next version          | ACCEPTED                                                               | CHANGED sets 4->4 items 5->4 fk 0
+ROW application   | item UPDATE                                                    | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW application   | item move to draft                                             | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW application   | item plain INSERT, new id into published set                   | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW application   | item upsert ON CONFLICT(id) DO UPDATE                          | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW application   | set DELETE                                                     | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW application   | set INSERT OR REPLACE on the unique key (name, version), new id | ACCEPTED                                                               | CHANGED sets 4->4 items 5->3 fk 0
+ROW application   | set INSERT OR REPLACE, same id, DRAFT status                   | ACCEPTED                                                               | CHANGED sets 4->4 items 5->3 fk 0
+ROW application   | set REPLACE INTO, empty published set                          | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 0
+ROW application   | set REPLACE INTO, same id, changed fingerprint                 | ACCEPTED                                                               | CHANGED sets 4->4 items 5->3 fk 0
+ROW application   | set UPDATE                                                     | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
+ROW application   | set plain INSERT duplicate name/version                        | refused: UNIQUE constraint failed: tubular_reference_sets.name, tubul  | unchanged
+ROW application   | set upsert ON CONFLICT(id) DO UPDATE                           | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
+ROW raw           | item DELETE                                                    | refused: tubular_reference_items: an item of a published set is never  | unchanged
+ROW raw           | item INSERT OR REPLACE on the unique key (set_id, fingerprint), new id | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW raw           | item INSERT OR REPLACE, same id, same published set            | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW raw           | item REPLACE INTO, same id, moved to a draft set               | ACCEPTED                                                               | CHANGED sets 4->4 items 5->4 fk 0
+ROW raw           | item REPLACE INTO, same id, moved to the next version          | ACCEPTED                                                               | CHANGED sets 4->4 items 5->4 fk 0
+ROW raw           | item UPDATE                                                    | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW raw           | item move to draft                                             | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW raw           | item plain INSERT, new id into published set                   | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW raw           | item upsert ON CONFLICT(id) DO UPDATE                          | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW raw           | set DELETE                                                     | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW raw           | set INSERT OR REPLACE on the unique key (name, version), new id | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 2
+ROW raw           | set INSERT OR REPLACE, same id, DRAFT status                   | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 0
+ROW raw           | set REPLACE INTO, empty published set                          | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 0
+ROW raw           | set REPLACE INTO, same id, changed fingerprint                 | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 0
+ROW raw           | set UPDATE                                                     | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
+ROW raw           | set plain INSERT duplicate name/version                        | refused: UNIQUE constraint failed: tubular_reference_sets.name, tubul  | unchanged
+ROW raw           | set upsert ON CONFLICT(id) DO UPDATE                           | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
+ROW recursive_off | item DELETE                                                    | refused: tubular_reference_items: an item of a published set is never  | unchanged
+ROW recursive_off | item INSERT OR REPLACE on the unique key (set_id, fingerprint), new id | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_off | item INSERT OR REPLACE, same id, same published set            | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_off | item REPLACE INTO, same id, moved to a draft set               | ACCEPTED                                                               | CHANGED sets 4->4 items 5->4 fk 0
+ROW recursive_off | item REPLACE INTO, same id, moved to the next version          | ACCEPTED                                                               | CHANGED sets 4->4 items 5->4 fk 0
+ROW recursive_off | item UPDATE                                                    | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW recursive_off | item move to draft                                             | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW recursive_off | item plain INSERT, new id into published set                   | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_off | item upsert ON CONFLICT(id) DO UPDATE                          | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_off | set DELETE                                                     | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW recursive_off | set INSERT OR REPLACE on the unique key (name, version), new id | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 2
+ROW recursive_off | set INSERT OR REPLACE, same id, DRAFT status                   | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 0
+ROW recursive_off | set REPLACE INTO, empty published set                          | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 0
+ROW recursive_off | set REPLACE INTO, same id, changed fingerprint                 | ACCEPTED                                                               | CHANGED sets 4->4 items 5->5 fk 0
+ROW recursive_off | set UPDATE                                                     | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
+ROW recursive_off | set plain INSERT duplicate name/version                        | refused: UNIQUE constraint failed: tubular_reference_sets.name, tubul  | unchanged
+ROW recursive_off | set upsert ON CONFLICT(id) DO UPDATE                           | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
+ROW recursive_on  | item DELETE                                                    | refused: tubular_reference_items: an item of a published set is never  | unchanged
+ROW recursive_on  | item INSERT OR REPLACE on the unique key (set_id, fingerprint), new id | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_on  | item INSERT OR REPLACE, same id, same published set            | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_on  | item REPLACE INTO, same id, moved to a draft set               | refused: tubular_reference_items: an item of a published set is never  | unchanged
+ROW recursive_on  | item REPLACE INTO, same id, moved to the next version          | refused: tubular_reference_items: an item of a published set is never  | unchanged
+ROW recursive_on  | item UPDATE                                                    | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW recursive_on  | item move to draft                                             | refused: tubular_reference_items: an item of a published set is immut  | unchanged
+ROW recursive_on  | item plain INSERT, new id into published set                   | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_on  | item upsert ON CONFLICT(id) DO UPDATE                          | refused: tubular_reference_items: a published set takes no new items   | unchanged
+ROW recursive_on  | set DELETE                                                     | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW recursive_on  | set INSERT OR REPLACE on the unique key (name, version), new id | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW recursive_on  | set INSERT OR REPLACE, same id, DRAFT status                   | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW recursive_on  | set REPLACE INTO, empty published set                          | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW recursive_on  | set REPLACE INTO, same id, changed fingerprint                 | refused: tubular_reference_sets: a published reference set is never d  | unchanged
+ROW recursive_on  | set UPDATE                                                     | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
+ROW recursive_on  | set plain INSERT duplicate name/version                        | refused: UNIQUE constraint failed: tubular_reference_sets.name, tubul  | unchanged
+ROW recursive_on  | set upsert ON CONFLICT(id) DO UPDATE                           | refused: tubular_reference_sets: a published reference set is immutab  | unchanged
