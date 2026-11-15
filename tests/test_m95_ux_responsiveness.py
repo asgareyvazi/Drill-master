@@ -162,11 +162,44 @@ def test_w10_failed_section_step_never_shows_the_previous_well(window, monkeypat
     assert w10.save_context_ready()
 
 
+def _d74_diagnostics() -> str:
+    """D74: what else ran on the machine when the measurement child timed out (load and leftover processes)."""
+    lines = []
+    try:
+        lines.append(f"loadavg={os.getloadavg()}")
+    except OSError:
+        pass
+    try:
+        out = subprocess.run(["ps", "-eo", "pid,ppid,etimes,pcpu,stat,args"], capture_output=True, text=True,
+                             timeout=10).stdout
+        lines += [line[:200] for line in out.splitlines() if "python" in line or "PID" in line][:40]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    env = sorted(f"{k}={v}" for k, v in os.environ.items() if k.startswith(("DRILLMASTER_", "QT_")))
+    return "\n".join(lines + env)
+
+
 def test_the_measurement_tool_runs_and_reports_every_path(tmp_path):
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
-    proc = subprocess.run([sys.executable, str(ROOT / "tools/quality/ux_responsiveness_m95.py"),
-                           "--days", "5", "--logs", "3", "--n", "1"],
-                          capture_output=True, text=True, timeout=300, env=env, cwd=str(tmp_path))
+    # D74 diagnostics (OBSERVED in two local full runs, never in isolation or CI): the child runs with faulthandler;
+    # if it is still running at the unchanged 300 s budget it gets SIGABRT, which makes faulthandler print every
+    # thread's stack to stderr, and the failure shows that stack with the machine load. No retry, no longer timeout.
+    child = subprocess.Popen([sys.executable, "-X", "faulthandler", str(ROOT / "tools/quality/ux_responsiveness_m95.py"),
+                              "--days", "5", "--logs", "3", "--n", "1"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, cwd=str(tmp_path))
+    try:
+        stdout, stderr = child.communicate(timeout=290)
+    except subprocess.TimeoutExpired:
+        diagnostics = _d74_diagnostics()
+        child.send_signal(getattr(__import__("signal"), "SIGABRT", 6))
+        try:
+            stdout, stderr = child.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            stdout, stderr = child.communicate()
+        pytest.fail(f"D74: the measurement tool did not finish within 300 s\n--- child stderr (faulthandler) ---\n"
+                    f"{stderr[-6000:]}\n--- stdout ---\n{stdout[-1000:]}\n--- machine ---\n{diagnostics}")
+    proc = subprocess.CompletedProcess(child.args, child.returncode, stdout, stderr)
     assert proc.returncode == 0, proc.stderr[-2000:]
     data = json.loads(proc.stdout)
     assert {"startup", "well_switch", "tab_visit", "oa_refresh", "catalogue", "export"} <= set(data)

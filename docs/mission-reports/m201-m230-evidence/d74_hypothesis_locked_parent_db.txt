@@ -1,0 +1,15 @@
+D74 hypothesis test (after the second occurrence, local full suite on 63780a6, 2026-11-15).
+
+Hypothesis: tests/conftest.py sets DRILLMASTER_DB_PATH to the parent's session database; the measurement tool
+overrides DRILLMASTER_DATA_DIR but not DRILLMASTER_DB_PATH, so a child inheriting the parent environment might
+block on a lock an earlier test left on that database.
+
+Probe: a separate process held BEGIN EXCLUSIVE (with an uncommitted INSERT) on /tmp/d74/session.db; the tool ran with
+DRILLMASTER_DB_PATH=/tmp/d74/session.db, -X faulthandler, QT_QPA_PLATFORM=offscreen:
+  python -X faulthandler tools/quality/ux_responsiveness_m95.py --days 5 --logs 3 --n 1
+Result: exit=0 in 10 s, complete JSON (startup 1825 ms). The hypothesis is REJECTED: the tool does not open the
+inherited default database path.
+
+Next step taken: the test now runs the child with -X faulthandler and, at the unchanged 300 s budget, sends SIGABRT
+so faulthandler prints every thread's stack into the failure, with the machine load and python processes.
+No retry, no timeout increase, no skip.
