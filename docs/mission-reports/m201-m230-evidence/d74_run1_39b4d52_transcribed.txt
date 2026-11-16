@@ -1,0 +1,76 @@
+D74 - first local full suite on 39b4d52 without coverage (2026-11-15, 12:53-13:44 UTC)
+TRANSCRIBED from the tool output of that session: the original log and sampler file were lost in the fourth
+sandbox reset (the git-ignored run directory was wiped). The lines below are copied verbatim from the outputs that
+were printed before the reset; nothing was added. The run was repeated afterwards (see the run-2 files).
+
+Summary lines (verify_release, Python 3.11.2, offscreen):
+  FAILED tests/test_m95_ux_responsiveness.py::test_the_measurement_tool_runs_and_reports_every_path
+  1 failed, 5514 passed, 4 skipped, 33 warnings in 2968.86s (0:49:28)
+  Pytest release counts: collected=5519, passed=5514, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0
+  VERIFY_EXIT=1 SECONDS=3024 SHA=39b4d5282d13356f3fe47efc83c2e4cbfc4479f7
+
+Failure message (faulthandler stacks captured by the D74 instrumentation at the 300 s budget):
+  Failed: D74: the measurement tool did not finish within 300 s
+  --- child stderr (faulthandler) ---
+  Fatal Python error: Aborted
+
+  Thread 0x00007f69594f66c0 (most recent call first):
+    File "/usr/lib/python3.11/threading.py", line 324 in wait
+    File "/usr/lib/python3.11/threading.py", line 622 in wait
+    File "/home/user/Drill-master/core/db_maintenance.py", line 900 in _loop
+    File "/usr/lib/python3.11/threading.py", line 975 in run
+    File "/usr/lib/python3.11/threading.py", line 1038 in _bootstrap_inner
+    File "/usr/lib/python3.11/threading.py", line 995 in _bootstrap
+
+  Current thread 0x00007f6970bea2c0 (most recent call first):
+    File ".../pyqtgraph/graphicsItems/AxisItem.py", line 498 in setTextPen
+    File ".../pyqtgraph/graphicsItems/AxisItem.py", line 112 in __init__
+    File ".../pyqtgraph/graphicsItems/PlotItem/PlotItem.py", line 325 in setAxisItems
+    File ".../pyqtgraph/graphicsItems/PlotItem/PlotItem.py", line 152 in __init__
+    File ".../pyqtgraph/widgets/PlotWidget.py", line 58 in __init__
+    File "/home/user/Drill-master/tabs/w12_Analysis.py", line 544 in _analysis_plot_widget
+    File "/home/user/Drill-master/tabs/w12_Analysis.py", line 1180 in create_time_depth_tab
+    File "/home/user/Drill-master/tabs/w12_Analysis.py", line 902 in init_ui
+    File "/home/user/Drill-master/tabs/w12_Analysis.py", line 736 in __init__
+    File "/home/user/Drill-master/main_window.py", line 1155 in create_tabs
+    File "/home/user/Drill-master/main_window.py", line 1047 in create_tab_widget
+    File "/home/user/Drill-master/main_window.py", line 222 in init_ui
+    File "/home/user/Drill-master/main_window.py", line 193 in __init__
+    File "/home/user/Drill-master/tools/quality/ux_responsiveness_m95.py", line 137 in <lambda>
+    File "/home/user/Drill-master/tools/quality/ux_responsiveness_m95.py", line 76 in _measure
+    File "/home/user/Drill-master/tools/quality/ux_responsiveness_m95.py", line 137 in main
+    File "/home/user/Drill-master/tools/quality/ux_responsiveness_m95.py", line 201 in <module>
+  --- stdout ---
+  (empty)
+  --- machine ---
+  loadavg=(1.4794921875, 1.310546875, 1.1669921875)
+      PID    PPID ELAPSED %CPU STAT COMMAND
+    91888   91884    2504  0.0 S    /home/user/.venv/bin/python verify_release.py
+    92043   91888    2498 68.5 Sl   /home/user/.venv/bin/python -m pytest -ra --ju
+    93543   92043    2183  0.0 S    /home/user/.venv/bin/python -c from multiproce
+    99457   92043     290 22.6 Rl   /home/user/.venv/bin/python -X faulthandler /h
+  DRILLMASTER_AI_IMPORT=0
+  DRILLMASTER_BACKUP_DIR=/tmp/pytest-of-user/pytest-83/m70_window10/backups
+  DRILLMASTER_DATA_DIR=/tmp/pytest-of-user/pytest-83/m70_window10
+  DRILLMASTER_DB_PATH=/tmp/drillmaster-tests-oq_l7mbu/test-session.db
+  DRILLMASTER_ENV=test
+  DRILLMASTER_LOG_DIR=/tmp/pytest-of-user/pytest-83/m70_window10/logs
+  DRILLMASTER_TEST_HANG_SECONDS=900
+  QT_QPA_PLATFORM=offscreen
+
+Per-minute sampler while the measurement child ran (MemTotal 4034452 kB, no swap):
+  13:30:23 memavail_kB=23688  parent pytest rss_kB=3492816  child 9 s   57.8 % cpu  R  child_rss_kB=252912
+  13:31:23 memavail_kB=11940  parent pytest rss_kB=3492792  child 69 s  27.0 % cpu  R  child_rss_kB=267756
+  13:32:24 memavail_kB=9824   parent pytest rss_kB=3492792  child 130 s 24.6 % cpu  D  child_rss_kB=268996
+  13:33:25 memavail_kB=7856   parent pytest rss_kB=3492792  child 191 s 23.5 % cpu  R  child_rss_kB=270248
+  13:34:26 memavail_kB=5140   parent pytest rss_kB=3492792  child 253 s 22.7 % cpu  R  child_rss_kB=271076
+
+Parent pytest RSS over the run (kB): 12:58 667372; 13:03 1192916; 13:08 1356296; 13:13 1551496; 13:18 2629288;
+13:23 2678872; 13:28 2817868; 13:33 3492792; 13:38 3529348; 13:43 3576204 (peak 3585800).
+
+Coverage run on the same SHA (11:47-12:51 UTC, verify_release --coverage), kernel log:
+  Out of memory: Killed process 83328 (python) total-vm:4834948kB, anon-rss:3566140kB, file-rss:4kB, shmem-rss:0kB,
+  UID:1001 pgtables:7508kB oom_score_adj:100
+  -> "FAIL: missing or malformed pytest execution report", collected=5519 passed=0 ...; VERIFY_EXIT=1 SECONDS=3887.
+  In that run the m95 child (pid 91024) ran >= 278 s at 23-33 % CPU alternating R / D while the parent held
+  3.50 GB RSS.

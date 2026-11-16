@@ -257,6 +257,12 @@ def test_not_supported_calculators_say_so_and_store_unversioned(w13):
     bar = w13.case_bar
     assert w13.calculator_finder.open_path("Directional › Anti-Collision")   # Buoyancy has a contract since M107
     assert "NOT_SUPPORTED" in bar.contract_label.text() and "NOT REPRODUCIBLE" in bar.contract_label.text()
+    # M210: since M125 the label starts with the leaf class ("Class: NOT_SUPPORTED — ..."), so the check above is met by
+    # the class alone; the contract status itself must say NOT_SUPPORTED (mutant CON-unsupported-claimed survived).
+    assert "Contract status: NOT_SUPPORTED — " in bar.contract_label.text()
+    for calculator in contracts.NOT_SUPPORTED:
+        status, text = contracts.calculator_status(calculator)
+        assert status == "NOT_SUPPORTED" and text.endswith("NOT REPRODUCIBLE"), calculator
 
 
 def test_invalid_contract_inputs_store_an_unversioned_case_with_the_reason(w13):
