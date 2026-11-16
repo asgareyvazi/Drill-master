@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 
 import pytest
 
@@ -151,17 +152,24 @@ def test_a_build_killed_before_finalize_is_unaudited_and_removed_with_an_audit_r
 
 
 def test_an_identical_manifest_audited_under_another_name_is_refused_not_classified_audited(env, monkeypatch):
-    """Two builds in the same second write byte-identical manifests (the folder name is not in it)."""
-    monkeypatch.setattr(wp, "_now", lambda: wp.datetime(2026, 4, 3, 12, 0, 0, tzinfo=wp.timezone.utc))
-    twin = wp.build_package(env["manager"], _request(env, "twin"))
+    """A folder whose manifest is byte-identical to a package audited under another name (the folder name is not in
+    the manifest, e.g. a copy, or two builds whose parts and time are identical).
+
+    D76: this used to build the twin with only ``wp._now`` frozen, but the EOWR HTML, bit-run and NPT parts embed the
+    real clock, so the two builds differed whenever they straddled a wall-clock second (CI 3.12 at ``a2a0201``). The
+    twin is now a byte-identical copy of the audited folder, so the state under test no longer depends on timing."""
     audited = _audited_not_renamed(env, monkeypatch, "audited")
-    assert twin.manifest_sha256 == audited.manifest_sha256
-    stale = wp.inspect_stale_folder(twin.partial_dir, env["manager"])
+    twin_final = str(env["out"] / "twin")
+    twin_partial = twin_final + wp.PARTIAL_SUFFIX
+    shutil.copytree(audited.partial_dir, twin_partial)
+    assert wp.file_sha256(os.path.join(twin_partial, wp.MANIFEST)) == audited.manifest_sha256
+    stale = wp.inspect_stale_folder(twin_partial, env["manager"])
     assert stale.state == wp.STALE_REFUSED and "under the package name 'audited'" in stale.reason
+    assert stale.manifest_sha256 == audited.manifest_sha256
     assert wp.inspect_stale_folder(audited.partial_dir, env["manager"]).state == wp.STALE_AUDITED
     with pytest.raises(wp.PackageError):
-        wp.recover_stale_folder(twin.partial_dir, env["manager"])
-    assert os.path.isdir(twin.partial_dir) and not os.path.exists(twin.final_dir)
+        wp.recover_stale_folder(twin_partial, env["manager"])
+    assert os.path.isdir(twin_partial) and not os.path.exists(twin_final)
 
 
 def test_a_build_killed_while_writing_has_no_manifest_and_is_unaudited(env):

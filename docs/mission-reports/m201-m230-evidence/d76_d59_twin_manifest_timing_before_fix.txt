@@ -1,0 +1,50 @@
+D76 - timing-dependent test: tests/test_d59_stale_partial.py::
+      test_an_identical_manifest_audited_under_another_name_is_refused_not_classified_audited
+Found by CI on a2a02011ff888b7588d0c9177fe787f3bc8e7a62, source gate run 43840196482, job 133206660412 (3.12 + coverage):
+  pytest failure: AssertionError: assert '4157f7914b00...0152f793c84fc' == 'a55a82aac647...803b4d1abd8dd'
+  Pytest release counts: collected=5519, passed=5514, skipped=4, failed=1
+(3.11, 3.13 and the local run on the same SHA passed it.)
+
+Cause: the test built the "twin" and the "audited" package with only well_package._now frozen and asserted that the two
+manifests are byte-identical. The manifest lists every part's SHA-256, and three parts embed the real clock
+(EOWR HTML: core/report_provenance.py:131 generated_at to the second and the report_engine footer to the minute; the
+bit-run and NPT CSVs), so the manifests differ whenever the two builds straddle a wall-clock second - likelier on the
+slower coverage runner. The product documents this ("not byte-reproducible (embedded time)"); the defect is the test's
+reliance on timing.
+
+Deterministic reproduction on a2a0201 (temporary probe, not committed; Python 3.11.2 offscreen), the second build is
+started just after the next second boundary:
+
+    def test_probe_builds_in_different_seconds(env, monkeypatch):
+        real, calls = wp.build_package, []
+        def next_second_build(*args, **kwargs):
+            if calls:
+                time.sleep(1.0 - time.time() % 1 + 0.02)
+            calls.append(1)
+            return real(*args, **kwargs)
+        monkeypatch.setattr(wp, "build_package", next_second_build)
+        twin_test(env, monkeypatch)            # the unchanged d59 test function
+
+    def test_probe_which_part_differs(env, monkeypatch):   # _now frozen, two builds one second apart
+        ...; print("DIFFERING PARTS", [(key, sha_a, sha_b) for differing parts])
+
+Output before the fix:
+............F                                                            [100%]
+=================================== FAILURES ===================================
+____________________ test_probe_builds_in_different_seconds ____________________
+tests/test_zz_d76_probe_tmp.py:18: in test_probe_builds_in_different_seconds
+    twin_test(env, monkeypatch)
+tests/test_d59_stale_partial.py:158: in test_an_identical_manifest_audited_under_another_name_is_refused_not_classified_audited
+    assert twin.manifest_sha256 == audited.manifest_sha256
+E   AssertionError: assert '6c480d529f2b...2d466d4e30b4d' == 'd6b2ea8e2aae...349c2356052ab'
+E     
+E     - d6b2ea8e2aae834bfc2c10fdfda84231bcf444d7ee75983d00a349c2356052ab
+E     + 6c480d529f2b1463c040f90c83e7957a9604cefd5f69e8f849b2d466d4e30b4d
+=========================== short test summary info ============================
+FAILED tests/test_zz_d76_probe_tmp.py::test_probe_builds_in_different_seconds
+DIFFERING PARTS [('eowr_html', 'dd867be61240', '4e70fdfa1062'), ('bit_runs', '30d079c6c71c', '88f98d3b9054'), ('npt', '7b51b3428e2e', '4348c851241b')]
+
+After the fix (the twin is a byte-identical copy of the audited folder under another name; one build, no timing):
+  tests/test_d59_stale_partial.py + the straddling probe: 25 passed; the straddling probe alone 3 / 3 passed.
+  mutation_m121_m140.py --only <the 16 D59 mutants that use this test file>: 16 / 16 KILLED (complete=False by design
+  of --only), including D59-stale-hash-only, which this test pins.

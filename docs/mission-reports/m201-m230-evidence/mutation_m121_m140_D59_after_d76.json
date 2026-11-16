@@ -1,0 +1,226 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_d59_stale_partial.py"
+    ],
+    "exit": 0,
+    "summary": "12 passed in 14.31s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "D59-rename-failure-not-kept",
+      "path": "core/well_package.py",
+      "note": "a rename failure after the audit is an ordinary error (the pre-D59 path)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.65s"
+    },
+    {
+      "id": "D59-discard-ignores-audit",
+      "path": "core/well_package.py",
+      "note": "discard deletes a folder whose manifest is audited",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.55s"
+    },
+    {
+      "id": "D59-panel-discards-audited",
+      "path": "tabs/well_package_panel.py",
+      "note": "the panel treats an audited, not renamed package like a failed build",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.69s"
+    },
+    {
+      "id": "D59-stale-hash-only",
+      "path": "core/well_package.py",
+      "note": "a twin build with an identical manifest is classified AUDITED by another folder's record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 8.09s"
+    },
+    {
+      "id": "D59-stale-name-check-dropped",
+      "path": "core/well_package.py",
+      "note": "an audited folder whose manifest was changed is classified UNAUDITED (removable)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 11.29s"
+    },
+    {
+      "id": "D59-stale-link-followed",
+      "path": "core/well_package.py",
+      "note": "a '.partial' link is followed and its target's files removed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 13.35s"
+    },
+    {
+      "id": "D59-stale-subfolder-accepted",
+      "path": "core/well_package.py",
+      "note": "a folder holding more than plain files is treated as a build",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 12.98s"
+    },
+    {
+      "id": "D59-stale-no-db-accepted",
+      "path": "core/well_package.py",
+      "note": "a folder is classified without the audit log",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 13.16s"
+    },
+    {
+      "id": "D59-stale-final-accepted",
+      "path": "core/well_package.py",
+      "note": "a finalized package is classified as a stale folder",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 13.30s"
+    },
+    {
+      "id": "D59-remove-audited",
+      "path": "core/well_package.py",
+      "note": "an audited or refused folder is removed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 10.18s"
+    },
+    {
+      "id": "D59-remove-unrecorded",
+      "path": "core/well_package.py",
+      "note": "a stale folder is removed without an audit record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 7.03s"
+    },
+    {
+      "id": "D59-recover-unverified",
+      "path": "core/well_package.py",
+      "note": "an audited folder whose files changed is given its final name",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 11.92s"
+    },
+    {
+      "id": "D59-recover-overwrites",
+      "path": "core/well_package.py",
+      "note": "the rename replaces a folder that appeared under the final name",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 12.17s"
+    },
+    {
+      "id": "D59-recover-unaudited",
+      "path": "core/well_package.py",
+      "note": "a folder without its own audit record is given a final name",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.93s"
+    },
+    {
+      "id": "D59-remove-unconfirmed",
+      "path": "tabs/well_package_panel.py",
+      "note": "the removal runs although the user declined",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 6.92s"
+    },
+    {
+      "id": "D59-cancel-message-false",
+      "path": "tabs/well_package_panel.py",
+      "note": "the cancel message again claims a '.partial' folder is never audited",
+      "equivalent": "",
+      "tests": [
+        "tests/test_d59_stale_partial.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 5.75s"
+    }
+  ],
+  "killed": [
+    "D59-rename-failure-not-kept",
+    "D59-discard-ignores-audit",
+    "D59-panel-discards-audited",
+    "D59-stale-hash-only",
+    "D59-stale-name-check-dropped",
+    "D59-stale-link-followed",
+    "D59-stale-subfolder-accepted",
+    "D59-stale-no-db-accepted",
+    "D59-stale-final-accepted",
+    "D59-remove-audited",
+    "D59-remove-unrecorded",
+    "D59-recover-unverified",
+    "D59-recover-overwrites",
+    "D59-recover-unaudited",
+    "D59-remove-unconfirmed",
+    "D59-cancel-message-false"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
