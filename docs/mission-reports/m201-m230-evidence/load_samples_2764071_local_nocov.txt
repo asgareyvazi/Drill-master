@@ -1,0 +1,306 @@
+=== 10:56:27 load=0.67 0.86 0.95 memavail_kB=3716324
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42740   42736       1  9.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+  42778   42740       0 81.8 21564 R    /home/user/.venv/bin/python -m pytest --collect-only -q
+   1229       1   21399  0.6 15284 S<Lsl /usr/bin/envd
+      1       0   21409  0.0  3160 Ss   /sbin/init
+=== 10:57:27 load=0.88 0.89 0.96 memavail_kB=3383476
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740      56 72.4 426708 Rl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736      61  0.2 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21459  0.6 15368 S<Lsl /usr/bin/envd
+      1       0   21469  0.0  3160 Ss   /sbin/init
+=== 10:58:27 load=0.97 0.91 0.96 memavail_kB=3305924
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     116 81.6 506236 Sl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     121  0.1 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21519  0.6 15544 S<Lsl /usr/bin/envd
+      1       0   21529  0.0  3160 Ss   /sbin/init
+=== 10:59:27 load=0.55 0.82 0.93 memavail_kB=3303588
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     176 67.9 509080 Rl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     181  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21579  0.6 15320 S<Lsl /usr/bin/envd
+      1       0   21589  0.0  3160 Ss   /sbin/init
+=== 11:00:27 load=0.89 0.87 0.94 memavail_kB=3121040
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     236 75.7 663904 Rl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     241  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21639  0.6 15528 S<Lsl /usr/bin/envd
+      1       0   21649  0.0  3160 Ss   /sbin/init
+=== 11:01:27 load=0.96 0.89 0.95 memavail_kB=3151744
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     296 77.4 665908 Rl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     301  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21699  0.6 15528 S<Lsl /usr/bin/envd
+      1       0   21709  0.0  3160 Ss   /sbin/init
+=== 11:02:28 load=0.95 0.90 0.95 memavail_kB=3133428
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     356 78.1 674760 Rl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     361  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21759  0.6 15780 S<Lsl /usr/bin/envd
+  44268   42868      40  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:03:28 load=0.43 0.76 0.89 memavail_kB=3015352
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     416 70.7 798852 Sl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     421  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21819  0.6 15668 S<Lsl /usr/bin/envd
+  44268   42868     100  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:04:28 load=0.79 0.81 0.91 memavail_kB=2942532
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     476 73.3 868752 Rl  /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     481  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21879  0.6 15476 S<Lsl /usr/bin/envd
+  44268   42868     160  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:05:28 load=1.00 0.86 0.92 memavail_kB=2568652
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     536 75.8 1182056 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  44836   42868       0  116 49516 Rl   /home/user/.venv/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=18, pipe_handle=28) --multiprocessing-fork
+  42740   42736     541  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21939  0.6 15284 S<Lsl /usr/bin/envd
+=== 11:06:28 load=0.97 0.88 0.92 memavail_kB=2623380
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     596 73.5 1186808 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     601  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   21999  0.6 15204 S<Lsl /usr/bin/envd
+  44268   42868     280  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:07:28 load=0.83 0.85 0.91 memavail_kB=2617888
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     656 72.2 1190832 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     661  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22059  0.6 15408 S<Lsl /usr/bin/envd
+  44268   42868     340  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:08:28 load=0.94 0.88 0.91 memavail_kB=2597212
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     716 74.0 1213108 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     721  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22119  0.6 15668 S<Lsl /usr/bin/envd
+  44268   42868     400  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:09:28 load=0.98 0.91 0.92 memavail_kB=2566436
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     776 76.0 1242628 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     781  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22179  0.6 15604 S<Lsl /usr/bin/envd
+  44268   42868     460  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:10:28 load=0.99 0.93 0.93 memavail_kB=2537392
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     836 77.7 1255028 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     841  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22239  0.6 16056 S<Lsl /usr/bin/envd
+  44268   42868     520  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:11:28 load=0.96 0.94 0.93 memavail_kB=2438344
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     896 78.3 1342028 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     901  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22299  0.6 15960 S<Lsl /usr/bin/envd
+  44268   42868     580  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:12:28 load=0.99 0.95 0.94 memavail_kB=2410808
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740     956 79.6 1378304 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736     961  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22359  0.6 15812 S<Lsl /usr/bin/envd
+  44268   42868     640  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:13:28 load=1.00 0.96 0.94 memavail_kB=2414356
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1016 80.6 1390932 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1021  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22419  0.6 15648 S<Lsl /usr/bin/envd
+  44268   42868     700  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:14:28 load=0.92 0.96 0.94 memavail_kB=2308032
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1076 81.6 1496180 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1081  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22479  0.6 15460 S<Lsl /usr/bin/envd
+  44268   42868     760  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:15:28 load=0.97 0.97 0.95 memavail_kB=2275500
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1136 82.5 1527524 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1141  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22539  0.6 15740 S<Lsl /usr/bin/envd
+  44268   42868     820  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:16:28 load=0.99 0.98 0.96 memavail_kB=2220748
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1196 83.3 1551904 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1201  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22599  0.6 16004 S<Lsl /usr/bin/envd
+  44268   42868     880  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:17:28 load=1.00 0.98 0.96 memavail_kB=2216712
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1256 84.0 1552928 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1261  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22660  0.6 16004 S<Lsl /usr/bin/envd
+  44268   42868     940  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:18:28 load=0.97 0.97 0.96 memavail_kB=2002672
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1316 84.3 1801968 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1321  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22720  0.6 15524 S<Lsl /usr/bin/envd
+  44268   42868    1000  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:19:28 load=0.95 0.97 0.96 memavail_kB=1584824
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1376 84.3 2220776 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1381  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22780  0.6 15484 S<Lsl /usr/bin/envd
+  44268   42868    1060  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:20:28 load=0.98 0.97 0.97 memavail_kB=1561856
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1436 81.4 2246892 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1441  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22840  0.6 14740 S<Lsl /usr/bin/envd
+  44268   42868    1120  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:21:28 load=0.93 0.96 0.97 memavail_kB=1188268
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1496 81.8 2619912 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1501  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22900  0.6 14344 S<Lsl /usr/bin/envd
+  44268   42868    1180  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:22:28 load=0.81 0.91 0.95 memavail_kB=776136
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1556 79.2 2632924 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  47282   42868      39 96.4 467208 Rl  /home/user/.venv/bin/python /home/user/Drill-master/tests/m50_analysis_child.py
+  42740   42736    1561  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   22960  0.6 14500 S<Lsl /usr/bin/envd
+=== 11:23:28 load=0.97 0.95 0.96 memavail_kB=1165960
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1616 79.2 2637648 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1621  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23020  0.6 14760 S<Lsl /usr/bin/envd
+  44268   42868    1300  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:24:28 load=0.94 0.94 0.96 memavail_kB=825052
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1676 78.3 2666036 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  47710   42868      21 92.9 365880 Rl  /home/user/.venv/bin/python /home/user/Drill-master/tests/m51_analysis_child.py
+  42740   42736    1681  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23080  0.6 14512 S<Lsl /usr/bin/envd
+=== 11:25:28 load=0.98 0.95 0.97 memavail_kB=1123372
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1736 77.5 2671804 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1741  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23140  0.6 14496 S<Lsl /usr/bin/envd
+  44268   42868    1421  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:26:28 load=1.12 1.00 0.98 memavail_kB=780064
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1796 76.4 2680792 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  48181   42868      32 97.1 408104 Rl  /home/user/.venv/bin/python /home/user/Drill-master/tests/m52_analysis_child.py
+  42740   42736    1801  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23200  0.6 14416 S<Lsl /usr/bin/envd
+=== 11:27:28 load=0.73 0.92 0.96 memavail_kB=1100884
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1856 75.8 2683708 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1861  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23260  0.6 14796 S<Lsl /usr/bin/envd
+  44268   42868    1541  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:28:28 load=0.79 0.90 0.95 memavail_kB=1109244
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1916 75.8 2694964 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1921  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23320  0.6 14796 S<Lsl /usr/bin/envd
+  44268   42868    1601  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:29:28 load=0.96 0.94 0.96 memavail_kB=1099148
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    1976 76.3 2701932 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    1981  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23380  0.6 14500 S<Lsl /usr/bin/envd
+  44268   42868    1661  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:30:28 load=0.97 0.95 0.97 memavail_kB=1017324
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2036 76.9 2786200 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2041  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23440  0.6 14636 S<Lsl /usr/bin/envd
+  44268   42868    1721  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:31:28 load=0.79 0.91 0.96 memavail_kB=997648
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2096 76.7 2801888 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2101  0.0 22016 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23500  0.6 14512 S<Lsl /usr/bin/envd
+  44268   42868    1781  0.0 11200 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:32:28 load=0.89 0.92 0.96 memavail_kB=412320
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2156 77.1 3400996 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2161  0.0 21968 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23560  0.6 12032 S<Lsl /usr/bin/envd
+  44268   42868    1841  0.0 11124 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:33:28 load=0.96 0.94 0.96 memavail_kB=244432
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2216 77.7 3561992 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2221  0.0 21628 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23620  0.6 11080 S<Lsl /usr/bin/envd
+  44268   42868    1901  0.0 10840 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:34:28 load=1.04 0.95 0.97 memavail_kB=14532
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2277 76.1 3473928 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  50272   42868      43 31.9 321956 Rl  /home/user/.venv/bin/python -X faulthandler /home/user/Drill-master/tools/quality/ux_responsiveness_m95.py --days 5 --logs 3 --n 1
+  42740   42736    2282  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23680  0.6  8196 S<Lsl /usr/bin/envd
+=== 11:35:29 load=1.27 1.04 1.00 memavail_kB=2132
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2337 74.2 3473928 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  50272   42868     104 27.0 333364 Rl  /home/user/.venv/bin/python -X faulthandler /home/user/Drill-master/tools/quality/ux_responsiveness_m95.py --days 5 --logs 3 --n 1
+  42740   42736    2342  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23741  0.6  9236 S<Lsl /usr/bin/envd
+=== 11:36:29 load=1.50 1.14 1.04 memavail_kB=0
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2398 72.3 3473928 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  50272   42868     164 25.6 335396 Rl  /home/user/.venv/bin/python -X faulthandler /home/user/Drill-master/tools/quality/ux_responsiveness_m95.py --days 5 --logs 3 --n 1
+  42740   42736    2403  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23802  0.6  8312 S<Lsl /usr/bin/envd
+=== 11:37:30 load=1.39 1.17 1.05 memavail_kB=0
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2459 70.5 3473928 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  50272   42868     225 24.3 337424 Dl  /home/user/.venv/bin/python -X faulthandler /home/user/Drill-master/tools/quality/ux_responsiveness_m95.py --days 5 --logs 3 --n 1
+  42740   42736    2464  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23862  0.6  8496 S<Lsl /usr/bin/envd
+=== 11:38:31 load=1.49 1.25 1.09 memavail_kB=0
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2519 68.8 3473928 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  50272   42868     286 23.6 339984 Rl  /home/user/.venv/bin/python -X faulthandler /home/user/Drill-master/tools/quality/ux_responsiveness_m95.py --days 5 --logs 3 --n 1
+  42740   42736    2524  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23923  0.6  8376 S<Lsl /usr/bin/envd
+=== 11:39:31 load=1.37 1.25 1.10 memavail_kB=236740
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2580 69.3 3537252 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2584  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   23983  0.6 15092 S<Lsl /usr/bin/envd
+  44268   42868    2264  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:40:31 load=1.17 1.21 1.09 memavail_kB=211648
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2640 69.5 3539028 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2644  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   24043  0.6 11524 S<Lsl /usr/bin/envd
+  44268   42868    2324  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:41:31 load=1.06 1.17 1.09 memavail_kB=191908
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2700 69.3 3536612 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2705  0.0 15712 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   24103  0.6 10060 S<Lsl /usr/bin/envd
+  44268   42868    2384  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:42:31 load=0.94 1.12 1.07 memavail_kB=245128
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2760 69.2 3529604 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2765  0.0 15700 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   24163  0.6 12716 S<Lsl /usr/bin/envd
+  44268   42868    2444  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:43:31 load=0.98 1.10 1.07 memavail_kB=158840
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2820 69.7 3578064 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2825  0.0 15700 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   24223  0.6 12936 S<Lsl /usr/bin/envd
+  44268   42868    2504  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:44:31 load=1.07 1.09 1.07 memavail_kB=211316
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2880 70.1 3584372 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2885  0.0 15700 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   24283  0.6 13020 S<Lsl /usr/bin/envd
+  44268   42868    2564  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:45:31 load=1.03 1.08 1.06 memavail_kB=218780
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    2940 70.1 3574028 Rl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    2945  0.0 15700 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   24343  0.6 12448 S<Lsl /usr/bin/envd
+  44268   42868    2624  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
+=== 11:46:31 load=0.66 0.97 1.02 memavail_kB=202732
+    PID    PPID ELAPSED %CPU   RSS STAT COMMAND
+  42868   42740    3000 69.3 3570344 Sl /home/user/.venv/bin/python -m pytest -ra --junitxml=/tmp/drillmaster-pytest-hs8s6_x1/results.xml
+  42740   42736    3005  0.0 17292 S    /home/user/.venv/bin/python verify_release.py --expected-sha 27640711eb086496fe961e73c2908768d44de8b8
+   1229       1   24403  0.6 12584 S<Lsl /usr/bin/envd
+  44268   42868    2684  0.0  5632 S    /home/user/.venv/bin/python -c from multiprocessing.resource_tracker import main;main(17)
