@@ -1861,7 +1861,7 @@
     23,
     24,
     25,
-    2823
+    2827
    ],
    "module": "PySide6"
   },
@@ -2700,8 +2700,8 @@
    "file": "main_window.py",
    "guarded": true,
    "lines": [
-    881,
-    892
+    885,
+    896
    ],
    "module": "qtribbon"
   },

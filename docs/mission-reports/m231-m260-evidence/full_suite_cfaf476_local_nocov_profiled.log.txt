@@ -1,0 +1,225 @@
+Tue Nov 17 07:33:33 UTC 2026
+=================================== FAILURES ===================================
+________________________ test_m169_twenty_step_journey _________________________
+
+window = (<main_window.MainWindow(0x32ae55c0) at 0x7efffa33bf40>, <core.database.DatabaseManager object at 0x7effcfd81550>, {'alpha': 2, 'twin_1': 3, 'twin_2': 4, 'persian': 5, ...})
+tmp_path = PosixPath('/tmp/pytest-of-user/pytest-60/test_m169_twenty_step_journey0')
+caplog = <_pytest.logging.LogCaptureFixture object at 0x7effcfa62f90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7effcfd9abd0>
+
+    def test_m169_twenty_step_journey(window, tmp_path, caplog, monkeypatch):  # noqa: F811
+        from PySide6.QtWidgets import QMessageBox
+        for name, answer in (("information", QMessageBox.Ok), ("warning", QMessageBox.Ok),
+                             ("critical", QMessageBox.Ok), ("question", QMessageBox.No)):
+            monkeypatch.setattr(QMessageBox, name, staticmethod(lambda *a, _answer=answer, **k: _answer))
+        from core import ddr_import_pipeline as pipe
+        from core.database import AuditLog, TimeLog24H
+        from core.ddr_continuation import DEFERRED_UNRESOLVED, SAFELY_ATTACHED_CONTINUATION
+        from core.ddr_import_service import DDRImportService
+        from core.engineering import tubular_reference as tr
+        from core.import_quality import apply_review_decisions
+        from core.import_router import route_file
+        from core.managers import AutoSaveManager
+        from core.selection_manager import SelectionManager
+        from core.workbook_io import DATA_VALIDATION_NOTICE, load_workbook_readonly_safe
+        from dialogs.excel_import_dialog import has_meaningful_canonical_data
+        from dialogs.import_review_dialog import ImportReviewDialog
+        from dialogs.tubular_reference_dialog import TubularReferenceDialog
+    
+        win, db, ids = window
+        well = ids["alpha"]
+    
+        # 1. The real window offers the review queue and the tubular library.
+        actions = [a.text() for m in win.menuBar().findChildren(type(win.menuBar().actions()[0].menu()))
+                   for a in m.actions()]
+        assert any("Import Review Queue" in t for t in actions) and any("Tubular Reference Library" in t for t in actions)
+    
+        # 2. A copy of the synthetic workbook; its fingerprint is recorded.
+        source = tmp_path / "journey.xlsx"
+        shutil.copyfile(FIXTURE, source)
+        before = _sha(source)
+    
+        # 3. Real pipeline: version 2 and the three 24-hour continuation proposals with proven parents.
+        service = DDRImportService()
+        out = pipe.prepare_import(str(source), route=route_file, template_matcher=service._auto_match_template,
+                                  extract_file=service.extract_file, meaningful=has_meaningful_canonical_data)
+        assert out.import_report["pipeline_version"] == 2
+        continuations = [r for r in out.import_report["review"] if r.get("review_type") == "continuation"]
+        day = [r for r in continuations if r["detected_table"] == "time_logs_24h"]
+        assert [r["parent"]["row"] for r in day] == [24, 27, 32] and all(r["eligible"] for r in day)
+    
+        # 4. The user attaches one proposal and leaves the rest open (explicit partial import).
+        day[0]["decision"] = "ATTACH_CONTINUATION"
+        extracted = out.extracted
+        apply_review_decisions(extracted, out.import_report["review"])
+        # M175: the workbook names another well than the selected one -> explicit operator decision, audited.
+        from core.ddr_well_identity import CHOOSE_SELECTED, make_decision
+        target = DDRImportService(db, well)
+        assessment = target.assess_well_identity(extracted["well_info"])
+        assert assessment.requires_decision, assessment.to_dict()
+        extracted["metadata"]["well_identity_decision"] = make_decision(
+            assessment, CHOOSE_SELECTED, "the selected well is the operated well of this synthetic report")
+        result = target.import_records(extracted)
+        assert result["report_id"], result
+        report_id = result["report_id"]
+        with db.session_scope() as session:
+            from core.database import DailyReport
+            assert session.get(DailyReport, report_id).well_id == well     # filed under the selected well
+    
+        # 5. Truthful outcome: one attached; every undecided row (continuations AND scalar reviews) retained.
+        queue = result["review_queue"]
+        undecided = len(out.import_report["review"]) - 1
+        assert queue["attached"] == 1 and queue["pending"] == undecided and queue["total"] == undecided + 1
+    
+        # 6. Seven time logs; only the attached parent carries a line break.
+        with db.session_scope() as session:
+            texts = [r.activity_description for r in
+                     session.query(TimeLog24H).filter_by(report_id=report_id).order_by(TimeLog24H.id)]
+        assert len(texts) == 7 and sum("\n" in t for t in texts) == 1 and "\n" in texts[0]
+    
+        # 7. The persisted queue holds every proposal with its state.
+        items = db.get_import_review_items(well, report_id=report_id)
+        assert len([i for i in items if i["state"] == DEFERRED_UNRESOLVED]) == undecided     # persisted, not just counted
+        states = sorted(i["state"] for i in items if i["review_type"] == "continuation")
+        assert states.count(SAFELY_ATTACHED_CONTINUATION) == 1
+        assert states.count(DEFERRED_UNRESOLVED) == len(continuations) - 1
+    
+        # 8. The review workspace (real dialog) shows the open items.
+        dialog = ImportReviewDialog(db, well, win, report_id=report_id)
+        _pump(0.1)
+        assert dialog.table.rowCount() == undecided
+        dialog.close()
+    
+        # 9. A deferred eligible 24-hour continuation is attached later through the audited operation.
+        pending = [i for i in items if i["state"] == DEFERRED_UNRESOLVED and i["eligible"]
+                   and i.get("detected_table", "time_logs_24h") == "time_logs_24h"]
+        attached = db.resolve_import_review_item(pending[0]["id"], well, "ATTACH_CONTINUATION")
+        assert attached["state"] == SAFELY_ATTACHED_CONTINUATION
+        with db.session_scope() as session:
+            texts = [r.activity_description for r in session.query(TimeLog24H).filter_by(report_id=report_id)]
+        assert sum("\n" in t for t in texts) == 2 and len(texts) == 7
+    
+        # 10. Another one is rejected; a decided item is never decided again.
+        rejected = db.resolve_import_review_item(pending[1]["id"], well, "REJECT")
+        assert rejected["state"] == "REJECTED"
+        with pytest.raises(ValueError, match="already decided"):
+            db.resolve_import_review_item(pending[1]["id"], well, "ATTACH_CONTINUATION")
+    
+        # 11. A foreign well cannot decide this well's item.
+        other = next(w for w in (ids["alpha"], ids["twin_1"]) if w != well)
+        with pytest.raises((ValueError, PermissionError)):
+            db.resolve_import_review_item(pending[-1]["id"], other, "IGNORE")
+        assert [i["state"] for i in db.get_import_review_items(well) if i["id"] == pending[-1]["id"]] == [
+            DEFERRED_UNRESOLVED]
+    
+        # 12. Every decision is audited.
+        with db.session_scope() as session:
+            assert session.query(AuditLog).filter_by(action="ddr_review_decision").count() >= 2
+    
+        # 13. The source workbook was never modified.
+        assert _sha(source) == before
+    
+        # 14. A selection change reaches the hidden Daily Report tab as a pending context.
+        daily = _tab(win, "DailyReportWidget")
+        win.tab_widget.setCurrentIndex(0)
+        _pump(0.1)
+        manager = SelectionManager()
+        manager.select_well(other, {"name": "other"}, force=True)
+        _pump(0.2)
+        assert not daily.isVisible() and not daily.save_context_ready()
+        assert "not loaded yet" in daily.context_block_reason()
+    
+        # 15. Its timer tick saves nothing and raises no CONTEXT_BLOCKED warning (no edits were held back).
+        with caplog.at_level(logging.DEBUG, logger="core.managers"):
+            outcome = AutoSaveManager.save_widget("Daily Report", daily)
+        assert outcome.disposition == "NO_CHANGES"
+>       assert not [r for r in caplog.records if r.levelname == "WARNING" and "CONTEXT_BLOCKED" in r.getMessage()]
+E       assert not [<LogRecord: core.managers, 30, /home/user/Drill-master/core/managers.py, 114, "Auto-save: %s">]
+
+tests/test_m169_end_to_end_journey.py:160: AssertionError
+------------------------------ Captured log setup ------------------------------
+INFO     tabs.w3_drilling_report:w3_drilling_report.py:374 DrillingParametersTab initialized
+INFO     tabs.w3_drilling_report:w3_drilling_report.py:1206 MudReportTab initialized
+INFO     tabs.w3_drilling_report:w3_drilling_report.py:193 ✅ All tabs registered
+INFO     tabs.w3_drilling_report:w3_drilling_report.py:138 DrillingReport initialized
+INFO     tabs.w4_Downhole_Widget:w4_Downhole_Widget.py:55 DownholeWidget initialized
+INFO     tabs.w7_logistics_Widget:w7_logistics_Widget.py:1834 LogisticsWidget initialized with all managers
+INFO     core.database:database.py:10878 Created 6 default procedure templates
+INFO     tabs.w13_Engineering_Calculator:w13_Engineering_Calculator.py:475 Optional DrillPipe vendor reference unavailable. Set DRILLMASTER_DRILLPIPE_PATH or place DrillPipe.xlsx in the application data directory. Other calculations remain available. Searched: [PosixPath('/tmp/pytest-of-user/pytest-60/m70_window1/DrillPipe.xlsx'), PosixPath('/home/user/Drill-master/resources/DrillPipe.xlsx'), PosixPath('/home/user/Drill-master/data/DrillPipe.xlsx'), PosixPath('/home/user/Drill-master/DrillPipe.xlsx'), PosixPath('/home/user/Drill-master/tabs/DrillPipe.xlsx')]
+------------------------------ Captured log call -------------------------------
+INFO     core.workbook_io:workbook_io.py:41 journey.xlsx: Excel data-validation dropdown definitions are not read (openpyxl does not support the extension); cell values are imported unchanged and the workbook is not modified.
+INFO     core.workbook_io:workbook_io.py:41 journey.xlsx: Excel data-validation dropdown definitions are not read (openpyxl does not support the extension); cell values are imported unchanged and the workbook is not modified.
+WARNING  core.managers:managers.py:114 Auto-save: CONTEXT_BLOCKED: 0 save operation(s) completed; section counts: {'CONTEXT_BLOCKED': 2}.
+BOP: This section has not loaded the selected context successfully; no saver was invoked. — Reload this section and resolve its load error before saving.
+Waste: This section has not loaded the selected context successfully; no saver was invoked. — Reload this section and resolve its load error before saving.
+DEBUG    core.managers:managers.py:107 Auto-save skipped for Daily Report: no edits; well 3 is selected but not loaded yet; the tab has not been opened since the selection changed
+---------------------------- Captured log teardown -----------------------------
+INFO     tabs.w3_drilling_report:w3_drilling_report.py:1620 Mud type changed to 
+WARNING  core.managers:managers.py:114 Auto-save: CONTEXT_BLOCKED: 0 save operation(s) completed; section counts: {'CONTEXT_BLOCKED': 2}.
+BOP: This section has not loaded the selected context successfully; no saver was invoked. — Reload this section and resolve its load error before saving.
+Waste: This section has not loaded the selected context successfully; no saver was invoked. — Reload this section and resolve its load error before saving.
+INFO     tabs.w4_Downhole_Widget:w4_Downhole_Widget.py:653 DownholeWidget cleanup complete
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:241
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+<frozen importlib._bootstrap>:241
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:64: PyparsingDeprecationWarning: 'oneOf' deprecated - use 'one_of'
+    prop = Group((name + Suppress("=") + comma_separated(value)) | oneOf(_CONSTANTS))
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:85: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
+    parse = parser.parseString(pattern)
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:89: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
+    parser.resetCache()
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_mathtext.py:45: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+tests/test_ddr_regression.py: 1 warning
+tests/test_excel_intelligence_regressions.py: 4 warnings
+tests/test_golden_ddr.py: 1 warning
+tests/test_m213_excel_limits.py: 1 warning
+tests/test_privacy_check.py: 1 warning
+tests/test_production_import_guarantees.py: 1 warning
+tests/test_real_oeoc_golden.py: 1 warning
+tests/test_review_contract_certification.py: 3 warnings
+  /home/user/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+    warn(msg)
+
+tests/test_release.py::TestReleaseVerification::test_file_sizes_reasonable
+  /home/user/Drill-master/tests/test_release.py:179: UserWarning: Large files (>3000 lines): [('main_window.py', 3333), ('database.py', 11189), ('w12_Analysis.py', 4403), ('w13_Engineering_Calculator.py', 6360)]
+    warnings.warn(f"Large files (>3000 lines): {large_files}")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+D74 closed MainWindows still alive: 14 after test_m95_ux_responsiveness (169575 live widgets); first left by: test_m102_context_probes, test_m139_end_to_end_journey, test_m153_context_blocked_autosave, test_m169_end_to_end_journey, test_m190_tubular_journey, test_m217_day_by_day_carry_forward, test_m227_data_quality_workspace, test_m229_product_journey, test_m45_ui, test_m70_selection_audit
+D53 GC policy: 1 collection(s) started off the main thread (threads: d53-explicit)
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_ddr_acceptance.py:33: DRILLMASTER_TEST_DDR_XLSX is not set; real DDR acceptance is opt-in
+SKIPPED [1] tests/test_ddr_acceptance.py:33: DRILLMASTER_TEST_DDR_PDF is not set; real DDR acceptance is opt-in
+SKIPPED [1] tests/test_mineru_real_integration.py:26: Set MINERU_INTEGRATION_INPUT to run against a real MinerU installation
+SKIPPED [1] tests/test_packaging_smoke.py:221: Windows bundle not available in this environment
+FAILED tests/test_m169_end_to_end_journey.py::test_m169_twenty_step_journey
+1 failed, 5521 passed, 4 skipped, 33 warnings in 6072.49s (1:41:12)
+sys:1: DeprecationWarning: builtin type swigvarlink has no __module__ attribute

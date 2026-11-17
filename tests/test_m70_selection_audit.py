@@ -166,3 +166,22 @@ def test_the_export_tab_follows_the_well_through_a_bound_method_of_the_window(wi
     source = inspect.getsource(main_window.MainWindow.create_tabs)
     assert "well_changed.connect(self._export_follows_well)" in source
     assert "self.export_widget.set_current_well" not in source
+
+
+def test_zz_an_accepted_close_stops_every_autosave_timer_of_the_window(window):
+    """M234: a closed window kept its tabs' autosave timers running (every 5 min, against its context) - in the
+    suite, hidden windows logged CONTEXT_BLOCKED autosaves into later tests. Runs last in this module (it closes
+    the module's window; the fixture's own close afterwards is a repeat)."""
+    win, _db, _ids = window
+    managers = win._autosave_managers()
+    timers = [timer for manager in managers for timer in manager._timers.values()]
+    assert timers and any(timer.isActive() for timer in timers)
+    end = time.monotonic() + 10
+    while win._hierarchy_worker is not None and time.monotonic() < end:
+        _pump(0.05)
+    win._close_confirmed = True
+    win.close()
+    _pump(0.1)
+    assert not win.isVisible()
+    assert not [timer for timer in timers if timer.isActive()]
+    assert not any(manager._enabled for manager in managers)

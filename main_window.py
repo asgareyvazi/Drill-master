@@ -564,6 +564,10 @@ class MainWindow(QMainWindow):
             self.session_lock.shutdown()        # removes the application-wide idle filter
         if hasattr(self, 'time_timer') and self.time_timer.isActive():
             self.time_timer.stop()
+        # A closed window saves nothing in the background: its autosave timers belong to its tabs and kept firing
+        # after the close (M234 - hidden test windows logged CONTEXT_BLOCKED autosaves into later tests).
+        for manager in self._autosave_managers():
+            manager.set_enabled(False)
 
         self.cleanup()
         event.accept()
