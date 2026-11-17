@@ -1,0 +1,12 @@
+run 1 exit=0 seconds=20 
+run 2 exit=0 seconds=20 
+run 3 exit=0 seconds=21 
+run 4 exit=0 seconds=20 
+run 5 exit=0 seconds=21 
+run 6 exit=0 seconds=21 
+run 7 exit=0 seconds=20 
+run 8 exit=0 seconds=21 
+cpu-contention run 1 exit=0 seconds=30
+cpu-contention run 2 exit=0 seconds=32
+cpu-contention run 3 exit=0 seconds=31
+cpu-contention run 4 exit=0 seconds=31
