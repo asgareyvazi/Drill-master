@@ -1,0 +1,24 @@
+"""Diagnostic only (M234): destroy the first K QObject children of the closed MainWindow, then the window."""
+import os
+import pytest
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    yield
+    if nextitem is not None: return
+    import shiboken6
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QApplication
+    from main_window import MainWindow
+    lo, hi = (int(x) for x in os.environ["M234_RANGE"].split(":"))
+    for w in QApplication.topLevelWidgets():
+        if isinstance(w, MainWindow):
+            kids = list(w.children())
+            os.write(2, f"CHILDREN {len(kids)}\n".encode())
+            for i, child in enumerate(kids[lo:hi], lo):
+                if shiboken6.isValid(child):
+                    os.write(2, f"PRE {i} {type(child).__module__}.{type(child).__name__} {child.objectName()!r}\n".encode())
+                    child.deleteLater(); QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+            os.write(2, b"WINDOW\n")
+            w.deleteLater(); QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+            os.write(2, b"WINDOW-OK\n")

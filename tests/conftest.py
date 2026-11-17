@@ -82,11 +82,55 @@ def flush_deferred_deletes() -> int:
     return before - len(QApplication.allWidgets())
 
 
-@pytest.fixture(autouse=True, scope="module")
-def _flush_deferred_deletes_per_module():
-    """After each test module (and after its own module fixtures), run the deletions it left pending (D52)."""
+_D74_LEFT_ALIVE: list[tuple[str, int, int]] = []    # (module, closed MainWindows still alive, live widgets)
+
+
+def closed_main_windows() -> list:
+    """The application ``MainWindow`` objects that are closed (hidden) but still alive.
+
+    D74 (M234, ``docs/mission-reports/m231-m260-evidence/d74_*``): ``close()`` on a window without
+    ``WA_DeleteOnClose`` only hides it, and a ``MainWindow`` is then kept alive by a cycle the garbage collector
+    cannot see: lambdas connected to its child widgets' signals capture the window, and Shiboken holds those
+    connections outside the collector's reach (a bound-method slot or a plain attribute back-reference is
+    collected - ``tests/test_d74_deferred_deletes_and_window_leak.py``). Every module fixture that closes its window leaves about 9,500 widgets alive for the rest
+    of the session (169,631 live widgets and 3.53 GB of anonymous memory in the pytest process when
+    ``test_m95_ux_responsiveness`` started its child). They are NOT destroyed here: destroying closed main
+    windows and collecting their garbage segfaulted in the garbage collector in 1 of 4 runs of three window
+    modules (M237), so they are only reported.
+    """
+    import sys
+    if "PySide6.QtWidgets" not in sys.modules or "main_window" not in sys.modules:
+        return []
+    from PySide6.QtWidgets import QApplication
+    if QApplication.instance() is None:
+        return []
+    window_type = sys.modules["main_window"].MainWindow
+    return [widget for widget in QApplication.topLevelWidgets()
+            if isinstance(widget, window_type) and not widget.isVisible()]
+
+
+@pytest.fixture(autouse=True)
+def _flush_deferred_deletes_per_test():
+    """After each test's own teardown, run the deletions it left pending (D74, extending D52 to every test).
+
+    A function fixture that calls ``deleteLater()`` on its tab kept that tab alive until the end of the module:
+    ``test_m87_w13_contracts`` accumulated 1,647 widgets per parametrized case, 49,428 in all, and the heap
+    grew by 717 MB, which the allocator does not return to the system.
+    """
     yield
     flush_deferred_deletes()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _flush_deferred_deletes_per_module(request):
+    """After each test module (and after its own module fixtures), run the deletions it left pending (D52), and
+    record the closed main windows that are still alive (D74, listed in the terminal summary)."""
+    yield
+    flush_deferred_deletes()
+    windows = closed_main_windows()
+    if windows and (not _D74_LEFT_ALIVE or _D74_LEFT_ALIVE[-1][1] != len(windows)):
+        from PySide6.QtWidgets import QApplication
+        _D74_LEFT_ALIVE.append((request.module.__name__, len(windows), len(QApplication.allWidgets())))
 
 
 # ---- D53: cyclic garbage collection only on the main (GUI) thread, as the application runs it ----------
@@ -166,6 +210,11 @@ def _gui_thread_garbage_collection(request):
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    if _D74_LEFT_ALIVE:
+        module, windows, widgets = _D74_LEFT_ALIVE[-1]
+        terminalreporter.write_line(
+            f"D74 closed MainWindows still alive: {windows} after {module} ({widgets} live widgets); "
+            f"first left by: " + ", ".join(name for name, _, _ in _D74_LEFT_ALIVE[:10]))
     if _GC_WATCH["reenabled"]:
         terminalreporter.write_line(
             f"D53 GC policy: automatic collection was switched back on by {len(_GC_WATCH['reenabled'])} test(s) "

@@ -1,0 +1,31 @@
+"""Diagnostic only (M234): at each module boundary measure RSS, then after gc.collect(), then after malloc_trim(0)."""
+import ctypes, gc, os, sys, time
+import pytest
+
+OUT = open(os.environ["M234_BOUNDARY_OUT"], "w")
+OUT.write("module,anon_end_kb,anon_after_gc_kb,anon_after_trim_kb,collected,widgets,gc_objects_after\n")
+_libc = ctypes.CDLL("libc.so.6")
+
+def _anon():
+    for line in open("/proc/self/status"):
+        if line.startswith("RssAnon:"):
+            return int(line.split()[1])
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    yield
+    module = item.nodeid.split("::")[0]
+    if nextitem is not None and nextitem.nodeid.split("::")[0] == module:
+        return
+    a = _anon()
+    collected = gc.collect() if os.environ.get("M234_GC") == "1" else 0
+    b = _anon()
+    if os.environ.get("M234_TRIM") == "1":
+        _libc.malloc_trim(0)
+    c = _anon()
+    w = ""
+    if "PySide6.QtWidgets" in sys.modules:
+        from PySide6.QtWidgets import QApplication
+        if QApplication.instance() is not None:
+            w = len(QApplication.allWidgets())
+    OUT.write(f"{module},{a},{b},{c},{collected},{w},{len(gc.get_objects())}\n"); OUT.flush()

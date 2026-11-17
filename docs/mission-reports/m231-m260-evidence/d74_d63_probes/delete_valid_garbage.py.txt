@@ -1,0 +1,28 @@
+"""Diagnostic only (M237): keep the session's cyclic garbage, then destroy each still-valid Qt object in it one at
+a time (by type, logged before and after) to find the destructor that crashes."""
+import collections, gc, os
+import pytest
+
+def _log(t): os.write(2, (t + "\n").encode())
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionfinish(session, exitstatus):
+    import shiboken6
+    from PySide6.QtCore import QObject
+    gc.set_debug(gc.DEBUG_SAVEALL)
+    gc.collect()
+    valid = [o for o in gc.garbage if isinstance(o, QObject) and shiboken6.isValid(o)]
+    order = os.environ.get("M237_ORDER", "")
+    _log(f"VALID {len(valid)} {collections.Counter(type(o).__qualname__ for o in valid).most_common(12)}")
+    for o in valid:
+        if not shiboken6.isValid(o):
+            continue
+        name = f"{type(o).__module__}.{type(o).__qualname__}"
+        if order and order not in name:
+            continue
+        parent = o.parent()
+        _log(f"DELETE {name} parent={type(parent).__qualname__ if parent is not None else None} owned_by_python={shiboken6.ownedByPython(o)}")
+        shiboken6.delete(o)
+        _log("  ok")
+    _log("ALL-DELETED")
+    os._exit(0)

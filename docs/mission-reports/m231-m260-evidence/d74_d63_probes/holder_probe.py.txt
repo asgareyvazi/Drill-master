@@ -1,0 +1,27 @@
+"""Diagnostic only (M234): after the session, report what still references each live MainWindow."""
+import gc, sys, types
+
+def pytest_sessionfinish(session, exitstatus):
+    from PySide6.QtWidgets import QApplication
+    from main_window import MainWindow
+    gc.collect()
+    tops = [w for w in QApplication.topLevelWidgets() if isinstance(w, MainWindow)]
+    print(f"\nM234 live widgets={len(QApplication.allWidgets())} MainWindow tops={len(tops)}")
+    wins = [o for o in gc.get_objects() if isinstance(o, MainWindow)]
+    print(f"M234 python MainWindow wrappers={len(wins)}")
+    for w in wins[:1]:
+        print("refcount", sys.getrefcount(w))
+        for r in gc.get_referrers(w):
+            if r is wins: continue
+            desc = type(r).__name__
+            if isinstance(r, dict):
+                owners = [type(o).__name__ + ":" + getattr(o, "__qualname__", getattr(o, "__name__", "")) for o in gc.get_referrers(r) if not isinstance(o, list)][:4]
+                keys = [k for k, v in r.items() if v is w][:3]
+                print(" dict keys", keys, "owned by", owners)
+            elif isinstance(r, types.MethodType):
+                print(" bound method", r.__func__.__qualname__, "referrers:", [type(x).__name__ for x in gc.get_referrers(r)][:5])
+            elif isinstance(r, types.CellType):
+                fns = [getattr(x, "__qualname__", type(x).__name__) for x in gc.get_referrers(r)]
+                print(" cell in", fns[:5])
+            else:
+                print(" ", desc, repr(r)[:150])

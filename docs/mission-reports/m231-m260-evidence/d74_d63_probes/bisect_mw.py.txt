@@ -1,0 +1,29 @@
+"""Diagnostic only (M234): destroy the closed MainWindow's QObject children one by one, depth-first, logging each."""
+import os
+import pytest
+
+def _log(text):
+    os.write(2, (text + "\n").encode())
+
+def _destroy(obj, depth, max_depth):
+    import shiboken6
+    from PySide6.QtCore import QCoreApplication, QEvent
+    if depth < max_depth:
+        for child in list(obj.children()):
+            if shiboken6.isValid(child):
+                _destroy(child, depth + 1, max_depth)
+    if not shiboken6.isValid(obj):
+        return
+    _log(f"{'  '*depth}DEL {type(obj).__module__}.{type(obj).__name__} {obj.objectName()!r}")
+    obj.deleteLater(); QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    _log(f"{'  '*depth}ok")
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    yield
+    if nextitem is not None: return
+    from PySide6.QtWidgets import QApplication
+    from main_window import MainWindow
+    for w in QApplication.topLevelWidgets():
+        if isinstance(w, MainWindow):
+            _destroy(w, 0, int(os.environ.get("M234_DEPTH", "1")))

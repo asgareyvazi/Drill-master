@@ -1,0 +1,15 @@
+import gc, weakref, sys
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QPushButton
+app = QApplication([])
+class AttrOnly(QMainWindow):
+    def __init__(self):
+        super().__init__(); self.tab = QWidget(self); self.tab.parent_window = self; self.setCentralWidget(self.tab)
+class LambdaSlot(QMainWindow):
+    def __init__(self):
+        super().__init__(); self.button = QPushButton(self); self.button.clicked.connect(lambda: self.setWindowTitle("x"))
+class BoundSlot(QMainWindow):
+    def __init__(self):
+        super().__init__(); self.button = QPushButton(self); self.button.clicked.connect(self.close)
+for cls in (AttrOnly, LambdaSlot, BoundSlot):
+    w = cls(); w.show(); w.close(); r = weakref.ref(w); del w; gc.collect(); app.processEvents(); gc.collect()
+    print(cls.__name__, "alive" if r() is not None else "collected")

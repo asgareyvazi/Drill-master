@@ -1,0 +1,8 @@
+"""Experiment only (M234): run the conftest's D52 deferred-delete flush after every test, not only per module."""
+import pytest
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    yield
+    from tests.conftest import flush_deferred_deletes
+    flush_deferred_deletes()

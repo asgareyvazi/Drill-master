@@ -1,0 +1,17 @@
+import os, sys
+import pytest
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    yield
+    if nextitem is not None: return
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QApplication
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    tops=[w for w in QApplication.topLevelWidgets() if w.parentWidget() is None and not w.isVisible()]
+    import shiboken6
+    for w in tops:
+        if not shiboken6.isValid(w):
+            continue
+        os.write(2, f"DEL {type(w).__module__}.{type(w).__name__} {w.objectName()!r}\n".encode())
+        w.deleteLater(); QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        os.write(2, b"  ok\n")

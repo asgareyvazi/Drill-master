@@ -1,0 +1,4 @@
+module,anon_end_kb,anon_after_gc_kb,anon_after_trim_kb,collected,widgets,gc_objects_after
+tests/test_m87_w13_contracts.py,196148,196148,196148,0,0,272438
+tests/test_d59_stale_partial.py,226080,226080,226080,0,0,474596
+tests/test_m125_w13_classification.py,235232,235232,235232,0,0,482657

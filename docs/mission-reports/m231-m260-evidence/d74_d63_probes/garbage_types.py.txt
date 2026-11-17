@@ -1,0 +1,23 @@
+"""Diagnostic only (M234/M237): at session end keep the cyclic garbage (DEBUG_SAVEALL) and print its Qt-related types."""
+import collections, gc, os
+import pytest
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionfinish(session, exitstatus):
+    import shiboken6
+    gc.set_debug(gc.DEBUG_SAVEALL)
+    gc.collect()
+    hist = collections.Counter()
+    invalid = collections.Counter()
+    for o in gc.garbage:
+        t = type(o)
+        mod = t.__module__ or ""
+        if isinstance(o, shiboken6.Shiboken.Object):
+            key = f"{mod}.{t.__qualname__}"
+            hist[key] += 1
+            if not shiboken6.isValid(o):
+                invalid[key] += 1
+    os.write(2, f"\nGARBAGE total={len(gc.garbage)} shiboken={sum(hist.values())} invalid={sum(invalid.values())}\n".encode())
+    for k, v in hist.most_common(40):
+        os.write(2, f"  {v:6d} invalid={invalid[k]:5d} {k}\n".encode())
+    os._exit(0)

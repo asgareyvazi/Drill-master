@@ -1207,12 +1207,9 @@ class MainWindow(QMainWindow):
         self.sel_manager.context_changed.connect(self._show_context_path)
         self.sel_manager.context_changed.connect(self.calculation_history_tab.on_context_changed)
         self.sel_manager.context_changed.connect(self.documents_tab.on_context_changed)
-        self.sel_manager.well_changed.connect(
-            lambda wid, wd: (
-                self.export_widget.set_current_well(wid, wd)
-                if hasattr(self, 'export_widget') else None
-            )
-        )
+        # A bound method, not a lambda: Qt drops the connection when this window is destroyed. The process-wide
+        # SelectionManager outlives the window, and a lambda kept calling into its deleted Export tab (M234).
+        self.sel_manager.well_changed.connect(self._export_follows_well)
         # DailyReport loads through DrillTabBase, retaining failed pending context.
     # ==================== Setup ====================
 
@@ -3035,6 +3032,11 @@ class MainWindow(QMainWindow):
 
     def on_section_changed(self, section_id, section_data):
         pass
+
+    def _export_follows_well(self, well_id, well_data):
+        """The Export tab follows the selected well (connected in ``create_tabs``)."""
+        if hasattr(self, 'export_widget'):
+            self.export_widget.set_current_well(well_id, well_data)
 
     def _show_selected_well(self, well_id, well_data):
         """Update only the status-bar well label (no selection state changes)."""

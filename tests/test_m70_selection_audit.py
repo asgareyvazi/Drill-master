@@ -150,3 +150,19 @@ def test_deleting_the_selected_well_clears_every_m61_m69_consumer(window):
     assert ids["twin_1"] not in _wells_of(history) and ids["alpha"] in _wells_of(history)
     history.well_only.setChecked(True)
     assert win.engineering_calc_tab.case_bar._well_id() is None
+
+
+def test_the_export_tab_follows_the_well_through_a_bound_method_of_the_window(window, monkeypatch):
+    """M234: a lambda on the process-wide SelectionManager kept calling into a destroyed window's Export tab;
+    a bound method of the window is dropped by Qt when the window is destroyed."""
+    win, _db, ids = window
+    seen = []
+    monkeypatch.setattr(win.export_widget, "set_current_well", lambda wid, wd: seen.append(wid))
+    SelectionManager().select_well(ids["alpha"], {"id": ids["alpha"], "name": "SYN-ALPHA"}, force=True)
+    _pump()
+    assert seen and seen[-1] == ids["alpha"]
+    import inspect
+    import main_window
+    source = inspect.getsource(main_window.MainWindow.create_tabs)
+    assert "well_changed.connect(self._export_follows_well)" in source
+    assert "self.export_widget.set_current_well" not in source
