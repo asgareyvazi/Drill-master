@@ -108,7 +108,7 @@ was not established (open item).
 ## 5. After – full suite with the profiler on `cfaf476` (fix items 1–4)
 
 `full_suite_cfaf476_local_nocov_profiled.log.txt`, `d74_profile_after_cfaf476_per_test.csv`,
-`d74_profile_after_cfaf476_memavailable.txt`: **5521 passed, 1 failed, 4 skipped in 6,072 s** (the profiler's
+`d74_profile_after_cfaf476_memavailable.txt` (in the CSV the parameter ids of the 31 `tests/test_privacy_check.py` cases are replaced by `[parameter-redacted-<index>]`: they are synthetic secret patterns that the repository privacy gate rightly refuses in a tracked file): **5521 passed, 1 failed, 4 skipped in 6,072 s** (the profiler's
 `gc.get_objects()` sampling and page-ins under memory pressure; the unprofiled run on `2764071` took 3,010 s).
 
 | Same test | Before (`eaa003f`) anon RSS / widgets | After (`cfaf476`) anon RSS / widgets |

@@ -1,0 +1,89 @@
+4b6514d778798ab3a49458a705e2e335e1c34862
+0
+Tue Nov 17 09:23:32 UTC 2026
+.....s.................................................................. [ 72%]
+=================================== FAILURES ===================================
+_________________ test_tracked_repository_population_is_clean __________________
+
+    def test_tracked_repository_population_is_clean():
+        """The CI gate: the committed tree has no privacy findings."""
+        result = subprocess.run([sys.executable, str(ROOT / "tools" / "privacy" / "privacy_check.py")],
+                                cwd=ROOT, capture_output=True, text=True, timeout=300)
+>       assert result.returncode == 0, result.stdout[-4000:]
+E       AssertionError: docs/mission-reports/m231-m260-evidence/d74_profile_after_cfaf476_per_test.csv:4238: windows-user-profile-path
+E         docs/mission-reports/m231-m260-evidence/d74_profile_after_cfaf476_per_test.csv:4239: private-key-block
+E         docs/mission-reports/m231-m260-evidence/d74_profile_after_cfaf476_per_test.csv:4240: github-token
+E         docs/mission-reports/m231-m260-evidence/d74_profile_after_cfaf476_per_test.csv:4241: aws-access-key
+E         docs/mission-reports/m231-m260-evidence/d74_profile_after_cfaf476_per_test.csv:4242: email-outside-allowed-domains
+E         docs/mission-reports/m231-m260-evidence/d74_profile_after_cfaf476_per_test.csv:4249: equipment-serial-number
+E         docs/mission-reports/m231-m260-evidence/d74_profile_after_cfaf476_per_test.csv:4250: equipment-serial-number
+E         privacy check: 1617 file(s) scanned, 7 finding(s)
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/home/user/.venv/bin/python', '/home/user/Drill-master/tools/privacy/privacy_check.py'], retur...er_cfaf476_per_test.csv:4250: equipment-serial-number\nprivacy check: 1617 file(s) scanned, 7 finding(s)\n', stderr='').returncode
+
+tests/test_privacy_check.py:178: AssertionError
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:241
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+<frozen importlib._bootstrap>:241
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:64: PyparsingDeprecationWarning: 'oneOf' deprecated - use 'one_of'
+    prop = Group((name + Suppress("=") + comma_separated(value)) | oneOf(_CONSTANTS))
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:85: PyparsingDeprecationWarning: 'parseString' deprecated - use 'parse_string'
+    parse = parser.parseString(pattern)
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_fontconfig_pattern.py:89: PyparsingDeprecationWarning: 'resetCache' deprecated - use 'reset_cache'
+    parser.resetCache()
+
+tests/test_audited_mutations.py::test_main_window_delete_routes_through_the_audited_service
+  /home/user/.venv/lib/python3.11/site-packages/matplotlib/_mathtext.py:45: PyparsingDeprecationWarning: 'enablePackrat' deprecated - use 'enable_packrat'
+    ParserElement.enablePackrat()
+
+tests/test_ddr_regression.py: 1 warning
+tests/test_excel_intelligence_regressions.py: 4 warnings
+tests/test_golden_ddr.py: 1 warning
+tests/test_m213_excel_limits.py: 1 warning
+tests/test_privacy_check.py: 1 warning
+tests/test_production_import_guarantees.py: 1 warning
+tests/test_real_oeoc_golden.py: 1 warning
+tests/test_review_contract_certification.py: 3 warnings
+  /home/user/.venv/lib/python3.11/site-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+    warn(msg)
+
+tests/test_release.py::TestReleaseVerification::test_file_sizes_reasonable
+  /home/user/Drill-master/tests/test_release.py:179: UserWarning: Large files (>3000 lines): [('main_window.py', 3337), ('database.py', 11189), ('w12_Analysis.py', 4403), ('w13_Engineering_Calculator.py', 6360)]
+    warnings.warn(f"Large files (>3000 lines): {large_files}")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+D74 closed MainWindows still alive: 14 after test_m95_ux_responsiveness (169136 live widgets); first left by: test_m102_context_probes, test_m139_end_to_end_journey, test_m153_context_blocked_autosave, test_m169_end_to_end_journey, test_m190_tubular_journey, test_m217_day_by_day_carry_forward, test_m227_data_quality_workspace, test_m229_product_journey, test_m45_ui, test_m70_selection_audit
+D53 GC policy: 1 collection(s) started off the main thread (threads: d53-explicit)
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_ddr_acceptance.py:33: DRILLMASTER_TEST_DDR_XLSX is not set; real DDR acceptance is opt-in
+SKIPPED [1] tests/test_ddr_acceptance.py:33: DRILLMASTER_TEST_DDR_PDF is not set; real DDR acceptance is opt-in
+SKIPPED [1] tests/test_mineru_real_integration.py:26: Set MINERU_INTEGRATION_INPUT to run against a real MinerU installation
+SKIPPED [1] tests/test_packaging_smoke.py:221: Windows bundle not available in this environment
+FAILED tests/test_privacy_check.py::test_tracked_repository_population_is_clean
+1 failed, 5522 passed, 4 skipped, 33 warnings in 2913.15s (0:48:33)
+sys:1: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
