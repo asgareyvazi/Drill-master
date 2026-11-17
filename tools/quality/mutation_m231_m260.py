@@ -27,8 +27,9 @@ MSE = "core/engineering/mse_persistence.py"
 RQ = "core/import_review_queue.py"
 MW = "main_window.py"
 
-TMSE = ["tests/test_mse_persistence.py", "tests/test_mse_save_widget_smoke.py"]
-TRQ = ["tests/test_m147_m152_ddr_continuation.py"]
+T239 = "tests/test_m239_review_queue_and_mse_summary.py"      # added for the five survivors of the first run (4df5c01)
+TMSE = ["tests/test_mse_persistence.py", "tests/test_mse_save_widget_smoke.py", T239]
+TRQ = ["tests/test_m147_m152_ddr_continuation.py", T239]
 TMW = ["tests/test_m70_selection_audit.py"]
 
 MUTANTS = [
