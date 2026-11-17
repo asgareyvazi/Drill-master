@@ -116,9 +116,17 @@ def _flush_deferred_deletes_per_test():
     A function fixture that calls ``deleteLater()`` on its tab kept that tab alive until the end of the module:
     ``test_m87_w13_contracts`` accumulated 1,647 widgets per parametrized case, 49,428 in all, and the heap
     grew by 717 MB, which the allocator does not return to the system.
+    It only delivers the pending deletions: counting ``QApplication.allWidgets()`` here (as the module flush does)
+    builds a wrapper list of every live widget - up to 170,000 - twice per test, which pushed two CI legs at
+    ``cfaf476`` past the 60-minute job limit.
     """
     yield
-    flush_deferred_deletes()
+    import sys
+    if "PySide6.QtWidgets" not in sys.modules:
+        return
+    from PySide6.QtCore import QCoreApplication, QEvent
+    if QCoreApplication.instance() is not None:
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
 
 @pytest.fixture(autouse=True, scope="module")

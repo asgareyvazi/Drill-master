@@ -1,0 +1,1 @@
+widgets=150000 allWidgets()=61.2 ms  sendPostedEvents=1.701 ms  -> 2 calls x 5527 tests = 11.3 min (local sandbox, 2026-11-17)

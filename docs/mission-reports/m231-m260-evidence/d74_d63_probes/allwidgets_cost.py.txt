@@ -1,0 +1,11 @@
+import time
+from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtWidgets import QApplication, QWidget, QLabel
+app = QApplication([])
+roots = []
+for i in range(1500):
+    r = QWidget(); [QLabel(r) for _ in range(99)]; roots.append(r)
+n = len(QApplication.allWidgets())
+t = time.perf_counter(); [len(QApplication.allWidgets()) for _ in range(10)]; a = (time.perf_counter() - t) / 10
+t = time.perf_counter(); [QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete) for _ in range(10)]; b = (time.perf_counter() - t) / 10
+print(f"widgets={n} allWidgets()={a*1000:.1f} ms  sendPostedEvents={b*1000:.3f} ms  -> 2 calls x 5527 tests = {2*a*5527/60:.1f} min")
