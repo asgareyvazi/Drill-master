@@ -21,6 +21,7 @@ from core.engineering.engines.casing import CasingEngine
 
 ROUNDED = 0.06  # engine values are rounded to 0.1 psi
 OLD_METHOD = "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME)"  # before the capped-end pi fix
+R2_METHOD = "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2)"  # before the D77 F fix
 
 
 def _oracle(od, id_, pi, pe, fax, capped=True):
@@ -77,8 +78,9 @@ def test_thin_wall_limit_internal_pressure_capped():
 
 def test_current_method_id_is_pinned():
     """Changing CasingEngine.METHOD invalidates the method of every saved run; it must be deliberate."""
-    assert CasingEngine.METHOD == "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2)"
-    assert CasingEngine.METHOD != OLD_METHOD
+    assert CasingEngine.METHOD == ("API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2;"
+                                   " transition F r3)")
+    assert CasingEngine.METHOD not in (OLD_METHOD, R2_METHOD)
 
 
 def test_run_saved_under_the_old_method_keeps_its_id_and_verifies_as_different():

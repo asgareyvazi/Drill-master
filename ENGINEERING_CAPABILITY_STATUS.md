@@ -62,6 +62,18 @@ ground-truth test copied the engine's expression; it now checks the force balanc
 and a thin-wall bound, and fails on the old code. `CasingEngine.METHOD` gained
 `capped-end r2`, so saved casing calculations made before the fix verify as
 `DIFFERENT` with `method_matches=False` instead of silently reproducing.
+
+**D77 – API 5C3 transition collapse (M239, fixed).** `CasingEngine._abc` computed the transition coefficient with
+the denominator `Yp (3 B/A - (B/A)^3 - 1)` instead of `Yp (r - B/A) (1 - r)^2`, r = 3(B/A)/(2 + B/A). F and G
+were negative, so the plastic/transition D/t limit lay above the transition/elastic one (55 ksi: 39.42 against
+37.21) and walls in the transition band were rated with the plastic formula. The ratings were too low
+(conservative but wrong): 9-5/8 in x 0.352 in, 55 ksi gave 1835.3 psi and now gives 2023.4 psi; 13-3/8 in x
+0.380 in, 55 ksi gave 493.1 psi and now gives 1130.5 psi; 10-3/4 in x 0.350 in, 80 ksi gave 705.4 psi and now
+gives 1730.7 psi. The yield, plastic and elastic regimes are unchanged (9-5/8 in x 0.472 in, 80 ksi stays 4754.0
+psi). The oracle in `tests/test_m239_engine_semantics.py` derives F from the condition that the transition line
+meets the elastic curve and checks continuity and tangency, without reusing the engine formula. `CasingEngine.METHOD`
+gained `transition F r3`, so runs saved earlier verify as `DIFFERENT`. Synthetic geometries; the method still needs
+owner approval (P12) and independent validation before engineering use.
 Limits: elastic Lamé stresses at the inner wall only; no temperature, wear,
 bending, connection VME or ISO 10400 design envelope; a screening check, not
 complete casing integrity.

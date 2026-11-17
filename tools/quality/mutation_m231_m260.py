@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Repeatable mutation run for M231-M260 (M239): unknown vs zero and missing vs default in the MSE input snapshot
 (report reproducibility), the DDR import review queue (continuation lineage, counting), and the M234 rule that a
-closed main window stops autosaving.
+closed main window stops autosaving; extended after the M241 finding that the casing engine, the
+torque-and-drag engine and the kill sheet were mutated by no catalogue (units, design factor, unknown inputs).
 
 Each mutant introduces ONE realistic defect in a scratch copy of the working tree and must be KILLED by the listed
 tests. Engine: ``tools/quality/mutation_m46.py`` (green baseline first; an anchor that does not match exactly once
@@ -26,11 +27,24 @@ from mutation_m46 import Mutant  # noqa: E402
 MSE = "core/engineering/mse_persistence.py"
 RQ = "core/import_review_queue.py"
 MW = "main_window.py"
+CAS = "core/engineering/engines/casing.py"
+TD = "core/engineering/engines/torque_drag.py"
+KS = "core/engineering/well_control_kill_sheet.py"
 
 T239 = "tests/test_m239_review_queue_and_mse_summary.py"      # added for the five survivors of the first run (4df5c01)
 TMSE = ["tests/test_mse_persistence.py", "tests/test_mse_save_widget_smoke.py", T239]
 TRQ = ["tests/test_m147_m152_ddr_continuation.py", T239]
 TMW = ["tests/test_m70_selection_audit.py"]
+TENG = "tests/test_m239_engine_semantics.py"            # added for the survivors of the extension (D77 found here)
+TCAS = [TENG, "tests/test_casing_vme_independent.py", "tests/test_casing_absent_load_semantics.py",
+        "tests/test_engineering_ground_truth.py", "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_completion.py"]
+TTD = [TENG, "tests/test_single_source_guard.py", "tests/test_release_gate_and_w13.py",
+       "tests/test_torque_drag_persistence.py", "tests/test_torque_drag_history.py",
+       "tests/test_engineering_ground_truth.py", "tests/test_m90_engine_qualification.py",
+       "tests/test_engineering_completion.py"]
+TKS = [TENG, "tests/test_well_control_kill_sheet.py", "tests/test_kill_sheet_casing_id_gate.py",
+       "tests/test_well_control_kill_sheet_persistence.py"]
 
 MUTANTS = [
     # Unknown vs zero / missing vs default: the frozen MSE input snapshot reproduces the engine call exactly.
@@ -86,6 +100,43 @@ MUTANTS = [
            "            manager.set_enabled(False)\n",
            "        # after the close (M234 - hidden test windows logged CONTEXT_BLOCKED autosaves into later tests).\n",
            TMW, "a closed main window keeps its tabs' autosave timers running"),
+    # Units and engineering semantics in engines no earlier catalogue mutated (found during M241).
+    Mutant("CAS-burst-wall-tolerance-dropped", CAS,
+           "            rating = 0.875 * 2.0 * yp * t / od\n",
+           "            rating = 2.0 * yp * t / od\n", TCAS,
+           "burst rating ignores the 87.5 % minimum-wall tolerance (overstates the rating by 14 %)"),
+    Mutant("CAS-design-factor-multiplies", CAS,
+           "            rating = 0.875 * 2.0 * yp * t / od\n            df = optional_number(design_factor, \"design_factor\")\n            if df is not None and df <= 0:\n                raise EngineeringError(\"design_factor must be > 0 when supplied\")\n            working = rating / df if df is not None else None\n",
+           "            rating = 0.875 * 2.0 * yp * t / od\n            df = optional_number(design_factor, \"design_factor\")\n            if df is not None and df <= 0:\n                raise EngineeringError(\"design_factor must be > 0 when supplied\")\n            working = rating * df if df is not None else None\n", TCAS,
+           "the burst working pressure multiplies by the design factor instead of dividing"),
+    Mutant("CAS-elastic-collapse-constant-typo", CAS,
+           "            rating = 46.95e6 / (dt * (dt - 1.0) ** 2)\n",
+           "            rating = 46.95e5 / (dt * (dt - 1.0) ** 2)\n", TCAS,
+           "elastic-collapse constant mistyped by a factor of 10"),
+    Mutant("TD-friction-factor-above-one-accepted", TD,
+           "        if not (0.0 <= ff <= 1.0):\n",
+           "        if not (0.0 <= ff):\n", TTD,
+           "a friction factor entered in percent (e.g. 25) is accepted"),
+    Mutant("TD-zero-mud-weight-accepted", TD,
+           "        mud = require_number(mud_density_ppg, \"mud_density_ppg\")\n        if mud <= 0:\n",
+           "        mud = require_number(mud_density_ppg, \"mud_density_ppg\")\n        if mud < 0:\n", TTD,
+           "an unknown mud weight placeholder 0 is treated as air (no buoyancy) instead of rejected"),
+    Mutant("TD-landing-friction-sign", TD,
+           "            hook = buoyed - friction\n",
+           "            hook = buoyed + friction\n", TTD,
+           "the landing hook load adds friction instead of subtracting it"),
+    Mutant("KS-unfilled-casing-id-assessed", KS,
+           "        and inp.casing_id_in > 0\n",
+           "", TKS,
+           "an unfilled casing ID (stored as 0) still yields annular volumes and strokes"),
+    Mutant("KS-shoe-below-td-assessed", KS,
+           "        and 0 <= inp.shoe_md_ft <= inp.md_ft\n",
+           "        and 0 <= inp.shoe_md_ft\n", TKS,
+           "a casing shoe deeper than the measured depth is used for annular geometry"),
+    Mutant("KS-partial-string-volume-reported-as-total", KS,
+           "    string_volume = total_string_vol if pipe_geometry_available else None\n",
+           "    string_volume = total_string_vol\n", TKS,
+           "a pipe program shorter than MD is reported as the full string volume"),
 ]
 
 

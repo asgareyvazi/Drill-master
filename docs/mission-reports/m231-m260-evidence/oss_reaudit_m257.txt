@@ -1,0 +1,51 @@
+ 1 ShreshthSrivastav/DrillingAdvisor                            UNCHANGED
+ 2 jonnymaserati/welleng                                        UNCHANGED
+ 3 BillyFrcs/DrillingEngineeringOperations                      UNCHANGED
+ 4 Kukuruza24110/well-engineer                                  UNCHANGED
+ 5 dasvan/engineering-calculations                              UNCHANGED
+ 6 manjramkar/Drilling-Engineering                              UNCHANGED
+ 7 Otto-Destiny/3d_well_trajectory_visualization                UNCHANGED
+ 8 juangjuang74-eng/drilling-engineer-toolkit                   UNCHANGED
+ 9 mengyangcup/drilling_engineering_design                      UNCHANGED
+10 johnryan417/python-for-drilling-engineers                    UNCHANGED
+11 Himageo2006/mud-engineer-pro                                 NEW COMMITS
+12 f0nzie/volve-drilling                                        UNCHANGED
+13 jntran08/DataAnalyticsforEngineering                         UNCHANGED
+14 ejbo2001/3D-directional-drilling-engine                      UNCHANGED
+15 pro-well-plan/pwptemp                                        UNCHANGED
+16 fraclad/wellArchitectureDesign                               UNCHANGED
+17 bpamos/welltrajconvert                                       UNCHANGED
+18 pro-well-plan/torque_drag                                    UNCHANGED
+19 almasovAzad/Wellbore_Stability                               UNCHANGED
+20 Atashnezhad/Petroleum_Engineering                            UNCHANGED
+21 maribickpostanes/Interactive-Well-Trajectory-Plot            UNCHANGED
+22 ArokyaMatthew/DrillMind                                      UNCHANGED
+23 geoharkat/Directional-Well-Planner                           UNCHANGED
+24 FrancisFM/Smart-PAD-Scheduler                                UNCHANGED
+25 kcabrera-oil-gas/drilling-optimization                       UNCHANGED
+26 poetabdullah/DrillSense                                      UNCHANGED
+27 wjwhitmire/npt-cost                                          UNCHANGED
+28 wjwhitmire/wellpath                                          UNCHANGED
+29 djimrastephane/DDR_UTAH_FORGE                                UNCHANGED
+30 wjwhitmire/kill-sheet                                        UNCHANGED
+31 wjwhitmire/cement-calc                                       UNCHANGED
+32 gewazy/DrillingManagementStudio                              UNCHANGED
+33 B0yko/wellbrief                                              NEW COMMITS
+34 chinuckb/Drilling-Well-Path-Design                           UNCHANGED
+35 awojinrin/ML-Workflow-for-the-Determination-of-Hole-Cleaning-Conditions UNCHANGED
+36 mhnajafi7/pdf-report-table-extractor                         UNCHANGED
+37 nmamzada/drilling-report-database                            UNCHANGED
+38 aytacbie/drilling-reports-ds-pipeline                        UNCHANGED
+39 djimrastephane/ddr-rag-book                                  UNCHANGED
+40 geoharkat/welltraj                                           UNCHANGED
+41 ldocallaghan/BoreTHM                                         NEW COMMITS
+42 SiliconWit/drillstring-surface-recoverability                UNCHANGED
+43 imadeddinedjekoune/DrillAR-Sonatrach                         UNCHANGED
+44 NajafiIB/wellbore-stability-model-selector                   UNCHANGED
+45 Anatoly5ms/drilling_complication_prognostication             UNCHANGED
+46 Athori99/RigTrack-Drilling-Dashboard-PHR                     UNCHANGED
+47 DrillerDB/drillerdb-mcp                                      UNCHANGED
+48 api-evangelist/national-oilwell-varco                        ARCHIVED
+49 BJZ-BJZ/marine-deepsea-drilling                              UNCHANGED
+50 avrangainulloev/DrillingCore                                 UNCHANGED
+{"ARCHIVED": 1, "NEW COMMITS": 3, "UNCHANGED": 46}

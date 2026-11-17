@@ -66,7 +66,7 @@ Scope: the calculation and data-ingestion methods that DrillMaster exposes to us
 
 | Engine | Method string | Label |
 |---|---|---|
-| Casing | API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2) | Subset only; connections, tri-axial design factors and ductile-rupture models are not implemented (see the module docstring) |
+| Casing | API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2; transition F r3) | Subset only; connections, tri-axial design factors and ductile-rupture models are not implemented (see the module docstring) |
 | Cement | Oilfield capacity (D²/1029.4) + stacked column hydrostatic; balanced plug `M52 balanced plug v1` | Balanced plug is SCREENING. No slurry data is invented |
 | Torque & drag | Johancsik soft-string (SPE 11380) | SCREENING; no stiff-string model; no LGPL code used |
 | MSE | Teale (1965) Mechanical Specific Energy | |

@@ -32,7 +32,7 @@ from ..result import (
 
 
 class CasingEngine:
-    METHOD = "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2)"
+    METHOD = "API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2; transition F r3)"
     SCOPE = "PARTIAL"
 
     @staticmethod
@@ -42,10 +42,14 @@ class CasingEngine:
         b = 0.026233 + 0.50609e-6 * yp
         c = -465.93 + 0.030867 * yp - 0.10483e-7 * yp**2 + 0.36989e-13 * yp**3
         ba = b / a
-        denom = yp * (3.0 * ba - ba**3 - 1.0)
+        # API 5C3 transition coefficient: F = 46.95e6 r^3 / (Yp (r - B/A) (1 - r)^2), r = 3(B/A) / (2 + B/A).
+        # D77 (M239): the denominator was ``Yp (3 B/A - (B/A)^3 - 1)``, which made F and G negative, put the
+        # plastic/transition limit above the transition/elastic one and so never used the transition regime.
+        r = (3.0 * ba) / (2.0 + ba)
+        denom = yp * (r - ba) * (1.0 - r) ** 2
         if denom == 0:
             raise EngineeringError("API 5C3 coefficient denominator is 0 for this yield")
-        f = 46.95e6 * ((3.0 * ba) / (2.0 + ba)) ** 3 / denom
+        f = 46.95e6 * r ** 3 / denom
         g = f * ba
         return a, b, c, f, g
 
