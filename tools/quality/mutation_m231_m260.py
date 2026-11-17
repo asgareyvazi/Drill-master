@@ -129,6 +129,11 @@ MUTANTS = [
            "        and inp.casing_id_in > 0\n",
            "", TKS,
            "an unfilled casing ID (stored as 0) still yields annular volumes and strokes"),
+    # KS-unfilled-casing-id-assessed SURVIVES (not declared equivalent): the annulus loop rejects any annular ID
+    # <= pipe OD in a zone of positive length, so casing ID 0 still gives no annulus whenever a cased zone exists.
+    # The only input that tells the mutant apart is a shoe at MD 0 (no cased zone), where the mutant returns the
+    # open-hole annulus - a value that is not wrong, so no test can demand the refusal without asserting an
+    # over-restriction. Recorded in the M239 evidence; engineering review item.
     Mutant("KS-shoe-below-td-assessed", KS,
            "        and 0 <= inp.shoe_md_ft <= inp.md_ft\n",
            "        and 0 <= inp.shoe_md_ft\n", TKS,

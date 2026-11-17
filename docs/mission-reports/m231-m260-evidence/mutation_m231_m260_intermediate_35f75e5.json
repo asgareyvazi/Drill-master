@@ -1,0 +1,370 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_casing_absent_load_semantics.py",
+      "tests/test_casing_vme_independent.py",
+      "tests/test_engineering_completion.py",
+      "tests/test_engineering_ground_truth.py",
+      "tests/test_kill_sheet_casing_id_gate.py",
+      "tests/test_m147_m152_ddr_continuation.py",
+      "tests/test_m239_engine_semantics.py",
+      "tests/test_m239_review_queue_and_mse_summary.py",
+      "tests/test_m70_selection_audit.py",
+      "tests/test_m90_engine_qualification.py",
+      "tests/test_mse_persistence.py",
+      "tests/test_mse_save_widget_smoke.py",
+      "tests/test_release_gate_and_w13.py",
+      "tests/test_single_source_guard.py",
+      "tests/test_torque_drag_history.py",
+      "tests/test_torque_drag_persistence.py",
+      "tests/test_well_control_kill_sheet.py",
+      "tests/test_well_control_kill_sheet_persistence.py"
+    ],
+    "exit": 0,
+    "summary": "288 passed, 14 warnings in 37.71s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "MSE-bool-frozen-as-number",
+      "path": "core/engineering/mse_persistence.py",
+      "note": "a True/False input is frozen as 1.0/0.0 instead of unknown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mse_persistence.py",
+        "tests/test_mse_save_widget_smoke.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.72s"
+    },
+    {
+      "id": "MSE-non-finite-frozen",
+      "path": "core/engineering/mse_persistence.py",
+      "note": "NaN / inf inputs are frozen into the snapshot as numbers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mse_persistence.py",
+        "tests/test_mse_save_widget_smoke.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.73s"
+    },
+    {
+      "id": "MSE-missing-input-frozen-as-zero",
+      "path": "core/engineering/mse_persistence.py",
+      "note": "a missing WOB / RPM / torque / ROP / bit size is frozen as 0 instead of unknown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mse_persistence.py",
+        "tests/test_mse_save_widget_smoke.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.76s"
+    },
+    {
+      "id": "MSE-reconstruct-missing-as-zero",
+      "path": "core/engineering/mse_persistence.py",
+      "note": "re-running a stored snapshot fills a missing parameter with 0 (the engine would compute a value)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mse_persistence.py",
+        "tests/test_mse_save_widget_smoke.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 1.65s"
+    },
+    {
+      "id": "MSE-summary-unknown-as-zero",
+      "path": "core/engineering/mse_persistence.py",
+      "note": "an absent headline result (MSE, axial / rotary term) is stored as 0 psi",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mse_persistence.py",
+        "tests/test_mse_save_widget_smoke.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 4.28s"
+    },
+    {
+      "id": "RQ-persistence-review-counted-twice",
+      "path": "core/import_review_queue.py",
+      "note": "persistence reviews the import status already counts are added to the review count again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 35 passed in 17.04s"
+    },
+    {
+      "id": "RQ-final-decisions-treated-as-counted",
+      "path": "core/import_review_queue.py",
+      "note": "rows with a final decision are treated as already counted pending reviews",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 36 passed in 16.98s"
+    },
+    {
+      "id": "RQ-negative-parent-index-accepted",
+      "path": "core/import_review_queue.py",
+      "note": "a negative continuation parent index attaches the item to the last 24-hour activity",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 38 passed in 17.99s"
+    },
+    {
+      "id": "RQ-morning-continuation-gets-24h-parent",
+      "path": "core/import_review_queue.py",
+      "note": "a morning-report continuation is linked to a 24-hour row with the same index",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 39 passed in 16.97s"
+    },
+    {
+      "id": "RQ-attached-counted-as-pending",
+      "path": "core/import_review_queue.py",
+      "note": "safely attached continuations are reported as pending reviews",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 3.37s"
+    },
+    {
+      "id": "RQ-already-counted-ignored",
+      "path": "core/import_review_queue.py",
+      "note": "field reviews the import status already counts are counted again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m147_m152_ddr_continuation.py",
+        "tests/test_m239_review_queue_and_mse_summary.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.27s"
+    },
+    {
+      "id": "MW-closed-window-keeps-autosaving",
+      "path": "main_window.py",
+      "note": "a closed main window keeps its tabs' autosave timers running",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m70_selection_audit.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed, 14 warnings in 10.25s"
+    },
+    {
+      "id": "CAS-burst-wall-tolerance-dropped",
+      "path": "core/engineering/engines/casing.py",
+      "note": "burst rating ignores the 87.5 % minimum-wall tolerance (overstates the rating by 14 %)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_casing_vme_independent.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_completion.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.92s"
+    },
+    {
+      "id": "CAS-design-factor-multiplies",
+      "path": "core/engineering/engines/casing.py",
+      "note": "the burst working pressure multiplies by the design factor instead of dividing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_casing_vme_independent.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_completion.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.97s"
+    },
+    {
+      "id": "CAS-elastic-collapse-constant-typo",
+      "path": "core/engineering/engines/casing.py",
+      "note": "elastic-collapse constant mistyped by a factor of 10",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_casing_vme_independent.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_completion.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.98s"
+    },
+    {
+      "id": "TD-friction-factor-above-one-accepted",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "a friction factor entered in percent (e.g. 25) is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_single_source_guard.py",
+        "tests/test_release_gate_and_w13.py",
+        "tests/test_torque_drag_persistence.py",
+        "tests/test_torque_drag_history.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_completion.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 1.30s"
+    },
+    {
+      "id": "TD-zero-mud-weight-accepted",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "an unknown mud weight placeholder 0 is treated as air (no buoyancy) instead of rejected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_single_source_guard.py",
+        "tests/test_release_gate_and_w13.py",
+        "tests/test_torque_drag_persistence.py",
+        "tests/test_torque_drag_history.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_completion.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "163 passed in 7.14s"
+    },
+    {
+      "id": "TD-landing-friction-sign",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "the landing hook load adds friction instead of subtracting it",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_single_source_guard.py",
+        "tests/test_release_gate_and_w13.py",
+        "tests/test_torque_drag_persistence.py",
+        "tests/test_torque_drag_history.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_completion.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 48 passed in 1.66s"
+    },
+    {
+      "id": "KS-unfilled-casing-id-assessed",
+      "path": "core/engineering/well_control_kill_sheet.py",
+      "note": "an unfilled casing ID (stored as 0) still yields annular volumes and strokes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_kill_sheet_casing_id_gate.py",
+        "tests/test_well_control_kill_sheet_persistence.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "67 passed in 2.49s"
+    },
+    {
+      "id": "KS-shoe-below-td-assessed",
+      "path": "core/engineering/well_control_kill_sheet.py",
+      "note": "a casing shoe deeper than the measured depth is used for annular geometry",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_kill_sheet_casing_id_gate.py",
+        "tests/test_well_control_kill_sheet_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 0.88s"
+    },
+    {
+      "id": "KS-partial-string-volume-reported-as-total",
+      "path": "core/engineering/well_control_kill_sheet.py",
+      "note": "a pipe program shorter than MD is reported as the full string volume",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m239_engine_semantics.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_kill_sheet_casing_id_gate.py",
+        "tests/test_well_control_kill_sheet_persistence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 0.92s"
+    }
+  ],
+  "killed": [
+    "MSE-bool-frozen-as-number",
+    "MSE-non-finite-frozen",
+    "MSE-missing-input-frozen-as-zero",
+    "MSE-reconstruct-missing-as-zero",
+    "MSE-summary-unknown-as-zero",
+    "RQ-persistence-review-counted-twice",
+    "RQ-final-decisions-treated-as-counted",
+    "RQ-negative-parent-index-accepted",
+    "RQ-morning-continuation-gets-24h-parent",
+    "RQ-attached-counted-as-pending",
+    "RQ-already-counted-ignored",
+    "MW-closed-window-keeps-autosaving",
+    "CAS-burst-wall-tolerance-dropped",
+    "CAS-design-factor-multiplies",
+    "CAS-elastic-collapse-constant-typo",
+    "TD-friction-factor-above-one-accepted",
+    "TD-landing-friction-sign",
+    "KS-shoe-below-td-assessed",
+    "KS-partial-string-volume-reported-as-total"
+  ],
+  "survived_non_equivalent": [
+    "TD-zero-mud-weight-accepted",
+    "KS-unfilled-casing-id-assessed"
+  ],
+  "declared_equivalent": [],
+  "invalid": []
+}

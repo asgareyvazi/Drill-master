@@ -108,6 +108,15 @@ def test_a_zero_mud_weight_is_rejected_not_treated_as_air():
     assert "mud_density_ppg" in result.error
 
 
+def test_a_zero_mud_weight_is_reported_before_the_survey_is_processed():
+    """The scalar inputs are validated before the trajectory runs (``_validate``), so the operator sees the
+    unknown mud weight even when the survey is rejected too (``buoyancy_factor`` checks it again, but later)."""
+    bad_survey = [{"md": 0, "inc": 0, "azi": 0}, {"md": 100.0, "inc": 200.0, "azi": 0}]
+    result = TorqueDragEngine.calculate(bad_survey, BHA, mud_density_ppg=0.0, friction_factor=0.25)
+    assert result.success is False
+    assert "mud_density_ppg" in result.error
+
+
 # ---- kill sheet annulus geometry ------------------------------------------------------------------------------
 RAW = dict(
     tvd_m=3000, md_m=3200, shoe_tvd_m=2000, shoe_md_m=2000, hole_size_in=8.5,
