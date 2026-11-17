@@ -507,3 +507,19 @@ Evidence committed with this report: `m201-m230-evidence/mutation_final_2764071/
 progress), `full_suite_2764071_local_nocov.log.txt`, `load_samples_2764071_local_nocov.txt`.
 
 **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED**
+
+---
+
+## Addendum (M231 / M232, written after delivery)
+
+- **Delivery.** This report was first committed as `0d824e4` on top of `2764071`. The push was refused ("No anonymous
+  write access": the sandbox had no git credential helper). The sandbox was then reset and the repository re-cloned, so the
+  unpushed commit object no longer exists. The 20 files it contained survived unchanged in the work tree (report, 2 suite
+  files, 16 mutation result files + chain progress); they were committed again with the same message as **`eaa003f`**
+  (parent `2764071`) and pushed by fast-forward; `git ls-remote origin` and the GitHub REST API both returned
+  `eaa003f2e94d1637116958f00218eb490cd7d973`.
+- **Capability matrix reconciled (M232).** The matrix row "Mutation (M210 / M211)" still quoted the intermediate
+  `39b4d52` run (4 survivors). It now gives the final `2764071` run (1082 KILLED, 1 EQUIVALENT, 0 INVALID, 3 SURVIVED,
+  16 / 16 complete) and keeps the `39b4d52` run as superseded history; rows for M212 (PARTIAL), M230 (PARTIAL) and D76
+  were added. No result in this report changed.
+
