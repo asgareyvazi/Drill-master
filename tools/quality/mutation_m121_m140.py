@@ -878,14 +878,17 @@ MUTANTS = [
     Mutant("SMK-torch-allowed", SMKP, '"rapidocr", "torch",\n', '"rapidocr",\n', T137,
            "a bundle containing torch passes the smoke check"),
     # D52: deferred deletions of earlier test modules run between modules, not in a later test's event loop
+    # M239: anchored on the helper's own line pair - the 4-space snippet alone also matched the D74 per-test flush
+    # added in cfaf476 (INVALID "occurs 2 times" in the final run on 649e33d).
     Mutant("D52-flush-is-a-no-op", "tests/conftest.py",
-           "    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)\n",
-           "    pass\n", ["tests/test_d52_deferred_deletes.py"],
+           "    before = len(QApplication.allWidgets())\n    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)\n",
+           "    before = len(QApplication.allWidgets())\n", ["tests/test_d52_deferred_deletes.py"],
            "pending deleteLater() calls accumulate until a later test's nested event loop destroys them all"),
     Mutant("D52-module-fixture-skips-the-flush", "tests/conftest.py",
            "    yield\n    flush_deferred_deletes()\n",
            "    yield\n", ["tests/test_d52_deferred_deletes.py::test_the_conftest_flushes_between_modules"],
-           "the helper exists but no module end runs it"),
+           "the helper exists but no module end runs it (M239: the test now leaves the deletion in a module fixture's"
+           " teardown, which the D74 per-test flush does not reach)"),
     # D53: the test session collects cyclic garbage only on the main (GUI) thread, as app.py does (core/qt_gc.py)
     Mutant("D53-automatic-collection-stays-on", "tests/conftest.py",
            "def _install_session_gc_policy() -> None:\n    gc.disable()\n",

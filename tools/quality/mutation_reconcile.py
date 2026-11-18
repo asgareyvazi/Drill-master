@@ -1,6 +1,7 @@
-"""Reconcile the mutation result files of one run (M238): ``python tools/quality/mutation_reconcile.py <sha>``.
+"""Reconcile the mutation result files of one run (M238): ``python tools/quality/mutation_reconcile.py <sha> [DIR]``.
 
-Reads ``docs/mission-reports/m201-m230-evidence/mutation_final_<sha>/`` (the 16 result JSONs and the progress
+Reads ``docs/mission-reports/m201-m230-evidence/mutation_final_<sha>/`` - or ``DIR`` when given (M240: the
+M231-M260 runs live under ``m231-m260-evidence/final_<sha>/``) - (the result JSONs and the progress
 file), recounts every status from the per-mutant records, checks them against the summary fields, and prints a
 Markdown table. A mutant whose status is SURVIVED with its ``equivalent`` justification set is counted as
 EQUIVALENT (never KILLED). Read-only.
@@ -18,11 +19,13 @@ def _count(value):
     return len(value) if isinstance(value, list) else value
 
 
-def rows_for(sha: str) -> list:
-    progress = open(f"{BASE}/mutation_final_{sha}/progress_{sha}.txt", encoding="utf-8").read()
-    seconds = dict(re.findall(r"(\S+) exit=0 seconds=(\d+)", progress))
+def rows_for(sha: str, directory: str = "") -> list:
+    directory = directory or f"{BASE}/mutation_final_{sha}"
+    progress_files = sorted(glob.glob(f"{directory}/progress_{sha}.txt") + glob.glob(f"{directory}/chain_progress.txt"))
+    progress = open(progress_files[0], encoding="utf-8").read()
+    seconds = dict(re.findall(r"(\S+) exit=\d+ seconds=(\d+)", progress))
     rows = []
-    for path in sorted(glob.glob(f"{BASE}/mutation_final_{sha}/mutation_*.json")):
+    for path in sorted(glob.glob(f"{directory}/mutation_*.json")):
         name = os.path.basename(path)[len("mutation_"):-5]
         data = json.load(open(path, encoding="utf-8"))
         statuses = [m["status"] for m in data["mutants"]]
@@ -44,8 +47,8 @@ def rows_for(sha: str) -> list:
     return rows
 
 
-def main(sha: str) -> None:
-    rows = rows_for(sha)
+def main(sha: str, directory: str = "") -> None:
+    rows = rows_for(sha, directory)
     print("| Catalogue | Tool | Mutants | complete | K | S | E | I | Seconds | Filtered (`--only`) | JSON schema "
           "| Baseline | Survivors / equivalents |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
@@ -63,4 +66,4 @@ def main(sha: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else "")

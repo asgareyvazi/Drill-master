@@ -100,6 +100,12 @@ MUTANTS = [
            "            manager.set_enabled(False)\n",
            "        # after the close (M234 - hidden test windows logged CONTEXT_BLOCKED autosaves into later tests).\n",
            TMW, "a closed main window keeps its tabs' autosave timers running"),
+    # D74 (M235): the per-test deferred-delete flush.
+    Mutant("D74-per-test-flush-skipped", "tests/conftest.py",
+           "    if QCoreApplication.instance() is not None:\n        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)\n",
+           "    if QCoreApplication.instance() is not None:\n        pass\n",
+           ["tests/test_d74_deferred_deletes_and_window_leak.py"],
+           "a test's deleteLater() waits for the end of its module again (m87 grew by 717 MB)"),
     # Units and engineering semantics in engines no earlier catalogue mutated (found during M241).
     Mutant("CAS-burst-wall-tolerance-dropped", CAS,
            "            rating = 0.875 * 2.0 * yp * t / od\n",

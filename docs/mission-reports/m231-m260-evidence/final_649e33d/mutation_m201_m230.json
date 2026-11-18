@@ -1,0 +1,778 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_fuel_water_truth.py",
+      "tests/test_m169_end_to_end_journey.py",
+      "tests/test_m173_scalar_correction.py",
+      "tests/test_m181_m183_tubular_import.py",
+      "tests/test_m203_tubular_replace_guards.py",
+      "tests/test_m204_immutable_write_paths.py",
+      "tests/test_m204_restore_migration_cascade.py",
+      "tests/test_m205_m207_schematic_provenance.py",
+      "tests/test_m213_excel_limits.py",
+      "tests/test_m214_header_mapping.py",
+      "tests/test_m215_scalar_correction_adversarial.py",
+      "tests/test_m216_import_context_switch.py",
+      "tests/test_m217_day_by_day_carry_forward.py",
+      "tests/test_m218_ddr_revision_lineage.py",
+      "tests/test_m220_tubular_import_hardening.py",
+      "tests/test_m227_data_quality_workspace.py",
+      "tests/test_m229_w7_unknown_movements.py",
+      "tests/test_table_mapper.py",
+      "tests/test_w7_null_zero_ui_smoke.py"
+    ],
+    "exit": 0,
+    "summary": "240 passed, 15 warnings in 297.28s (0:04:57)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "M203-tubular-noreplace",
+      "path": "core/storage_guards.py",
+      "note": "INSERT OR REPLACE / upsert on the id of a published set or item accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m203_tubular_replace_guards.py",
+        "tests/test_m204_immutable_write_paths.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.90s"
+    },
+    {
+      "id": "M203-tubular-nodupkey",
+      "path": "core/storage_guards.py",
+      "note": "REPLACE on the (name, version) / (set, fingerprint) key replaces a published row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m203_tubular_replace_guards.py",
+        "tests/test_m204_immutable_write_paths.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.85s"
+    },
+    {
+      "id": "M203-tubular-nodupkey-partial-key",
+      "path": "core/storage_guards.py",
+      "note": "the duplicate-key guard compares only part of the unique key",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m203_tubular_replace_guards.py",
+        "tests/test_m204_immutable_write_paths.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 error in 1.79s"
+    },
+    {
+      "id": "M218-revision-snapshot-unfrozen",
+      "path": "core/storage_guards.py",
+      "note": "the snapshot of a report revision can be rewritten",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m218_ddr_revision_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.70s"
+    },
+    {
+      "id": "M218-revision-update-guard",
+      "path": "core/storage_guards.py",
+      "note": "a report revision can be updated by any writer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m218_ddr_revision_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.57s"
+    },
+    {
+      "id": "M218-revision-noreplace",
+      "path": "core/storage_guards.py",
+      "note": "INSERT OR REPLACE over a stored report revision accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m218_ddr_revision_lineage.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 10.52s"
+    },
+    {
+      "id": "M204-restore-guards",
+      "path": "core/db_maintenance.py",
+      "note": "a restored backup without the current guards stays unguarded for the session",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m204_restore_migration_cascade.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.89s"
+    },
+    {
+      "id": "M205-document-weight-zero",
+      "path": "core/schematic_document.py",
+      "note": "a missing weight read from a schematic document becomes 0.0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 7.06s"
+    },
+    {
+      "id": "M205-table-weight-zero",
+      "path": "tabs/w3b_wellbore_schematic_tab.py",
+      "note": "an empty weight cell is stored as 0.0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 3.22s"
+    },
+    {
+      "id": "M206-preset-label",
+      "path": "core/engineering/value_provenance.py",
+      "note": "a legacy preset is labelled as manufacturer data",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 4.15s"
+    },
+    {
+      "id": "M206-preset-holds-ignores-values",
+      "path": "core/engineering/value_provenance.py",
+      "note": "an edited value keeps the preset origin",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 4.08s"
+    },
+    {
+      "id": "M207-foreign-well-accepted",
+      "path": "core/schematic_document.py",
+      "note": "another well's schematic is imported without confirmation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 8.10s"
+    },
+    {
+      "id": "M207-tampered-binding-kept",
+      "path": "core/schematic_document.py",
+      "note": "a binding whose snapshot does not verify is kept",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 8.20s"
+    },
+    {
+      "id": "M213-profile-loosens",
+      "path": "core/workbook_io.py",
+      "note": "a profile limit is not applied (the built-in limit wins)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m213_excel_limits.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.13s"
+    },
+    {
+      "id": "M213-file-size",
+      "path": "core/workbook_io.py",
+      "note": "an oversized file is read",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m213_excel_limits.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.14s"
+    },
+    {
+      "id": "M213-sheet-count",
+      "path": "core/workbook_io.py",
+      "note": "a workbook with too many sheets is read",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m213_excel_limits.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.28s"
+    },
+    {
+      "id": "M213-declared-shape-precheck",
+      "path": "core/ddr_import_service.py",
+      "note": "the declared dimensions are not checked before the cells are read",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m213_excel_limits.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed, 1 warning in 15.49s"
+    },
+    {
+      "id": "M213-pipeline-pass-through",
+      "path": "core/ddr_import_pipeline.py",
+      "note": "the profile's shape limits never reach the extractor",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m213_excel_limits.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.99s"
+    },
+    {
+      "id": "M214-substring-match",
+      "path": "core/table_record_mapper.py",
+      "note": "substring header matching again (one header fills several fields)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m214_header_mapping.py",
+        "tests/test_table_mapper.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.15s"
+    },
+    {
+      "id": "M214-tie-not-ambiguous",
+      "path": "core/table_record_mapper.py",
+      "note": "a tie between two fields is resolved silently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m214_header_mapping.py",
+        "tests/test_table_mapper.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.18s"
+    },
+    {
+      "id": "M214-short-alias-phrase",
+      "path": "core/table_record_mapper.py",
+      "note": "1-2 character aliases match inside headers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m214_header_mapping.py",
+        "tests/test_table_mapper.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.16s"
+    },
+    {
+      "id": "M214-never-accepted-sources",
+      "path": "core/excel_intelligence.py",
+      "note": "a fuzzy or spatial candidate is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m214_header_mapping.py",
+        "tests/test_table_mapper.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.29s"
+    },
+    {
+      "id": "M215-claim-apply",
+      "path": "core/review_scalar_correction.py",
+      "note": "two operators can both apply the same correction",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m215_scalar_correction_adversarial.py",
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 6.53s"
+    },
+    {
+      "id": "M215-claim-reopen",
+      "path": "core/review_scalar_correction.py",
+      "note": "two operators can both reopen the same item",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m215_scalar_correction_adversarial.py",
+        "tests/test_m173_scalar_correction.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 89.57s (0:01:29)"
+    },
+    {
+      "id": "M215-claim-resolve",
+      "path": "core/database.py",
+      "note": "two operators can both resolve the same review item",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m215_scalar_correction_adversarial.py",
+        "tests/test_m173_scalar_correction.py",
+        "tests/test_m169_end_to_end_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 83.21s (0:01:23)"
+    },
+    {
+      "id": "M216-save-recheck",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "a well switch during the preview reaches the save",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m216_import_context_switch.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.38s"
+    },
+    {
+      "id": "M216-batch-target-restored",
+      "path": "dialogs/excel_import_dialog.py",
+      "note": "a file routed to another well retargets the rest of the batch",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m216_import_context_switch.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.52s"
+    },
+    {
+      "id": "M217-confirmation",
+      "path": "core/ddr_carry_forward.py",
+      "note": "carry-forward without confirmation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.20s"
+    },
+    {
+      "id": "M217-never-carried",
+      "path": "core/ddr_carry_forward.py",
+      "note": "a daily measurement is offered for carrying (refused only as 'unknown')",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.41s"
+    },
+    {
+      "id": "M217-existing-rows",
+      "path": "core/ddr_carry_forward.py",
+      "note": "a section that already has rows today is added to",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.87s"
+    },
+    {
+      "id": "M217-unentered-header",
+      "path": "core/ddr_carry_forward.py",
+      "note": "a derived header overwrites an entered value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 3.03s"
+    },
+    {
+      "id": "M217-fuel-movements-zero",
+      "path": "core/ddr_carry_forward.py",
+      "note": "carried fuel / water movements become a measured 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 2.74s"
+    },
+    {
+      "id": "M217-foreign-well",
+      "path": "core/ddr_carry_forward.py",
+      "note": "a report of another well is a carry source",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.53s"
+    },
+    {
+      "id": "M217-dialog-ok-without-confirmation",
+      "path": "dialogs/carry_forward_dialog.py",
+      "note": "OK is enabled without the confirmation box",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 3.20s"
+    },
+    {
+      "id": "M217-dialog-preselects",
+      "path": "dialogs/carry_forward_dialog.py",
+      "note": "sections are preselected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 3.14s"
+    },
+    {
+      "id": "M217-preview-movement-zero",
+      "path": "core/database.py",
+      "note": "the fuel / water preview shows a measured 0 consumption",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m217_day_by_day_carry_forward.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed, 14 warnings in 9.97s"
+    },
+    {
+      "id": "M220-hidden-sheet",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a hidden sheet is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.83s"
+    },
+    {
+      "id": "M220-hidden-header-row",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a hidden header row is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.96s"
+    },
+    {
+      "id": "M220-hidden-mapped-column",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a hidden column that maps to a field is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.82s"
+    },
+    {
+      "id": "M220-hidden-row",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a hidden row is imported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.99s"
+    },
+    {
+      "id": "M220-orphan-cells",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a value without a header is dropped silently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.78s"
+    },
+    {
+      "id": "M220-json-duplicate-key",
+      "path": "core/engineering/tubular_import.py",
+      "note": "a repeated JSON key keeps the last value silently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.78s"
+    },
+    {
+      "id": "M220-workbook-file-limit",
+      "path": "core/engineering/tubular_import.py",
+      "note": "the M213 file limits are skipped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 10.31s"
+    },
+    {
+      "id": "M220-workbook-shape-limit",
+      "path": "core/engineering/tubular_import.py",
+      "note": "the M213 sheet / cell limits are skipped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m220_tubular_import_hardening.py",
+        "tests/test_m181_m183_tubular_import.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 22.70s"
+    },
+    {
+      "id": "M205-cement-interval-known",
+      "path": "core/schematic_document.py",
+      "note": "a schematic with a missing cement end shows cement from 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 9.41s"
+    },
+    {
+      "id": "M205-architecture-cement-guess",
+      "path": "core/well_architecture.py",
+      "note": "an unknown cement interval becomes an architecture component",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m205_m207_schematic_provenance.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 9.16s"
+    },
+    {
+      "id": "M227-missing-depth",
+      "path": "core/data_quality_workspace.py",
+      "note": "a report without depth or section is not listed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m227_data_quality_workspace.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 6.27s"
+    },
+    {
+      "id": "M227-carried-unconfirmed",
+      "path": "core/data_quality_workspace.py",
+      "note": "an unconfirmed carried section is not listed (a confirmed one is)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m227_data_quality_workspace.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 6.56s"
+    },
+    {
+      "id": "M227-review-well-filter",
+      "path": "core/data_quality_workspace.py",
+      "note": "review items of another well leak into the workspace",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m227_data_quality_workspace.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 6.32s"
+    },
+    {
+      "id": "M227-read-only-table",
+      "path": "dialogs/data_quality_dialog.py",
+      "note": "the workspace table accepts edit triggers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m227_data_quality_workspace.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 8.64s"
+    },
+    {
+      "id": "M227-read-only-cells",
+      "path": "dialogs/data_quality_dialog.py",
+      "note": "the workspace cells are editable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m227_data_quality_workspace.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 8.72s"
+    },
+    {
+      "id": "D75-w7-load-unknown-movement",
+      "path": "tabs/w7_logistics_Widget.py",
+      "note": "a stored NULL consumption loads into W7 as 0.0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m229_w7_unknown_movements.py",
+        "tests/test_w7_null_zero_ui_smoke.py",
+        "tests/test_fuel_water_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.70s"
+    },
+    {
+      "id": "D75-w7-save-unknown-movement",
+      "path": "tabs/w7_logistics_Widget.py",
+      "note": "W7 saves the unknown mark of a receipt as a number",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m229_w7_unknown_movements.py",
+        "tests/test_w7_null_zero_ui_smoke.py",
+        "tests/test_fuel_water_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.76s"
+    },
+    {
+      "id": "D75-w7-balance-unknown-part",
+      "path": "tabs/w7_logistics_Widget.py",
+      "note": "a remaining figure is derived from an unknown movement",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m229_w7_unknown_movements.py",
+        "tests/test_w7_null_zero_ui_smoke.py",
+        "tests/test_fuel_water_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.70s"
+    },
+    {
+      "id": "D75-db-none-movement-zero",
+      "path": "core/database.py",
+      "note": "the save API turns a None movement into 0.0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m229_w7_unknown_movements.py",
+        "tests/test_w7_null_zero_ui_smoke.py",
+        "tests/test_fuel_water_truth.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.71s"
+    }
+  ],
+  "killed": [
+    "M203-tubular-noreplace",
+    "M203-tubular-nodupkey",
+    "M203-tubular-nodupkey-partial-key",
+    "M218-revision-snapshot-unfrozen",
+    "M218-revision-update-guard",
+    "M218-revision-noreplace",
+    "M204-restore-guards",
+    "M205-document-weight-zero",
+    "M205-table-weight-zero",
+    "M206-preset-label",
+    "M206-preset-holds-ignores-values",
+    "M207-foreign-well-accepted",
+    "M207-tampered-binding-kept",
+    "M213-profile-loosens",
+    "M213-file-size",
+    "M213-sheet-count",
+    "M213-declared-shape-precheck",
+    "M213-pipeline-pass-through",
+    "M214-substring-match",
+    "M214-tie-not-ambiguous",
+    "M214-short-alias-phrase",
+    "M214-never-accepted-sources",
+    "M215-claim-apply",
+    "M215-claim-reopen",
+    "M215-claim-resolve",
+    "M216-save-recheck",
+    "M216-batch-target-restored",
+    "M217-confirmation",
+    "M217-never-carried",
+    "M217-existing-rows",
+    "M217-unentered-header",
+    "M217-fuel-movements-zero",
+    "M217-foreign-well",
+    "M217-dialog-ok-without-confirmation",
+    "M217-dialog-preselects",
+    "M217-preview-movement-zero",
+    "M220-hidden-sheet",
+    "M220-hidden-header-row",
+    "M220-hidden-mapped-column",
+    "M220-hidden-row",
+    "M220-orphan-cells",
+    "M220-json-duplicate-key",
+    "M220-workbook-file-limit",
+    "M220-workbook-shape-limit",
+    "M205-cement-interval-known",
+    "M205-architecture-cement-guess",
+    "M227-missing-depth",
+    "M227-carried-unconfirmed",
+    "M227-review-well-filter",
+    "M227-read-only-table",
+    "M227-read-only-cells",
+    "D75-w7-load-unknown-movement",
+    "D75-w7-save-unknown-movement",
+    "D75-w7-balance-unknown-part",
+    "D75-db-none-movement-zero"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

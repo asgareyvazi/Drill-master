@@ -39,14 +39,28 @@ def test_process_events_leaves_deferred_deletes_and_the_helper_runs_them(app):
 
 
 def test_the_conftest_flushes_between_modules(tmp_path):
-    """Two real test modules under the repository's conftest: the second sees the first module's widget gone."""
+    """Two real test modules under the repository's conftest: the second sees the first module's widgets gone.
+
+    Since D74 the per-test flush already runs a deletion requested in a test body, so the first module also has a
+    module fixture that requests one in its teardown - after the last per-test flush of that module. Only the
+    module flush runs it before the second module's test body (M239: the old check no longer told them apart).
+    """
     (tmp_path / "conftest.py").write_text((ROOT / "tests" / "conftest.py").read_text(encoding="utf-8"),
                                           encoding="utf-8")
     common = ("import os\nos.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')\n"
               "import builtins\nfrom PySide6.QtWidgets import QApplication, QWidget\n"
               "app = QApplication.instance() or QApplication([])\n")
     (tmp_path / "test_a_first.py").write_text(common + (
-        "def test_leave_a_pending_delete():\n"
+        "import pytest\n"
+        "builtins.d52_module_destroyed = []\n"
+        "@pytest.fixture(scope='module')\n"
+        "def module_widget():\n"
+        "    w = QWidget()\n"
+        "    w.destroyed.connect(lambda *_a: builtins.d52_module_destroyed.append(True))\n"
+        "    yield w\n"
+        "    w.deleteLater()\n"
+        "    QApplication.processEvents()\n"
+        "def test_leave_a_pending_delete(module_widget):\n"
         "    builtins.d52_destroyed = []\n"
         "    w = QWidget()\n"
         "    w.destroyed.connect(lambda *_a: builtins.d52_destroyed.append(True))\n"
@@ -55,7 +69,8 @@ def test_the_conftest_flushes_between_modules(tmp_path):
         "    assert builtins.d52_destroyed == []\n"), encoding="utf-8")
     (tmp_path / "test_b_second.py").write_text(common + (
         "def test_the_previous_module_was_flushed():\n"
-        "    assert builtins.d52_destroyed == [True]\n"), encoding="utf-8")
+        "    assert builtins.d52_destroyed == [True]\n"
+        "    assert builtins.d52_module_destroyed == [True]\n"), encoding="utf-8")
     env = dict(os.environ, PYTHONPATH=str(ROOT), QT_QPA_PLATFORM="offscreen")
     done = subprocess.run([sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "-q", str(tmp_path)],
                           cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180)
