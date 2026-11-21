@@ -4318,41 +4318,41 @@ index,nodeid,module,seconds,rss_anon_kb,rss_file_kb,rss_shmem_kb,d_anon_kb,widge
 4317,tests/test_planning_context_isolation.py::test_lookahead_clears_report_context_on_well_switch,tests/test_planning_context_isolation.py,2.311,3546180,28056,0,0,197792,0,8,39,4635484,282731,293
 4318,tests/test_planning_material_persistence.py::test_material_row_persists_and_reports_truthfully,tests/test_planning_material_persistence.py,2.227,3546180,28056,0,0,197792,0,8,39,4635500,282731,293
 4319,tests/test_planning_table_presentation.py::test_planning_primary_tables_have_usable_viewport,tests/test_planning_table_presentation.py,1.952,3546180,27920,0,0,197792,0,8,39,4635516,282731,293
-4320,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[set MINERU=C:\\Users\\jdoe\\Desktop\\x.exe-windows-user-profile-path],tests/test_privacy_check.py,0.010,3546180,27920,0,0,197792,0,8,39,,,293
-4321,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[-----BEGIN RSA PRIVATE KEY------private-key-block],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4322,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[token=ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-github-token],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4323,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[key AKIAABCDEFGHIJKLMNOP-aws-access-key],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4324,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[mail ops@realcorp.ir-email-outside-allowed-domains],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4325,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[Supervisor: A.Qxzorvalli-denylisted-identity-token],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4320,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.010,3546180,27920,0,0,197792,0,8,39,,,293
+4321,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4322,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4323,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4324,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4325,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
 4326,"tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[Northing 7,654,321 N-denylisted-identity-token]",tests/test_privacy_check.py,0.004,3546180,27920,0,0,197792,0,8,39,,,293
-4327,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[northing 7654321-denylisted-identity-token],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4328,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[NAME QXZORVALLI-denylisted-identity-token],tests/test_privacy_check.py,0.004,3546180,27920,0,0,197792,0,8,39,,,293
-4329,"tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[""serial no"": ""4444444444 | 5555555555""-equipment-serial-number]",tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4330,"tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[""serial_number"": ""88888888""-equipment-serial-number]",tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4331,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[Serial Number = 7777777-equipment-serial-number],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4332,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[BIT SERIAL #: 333333333-equipment-serial-number],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4333,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[C:\\Users\\runner\\work\\x.ps1],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4334,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[C:\\Users\\<you>\\Desktop],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4335,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[%USERPROFILE%\\mineru-env],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4336,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[author 123+bot@users.noreply.github.com],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4337,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[demo@drillmaster.com],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4338,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[diff \\n+@pytest.mark.parametrize],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4327,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4328,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.004,3546180,27920,0,0,197792,0,8,39,,,293
+4329,"tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>]",tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4330,"tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>]",tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4331,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4332,tests/test_privacy_check.py::test_text_rules_fire_on_synthetic_positives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4333,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4334,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4335,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4336,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4337,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4338,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
 4339,"tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[depth 3441 m, MW 71 pcf, Barite 45 sx]",tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4340,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[Qxzorv is not the protected surname],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4341,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[def test_serialized_provenance_is_not_domain_value(value):],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4342,"tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[""equipment_id"": ""serial-A""]",tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4343,"tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[""serial no"": ""[REDACTED:serial]""]",tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4344,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[serial: 12345],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4345,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[Serial Number: SN-A1-B2],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4340,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4341,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4342,"tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>]",tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4343,"tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>]",tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4344,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4345,tests/test_privacy_check.py::test_text_rules_stay_quiet_on_negatives[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
 4346,tests/test_privacy_check.py::test_findings_never_echo_the_protected_value,tests/test_privacy_check.py,0.007,3546180,27920,0,0,197792,0,8,39,,,293
 4347,tests/test_privacy_check.py::test_policy_contains_digests_not_plaintext,tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
 4348,tests/test_privacy_check.py::test_bad_policy_is_a_configuration_error,tests/test_privacy_check.py,0.008,3546180,27920,0,0,197792,0,8,39,,,293
 4349,tests/test_privacy_check.py::test_real_ddr_filename_is_prohibited_anywhere,tests/test_privacy_check.py,0.019,3546180,27920,0,0,197792,0,8,39,,,293
-4350,tests/test_privacy_check.py::test_spaced_ddr_filenames_are_prohibited[12 - DDR RIG-1 WELL-2 2025-Jan-01 (1403.10.12).pdf],tests/test_privacy_check.py,0.007,3546180,27920,0,0,197792,0,8,39,4636003,282727,293
-4351,tests/test_privacy_check.py::test_spaced_ddr_filenames_are_prohibited[7 -DDR_RIG-1 WELL-2.xlsx],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
-4352,tests/test_privacy_check.py::test_ddr_filename_rule_ignores_ordinary_names[tests/fixtures/synthetic_ddr_golden_a.xlsx],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4353,tests/test_privacy_check.py::test_ddr_filename_rule_ignores_ordinary_names[docs/DDR_IMPORT.md],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
-4354,tests/test_privacy_check.py::test_ddr_filename_rule_ignores_ordinary_names[templates/OEOC_DDR_full_extraction.json],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4350,tests/test_privacy_check.py::test_spaced_ddr_filenames_are_prohibited[<synthetic sample redacted>],tests/test_privacy_check.py,0.007,3546180,27920,0,0,197792,0,8,39,4636003,282727,293
+4351,tests/test_privacy_check.py::test_spaced_ddr_filenames_are_prohibited[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
+4352,tests/test_privacy_check.py::test_ddr_filename_rule_ignores_ordinary_names[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4353,tests/test_privacy_check.py::test_ddr_filename_rule_ignores_ordinary_names[<synthetic sample redacted>],tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
+4354,tests/test_privacy_check.py::test_ddr_filename_rule_ignores_ordinary_names[<synthetic sample redacted>],tests/test_privacy_check.py,0.006,3546180,27920,0,0,197792,0,8,39,,,293
 4355,tests/test_privacy_check.py::test_data_files_need_an_allowlist_entry_pinned_by_hash,tests/test_privacy_check.py,0.043,3546180,27920,0,0,197792,0,8,39,,,293
 4356,tests/test_privacy_check.py::test_identity_inside_an_allowlisted_workbook_is_still_found,tests/test_privacy_check.py,0.018,3546180,27920,0,0,197792,0,8,39,,,293
 4357,tests/test_privacy_check.py::test_spreadsheets_are_not_rejected_wholesale,tests/test_privacy_check.py,0.005,3546180,27920,0,0,197792,0,8,39,,,293
