@@ -1,0 +1,14 @@
+Source release gate - per-leg wall time (GitHub API: jobs started_at/completed_at). Limit: 60 min per job (unchanged).
+3.12 is the coverage leg (verify_release.py --coverage).
+
+commit   attempt  start (UTC)  legs (3.11 / 3.12 coverage / 3.13)
+4eae8f5  1        10:07     3.11 success 35m   3.12 success 45m   3.13 success 35m
+4eae8f5  2        14:05     3.11 success 34m   3.12 cancelled 60m   3.13 success 50m
+07a0f8b  1        11:45     3.11 success 33m   3.12 cancelled 60m   3.13 success 52m
+07a0f8b  2        13:01     3.12 cancelled 60m (only the 3.12 leg was re-run; 3.11 / 3.13 carried from attempt 1)
+
+Reading: the 3.12 leg of the previously green commit 4eae8f5 (45 min at 10:07) also exceeded 60 min when re-run at 14:05,
+and its 3.13 leg rose from 35 to 50 min - the same shift as 07a0f8b. 3.11 is unchanged (33-35 min) on both commits.
+Conclusion: an environmental slowdown of the hosted 3.12/3.13 legs, not a regression of 07a0f8b. Cause not identified
+(job logs are served from a host the sandbox cannot reach). The 07a0f8b attempt-2 rerun is a diagnostic, not a retry policy.
+Local evidence for 07a0f8b: the four new test files take 73 s plain / 158 s under coverage 7.16.2 (3.11); full suite 2,691 s vs 2,693 s on 4eae8f5.

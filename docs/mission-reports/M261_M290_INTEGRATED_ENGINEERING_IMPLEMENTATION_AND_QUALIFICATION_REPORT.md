@@ -3,7 +3,7 @@
 **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.**
 
 * Branch: `arena/72010272-drill-master`, fast-forward pushes only.
-* Code commits: `7fe52ff`, `b21782b`, `35d3bc6`, `8a76829`, `42eb03d`. This report follows them.
+* Code commits: `7fe52ff`, `b21782b`, `35d3bc6`, `8a76829`, `42eb03d`, then (continuation round) `07a0f8b`. The first report commit was `4eae8f5`; this revision records the continuation round.
 * All evidence is synthetic: SYNTHETIC fixtures, offscreen Qt on Linux (PySide6 6.8.1.1, Python 3.11.2), and GitHub-hosted Linux and Windows runners.
 * No real DDR or confidential document was opened.
 * Windows CI is not desktop or field acceptance.
@@ -11,30 +11,35 @@
 
 ## Overall status
 
-**PARTIAL.** Every Part I phase (M261–M271) has been carried out and has evidence. D74 is improved but not closed, D63 is reproduced but its root cause is not identified, and D51 is not reproduced.
+**PARTIAL.** Every Part I phase (M261–M271) has been carried out and has evidence. D74 is improved but not closed, D63 is reproduced but its root cause is not identified, and D51 is not reproduced. On the final code (`07a0f8b`) the full local suite passes (5,677 passed, 4 opt-in skips) and the mutation catalogue kills 89/89. In CI, Windows and the 3.11/3.13 source legs pass, but the 3.12 coverage leg hits the 60-minute job limit; the same happens to the previously green `4eae8f5` today (D88, environmental, open).
 
-Three Part II phases received new implementation in this mission:
+Six Part II phases received new implementation in this mission:
 * M285: a seven-field KPI specification on the dashboard, with mutants.
 * M284: the D81 string-stretch correction in the W13 stuck-pipe calculator.
 * M289: a 13-step synthetic cross-module journey test.
+* M272 (continuation round, `07a0f8b`): explicit DDR value states (REPORTED / ZERO / CALCULATED / UNKNOWN / NOT_APPLICABLE / NOT_REPORTED) with a W2 editor.
+* M273 (`07a0f8b`): the lineage of one imported value, source → parsed → normalized → correction → accepted, with a stored-now check.
+* M286 (`07a0f8b`): workbench clone, archive and restore.
 
 Six further Part II phases received the mutation coverage that the mission required of them: M275, M276, M278, M279, M282 and M283. The remaining Part II phases rest on capabilities built in earlier missions and were **not** re-implemented here. The phase register states this row by row, and no row is marked COMPLETE unless every condition is met.
 
 New defects this mission:
 * **D81** (found and fixed).
 * **D82** (a regression I introduced and fixed before any push).
+* **D83** (found and fixed in `07a0f8b`): a workbench confirmation was overwritten by the list refresh.
+* **D84–D87** (in my own new continuation-round code; caught by tests before the push of `07a0f8b`). See M262.
 
 ## A. Delivery verification
 
 | Item | Value |
 |---|---|
 | Start | HEAD = upstream = remote = `ac7657b` (07:34 UTC); `drill-Master` = `e3fa42a` |
-| Pushed | `ac7657b..7fe52ff`, `7fe52ff..b21782b`, `b21782b..35d3bc6`, `35d3bc6..8a76829`, `8a76829..42eb03d` and the report commits – each verified by `git ls-remote` |
-| Full local suite on the final code | run on the commit that adds this report; the result is recorded in the next commit |
+| Pushed | `ac7657b..7fe52ff`, `7fe52ff..b21782b`, `b21782b..35d3bc6`, `35d3bc6..8a76829`, `8a76829..42eb03d`, `42eb03d..4eae8f5` (report), `4eae8f5..07a0f8b` (continuation round) and this report revision – each verified by `git ls-remote` |
+| Full local suite on the final code | **`07a0f8b`** (final code): exit 0; 5,677 passed, 4 skipped (opt-in, not passes), 0 failed; 2026-11-21 11:45:10 → 12:30:01 UTC (2,691 s). D74 at the end: 16 closed MainWindows, 188,315 widgets. Earlier: `4eae8f5` exit 0, 5,607 passed, 4 skipped, 2,693 s |
 | Full local suite on `b21782b` (profiled) | 1 failed, 5,604 passed, 4 skipped in 4,565.77 s (with the profiler). The failure, `test_release_boundary_imports::test_wheel_from_tracked_population_starts`, is an environment artefact: the sandbox venv is reached through a `.venv` symlink inside the checkout. The test passes with the real interpreter path; see M267 finding 7. D74 at the end of the run: 17 closed MainWindows, 197,792 widgets |
-| CI on the final code | `b21782b`: Source release gate ✅, Windows release validation ✅. Final code: recorded in the next commit |
+| CI on the final code | **`07a0f8b`**: Windows release validation ✅ (run 44900583984); Source release gate: **3.11 ✅ (33 min), 3.13 ✅ (52 min), 3.12 coverage leg ❌ cancelled at the 60-minute job limit, twice** (attempt 2 was a diagnostic re-run). A/B: re-running the previously green `4eae8f5` at 14:05 gave the same result (3.12 cancelled at 60 min; 3.13 35 → 50 min), so this is an environmental slowdown of the hosted 3.12/3.13 legs, not a regression of `07a0f8b` (D88; `m290_ci_leg_timing_ab.txt`). **Coverage on the final code is therefore not measured in CI**; the last measured value is 72.28 % on `4eae8f5`. The 60-minute limit was not raised. Earlier: `4eae8f5` 2/2 ✅ (coverage 72.28 %, floor 45.50 %); `b21782b` 2/2 ✅ |
 | Gate slip, corrected | `8a76829` was pushed although three gates failed (engine inventory, dependency audit, privacy findings in synthetic test ids in the profile CSV). A chained command did not stop on the failure. `42eb03d` restores all gates as a forward commit; nothing was amended. Later commits gate with `&&` |
-| Gates on the final tree | ruff (core dialogs tabs tests) clean; exception ceiling OK; constant inventory current; dependency audit 0 findings; engine inventory current; privacy check 0 findings |
+| Gates on the final tree (`07a0f8b`) | lint ratchet (`verify_release.verify_lint`): debt 0, ceiling 0; exception ceiling OK (two new narrow handlers were made explicit instead of raising the ceiling); constant inventory current; dependency audit 0 findings; engine inventory regenerated by the tool; privacy check 1,721 files, 0 findings. Chained with `&&` before the commit |
 | Branch protection | `drill-Master` reports `protected=false` with no rulesets, and the direct protection read is unavailable to this token. The policy still forbids writing to it, and this discrepancy has been reported without being tested by a write. |
 
 ## Phase register
@@ -54,8 +59,8 @@ Columns: ID · objective · implementation (files) · UI · persistence · tests
 | M269 | R-2 Kill Sheet review | domain table plus case proof | – | – | `test_m269_kill_sheet_geometry_table` (10) | KS survivor kept | `m269_kill_sheet_domain_table.md` | `7fe52ff` | COMPLETE: neither equivalent nor a fix; SURVIVED with justification; P11 | P11 |
 | M270 | catalogue for the 7 R-1 modules | `tools/quality/mutation_m261_m290.py` | – | – | `test_m270_r1_engine_contracts` | 47/47 K (20/47 by older tests) | `m270_*` | `7fe52ff` | COMPLETE | – |
 | M271 | survivor reconciliation, reach map | section M271 | – | – | – | all 18 catalogues | section M271 | – | COMPLETE (catalogue); "all killed": NO | – |
-| M272 | DDR authoring semantics | existing (M54/M84/M217) | yes | yes | existing | m50, m201_m230 | M241 inventory #2 | – | NOT RE-IMPLEMENTED in this mission | – |
-| M273 | import and lineage | existing (M61/M213–M218) | yes | yes | existing | m201_m230 | inventory #3 | – | NOT RE-IMPLEMENTED | – |
+| M272 | DDR authoring semantics | **`core/ddr_value_states.py`** (contract `ddr-value-states-v1`), `dialogs/ddr_value_states_dialog.py`, W2 "🔢 Value states…", `DdrValueState` model, guard trigger, policy, data-quality category "Value state inconsistent"; carry-forward stays M217 | yes (W2 dialog; data-quality workspace) | yes (`ddr_value_states`, append-only, audited) | `test_m272_ddr_value_states` (incl. dialog, W2 button, data quality), `test_m286_m272_authorization` | VS 14/14 killed (`07a0f8b`) | section Part II | `07a0f8b` | PARTIAL: 11 numeric header fields only; not wired into the import or PDF paths | real DDR NOT RUN |
+| M273 | import and lineage | **`core/import_value_lineage.py`** (contract `import-value-lineage-v1`): five stages from the stored review item plus the accepted-value stored-now check (MATCH / CHANGED_SINCE); shown in the review dialog detail | yes (import review dialog) | read-only over `import_review_items` | `test_m273_import_value_lineage` (8, over a real pipeline import of the SYNTHETIC golden workbook) | IL 5/5 killed | section Part II | `07a0f8b` | PARTIAL: per review item only; values imported without a review item have source lineage (M61) but no per-value stage view | real DDR NOT RUN |
 | M274 | well architecture, schematic | existing (M57/M205) | yes | yes | existing | m201_m230 | inventory #6 | – | NOT RE-IMPLEMENTED | IV |
 | M275 | survey, trajectory, saved views | existing; **`trajectory.py` now mutated** (TR-*) | yes | yes | `test_m270_*` (trajectory) | TR 4/4 | m270 | `7fe52ff` | PARTIAL (mutation added) | P10 |
 | M276 | anti-collision screening | existing; **engine now mutated** (AC-*, including "never claims ISCWSA") | yes | – | `test_m270_*` | AC 12/12 | m270 | `7fe52ff` | PARTIAL | P19 |
@@ -68,7 +73,7 @@ Columns: ID · objective · implementation (files) · UI · persistence · tests
 | M283 | well control, Kill Sheet | existing; **`well_control` now mutated** (WC-*); R-2 review | yes | yes | `test_m270_*`, `test_m269_*` | WC 7/7 | m269, m270 | `7fe52ff` | PARTIAL; TRAINING AID | P11 |
 | M284 | fishing | **D81 fixed** (`string_stretch` ∝ L²); **engine now mutated** (FI-*) | yes (W13 stuck pipe) | – | `test_m270_*`, `test_single_source_guard` | FI 8/8 | m270, D81 | `7fe52ff` | PARTIAL: engine corrected; methods remain legacy screening | IV |
 | M285 | KPIs and NPT, full definitions | **`KPI_SPECS`** (window, scope, method, missing, counting) on every dashboard KPI; card tooltip | yes (dashboard tooltip) | – (derived) | `test_m285_kpi_specifications` (6), `test_m289_*` step 1–2 | KP 4/4 | `m290_catalogue_42eb03d.json` | `b21782b`, `8a76829` | PARTIAL: implemented, UI-integrated, mutated; the w12 Analysis KPIs have no structured spec | – |
-| M286 | workbench statuses, clone, compare, rerun, archive | existing (M88/M108) | yes | yes | existing | m101_m120 | inventory #20 | – | NOT RE-IMPLEMENTED | – |
+| M286 | workbench statuses, clone, compare, rerun, archive | existing statuses/compare/re-run (M88/M108) plus **`core/calculation_workbench.py`**: clone (new case `clone_of`, status CLONE, not recalculated), archive / restore (reason required, append-only, audited, hidden by default, "Show archived"); D83 fixed | yes (Calc History tab) | yes (`calculation_archive_marks`, `calculation_cases`) | `test_m286_workbench_clone_archive` (8), `test_m286_m272_authorization` | WB 10/10, AZ 2/2 killed | section Part II, `m290_catalogue_07a0f8b.json` | `07a0f8b` | COMPLETE for the synthetic scope (capability: IMPLEMENTED AND QUALIFIED — SYNTHETIC) | real-data use not run |
 | M287 | Report Center, end-of-well reports | existing (M110/M135) | yes | yes | existing | m101_m120, m121_m140 | inventory #21, #22 | – | NOT RE-IMPLEMENTED | – |
 | M288 | offline document intelligence | existing (M49–M52) | yes | yes | existing | m49–m52 | inventory #23 | – | NOT RE-IMPLEMENTED | P4, P5, P7 |
 | M289 | 13-step cross-module journey | **`tests/test_m289_cross_module_journey.py`**: dashboard specs → KPI card → composed survey + frozen revision → anti-collision → mud volume save/verify → casing save/verify → well control → fishing → weighted ROP → workbench status → workbench re-run MATCH (nothing written) → end-of-well provenance | KPI card (widget); no MainWindow | yes (file DB) | 1 test, 13 steps, each checked by hand calculation | via the modules' catalogues | this report | `8a76829` | PARTIAL: synthetic, no MainWindow; the real-window journeys stay M139/M169/M229 | D63/D74 memory: about 200 MB per retained window |
@@ -111,6 +116,12 @@ New defects this mission:
 |---|---|---|---|
 | **D81** | P2 | `FishingEngine.string_stretch` used L instead of L². The constants (65.44 ppg steel, 9.625·10⁷) only fit L²: at MW = 0 they give L²/1.4708·10⁶ in, and ρgL²/2E for steel gives L²/1.4706·10⁶ in. A 10,000 ft string in 10 ppg mud showed **0.01 in instead of 53.03 in** in the W13 stuck-pipe calculator. The only test rebuilt the same linear expression (self-confirming). | **FIXED** `7fe52ff`. Constants unchanged; a test checks against Hooke's law for a hanging bar; `test_single_source_guard` corrected; mutant `FI-stretch-linear-in-length`. Stored stuck-pipe history computed before the fix re-runs as DIFFERENT, which is correct. |
 | **D82** | P1 (caught before push) | My first M265 route registry stored strong bound methods in the owner's `__dict__`. Every tab became cyclic garbage, and `test_m132` crashed at its idle `gc.collect()` 2/2 (the baseline `ac7657b` passed 0/2 crashes). | **FIXED** before the first push: bound methods are recorded as `WeakMethod`; `test_the_route_registry_does_not_make_its_owner_cyclic_garbage` fails on the strong design |
+| **D83** | P3 | Calc History workbench: "Recalculation saved", "Cloned" and "Archived" were written to the status line and then overwritten by the list refresh, so the operator never saw the confirmation | **FIXED** `07a0f8b`; status is set after `refresh()`; `test_saving_a_recalculation_keeps_its_confirmation_visible`; mutant `WB-recalc-confirmation-overwritten` |
+| **D84** | P1 (my new code; caught before push) | The two new event tables (`ddr_value_states`, `calculation_archive_marks`) had no data-layer policy. Unlisted tables default to NOBODY, so with enforcement on every editor write was refused and a supervisor could not delete a report that had value states. Found by `test_m116`/`test_m123` failing in a regression subset | **FIXED** before push: insert = EDIT, update = NOBODY, delete = report/well deleters; `test_m286_m272_authorization` (4); mutants `AZ-*` |
+| **D85** | P2 (my new code; caught before push) | The value-state delete guard (deleted only with the report) refused the report-delete sweep, which deletes children while the report row still exists | **FIXED** before push: models flagged `DELETED_AFTER_REPORT` are swept after the report row in the same transaction; the raw-delete guard is kept; mutant `VS-report-delete-blocked` |
+| **D86** | P2 (my new code; caught before push) | My first value-state parser stripped commas, so a decimal comma `1,5` became 15 | **FIXED** before push: any comma is refused with a message; test cases `1,5` and `1,500` |
+| **D88** | P2 (CI environment) | The Source release gate's 3.12 coverage leg now exceeds the 60-minute job limit (45–46 min on every earlier green run). It happens equally on the old commit `4eae8f5` when re-run, and the 3.13 leg rose from 35–40 to 50–52 min on both commits; 3.11 is unchanged | **OPEN – environmental, cause not identified** (job logs are served from a host the sandbox cannot reach). Not fixed by raising the limit, adding retries or reducing scope. A remedy (for example splitting the coverage leg) is a CI design change that needs a separately documented decision; roadmap |
+| **D87** | P2 (my new code; caught before push) | Archive marks address the record by table and id. SQLite (no AUTOINCREMENT) reuses the highest deleted id, so a new record could inherit an old archive mark | **FIXED** before push: each mark snapshots the source `created_at` and applies only to that row; `test_a_record_that_reuses_a_deleted_records_id_does_not_inherit_its_archive_mark`; mutant `WB-reused-id-inherits-archive` |
 
 ## M263 – D74 signal/slot ownership audit
 
@@ -284,8 +295,9 @@ The pre-existing suite would not have caught `FI-stretch-linear-in-length`, whic
 | Catalogue | Mutants | K | S | E | I | complete | Notes |
 |---|---|---|---|---|---|---|---|
 | 17 catalogues on `db0cba3` (M231–M260) | 1108 | 1103 | 4 | 1 | 0 | all `True` | m50 trio S (stays S in M50); SEC-empty-password-unlocks E (never K); KS-unfilled-casing-id-assessed S (justified, M269) |
-| `mutation_m261_m290` (`42eb03d`) | 58 | 58 | 0 | 0 | 0 | `True` | 47 R-1 + 7 LC + 4 KP |
-| **all 18** | 1,166 | 1,161 | 4 | 1 | 0 | all `True` | |
+| `mutation_m261_m290` (`42eb03d`, superseded) | 58 | 58 | 0 | 0 | 0 | `True` | 47 R-1 + 7 LC + 4 KP |
+| `mutation_m261_m290` (**`07a0f8b`**, final) | 89 | 89 | 0 | 0 | 0 | `True` | 47 R-1 + 7 LC + 4 KP + 10 WB + 14 VS + 5 IL + 2 AZ; 579 s; `m290_catalogue_07a0f8b.json` |
+| **all 18** (final) | 1,197 | 1,192 | 4 | 1 | 0 | all `True` | |
 
 * **Complete:** YES. Every catalogue ran fully, and none used `--only`.
 * **All killed:** NO. There are 4 justified survivors and 1 equivalent, and the equivalent is not counted as killed.
@@ -295,10 +307,10 @@ The reach map covers 30 product areas against the catalogue prefixes that mutate
 | # | Area | Catalogues | # | Area | Catalogues |
 |---|---|---|---|---|---|
 | 1 | selection context | m70_m76, m101_m120, m231_m260 (MW), **m261_m290 (LC)** | 16 | mud volume | m101_m120 (engine), **m261_m290 (MV)** |
-| 2 | DDR workspace | m54/m83_m96, m201_m230 | 17 | W13 classifications | m83_m96, m121_m140 |
-| 3 | DDR import, lineage | m61_m67, m201_m230 | 18 | KPIs, dashboard | m53_m56, m101_m120, **m261_m290 (KP)** |
+| 2 | DDR workspace | m54/m83_m96, m201_m230, **m261_m290 (VS)** | 17 | W13 classifications | m83_m96, m121_m140 |
+| 3 | DDR import, lineage | m61_m67, m201_m230, **m261_m290 (IL)** | 18 | KPIs, dashboard | m53_m56, m101_m120, **m261_m290 (KP)** |
 | 4 | review queue | m231_m260 | 19 | operational analysis, NPT | m48, m101_m120 |
-| 5 | data quality | m201_m230 | 20 | workbench / history | m101_m120 |
+| 5 | data quality | m201_m230, **m261_m290 (VS)** | 20 | workbench / history | m101_m120, **m261_m290 (WB)** |
 | 6 | architecture, schematic | m201_m230 | 21 | reports, export | m101_m120 |
 | 7 | surveys | m101_m120, **m261_m290 (TR)** | 22 | end-of-well package | m121_m140 |
 | 8 | plans, anti-collision | m101_m120, **m261_m290 (AC)** | 23 | document intelligence | m49–m52 |
@@ -333,7 +345,29 @@ The reach map covers 30 product areas against the catalogue prefixes that mutate
     * D81 stretch;
     * weighted ROP 20 m/h versus a mean of 22.5.
   * No MainWindow is opened. Each closed window is retained, at about 200 MB (M267), and the real-window journeys are M139/M169/M229.
-* **Not re-implemented in this mission:** M272, M273, M274, M277, M280, M281, M286, M287 and M288. Their capability state is unchanged from the M241 inventory and is restated in the M290 catalogue.
+* **M272 (continuation round, `07a0f8b`; implemented, UI-integrated).**
+  * What: an operator can say *why* a numeric DDR header field holds what it holds. The states are REPORTED, ZERO, CALCULATED (method required), UNKNOWN, NOT_APPLICABLE and NOT_REPORTED. The fields are the 11 numeric headers of `daily_reports`: depths at 00:00, 06:00 and 24:00, ROP, WOB, RPM, torque, pressure, MW in, MW out, MW pcf.
+  * Rules:
+    * A missing state never stores a number; a missing value stays None.
+    * ZERO needs a stored 0 and REPORTED a stored non-zero number, so "0" and "unknown" cannot be confused.
+    * A state that contradicts the stored value is refused, and nothing is written.
+    * If the value is edited later so that the recorded state no longer fits, the state is shown as INCONSISTENT with the reason, and the data-quality workspace lists it (ERROR). Nothing is repaired automatically.
+    * A stored value that is not a finite number is INCONSISTENT, never "empty".
+    * Typed input: blank / NR / ? / unknown / N/A map to states; NaN, infinity and any comma are refused (D86).
+  * Storage: append-only events (`ddr_value_states`, immutable-update and owner-only-delete guards, D85), each with a mandatory audit record. The latest event wins. Policy: insert by report editors (D84).
+  * Where: W2 Daily Report "🔢 Value states…" (needs a saved report); `dialogs/ddr_value_states_dialog.py` saves only the fields the operator changed and reports refusals per field.
+  * Not done: the import and PDF paths do not yet write value states, and only the 11 numeric header fields are covered. Carry-forward stays the M217 section-state contract with explicit confirmation.
+* **M273 (`07a0f8b`; implemented, UI-integrated).**
+  * What: for one DDR review item, the five stages SOURCE (file, fingerprint, sheet, page, row) → PARSED (original text) → NORMALIZED (proposal) → CORRECTION (every correction with old/new value, unit, reason, user, time; reopen count) → ACCEPTED (state). For an accepted correction it also checks that the accepted value is **still** the stored canonical value: MATCH, or CHANGED_SINCE with both values when another route edited the field later.
+  * Read-only: it repairs nothing and writes nothing. A corrupt stored payload is reported UNREADABLE, not shown as empty.
+  * Where: the import review dialog's detail pane shows the lineage line of the selected item.
+  * Tests: over a real pipeline import of the SYNTHETIC golden workbook (the M173 fixture): open item, accepted MATCH, CHANGED_SINCE without repair, re-correction (latest wins), reopened item not checked, foreign well refused, dialog line, corrupt payload.
+  * Not done: values imported without a review item keep the M61 source lineage only; there is no per-value stage view for them.
+* **M286 (`07a0f8b`; implemented, UI-integrated).**
+  * Existing (M88/M108): MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE, compare, re-run, save recalculation.
+  * New: **clone** creates a new calculation case with the exact stored inputs and results, linked `clone_of`, status CLONE and labelled "not recalculated"; empty inputs are refused. **Archive / restore** are append-only marks (`calculation_archive_marks`) with a required reason and an audit record; the latest mark wins; an archived record is hidden from the default list, shown with "Show archived", and still re-runs and compares. A mark applies only to the row it was made for (D87).
+  * D83 fixed: the confirmations are no longer overwritten by the list refresh.
+* **Not re-implemented in this mission:** M274, M277, M280, M281, M287 and M288. Their capability state is unchanged from the M241 inventory and is restated in the M290 catalogue.
 
 ## M290 – adversarial audit
 
@@ -349,6 +383,9 @@ The reach map covers 30 product areas against the catalogue prefixes that mutate
 | Limits raised | none |
 | Dependencies installed | none beyond the existing lock file; no external code adopted |
 | Owner decisions taken | none (P1–P19 untouched) |
+| Continuation round: new tables safe under enforcement? | The first version was not (D84, D85). Both were found by existing tests in a regression subset, fixed, and covered by `test_m286_m272_authorization` and AZ/VS mutants before the push |
+| Continuation round: limits | exception ceiling not raised (two new narrow handlers rewritten as explicit code); no skip added; the new secondary indexes were registered in `INDEX_PLAN` with their access path instead of relaxing the migration test |
+| CI 3.12 timeout blamed on the environment without proof? | A/B on the previous green commit reproduces it (D88). The claim is limited to "not a regression of `07a0f8b`"; the cause itself is not claimed |
 | Gates | see A |
 
 ## B. Capability catalogue
@@ -361,4 +398,4 @@ See `docs/engineering/DRILLMASTER_ENGINEERING_ROADMAP_M290.md` (six categories).
 
 ## D. Overall status
 
-**PARTIAL.** UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Real DDR acceptance NOT RUN. P1–P19 OWNER REVIEW REQUIRED.
+**PARTIAL.** UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Real DDR acceptance NOT RUN. P1–P19 OWNER REVIEW REQUIRED. CI coverage on the final code NOT MEASURED (D88). Not re-implemented: M274, M277, M280, M281, M287, M288.

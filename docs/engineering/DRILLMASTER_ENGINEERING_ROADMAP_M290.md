@@ -28,8 +28,9 @@ This roadmap is written against the M261–M290 final code; see the M261–M290 
 | # | Item | Notes |
 |---|---|---|
 | P1 | M289 journey through the real MainWindow (the M261–M290 journey crosses the engines, persistence, workbench and KPI card without a window) | blocked in practice by D63/D74: each closed window keeps about 200 MB |
-| P2 | M272/M273 authoring states (unknown, zero, N/A, not reported, calculated) as one shared widget contract | exists per tab; not unified |
-| P3 | M286 workbench: clone, compare and archive across calculation kinds | MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE exist |
+| P1 | D88: the Source release gate 3.12 coverage leg exceeds the 60-minute job limit on hosted runners (since 2026-11-21, also for the previously green `4eae8f5`). Decide, as a documented CI design decision, between splitting the coverage run across jobs or another remedy; do not raise the limit silently | 3.11 and 3.13 legs pass; Windows passes |
+| P2 | M272/M273 next step: write value states from the import and PDF paths; extend beyond the 11 numeric DDR header fields; per-value stage view for values imported without a review item | `07a0f8b`: value-state contract + W2 editor + data-quality listing (M272); review-item lineage with stored-now check (M273) |
+| P3 | M286 workbench: bulk archive and a side-by-side view of a clone and its source | `07a0f8b`: clone / archive / restore for every history kind, with reasons and audit (D83 fixed) |
 | P4 | M287 end-of-well report sections per engineering module with provenance | package exists; sections are per area |
 | P5 | Dashboard KPI spec drill-down (open the spec as a document) | the tooltip shows it today |
 

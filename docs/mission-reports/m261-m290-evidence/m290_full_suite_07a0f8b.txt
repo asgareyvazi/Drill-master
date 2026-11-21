@@ -1,0 +1,10 @@
+Full local suite on 07a0f8b (Linux, offscreen Qt, PySide6 6.8.1.1, Python 3.11.2)
+command: python -m pytest -p no:cacheprovider -q tests
+start 2026-11-21T11:45:10Z  end 2026-11-21T12:30:01Z  (2,691 s)
+EXIT=0
+outcomes counted from the progress lines:
+   5677 passed (.)
+      4 skipped (s, opt-in; never counted as passes)
+trailer:
+D74 closed MainWindows still alive: 16 after test_m95_ux_responsiveness (188315 live widgets); first left by: test_m102_context_probes, test_m139_end_to_end_journey, test_m153_context_blocked_autosave, test_m169_end_to_end_journey, test_m190_tubular_journey, test_m217_day_by_day_carry_forward, test_m227_data_quality_workspace, test_m229_product_journey, test_m265_window_routes, test_m45_ui
+D53 GC policy: 1 collection(s) started off the main thread (threads: d53-explicit)
