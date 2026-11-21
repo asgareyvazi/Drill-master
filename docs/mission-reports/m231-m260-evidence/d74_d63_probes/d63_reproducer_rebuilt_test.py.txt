@@ -1,0 +1,69 @@
+"""D63-class reproducer, rebuilt on the final tree (M237). NOT part of the suite.
+
+Run it in a scratch copy only (never in the repository):
+
+    cp <this file> <scratch>/tests/test_zz_d63_reproducer.py
+    cd <scratch> && LD_LIBRARY_PATH=... QT_QPA_PLATFORM=offscreen DRILLMASTER_ENV=test \
+        python -X faulthandler -m pytest -p no:cacheprovider -q tests/test_zz_d63_reproducer.py
+
+Each test builds a real MainWindow on a fresh synthetic file database (the M70 window recipe), closes it and then
+DESTROYS it (``deleteLater`` + posted-delete flush) - the D74 "dispose closed windows" fix that was rejected - and
+lets the collector run. The original files of this scenario were lost in a sandbox reset; this is a rebuild from
+the description in ``d74_d63_root_cause.md`` section 4. SYNTHETIC data only.
+"""
+import gc
+import time
+
+import pytest
+from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QApplication
+
+from conftest import closed_main_windows, flush_deferred_deletes
+from core.permissions import permissions, session_user
+from core.selection_manager import SelectionManager
+from document_link_fixtures import build_link_world
+from synthetic_operations import make_file_database
+
+
+def _pump(seconds=0.2):
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        QApplication.processEvents()
+
+
+def _window_cycle(tmp_path, monkeypatch):
+    QApplication.instance() or QApplication([])
+    for key, value in {"DRILLMASTER_ENV": "test", "DRILLMASTER_DATA_DIR": str(tmp_path),
+                       "DRILLMASTER_LOG_DIR": str(tmp_path / "logs"),
+                       "DRILLMASTER_BACKUP_DIR": str(tmp_path / "backups"), "DRILLMASTER_AI_IMPORT": "0"}.items():
+        monkeypatch.setenv(key, value)
+    QSettings.setPath(QSettings.NativeFormat, QSettings.UserScope, str(tmp_path / "settings"))
+    db = make_file_database(tmp_path / "window.db")
+    build_link_world(db)
+    previous = permissions.user
+    user = session_user(db.authenticate_user("admin", "Synthetic-Admin-1!"))
+    permissions.set_user(user)
+    db.enforce_authorization(permissions)
+    from main_window import MainWindow
+    win = MainWindow(db_manager=db, user=user, startup_result=None)
+    win.show()
+    _pump(0.5)
+    end = time.monotonic() + 10
+    while win._hierarchy_worker is not None and time.monotonic() < end:
+        _pump(0.05)
+    SelectionManager().clear()
+    win._close_confirmed = True
+    win.close()
+    _pump(0.2)
+    for closed in closed_main_windows():          # the rejected disposal
+        closed.deleteLater()
+    flush_deferred_deletes()
+    del win
+    permissions.set_user(previous)
+    db.engine.dispose()
+    return gc.collect()
+
+
+@pytest.mark.parametrize("round_", [1, 2, 3])
+def test_destroy_a_closed_main_window_then_collect(round_, tmp_path, monkeypatch):
+    assert _window_cycle(tmp_path, monkeypatch) >= 0

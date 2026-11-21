@@ -1,0 +1,6 @@
+CI on the final code db0cba301d42b99a59606fccc79c17144e2350a2 (GitHub check-runs API, read 2026-11-18 ~10:50 UTC)
+source (3.11)    success  09:18:09 -> 09:58:03  job 134699501636
+source (3.12)    success  09:18:10 -> 10:08:04  job 134699501604  product coverage (branch+line) 72.23% over 286 tracked files (78079/108098); floor 45.50%
+source (3.13)    success  09:18:10 -> 10:09:00  job 134699501213
+windows-release  success  09:18:09 -> 09:48:07  job 134699495401  4 x Windows regression subset: exit 0, 119 tests, 0 failures, 0 errors, 0 skipped, native crash False, 0 processes left running, peak memory 231.4-234.3 MB
+No rerun. timeout-minutes 60 unchanged.

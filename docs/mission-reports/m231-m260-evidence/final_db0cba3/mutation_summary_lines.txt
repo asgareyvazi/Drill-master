@@ -1,0 +1,17 @@
+mutation_m101_m120: mutants=184 killed=184 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=2318
+mutation_m121_m140: mutants=330 killed=329 survived_non_equivalent=0 declared_equivalent=1 invalid=0 complete=True seconds=2285
+mutation_m141_m170: mutants=28 killed=28 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=165
+mutation_m171_m200: mutants=103 killed=103 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=1543
+mutation_m201_m230: mutants=55 killed=55 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=710
+mutation_m231_m260: mutants=22 killed=21 survived_non_equivalent=1 declared_equivalent=0 invalid=0 complete=True seconds=121
+mutation_m46: mutants=29 killed=29 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=68
+mutation_m47: mutants=26 killed=26 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=339
+mutation_m48: mutants=44 killed=44 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=1154
+mutation_m49: mutants=38 killed=38 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=134
+mutation_m50: mutants=55 killed=52 survived_non_equivalent=3 declared_equivalent=0 invalid=0 complete=True seconds=657
+mutation_m51: mutants=29 killed=29 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=321
+mutation_m52: mutants=70 killed=70 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=451
+mutation_m53_m56: mutants=38 killed=38 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=78
+mutation_m61_m67: mutants=19 killed=19 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=106
+mutation_m70_m76: mutants=18 killed=18 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=114
+mutation_m83_m96: mutants=20 killed=20 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=370

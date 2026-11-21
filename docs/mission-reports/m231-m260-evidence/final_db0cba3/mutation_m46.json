@@ -1,0 +1,429 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_document_links.py",
+      "tests/test_document_links_audit_m46.py",
+      "tests/test_hierarchy_worker_isolation_m46.py",
+      "tests/test_search_normalization.py",
+      "tests/test_search_parity_m46.py",
+      "tests/test_sqlite_pool_isolation_m47.py::test_the_hierarchy_worker_connection_cannot_write",
+      "tests/test_survey_editor_scope_m46.py",
+      "tests/test_test_isolation_m46.py",
+      "tests/test_trajectory_3d.py",
+      "tests/test_trajectory_3d_lifecycle_m46.py"
+    ],
+    "exit": 0,
+    "summary": "84 passed, 14 warnings in 18.92s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "T1-restore",
+      "path": "tests/conftest.py",
+      "note": "principal no longer restored after a test",
+      "equivalent": "",
+      "tests": [
+        "tests/test_test_isolation_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.04s"
+    },
+    {
+      "id": "T1-snapshot",
+      "path": "tests/conftest.py",
+      "note": "restores 'nobody' instead of the previous principal",
+      "equivalent": "",
+      "tests": [
+        "tests/test_test_isolation_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.04s"
+    },
+    {
+      "id": "S-version",
+      "path": "core/search_normalization.py",
+      "note": "index signature not bumped: v2 indexes would be reused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.15s"
+    },
+    {
+      "id": "S-combining",
+      "path": "core/search_normalization.py",
+      "note": "combining diacritics U+0300-036F kept",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.96s"
+    },
+    {
+      "id": "S-latin-fold",
+      "path": "core/search_normalization.py",
+      "note": "Latin letters with diacritics not folded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.98s"
+    },
+    {
+      "id": "S-latin-ascii-guard",
+      "path": "core/search_normalization.py",
+      "note": "letters with a non-ASCII base (Ǣ->Æ, Ǿ->Ø, Ǯ->Ʒ) folded, unlike FTS5",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.36s"
+    },
+    {
+      "id": "S-token-underscore",
+      "path": "core/search_normalization.py",
+      "note": "'_' part of a word again (v1)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.04s"
+    },
+    {
+      "id": "S-alt-halfspace",
+      "path": "core/search_normalization.py",
+      "note": "no half-space alternative (fallback and FTS)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.90s"
+    },
+    {
+      "id": "S-alt-ascii",
+      "path": "core/search_normalization.py",
+      "note": "English words also joined ('drill pipe' -> 'drillpipe')",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 2.46s"
+    },
+    {
+      "id": "S-phrase-any-order",
+      "path": "core/search_normalization.py",
+      "note": "fallback phrase = loose prefixes anywhere (v1 false positives)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.79s"
+    },
+    {
+      "id": "S-single-exact",
+      "path": "core/search_normalization.py",
+      "note": "fallback single word exact, not prefix",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.94s"
+    },
+    {
+      "id": "S-scan-v1",
+      "path": "core/document_library.py",
+      "note": "fallback scan back to per-term prefix spans (v1)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_search_parity_m46.py",
+        "tests/test_search_normalization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.86s"
+    },
+    {
+      "id": "W1-filter",
+      "path": "tabs/w6_Trajectory_Widget.py",
+      "note": "well scope lists every report's rows again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_survey_editor_scope_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.91s"
+    },
+    {
+      "id": "W1-condition",
+      "path": "tabs/w6_Trajectory_Widget.py",
+      "note": "well-level filter also applied with a report selected",
+      "equivalent": "",
+      "tests": [
+        "tests/test_survey_editor_scope_m46.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.96s"
+    },
+    {
+      "id": "H1-shared-connection",
+      "path": "main_window.py",
+      "note": "worker reads on the shared connection again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_hierarchy_worker_isolation_m46.py",
+        "tests/test_sqlite_pool_isolation_m47.py::test_the_hierarchy_worker_connection_cannot_write"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 3.77s"
+    },
+    {
+      "id": "L-audit-swallowed",
+      "path": "core/document_links.py",
+      "note": "audit failure ignored: link stored without audit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.80s"
+    },
+    {
+      "id": "L-run-commit-classify",
+      "path": "core/document_links.py",
+      "note": "unexpected failure reported as success",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.00s"
+    },
+    {
+      "id": "L-denied-classify",
+      "path": "core/document_links.py",
+      "note": "authorization refusal not classified as denied",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 2.42s"
+    },
+    {
+      "id": "L-duplicate-classify",
+      "path": "core/document_links.py",
+      "note": "lost race against the unique constraint not reported as duplicate",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 3.48s"
+    },
+    {
+      "id": "L-report-well",
+      "path": "core/document_links.py",
+      "note": "report of another well accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.49s"
+    },
+    {
+      "id": "L-page",
+      "path": "core/document_links.py",
+      "note": "anchor page that does not exist accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.48s"
+    },
+    {
+      "id": "L-change-audit",
+      "path": "core/document_links.py",
+      "note": "change not audited",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.84s"
+    },
+    {
+      "id": "L-remove-audit",
+      "path": "core/document_links.py",
+      "note": "removal not audited",
+      "equivalent": "",
+      "tests": [
+        "tests/test_document_links_audit_m46.py",
+        "tests/test_document_links.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.83s"
+    },
+    {
+      "id": "V-hidden-draw",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "draws while hidden",
+      "equivalent": "",
+      "tests": [
+        "tests/test_trajectory_3d_lifecycle_m46.py",
+        "tests/test_trajectory_3d.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 0.81s"
+    },
+    {
+      "id": "V-dirty-reset",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "request flag never cleared",
+      "equivalent": "",
+      "tests": [
+        "tests/test_trajectory_3d_lifecycle_m46.py",
+        "tests/test_trajectory_3d.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 0.77s"
+    },
+    {
+      "id": "V-show-rearm",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "a request made while hidden is dropped on show",
+      "equivalent": "",
+      "tests": [
+        "tests/test_trajectory_3d_lifecycle_m46.py",
+        "tests/test_trajectory_3d.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 0.82s"
+    },
+    {
+      "id": "V-coalesce",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "every request draws immediately (no coalescing)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_trajectory_3d_lifecycle_m46.py",
+        "tests/test_trajectory_3d.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 2.03s"
+    },
+    {
+      "id": "V-draw-idle-route",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "Matplotlib's draw_idle not routed to the owned timer",
+      "equivalent": "",
+      "tests": [
+        "tests/test_trajectory_3d_lifecycle_m46.py",
+        "tests/test_trajectory_3d.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 warnings in 0.76s"
+    },
+    {
+      "id": "V-timer-owner",
+      "path": "tabs/trajectory_3d_view.py",
+      "note": "timer not owned by the view",
+      "equivalent": "",
+      "tests": [
+        "tests/test_trajectory_3d_lifecycle_m46.py",
+        "tests/test_trajectory_3d.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 0.92s"
+    }
+  ],
+  "killed": [
+    "T1-restore",
+    "T1-snapshot",
+    "S-version",
+    "S-combining",
+    "S-latin-fold",
+    "S-latin-ascii-guard",
+    "S-token-underscore",
+    "S-alt-halfspace",
+    "S-alt-ascii",
+    "S-phrase-any-order",
+    "S-single-exact",
+    "S-scan-v1",
+    "W1-filter",
+    "W1-condition",
+    "H1-shared-connection",
+    "L-audit-swallowed",
+    "L-run-commit-classify",
+    "L-denied-classify",
+    "L-duplicate-classify",
+    "L-report-well",
+    "L-page",
+    "L-change-audit",
+    "L-remove-audit",
+    "V-hidden-draw",
+    "V-dirty-reset",
+    "V-show-rearm",
+    "V-coalesce",
+    "V-draw-idle-route",
+    "V-timer-owner"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

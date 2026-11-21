@@ -142,3 +142,40 @@ between the close and the end of the process; "Return to startup" reuses the sam
   run is unchanged (~3.3–3.5 GB of 3.94 GB). Whether the D74 test now passes reliably is decided by the unprofiled
   full runs recorded in the M231–M260 report, not by this single profiled run.
 * **D63: REPRODUCED IN A DIAGNOSTIC SETUP (destroying closed MainWindows) – ROOT CAUSE NOT IDENTIFIED – NOT FIXED.**
+
+## 7. Unprofiled results after the mitigations (M240)
+
+| Run | Tree | Result | D74 line in the terminal summary |
+|---|---|---|---|
+| local, Python 3.11.2 offscreen, no coverage | `4b6514d` (items 1–6) | **5522 passed, 1 failed, 4 skipped, 2,913.15 s**; the failure was the privacy gate on the per-test CSV (D78, fixed in `cddd332`); `test_m95…measurement_tool_runs_and_reports_every_path` and `test_m169_twenty_step_journey` **passed**; lowest MemAvailable ≈ 514 MB | 14 closed MainWindows still alive after test_m95 (169,136 live widgets) |
+| CI source gate (ubuntu-24.04), 3.11 / 3.12 + coverage / 3.13 | `4b6514d` | each **5522 passed, 1 failed (D78), 4 skipped**, finished in 33–46 min (no 60-minute cancellation, unlike `cfaf476`) | – |
+| CI source gate, 3.11 / 3.12 + coverage / 3.13 | `b8b2c3a` | each **5550 passed, 1 failed (D79, stale generated `ENGINE_INVENTORY.md`), 4 skipped**, 37–51 min | – |
+| local, Python 3.11.2 offscreen, no coverage | `649e33d` | **5551 passed, 0 failed, 4 skipped, 2,462.57 s**; lowest MemAvailable ≈ 482 MB (`final_649e33d/`) | 14 closed MainWindows still alive after test_m95_ux_responsiveness (169,133 live widgets) |
+| CI source gate + Windows | `649e33d` | 4 / 4 green: 3.11 40 min, 3.12 + coverage 47 min (72.23 %), 3.13 40 min, Windows 30 min | – |
+| local, final code | `db0cba3` | **5551 passed, 0 failed, 4 skipped, 2,409.17 s**; lowest MemAvailable ≈ 507 MB (`final_db0cba3/`) | 14 closed MainWindows still alive after test_m95_ux_responsiveness (169,133 live widgets) |
+
+Item 6 (`4b6514d`): the per-test flush first called `QApplication.allWidgets()` to count widgets. With ~150,000
+live widgets this costs 61.2 ms per call against 1.7 ms for `sendPostedEvents(DeferredDelete)` alone
+(`d74_d63_probes/allwidgets_cost.py.txt`, `allwidgets_cost_result.txt`), about 11 minutes over 5,500 tests: the
+plausible cause of the `cfaf476` 3.11 / 3.12 cancellations at the 60-minute limit. The per-test flush now only
+sends the posted deletions; the widget census stays in the module flush. No limit was raised; the D74 test
+`test_m95…measurement_tool_runs_and_reports_every_path` passed in every CI leg of `4b6514d` and `b8b2c3a`.
+
+**D63 reproducer files lost (M237):** the disposal conftest and test file of section 4 were kept outside the
+repository (`/home/user/m234/fixed/`) and were erased by a sandbox reset on 2026-11-18 before they were copied
+here. The scenario is fully described in section 4 (destroy every closed `main_window.MainWindow` after each
+module, then let the collector run) and the probes that remain in `d74_d63_probes/` (`garbage_types.py.txt`,
+`delete_valid_garbage.py.txt`, `bisect_mw.py.txt`) reproduce its inputs.
+
+**D63 rebuilt probe on the final code `db0cba3` (M237):** `d74_d63_probes/d63_reproducer_rebuilt_test.py.txt` (a
+real `MainWindow` on a fresh database, closed, then every closed `MainWindow` destroyed with `deleteLater`, the
+deferred deletions flushed and `gc.collect()` called; three rounds) and the identical control without the
+disposal (`d63_reproducer_control_test.py.txt`), each run 6 times in a scratch copy under `-X faulthandler`:
+probe **1 / 6 SIGSEGV** (exit 139, faulthandler frame "Garbage-collecting" inside `gc.collect()` of round 3),
+control **0 / 6** (`d63_rebuilt_probe_runs_db0cba3.txt`, stack included, paths redacted). The sample is small; it
+agrees with section 4 but is not statistically conclusive, and the freed native object is not identified (no
+native debugger or debug Qt build in the sandbox). D63 stays **REPRODUCED IN A DIAGNOSTIC SETUP, ROOT CAUSE NOT
+IDENTIFIED, NOT FIXED.**
+
+**Status unchanged:** D74 OPEN for cause 1 (closed windows stay alive; destroying them hits D63); cause 2 fixed;
+the local peak is still ~3.3 GB of 3.94 GB.

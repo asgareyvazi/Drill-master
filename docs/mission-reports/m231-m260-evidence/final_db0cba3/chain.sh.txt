@@ -1,0 +1,23 @@
+#!/bin/bash
+# M240 chain on one committed tree: full suite (no coverage), then every mutation catalogue, sequentially.
+cd /home/user/Drill-master
+export LD_LIBRARY_PATH=/home/user/qt-libs QT_QPA_PLATFORM=offscreen DRILLMASTER_ENV=test DRILLMASTER_TEST_HANG_SECONDS=900
+OUT=/home/user/m234/final; mkdir -p $OUT
+TREE=$(git rev-parse HEAD)
+P=$OUT/progress.txt
+echo "$(date -u +%T) start suite tree=$TREE dirty=$(git status --short | wc -l)" >> $P
+( while :; do echo "$(date -u +%T) avail_kb=$(awk '/MemAvailable/{print $2}' /proc/meminfo)" >> $OUT/load.txt; sleep 30; done ) &
+SAMPLER=$!
+s=$(date +%s)
+/home/user/.venv/bin/python -X faulthandler -m pytest -ra -p no:cacheprovider > $OUT/suite.log 2>&1
+rc=$?
+echo "$(date -u +%T) suite exit=$rc seconds=$(( $(date +%s)-s )) tree=$(git rev-parse HEAD)" >> $P
+for c in m231_m260 m201_m230 m46 m47 m48 m49 m50 m51 m52 m53_m56 m61_m67 m70_m76 m83_m96 m101_m120 m141_m170 m171_m200 m121_m140; do
+  echo "$(date -u +%T) start $c tree=$(git rev-parse HEAD)" >> $P
+  s=$(date +%s)
+  /home/user/.venv/bin/python tools/quality/mutation_$c.py --json $OUT/mutation_$c.json > $OUT/mutation_$c.log 2>&1
+  rc=$?
+  echo "$(date -u +%T) $c exit=$rc seconds=$(( $(date +%s)-s )) tree=$(git rev-parse HEAD)" >> $P
+done
+kill $SAMPLER
+echo "CHAIN DONE $(date -u +%T) tree=$TREE" >> $P
