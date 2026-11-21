@@ -1,0 +1,37 @@
+built 1 windows; alive before final gc: 1
+windows=1 alive_after_gc=1 live_widgets=9554
+  holder builtins.module ['win']
+  holder tabs.home_tab.HomeTab ['parent_window']
+  holder tabs.w1_well_info.WellInfoTab ['main_window']
+  holder tabs.w2_Daily_Report.DailyReportWidget ['parent_window']
+objects holding the window in an attribute: 4
+closures capturing the window or such a holder: 39 at 29 sites
+  core/editor_bindings.py:125 <lambda> captures DailyReportWidget x1
+  core/editor_bindings.py:125 <lambda> captures WellInfoTab x1
+  core/managers.py:101 <lambda> captures DailyReportWidget x2
+  core/managers.py:101 <lambda> captures WellInfoTab x1
+  tabs/home_tab.py:196 <lambda> captures HomeTab x1
+  tabs/home_tab.py:276 <lambda> captures HomeTab x1
+  tabs/w1_well_info.py:417 <lambda> captures WellInfoTab x1
+  tabs/w1_well_info.py:422 <lambda> captures WellInfoTab x1
+  tabs/w2_Daily_Report.py:311 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:312 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:313 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:331 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:354 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:355 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:356 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:373 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:429 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:430 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:459 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:463 <lambda> captures DailyReportWidget x1
+  tabs/w2_Daily_Report.py:797 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:839 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:872 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:938 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:940 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:957 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:1013 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:1240 <lambda> captures DailyReportWidget x2
+  tabs/w2_Daily_Report.py:1241 <lambda> captures DailyReportWidget x2

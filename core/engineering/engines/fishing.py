@@ -48,7 +48,10 @@ SCOPE = "PARTIAL / SCREENING"
 STEEL_WEIGHT_CONST = 2.67
 # Free-point constant: E/(3.4 × 12) with E = 30e6 psi (A ≈ W/3.4)
 FREE_POINT_CONST = 735294.0
-# String-stretch approximation constants (buoyed pipe, own weight)
+# String-stretch approximation constants (buoyed pipe, own weight): dL[in] = L[ft]^2 x (A - B x MW) / DENOM.
+# M270 / D81: the constants only fit L SQUARED - with MW = 0 they give L^2 x 65.44 / 9.625e7 = L^2 / 1.4708e6,
+# and a steel string's stretch under its own weight is rho g L^2 / (2E) = 0.2833 x (12 L)^2 / 6e7 = L^2 / 1.4706e6
+# (65.44 ppg steel, E = 30e6 psi).  The engine used L, which understated a 10,000 ft string by a factor of L.
 STRETCH_DENOM = 96250000.0
 STRETCH_A = 65.44
 STRETCH_B = 1.44
@@ -141,7 +144,9 @@ class FishingEngine:
     def string_stretch(cls, length_ft, mw_ppg) -> EngineeringResult:
         """Estimated stretch (in) of a free string hanging in mud.
 
-        ΔL = L/96 250 000 × (65.44 − 1.44 × MW_ppg)
+        ΔL = L² × (65.44 − 1.44 × MW_ppg) / 96 250 000      (L in ft, ΔL in in)
+
+        D81 (M270): the length enters SQUARED (stretch under the string's own weight); see the constants.
         """
         try:
             length = require_number(length_ft, "length_ft")
@@ -151,14 +156,14 @@ class FishingEngine:
             if mw < 0 or mw >= STEEL_STRETCH_PPG / STRETCH_B:
                 raise EngineeringError(
                     "mw_ppg out of range for the stretch approximation")
-            stretch = length / STRETCH_DENOM * (STRETCH_A - STRETCH_B * mw)
+            stretch = length ** 2 * (STRETCH_A - STRETCH_B * mw) / STRETCH_DENOM
             return ok(
                 round(stretch, 2),
                 values={"string_stretch_in": round(stretch, 2), "length_ft": length, "mw_ppg": mw},
                 unit="in",
-                formula="ΔL = L/96250000 × (65.44 − 1.44 × MW)",
+                formula="ΔL = L² × (65.44 − 1.44 × MW) / 96250000",
                 method=cls.METHOD,
-                assumptions=["Free string hanging under its own buoyed weight"],
+                assumptions=["Free string hanging under its own buoyed weight", "Stretch grows with length squared (D81)"],
                 metadata={"units": {"length": "ft", "mw": "ppg", "stretch": "in"}},
                 scope=cls.SCOPE,
             )

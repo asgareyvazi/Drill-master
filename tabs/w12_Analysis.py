@@ -740,7 +740,7 @@ class AnalysisWidget(DrillTabBase):
         # schematic tab — W12 consumes it directly (smallest, lowest-risk change,
         # no shared-base modification per §7.1).
         try:
-            self.sel_manager.wellbore_changed.connect(self.on_wellbore_changed)
+            self.selection_routes().connect(self.sel_manager.wellbore_changed, self.on_wellbore_changed)
         except AttributeError:  # silent-ok: selection managers without a wellbore signal (tests, legacy hosts)
             pass
 

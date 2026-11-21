@@ -1,0 +1,97 @@
+"""M263 diagnostic: after close() and dropping the last reference, does the MainWindow survive gc, and which
+closures (lambdas / nested functions) still reference the window or an object that references it?"""
+import gc, os, sys, time, types, weakref, tempfile, collections
+from pathlib import Path
+sys.path[:0] = [os.getcwd(), os.path.join(os.getcwd(), "tests")]
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+work = Path(tempfile.mkdtemp(prefix="m263_"))
+for k, v in {"DRILLMASTER_ENV": "test", "DRILLMASTER_DATA_DIR": str(work), "DRILLMASTER_LOG_DIR": str(work / "logs"),
+             "DRILLMASTER_BACKUP_DIR": str(work / "backups"), "DRILLMASTER_AI_IMPORT": "0"}.items():
+    os.environ[k] = v
+from PySide6.QtCore import QSettings, QCoreApplication, QEvent
+from PySide6.QtWidgets import QApplication
+app = QApplication.instance() or QApplication([])
+QSettings.setPath(QSettings.NativeFormat, QSettings.UserScope, str(work / "settings"))
+from core.permissions import permissions, session_user
+from synthetic_operations import make_file_database
+from core.selection_manager import SelectionManager
+
+def pump(s=0.2):
+    end = time.monotonic() + s
+    while time.monotonic() < end:
+        app.processEvents(); time.sleep(0.01)
+
+def one_window(i):
+    db = make_file_database(work / f"w{i}.db")
+    user = session_user(db.authenticate_user("admin", "Synthetic-Admin-1!"))
+    permissions.set_user(user); db.enforce_authorization(permissions)
+    from main_window import MainWindow
+    win = MainWindow(db_manager=db, user=user, startup_result=None)
+    win.show(); pump(0.5)
+    end = time.monotonic() + 10
+    while win._hierarchy_worker is not None and time.monotonic() < end:
+        pump(0.05)
+    SelectionManager().clear()
+    win._close_confirmed = True
+    win.close(); pump(0.2)
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+    db.engine.dispose()
+    return weakref.ref(win)
+
+N = int(os.environ.get("M263_WINDOWS", "1"))
+MODE = os.environ.get("M263_MODE", "auto")
+refs = []
+for i in range(N):
+    refs.append(one_window(i))
+    if MODE == "collect_between":
+        gc.collect()
+    elif MODE == "collect_between_pumped":
+        pump(0.3); gc.collect(); pump(0.3)
+    elif MODE == "no_auto_gc":
+        gc.disable()
+    elif MODE == "diag_delete_orphan_viewbox_menus":     # DIAGNOSTIC ONLY (the rejected 'force menu destruction')
+        import shiboken6
+        from pyqtgraph.graphicsItems.ViewBox.ViewBoxMenu import ViewBoxMenu
+        menus = [o for o in gc.get_objects() if isinstance(o, ViewBoxMenu) and shiboken6.isValid(o)]
+        for m in menus:
+            shiboken6.delete(m)
+        print("deleted orphan ViewBoxMenus:", len(menus), flush=True)
+        del menus
+    elif MODE == "diag_count_menus":
+        import shiboken6
+        from PySide6.QtWidgets import QMenu
+        print("valid parentless python-owned menus:", sum(1 for o in gc.get_objects() if isinstance(o, QMenu)
+              and shiboken6.isValid(o) and o.parent() is None and shiboken6.ownedByPython(o)), flush=True)
+print("built", N, "windows; alive before final gc:", sum(r() is not None for r in refs), flush=True)
+gc.collect(); pump(0.2); gc.collect()
+alive = [r() for r in refs if r() is not None]
+print(f"windows={N} alive_after_gc={len(alive)} live_widgets={len(QApplication.allWidgets())}")
+if alive and os.environ.get("M263_DETAIL", "1") == "1":
+    win = alive[0]
+    # objects whose instance dict references the window directly
+    holders = {id(win)}
+    for o in gc.get_objects():
+        try:
+            d = object.__getattribute__(o, "__dict__") if not isinstance(o, type) else None
+        except Exception:
+            continue
+        if isinstance(d, dict) and any(v is win for v in d.values()):
+            holders.add(id(o))
+            print("  holder", type(o).__module__ + "." + type(o).__qualname__, [k for k, v in d.items() if v is win])
+    sites = collections.Counter()
+    for f in gc.get_objects():
+        if isinstance(f, types.FunctionType) and f.__closure__:
+            for c in f.__closure__:
+                try:
+                    v = c.cell_contents
+                except ValueError:
+                    continue
+                if id(v) in holders:
+                    co = f.__code__
+                    sites[(os.path.relpath(co.co_filename), co.co_firstlineno, co.co_name, type(v).__name__)] += 1
+                    break
+    print(f"objects holding the window in an attribute: {len(holders) - 1}")
+    print(f"closures capturing the window or such a holder: {sum(sites.values())} at {len(sites)} sites")
+    for (fn, ln, name, t), n in sorted(sites.items()):
+        print(f"  {fn}:{ln} {name} captures {t} x{n}")
+del alive

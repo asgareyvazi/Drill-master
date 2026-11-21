@@ -76,24 +76,18 @@ class DrillTabBase(QWidget):
         self._loaded_report_id = None
         self._applying_context = None   # the pending level _apply_pending_context is loading right now (M153)
 
-        # Connect to SelectionManager
-        self.sel_manager.well_changed.connect(
-            self._on_well_changed_internal
-        )
-        self.sel_manager.section_changed.connect(
-            self._on_section_changed_internal
-        )
-        self.sel_manager.report_changed.connect(
-            self._on_report_changed_internal
-        )
-        self.sel_manager.selection_cleared.connect(
-            self._on_selection_cleared_internal
-        )
+        # Connect to SelectionManager.  M265 (D74): recorded, so the window disconnects them on its accepted
+        # close and a closed window's tabs stop receiving later selections.
+        routes = self.selection_routes()
+        routes.connect(self.sel_manager.well_changed, self._on_well_changed_internal)
+        routes.connect(self.sel_manager.section_changed, self._on_section_changed_internal)
+        routes.connect(self.sel_manager.report_changed, self._on_report_changed_internal)
+        routes.connect(self.sel_manager.selection_cleared, self._on_selection_cleared_internal)
         # M102: wellbore state is stored here (tabs that react to it keep their own
         # wellbore_changed connection, so nothing is delivered twice); the context
         # snapshot reaches every tab through one hook.
-        self.sel_manager.wellbore_changed.connect(self._on_wellbore_changed_internal)
-        self.sel_manager.context_changed.connect(self._on_context_changed_internal)
+        routes.connect(self.sel_manager.wellbore_changed, self._on_wellbore_changed_internal)
+        routes.connect(self.sel_manager.context_changed, self._on_context_changed_internal)
 
         # Register in StatusManager
         try:
@@ -433,6 +427,12 @@ class DrillTabBase(QWidget):
     def cleanup(self):
         """Cleanup on close. Override in subclass."""
         pass
+
+    def selection_routes(self):
+        """This object's routes from the process-wide ``SelectionManager`` (see ``core.qt_lifetime``)."""
+        from core.qt_lifetime import routes_of
+
+        return routes_of(self)
 
     # ================================================================
     # Guards

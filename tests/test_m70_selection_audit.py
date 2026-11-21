@@ -164,7 +164,9 @@ def test_the_export_tab_follows_the_well_through_a_bound_method_of_the_window(wi
     import inspect
     import main_window
     source = inspect.getsource(main_window.MainWindow.create_tabs)
-    assert "well_changed.connect(self._export_follows_well)" in source
+    # M265: the bound method is connected through the window's recorded routes (cut on its accepted close)
+    assert "routes.connect(self.sel_manager.well_changed, self._export_follows_well)" in source
+    assert "lambda" not in source.split("_export_follows_well)")[0].rsplit("\n", 1)[-1]
     assert "self.export_widget.set_current_well" not in source
 
 

@@ -48,7 +48,7 @@ class WellboreSchematicTab(DrillTabBase):
         # A wellbore selection must re-scope the schematic. The base tab only
         # tracks well/section/report, so the bore signal is wired here.
         try:
-            self.sel_manager.wellbore_changed.connect(self.on_wellbore_changed)
+            self.selection_routes().connect(self.sel_manager.wellbore_changed, self.on_wellbore_changed)
         except Exception:  # silent-ok: selection managers without a wellbore signal (tests, legacy hosts)
             pass
 

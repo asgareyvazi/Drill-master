@@ -1,0 +1,11 @@
+M264 D63 deterministic window-release probe (tools/quality/d63_window_release_probe.py --windows 3), tree = db0cba3 + M265 working changes, 2026-11-21
+Python 3.11.2, PySide6 6.8.1.1, offscreen, -X faulthandler. rc 139 = SIGSEGV; gc_frame = faulthandler 'Garbage-collecting' lines.
+mode=auto rc=139 gc_frame=1 | window 1: alive after its last reference was dropped: False window 2: alive after its last reference was dropped: False 
+mode=auto rc=139 gc_frame=1 | window 1: alive after its last reference was dropped: False window 2: alive after its last reference was dropped: False 
+mode=auto rc=139 gc_frame=1 | window 1: alive after its last reference was dropped: False window 2: alive after its last reference was dropped: False 
+mode=collect rc=0 gc_frame=0 | window 1: alive after its last reference was dropped: False window 2: alive after its last reference was dropped: False window 3: alive after its last reference was dropped: False mode=collect windows=3 alive_at_end=0 live_widgets=0 - no crash 
+mode=collect rc=0 gc_frame=0 | window 1: alive after its last reference was dropped: False window 2: alive after its last reference was dropped: False window 3: alive after its last reference was dropped: False mode=collect windows=3 alive_at_end=0 live_widgets=0 - no crash 
+mode=retain rc=0 gc_frame=0 | window 1: alive after its last reference was dropped: True window 2: alive after its last reference was dropped: True window 3: alive after its last reference was dropped: True mode=retain windows=3 alive_at_end=3 live_widgets=28656 - no crash 
+mode=retain rc=0 gc_frame=0 | window 1: alive after its last reference was dropped: True window 2: alive after its last reference was dropped: True window 3: alive after its last reference was dropped: True mode=retain windows=3 alive_at_end=3 live_widgets=28656 - no crash 
+
+Earlier scratch runs of the same scenario (holders.py variants): auto 3/3 SIGSEGV; PYTHONMALLOC=malloc 2/2 SIGSEGV; PYTHONMALLOC=debug 0/3 (2 without, 1 with PYTHONTRACEMALLOC=12); deleting the 15 orphan pyqtgraph ViewBoxMenus before the next window: still 4/4 SIGSEGV (hypothesis rejected).

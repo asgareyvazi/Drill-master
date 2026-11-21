@@ -1,0 +1,75 @@
+Native frames of the D63 window-release crash (LD_PRELOAD tools/quality/native/segv_bt.c; heuristic stack scan, stale values possible).
+Disassembly of the fault site in /usr/bin/python3.11 (Debian 3.11.2, non-PIE):
+  515ecc:	48 85 ff             	test   %rdi,%rdi
+  515ecf:	74 d7                	je     515ea8 <PyDict_Update@@Base+0xa28>
+  515ed1:	48 83 2f 01          	subq   $0x1,(%rdi)
+  515ed5:	75 d1                	jne    515ea8 <PyDict_Update@@Base+0xa28>
+  515ed7:	48 8b 47 08          	mov    0x8(%rdi),%rax
+  515edb:	48 83 c3 01          	add    $0x1,%rbx
+  515edf:	48 83 c5 10          	add    $0x10,%rbp
+  515ee3:	ff 50 30             	call   *0x30(%rax)
+  515ee6:	4c 39 fb             	cmp    %r15,%rbx
+
+Run 1:
+=== native SIGSEGV (segv_bt) ===
+fault address (nil)
+RIP 0x515ee3 .venv/bin/python(?+0x115ee3)
+rsp[0] 0x23 (unmapped or anonymous)
+rsp[1] 0x12e48240 (unmapped or anonymous)
+rsp[2] 0x12e48240 (unmapped or anonymous)
+rsp[3] 0x7f95a10179c0 (unmapped or anonymous)
+stack[80] 0x7f95c0bde700 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(SbkDeallocWrapper+0x0)
+stack[91] 0x7f95c120df5f /lib/x86_64-linux-gnu/libc.so.6(__libc_free+0x6f)
+stack[128] 0x7f95c0bde700 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(SbkDeallocWrapper+0x0)
+stack[137] 0x7f95c120df5f /lib/x86_64-linux-gnu/libc.so.6(__libc_free+0x6f)
+stack[174] 0x7f95c0bde700 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(SbkDeallocWrapper+0x0)
+stack[183] 0x7f95c120df5f /lib/x86_64-linux-gnu/libc.so.6(__libc_free+0x6f)
+stack[253] 0x509d2c .venv/bin/python(PyWeakref_NewRef+0x47c)
+stack[263] 0x7f95c0a6adbb <site-packages>/PySide6/libpyside6.abi3.so.6.8(_ZN6PySide7WeakRef6createEP7_objectPFvPvES3_+0x67)
+stack[283] 0x7f95c0a6ebec <site-packages>/PySide6/libpyside6.abi3.so.6.8(_ZN6PySide6Signal18updateSourceObjectEP7_object+0x109)
+stack[325] 0x518085 .venv/bin/python(_PyObject_MakeTpCall+0x1c5)
+stack[327] 0x50dfeb .venv/bin/python(PyObject_SetAttr+0xfb)
+stack[335] 0x52bb30 .venv/bin/python(_PyEval_EvalFrameDefault+0x8f0)
+stack[349] 0x517ce9 .venv/bin/python(PyDict_GetItem+0x69)
+stack[367] 0x7f95c0bf0710 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(PepType_SOTP+0x2d0)
+stack[379] 0x51f267 .venv/bin/python(_PyObject_FastCallDictTstate+0x1c7)
+stack[399] 0x7f95c120d9c9 /lib/x86_64-linux-gnu/libc.so.6(malloc+0x99)
+stack[405] 0x7f95c08a958c /lib/x86_64-linux-gnu/libstdc++.so.6(_Znwm+0x1c)
+stack[415] 0x518085 .venv/bin/python(_PyObject_MakeTpCall+0x1c5)
+stack[417] 0x50dfeb .venv/bin/python(PyObject_SetAttr+0xfb)
+stack[425] 0x52bb30 .venv/bin/python(_PyEval_EvalFrameDefault+0x8f0)
+stack[439] 0x55cc1f .venv/bin/python(_PyFunction_Vectorcall+0x23f)
+stack[458] 0x95acc0 .venv/bin/python(_Py_NoneStruct+0x0)
+stack[461] 0x95acc0 .venv/bin/python(_Py_NoneStruct+0x0)
+
+Run 2:
+=== native SIGSEGV (segv_bt) ===
+fault address 0x7f24de091c30
+RIP 0x7f24de091c30 (unmapped or anonymous)
+rsp[0] 0x515ee6 .venv/bin/python(?+0x115ee6)
+rsp[1] 0x23 (unmapped or anonymous)
+rsp[2] 0x1401cce0 (unmapped or anonymous)
+rsp[3] 0x1401cce0 (unmapped or anonymous)
+stack[81] 0x7f24de4d0700 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(SbkDeallocWrapper+0x0)
+stack[92] 0x7f24deafff5f /lib/x86_64-linux-gnu/libc.so.6(__libc_free+0x6f)
+stack[129] 0x7f24de4d0700 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(SbkDeallocWrapper+0x0)
+stack[138] 0x7f24deafff5f /lib/x86_64-linux-gnu/libc.so.6(__libc_free+0x6f)
+stack[175] 0x7f24de4d0700 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(SbkDeallocWrapper+0x0)
+stack[184] 0x7f24deafff5f /lib/x86_64-linux-gnu/libc.so.6(__libc_free+0x6f)
+stack[254] 0x509d2c .venv/bin/python(PyWeakref_NewRef+0x47c)
+stack[264] 0x7f24de45cdbb <site-packages>/PySide6/libpyside6.abi3.so.6.8(_ZN6PySide7WeakRef6createEP7_objectPFvPvES3_+0x67)
+stack[284] 0x7f24de460bec <site-packages>/PySide6/libpyside6.abi3.so.6.8(_ZN6PySide6Signal18updateSourceObjectEP7_object+0x109)
+stack[326] 0x518085 .venv/bin/python(_PyObject_MakeTpCall+0x1c5)
+stack[328] 0x50dfeb .venv/bin/python(PyObject_SetAttr+0xfb)
+stack[336] 0x52bb30 .venv/bin/python(_PyEval_EvalFrameDefault+0x8f0)
+stack[350] 0x517ce9 .venv/bin/python(PyDict_GetItem+0x69)
+stack[368] 0x7f24de4e2710 <site-packages>/shiboken6/libshiboken6.abi3.so.6.8(PepType_SOTP+0x2d0)
+stack[380] 0x51f267 .venv/bin/python(_PyObject_FastCallDictTstate+0x1c7)
+stack[400] 0x7f24deaff9c9 /lib/x86_64-linux-gnu/libc.so.6(malloc+0x99)
+stack[406] 0x7f24de2a958c /lib/x86_64-linux-gnu/libstdc++.so.6(_Znwm+0x1c)
+stack[416] 0x518085 .venv/bin/python(_PyObject_MakeTpCall+0x1c5)
+stack[418] 0x50dfeb .venv/bin/python(PyObject_SetAttr+0xfb)
+stack[426] 0x52bb30 .venv/bin/python(_PyEval_EvalFrameDefault+0x8f0)
+stack[440] 0x55cc1f .venv/bin/python(_PyFunction_Vectorcall+0x23f)
+stack[459] 0x95acc0 .venv/bin/python(_Py_NoneStruct+0x0)
+stack[462] 0x95acc0 .venv/bin/python(_Py_NoneStruct+0x0)

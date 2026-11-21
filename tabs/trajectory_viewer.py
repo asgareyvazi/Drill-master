@@ -140,9 +140,11 @@ class TrajectoryViewerTab(QWidget):
         self.view3d.add_layer_controls(self.layers_panel)
         self.layers_panel.working_selected.connect(self._render_working_3d)
         self.layers_panel.layers_ready.connect(self._render_layers_3d)
+        from core.qt_lifetime import routes_of
         from core.selection_manager import SelectionManager
-        SelectionManager().wellbore_changed.connect(self._sync_layers)
-        SelectionManager().selection_cleared.connect(self._sync_layers)
+        routes = routes_of(self)        # M265 (D74): disconnected on the window's accepted close
+        routes.connect(SelectionManager().wellbore_changed, self._sync_layers)
+        routes.connect(SelectionManager().selection_cleared, self._sync_layers)
         from tabs.trajectory_compare_panel import TrajectoryComparePanel
         self.compare_panel = TrajectoryComparePanel(self.db_manager)     # M52 screening comparison
         self.view_tabs.addTab(self.compare_panel, "Compare / clearance")

@@ -9,6 +9,8 @@ import weakref
 
 from PySide6.QtCore import QTimer
 
+from core.qt_lifetime import weak_or_strong
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +20,7 @@ class StatusBarManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._main_window = None
+            cls._instance._main_window_ref = None
             # M132 (D49): weak values. A strong registry kept every disposed tab's wrapper tree alive until a tab
             # of the same name registered again or the interpreter exited, then an arbitrary garbage-collection
             # pass freed its Qt / Matplotlib wrappers inside unrelated Qt work (native crash, the M50 hazard).
@@ -26,7 +28,28 @@ class StatusBarManager:
         return cls._instance
 
     def register_main_window(self, main_window):
-        self._main_window = main_window
+        # M265 (D74): weak. The process-wide singleton held the last registered window strongly, so a closed
+        # window stayed alive (with its ~9,500 widgets) until the next window registered or the process ended.
+        self._main_window_ref = weak_or_strong(main_window)
+
+    def unregister_main_window(self, main_window):
+        """Forget ``main_window`` if it is the registered one (accepted close); another window stays."""
+        if self._main_window is main_window:
+            self._main_window_ref = None
+
+    @property
+    def _main_window(self):
+        ref = self._main_window_ref
+        return ref() if ref is not None else None
+
+    def _reset_ready(self, window_ref):
+        window = window_ref()
+        label = getattr(window, "status_label", None) if window is not None else None
+        if label is not None:
+            try:
+                label.setText("✅ Ready")
+            except RuntimeError:        # the label's C++ object was already destroyed with its window
+                logger.debug("status label gone before the ready reset")
 
     def register_widget(self, name, widget):
         self._widgets[name] = widget
@@ -36,7 +59,8 @@ class StatusBarManager:
             if self._main_window and hasattr(self._main_window, 'status_label'):
                 self._main_window.status_label.setText(message)
                 if timeout:
-                    QTimer.singleShot(timeout, lambda: self._main_window.status_label.setText("✅ Ready"))
+                    window_ref = self._main_window_ref
+                    QTimer.singleShot(timeout, lambda: self._reset_ready(window_ref))
         except Exception:
             logger.info(f"{source}: {message}")
 

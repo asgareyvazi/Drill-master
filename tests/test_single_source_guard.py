@@ -146,7 +146,7 @@ class TestW13DelegationParity:
         assert fp == round(735294.0 * 12 * 19.5 / 30000, 1)
         assert self.E.calc_free_point(12, 19.5, 0) == 0.0
         ss = self.E.calc_string_stretch(5000, 12)
-        assert ss == round(5000 / 96250000.0 * (65.44 - 1.44 * 12), 2)
+        assert ss == round(5000 ** 2 * (65.44 - 1.44 * 12) / 96250000.0, 2)   # D81: length squared
         aw = self.E.calc_adjusted_weight(5.0, 4.276)
         assert aw == round(2.67 * (25.0 - 4.276 ** 2), 2)
         j = self.E.calc_jar_operating_range(150000, 0.8168, 40000)

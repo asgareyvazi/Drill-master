@@ -31,6 +31,7 @@ from core.database import (
 from core.managers import StatusBarManager, AutoSaveManager, ShortcutManager
 from core.permissions import require_permission
 from core.selection_manager import SelectionManager
+from core.qt_lifetime import disconnect_window_routes, routes_of
 from core.functions import CentralFunctions
 from core.version import __version__
 
@@ -342,8 +343,7 @@ class MainWindow(QMainWindow):
         # دکمه‌های کوچک کنار search
         for icon, tip, slot in [
             ("▲", "Collapse All", self.tree_widget.collapseAll),
-            ("▼", "Expand All",
-             lambda: self.tree_widget.expandToDepth(3)),
+            ("▼", "Expand All", self._expand_tree),
             ("🔄", "Refresh", self.populate_hierarchy),
         ]:
             btn = QToolButton()
@@ -568,6 +568,12 @@ class MainWindow(QMainWindow):
         # after the close (M234 - hidden test windows logged CONTEXT_BLOCKED autosaves into later tests).
         for manager in self._autosave_managers():
             manager.set_enabled(False)
+        # M265 (D74): a closed window takes no further part in the process: its routes from the process-wide
+        # SelectionManager are cut (its hidden tabs loaded every later selection) and the status-bar singleton
+        # forgets it.  Nothing is destroyed here: Qt / Python ownership frees the window when its last reference
+        # goes (destroying closed windows explicitly is the D63 hazard).
+        self._closed_route_count = disconnect_window_routes(self)
+        self.status_manager.unregister_main_window(self)
 
         self.cleanup()
         event.accept()
@@ -1183,8 +1189,9 @@ class MainWindow(QMainWindow):
         from tabs.calculation_history_tab import CalculationHistoryTab
         self.calculation_history_tab = CalculationHistoryTab(self.db_manager, self)
         self.tab_widget.addTab(self.calculation_history_tab, "🗂️ Calc History")
-        self.sel_manager.well_changed.connect(self.calculation_history_tab.set_well)
-        self.sel_manager.selection_cleared.connect(self.calculation_history_tab.clear_selection)
+        routes = routes_of(self)     # M265 (D74): routes from the process-wide SelectionManager, cut on close
+        routes.connect(self.sel_manager.well_changed, self.calculation_history_tab.set_well)
+        routes.connect(self.sel_manager.selection_cleared, self.calculation_history_tab.clear_selection)
 
         # Tab 18: Reference (software)
         self.reference_tab = ReferenceTablesWidget(
@@ -1199,21 +1206,21 @@ class MainWindow(QMainWindow):
         # the document in the Documents tab; link edits refresh both panels.
         for panel in self._related_document_panels():
             panel.open_requested.connect(self.open_library_document)
-        self.documents_tab.links_changed.connect(
-            lambda: [panel.refresh() for panel in self._related_document_panels()])
+        self.documents_tab.links_changed.connect(self._refresh_related_document_panels)
 
         # SelectionManager connections
         # Status-bar label follows every selection path (tree, dashboard, combos)
         # and is reset when the selection is cleared (e.g. the current report
         # or well was deleted), so it never shows a stale well.
-        self.sel_manager.well_changed.connect(self._show_selected_well)
-        self.sel_manager.selection_cleared.connect(self._show_no_selected_well)
-        self.sel_manager.context_changed.connect(self._show_context_path)
-        self.sel_manager.context_changed.connect(self.calculation_history_tab.on_context_changed)
-        self.sel_manager.context_changed.connect(self.documents_tab.on_context_changed)
+        routes.connect(self.sel_manager.well_changed, self._show_selected_well)
+        routes.connect(self.sel_manager.selection_cleared, self._show_no_selected_well)
+        routes.connect(self.sel_manager.context_changed, self._show_context_path)
+        routes.connect(self.sel_manager.context_changed, self.calculation_history_tab.on_context_changed)
+        routes.connect(self.sel_manager.context_changed, self.documents_tab.on_context_changed)
         # A bound method, not a lambda: Qt drops the connection when this window is destroyed. The process-wide
         # SelectionManager outlives the window, and a lambda kept calling into its deleted Export tab (M234).
-        self.sel_manager.well_changed.connect(self._export_follows_well)
+        # M265: and the route is cut on the accepted close, so a closed window's Export tab stops following.
+        routes.connect(self.sel_manager.well_changed, self._export_follows_well)
         # DailyReport loads through DrillTabBase, retaining failed pending context.
     # ==================== Setup ====================
 
@@ -1251,10 +1258,11 @@ class MainWindow(QMainWindow):
             ("Ctrl+O", self.open_well_dialog, "Open Well"),
             ("Ctrl+Q", self.close, "Exit"),
             ("Ctrl+,", self.show_settings, "Settings"),
-            ("Ctrl+F", lambda: self.search_input.setFocus(), "Search"),
-            ("Ctrl+D", lambda: self.tab_widget.setCurrentIndex(4), "Daily Report"),
-            ("Ctrl+1", lambda: self.tab_widget.setCurrentIndex(0), "Home"),
-            ("Ctrl+2", lambda: self.tab_widget.setCurrentIndex(1), "Well Info"),
+            # M265 (D74): bound methods, not lambdas capturing the window (a lambda kept the closed window alive)
+            ("Ctrl+F", self._focus_search, "Search"),
+            ("Ctrl+D", self._show_daily_report_tab, "Daily Report"),
+            ("Ctrl+1", self._show_home_tab, "Home"),
+            ("Ctrl+2", self._show_well_info_tab, "Well Info"),
             ("Ctrl+T", self._toggle_theme, "Toggle Theme"),
         ]
         for key, slot, desc in shortcuts:
@@ -3082,6 +3090,27 @@ class MainWindow(QMainWindow):
         return [tab.related_documents for tab in (getattr(self, "well_info_tab", None),
                                                   getattr(self, "daily_report_tab", None))
                 if tab is not None and hasattr(tab, "related_documents")]
+
+    def _refresh_related_document_panels(self):
+        for panel in self._related_document_panels():
+            panel.refresh()
+
+    # M265 (D74): slots that were lambdas capturing the window.  A lambda connected to a signal is kept by
+    # Shiboken where the cyclic collector cannot see it, so the window <-> lambda cycle was never freed.
+    def _expand_tree(self):
+        self.tree_widget.expandToDepth(3)
+
+    def _focus_search(self):
+        self.search_input.setFocus()
+
+    def _show_daily_report_tab(self):
+        self.tab_widget.setCurrentIndex(4)
+
+    def _show_home_tab(self):
+        self.tab_widget.setCurrentIndex(0)
+
+    def _show_well_info_tab(self):
+        self.tab_widget.setCurrentIndex(1)
 
     def open_library_document(self, document_id, page_no=None):
         """Show a library document (at its anchor page) in the Documents tab."""

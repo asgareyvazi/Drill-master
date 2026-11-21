@@ -9,15 +9,15 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 
 | Engine | Method | Labels | Tests |
 |---|---|---|---|
-| `AntiCollisionEngine` (anti_collision.py) | Linear-interpolated 3D centerline separation screening | SCREENING | 2 |
-| `BitPerformanceEngine` (bit_performance.py) | Daily Report bit run roll-up | - | 8 |
+| `AntiCollisionEngine` (anti_collision.py) | Linear-interpolated 3D centerline separation screening | SCREENING | 3 |
+| `BitPerformanceEngine` (bit_performance.py) | Daily Report bit run roll-up | - | 9 |
 | `CasingEngine` (casing.py) | API TR 5C3 pipe-body subset (Barlow + four-regime + fyax + VME; capped-end r2; transition F r3) | - | 14 |
 | `CementEngine` (cement.py) | Oilfield capacity (D²/1029.4) + stacked column hydrostatic | - | 8 |
-| `FishingEngine` (fishing.py) | Legacy free-point/stretch chart approximations — SCREENING | SCREENING | 3 |
+| `FishingEngine` (fishing.py) | Legacy free-point/stretch chart approximations — SCREENING | SCREENING | 4 |
 | `MSEEngine` (mse.py) | Teale (1965) Mechanical Specific Energy | - | 9 |
 | `MudVolumeEngine` (mud_volume.py) | Mass/volume balance; no hidden defaults | - | 8 |
 | `TorqueDragEngine` (torque_drag.py) | Johancsik soft-string (SPE 11380) — SCREENING | SCREENING | 14 |
-| `WellControlEngine` (well_control.py) | IWCF / IADC well-control manuals; Bourgoyne et al. | - | 13 |
+| `WellControlEngine` (well_control.py) | IWCF / IADC well-control manuals; Bourgoyne et al. | - | 14 |
 
 ## Hydraulics functions (`core/hydraulics_engine.py`)
 

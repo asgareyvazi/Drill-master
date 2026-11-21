@@ -37,7 +37,7 @@
   "rows": [
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 9,
+    "evidence_tests": 10,
     "licence": "own code (product licence)",
     "method_id": "engine.bit_performance",
     "status": "IMPLEMENTED",
@@ -47,6 +47,7 @@
      "test_engineering_integrations.py",
      "test_engineering_non_finite_contract.py",
      "test_final_hardening_regressions.py",
+     "test_m270_r1_engine_contracts.py",
      "test_m31_scenarios.py",
      "test_m48_analysis_evidence.py",
      "test_w3_bit_revolution_unknown_inputs.py",
@@ -125,7 +126,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 67,
+    "evidence_tests": 69,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -164,6 +165,8 @@
      "test_m223_library_architecture_cement_lineage.py",
      "test_m229_product_journey.py",
      "test_m239_engine_semantics.py",
+     "test_m269_kill_sheet_geometry_table.py",
+     "test_m270_r1_engine_contracts.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -374,7 +377,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 7,
+    "evidence_tests": 8,
     "licence": "own code (product licence)",
     "method_id": "engine.anti_collision",
     "status": "IMPLEMENTED",
@@ -384,13 +387,14 @@
      "test_engineering_completion.py",
      "test_engineering_non_finite_contract.py",
      "test_m129_surveys_anticollision.py",
+     "test_m270_r1_engine_contracts.py",
      "test_m76_engineering_labels.py",
      "test_m92_method_catalogue.py"
     ]
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 8,
+    "evidence_tests": 9,
     "licence": "own code (product licence)",
     "method_id": "engine.fishing",
     "status": "IMPLEMENTED",
@@ -399,6 +403,7 @@
      "test_engineering_non_finite_contract.py",
      "test_junit_report.py",
      "test_m107_w13_contracts.py",
+     "test_m270_r1_engine_contracts.py",
      "test_m90_engine_qualification.py",
      "test_single_source_guard.py",
      "test_w13_fishing_result_ui.py",
@@ -427,7 +432,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 10,
+    "evidence_tests": 11,
     "licence": "own code (product licence)",
     "method_id": "engine.mud_volume",
     "status": "IMPLEMENTED",
@@ -436,6 +441,7 @@
      "test_engineering_ground_truth.py",
      "test_engineering_non_finite_contract.py",
      "test_m107_w13_contracts.py",
+     "test_m270_r1_engine_contracts.py",
      "test_m90_engine_qualification.py",
      "test_mud_volume_cross_process.py",
      "test_mud_volume_history_viewmodel.py",
@@ -493,7 +499,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 8,
+    "evidence_tests": 9,
     "licence": "own code",
     "method_id": "fishing.free_point",
     "status": "IMPLEMENTED",
@@ -502,6 +508,7 @@
      "test_engineering_non_finite_contract.py",
      "test_junit_report.py",
      "test_m107_w13_contracts.py",
+     "test_m270_r1_engine_contracts.py",
      "test_m90_engine_qualification.py",
      "test_single_source_guard.py",
      "test_w13_fishing_result_ui.py",
@@ -1328,7 +1335,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 22,
+    "evidence_tests": 24,
     "licence": "own code (product licence)",
     "method_id": "engine.well_control",
     "status": "IMPLEMENTED",
@@ -1343,6 +1350,8 @@
      "test_kill_sheet_casing_id_gate.py",
      "test_m113_constant_inventory.py",
      "test_m239_engine_semantics.py",
+     "test_m269_kill_sheet_geometry_table.py",
+     "test_m270_r1_engine_contracts.py",
      "test_m31_scenarios.py",
      "test_mse_cross_process.py",
      "test_mud_volume_cross_process.py",
@@ -1407,8 +1416,8 @@
    "guarded": false,
    "lines": [
     22,
-    341,
-    362
+    335,
+    356
    ],
    "module": "PySide6"
   },
@@ -1476,11 +1485,11 @@
    "guarded": false,
    "lines": [
     10,
-    154,
-    155,
-    236,
-    287,
-    265
+    178,
+    179,
+    260,
+    311,
+    289
    ],
    "module": "PySide6"
   },
@@ -1509,6 +1518,14 @@
    "guarded": false,
    "lines": [
     55
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "core/qt_lifetime.py",
+   "guarded": false,
+   "lines": [
+    120
    ],
    "module": "PySide6"
   },
@@ -1865,7 +1882,7 @@
     23,
     24,
     25,
-    2827
+    2835
    ],
    "module": "PySide6"
   },
@@ -2704,8 +2721,8 @@
    "file": "main_window.py",
    "guarded": true,
    "lines": [
-    885,
-    896
+    891,
+    902
    ],
    "module": "qtribbon"
   },
