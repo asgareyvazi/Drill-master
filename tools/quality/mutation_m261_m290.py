@@ -34,6 +34,8 @@ CP = "core/engineering/casing_persistence.py"
 QL = "core/qt_lifetime.py"
 MGR = "core/managers.py"
 MW = "main_window.py"
+KD = "core/operations_dashboard.py"
+KW = "tabs/dashboard_widgets.py"
 
 T270 = "tests/test_m270_r1_engine_contracts.py"          # added in M270 for the R-1 contracts
 TAC = ["tests/test_anti_collision_engine.py", T270]
@@ -46,6 +48,7 @@ TWC = ["tests/test_well_control_icp_fcp_consolidation.py", "tests/test_p0_engine
        "tests/test_engineering_ground_truth.py", "tests/test_engineering_independent_golden.py",
        "tests/test_well_control_kill_sheet.py", T270]
 TMV = ["tests/test_mud_volume_persistence.py", "tests/test_mud_volume_cross_process.py", T270]
+TKP = ["tests/test_m285_kpi_specifications.py", "tests/test_operations_dashboard.py", "tests/test_m53_dashboard.py"]
 TLC = ["tests/test_m265_window_routes.py"]                # M268: window lifecycle (Qt, real MainWindow)
 TCP = ["tests/test_casing_persistence.py", "tests/test_casing_absent_load_semantics.py",
        "tests/test_casing_cross_process.py", T270]
@@ -212,6 +215,23 @@ MUTANTS = [
            "            tm_ppg = mw - form_emw\n",
            "            tm_ppg = form_emw - mw\n", TWC,
            "trip margin is reported as pore EMW minus mud weight (overbalance shown as underbalance)"),
+    # ------------------------------------------------------------------ M285: KPI specifications
+    Mutant("KP-spec-not-attached", KD,
+           "                   as_of if as_of is not None else latest, note, drilldown, KPI_SPECS[key])\n",
+           "                   as_of if as_of is not None else latest, note, drilldown, None)\n", TKP,
+           "built KPIs no longer carry their specification (the card shows no window, scope, method or rule)"),
+    Mutant("KP-npt-cost-not-labelled-estimate", KD,
+           "                     method=\"ESTIMATE: all actual cost of the well x NPT hours / all logged hours\",\n",
+           "                     method=\"all actual cost of the well x NPT hours / all logged hours\",\n", TKP,
+           "the allocated NPT cost is no longer labelled as an estimate"),
+    Mutant("KP-cost-per-metre-scope-widened", KD,
+           "    \"cost_per_metre\": dict(window=\"all dates\", scope=\"single well only\",\n",
+           "    \"cost_per_metre\": dict(window=\"all dates\", scope=_SCOPE,\n", TKP,
+           "cost per metre claims the multi-well filter scope although it is computed for one well only"),
+    Mutant("KP-tooltip-drops-spec", KW,
+           "        spec = getattr(kpi, \"spec\", None) or {}\n",
+           "        spec = {}\n", TKP,
+           "the KPI card tooltip omits window, scope, method, missing behaviour and counting rule"),
     # ------------------------------------------------------------------ M268: window lifecycle cleanup (D74)
     Mutant("LC-close-keeps-selection-routes", MW,
            "        self._closed_route_count = disconnect_window_routes(self)\n",

@@ -1,0 +1,877 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_anti_collision_engine.py",
+      "tests/test_casing_absent_load_semantics.py",
+      "tests/test_casing_cross_process.py",
+      "tests/test_casing_persistence.py",
+      "tests/test_engineering_completion.py",
+      "tests/test_engineering_ground_truth.py",
+      "tests/test_engineering_independent_golden.py",
+      "tests/test_engineering_non_finite_contract.py",
+      "tests/test_m265_window_routes.py",
+      "tests/test_m270_r1_engine_contracts.py",
+      "tests/test_m90_engine_qualification.py",
+      "tests/test_mud_volume_cross_process.py",
+      "tests/test_mud_volume_persistence.py",
+      "tests/test_p0_engineering_core.py",
+      "tests/test_w13_fishing_result_ui.py",
+      "tests/test_w3_bit_revolution_unknown_inputs.py",
+      "tests/test_weighted_rop.py",
+      "tests/test_well_control_icp_fcp_consolidation.py",
+      "tests/test_well_control_kill_sheet.py",
+      "tests/test_well_trajectory.py"
+    ],
+    "exit": 0,
+    "summary": "309 passed, 14 warnings in 22.67s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "AC-negative-md-accepted",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "a negative measured depth is accepted as a survey station",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.19s"
+    },
+    {
+      "id": "AC-non-increasing-md-accepted",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "a repeated MD (zero-length interval) is accepted and later divides by a zero span",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.18s"
+    },
+    {
+      "id": "AC-negative-sigma-accepted",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "a negative 1-sigma uncertainty is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.19s"
+    },
+    {
+      "id": "AC-sigma-added-linearly",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "the two wells' 1-sigma values are added linearly instead of root-sum-square",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.18s"
+    },
+    {
+      "id": "AC-partial-sigma-used",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "a separation factor is computed when only some uncertainty axes were supplied",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.19s"
+    },
+    {
+      "id": "AC-one-radius-gives-clearance",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "clearance is computed when only one well's radius is known",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 0.19s"
+    },
+    {
+      "id": "AC-clearance-adds-radii",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "clearance adds the wellbore radii to the centreline distance instead of subtracting them",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.18s"
+    },
+    {
+      "id": "AC-vertical-separation-dropped",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "the 3D separation ignores the vertical component (lateral distance reported as 3D)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.19s"
+    },
+    {
+      "id": "AC-no-overlap-accepted",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "two trajectories with no common MD interval are screened anyway",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.19s"
+    },
+    {
+      "id": "AC-threshold-zero-accepted",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "a zero collision threshold is accepted (every station is then 'clear')",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.19s"
+    },
+    {
+      "id": "AC-threshold-touch-not-alert",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "a station exactly at the collision threshold is not reported as an event",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.19s"
+    },
+    {
+      "id": "AC-claims-iscwsa",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "the screening result claims ISCWSA compliance (P19 is not approved)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_anti_collision_engine.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.18s"
+    },
+    {
+      "id": "BP-revolutions-uses-max-rpm",
+      "path": "core/engineering/engines/bit_performance.py",
+      "note": "bit revolutions use the maximum RPM instead of the mean of min and max",
+      "equivalent": "",
+      "tests": [
+        "tests/test_weighted_rop.py",
+        "tests/test_w3_bit_revolution_unknown_inputs.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_completion.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 1.53s"
+    },
+    {
+      "id": "BP-revolutions-max-below-min-accepted",
+      "path": "core/engineering/engines/bit_performance.py",
+      "note": "an RPM maximum below the minimum is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_weighted_rop.py",
+        "tests/test_w3_bit_revolution_unknown_inputs.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_completion.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 80 passed, 14 warnings in 2.36s"
+    },
+    {
+      "id": "BP-weighted-rop-zero-when-undefined",
+      "path": "core/engineering/engines/bit_performance.py",
+      "note": "weighted ROP with no valid pairs reports 0 m/hr instead of undefined",
+      "equivalent": "",
+      "tests": [
+        "tests/test_weighted_rop.py",
+        "tests/test_w3_bit_revolution_unknown_inputs.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_completion.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.89s"
+    },
+    {
+      "id": "BP-weighted-rop-excluded-rows-hidden",
+      "path": "core/engineering/engines/bit_performance.py",
+      "note": "rows dropped from weighted ROP (incomplete or invalid pairs) are no longer counted or warned about",
+      "equivalent": "",
+      "tests": [
+        "tests/test_weighted_rop.py",
+        "tests/test_w3_bit_revolution_unknown_inputs.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_completion.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.92s"
+    },
+    {
+      "id": "BP-dexp-wob-in-klbf",
+      "path": "core/engineering/engines/bit_performance.py",
+      "note": "the d-exponent denominator uses the klbf constant with WOB given in lbf",
+      "equivalent": "",
+      "tests": [
+        "tests/test_weighted_rop.py",
+        "tests/test_w3_bit_revolution_unknown_inputs.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_completion.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 82 passed, 14 warnings in 2.38s"
+    },
+    {
+      "id": "BP-cost-rig-day-not-hourly",
+      "path": "core/engineering/engines/bit_performance.py",
+      "note": "cost per foot multiplies trip hours by the daily rig rate",
+      "equivalent": "",
+      "tests": [
+        "tests/test_weighted_rop.py",
+        "tests/test_w3_bit_revolution_unknown_inputs.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_completion.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 83 passed, 14 warnings in 2.46s"
+    },
+    {
+      "id": "BP-cost-rotating-hours-ignored",
+      "path": "core/engineering/engines/bit_performance.py",
+      "note": "the full-cycle cost per foot ignores the supplied rotating hours",
+      "equivalent": "",
+      "tests": [
+        "tests/test_weighted_rop.py",
+        "tests/test_w3_bit_revolution_unknown_inputs.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_completion.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 83 passed, 14 warnings in 2.25s"
+    },
+    {
+      "id": "FI-weight-id-not-subtracted",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "plain-end weight ignores the bore",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 83 passed in 2.22s"
+    },
+    {
+      "id": "FI-weight-id-ge-od-accepted",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "an ID equal to the OD (zero wall) yields a zero-weight pipe instead of a refusal",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 83 passed in 2.34s"
+    },
+    {
+      "id": "FI-free-point-zero-pull-accepted",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "a zero differential pull is accepted (division by zero / infinite free point)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 67 passed in 2.21s"
+    },
+    {
+      "id": "FI-free-point-inverted",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "free point swaps pipe weight and pull",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 84 passed in 2.22s"
+    },
+    {
+      "id": "FI-stretch-buoyancy-sign",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "heavier mud increases the free-hanging stretch",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 85 passed in 2.22s"
+    },
+    {
+      "id": "FI-stretch-linear-in-length",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "the D81 defect: stretch under own weight taken as linear in length",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 85 passed in 2.16s"
+    },
+    {
+      "id": "FI-jar-up-subtracts-overpull",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "the upward jar force subtracts the overpull",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 87 passed in 2.27s"
+    },
+    {
+      "id": "FI-overshot-zero-clearance-ok",
+      "path": "core/engineering/engines/fishing.py",
+      "note": "an overshot with no clearance over the fish is reported compatible",
+      "equivalent": "",
+      "tests": [
+        "tests/test_engineering_completion.py",
+        "tests/test_m90_engine_qualification.py",
+        "tests/test_engineering_non_finite_contract.py",
+        "tests/test_w13_fishing_result_ui.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 1.19s"
+    },
+    {
+      "id": "TR-vs-azimuth-not-passed",
+      "path": "core/engineering/engines/trajectory.py",
+      "note": "the vertical-section azimuth chosen by the user is dropped (VS always toward north)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_trajectory.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.31s"
+    },
+    {
+      "id": "TR-dls-unit-not-passed",
+      "path": "core/engineering/engines/trajectory.py",
+      "note": "a deg/100ft request silently returns deg/30m dogleg severity",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_trajectory.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 66 passed in 2.95s"
+    },
+    {
+      "id": "TR-north-east-swapped",
+      "path": "core/engineering/engines/trajectory.py",
+      "note": "northing and easting are exchanged in the wrapper output",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_trajectory.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.29s"
+    },
+    {
+      "id": "TR-hd-reports-vs",
+      "path": "core/engineering/engines/trajectory.py",
+      "note": "horizontal displacement is reported as the vertical section",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_trajectory.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 65 passed in 2.71s"
+    },
+    {
+      "id": "WC-kill-mw-sidpp-subtracted",
+      "path": "core/engineering/engines/well_control.py",
+      "note": "kill mud weight subtracts the SIDPP increment",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_control_icp_fcp_consolidation.py",
+        "tests/test_p0_engineering_core.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 0.47s"
+    },
+    {
+      "id": "WC-kill-mw-zero-tvd-accepted",
+      "path": "core/engineering/engines/well_control.py",
+      "note": "a zero TVD is accepted (division by zero)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_control_icp_fcp_consolidation.py",
+        "tests/test_p0_engineering_core.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 119 passed in 0.52s"
+    },
+    {
+      "id": "WC-fcp-ratio-inverted",
+      "path": "core/engineering/engines/well_control.py",
+      "note": "final circulating pressure scales the slow-rate pressure by MW/KMW",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_control_icp_fcp_consolidation.py",
+        "tests/test_p0_engineering_core.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.42s"
+    },
+    {
+      "id": "WC-icp-sidpp-dropped",
+      "path": "core/engineering/engines/well_control.py",
+      "note": "initial circulating pressure omits the SIDPP",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_control_icp_fcp_consolidation.py",
+        "tests/test_p0_engineering_core.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.47s"
+    },
+    {
+      "id": "WC-maasp-negative-allowed",
+      "path": "core/engineering/engines/well_control.py",
+      "note": "a fracture EMW below the current mud weight yields a negative MAASP instead of a refusal",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_control_icp_fcp_consolidation.py",
+        "tests/test_p0_engineering_core.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 120 passed in 0.52s"
+    },
+    {
+      "id": "WC-lot-ignores-mud-head",
+      "path": "core/engineering/engines/well_control.py",
+      "note": "a LOT surface pressure is converted to frac EMW without the mud hydrostatic already acting",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_control_icp_fcp_consolidation.py",
+        "tests/test_p0_engineering_core.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 121 passed in 0.51s"
+    },
+    {
+      "id": "WC-trip-margin-sign",
+      "path": "core/engineering/engines/well_control.py",
+      "note": "trip margin is reported as pore EMW minus mud weight (overbalance shown as underbalance)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_well_control_icp_fcp_consolidation.py",
+        "tests/test_p0_engineering_core.py",
+        "tests/test_engineering_ground_truth.py",
+        "tests/test_engineering_independent_golden.py",
+        "tests/test_well_control_kill_sheet.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 31 passed in 0.43s"
+    },
+    {
+      "id": "LC-close-keeps-selection-routes",
+      "path": "main_window.py",
+      "note": "an accepted close leaves every SelectionManager route connected (stale updates to a closed window)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m265_window_routes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 14 warnings in 6.82s"
+    },
+    {
+      "id": "LC-status-bar-keeps-closed-window",
+      "path": "main_window.py",
+      "note": "the status-bar singleton still points at a window after its accepted close",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m265_window_routes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 14 warnings in 6.91s"
+    },
+    {
+      "id": "LC-unregister-detaches-any-window",
+      "path": "core/managers.py",
+      "note": "closing one window detaches the status bar from another, still open window",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m265_window_routes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed, 14 warnings in 9.81s"
+    },
+    {
+      "id": "LC-status-bar-holds-window-strongly",
+      "path": "core/managers.py",
+      "note": "the process-wide status-bar singleton keeps the last registered window alive",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m265_window_routes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed, 14 warnings in 9.98s"
+    },
+    {
+      "id": "LC-duplicate-route-accepted",
+      "path": "core/qt_lifetime.py",
+      "note": "connecting the same route twice is accepted (a reopened owner receives every update twice)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m265_window_routes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.14s"
+    },
+    {
+      "id": "LC-registry-holds-its-owner",
+      "path": "core/qt_lifetime.py",
+      "note": "the route registry keeps its owner's bound methods strongly (owner becomes cyclic garbage: D63 path)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m265_window_routes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.15s"
+    },
+    {
+      "id": "LC-child-routes-not-disconnected",
+      "path": "core/qt_lifetime.py",
+      "note": "the window's tabs keep their SelectionManager routes after the accepted close",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m265_window_routes.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed, 14 warnings in 7.08s"
+    },
+    {
+      "id": "MV-snapshot-missing-as-zero",
+      "path": "core/engineering/mud_volume_persistence.py",
+      "note": "an unknown active volume is frozen as 0 bbl in the historical snapshot",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mud_volume_persistence.py",
+        "tests/test_mud_volume_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.69s"
+    },
+    {
+      "id": "MV-active-volume-defaulted",
+      "path": "core/engineering/mud_volume_persistence.py",
+      "note": "re-running a snapshot without an active volume computes a balance from 0 bbl",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mud_volume_persistence.py",
+        "tests/test_mud_volume_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 1.33s"
+    },
+    {
+      "id": "MV-nan-frozen",
+      "path": "core/engineering/mud_volume_persistence.py",
+      "note": "a NaN / infinite volume is frozen into the snapshot instead of unknown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mud_volume_persistence.py",
+        "tests/test_mud_volume_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.66s"
+    },
+    {
+      "id": "MV-summary-drops-net-change",
+      "path": "core/engineering/mud_volume_persistence.py",
+      "note": "the net-change headline is no longer stored with the record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_mud_volume_persistence.py",
+        "tests/test_mud_volume_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 1.46s"
+    },
+    {
+      "id": "CP-snapshot-missing-load-as-zero",
+      "path": "core/engineering/casing_persistence.py",
+      "note": "an absent load (not entered) is frozen as 0 psi / 0 lbf in the historical snapshot",
+      "equivalent": "",
+      "tests": [
+        "tests/test_casing_persistence.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_casing_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.76s"
+    },
+    {
+      "id": "CP-reconstruct-missing-as-zero",
+      "path": "core/engineering/casing_persistence.py",
+      "note": "re-running a stored snapshot turns an absent load into an explicit zero load",
+      "equivalent": "",
+      "tests": [
+        "tests/test_casing_persistence.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_casing_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.76s"
+    },
+    {
+      "id": "CP-grade-dropped",
+      "path": "core/engineering/casing_persistence.py",
+      "note": "the casing grade label is not frozen into the snapshot",
+      "equivalent": "",
+      "tests": [
+        "tests/test_casing_persistence.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_casing_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 54 passed in 5.52s"
+    },
+    {
+      "id": "CP-source-provenance-dropped",
+      "path": "core/engineering/casing_persistence.py",
+      "note": "the M89 architecture provenance of the inputs is not stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_casing_persistence.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_casing_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 54 passed in 5.29s"
+    },
+    {
+      "id": "CP-summary-drops-collapse",
+      "path": "core/engineering/casing_persistence.py",
+      "note": "the collapse rating is not stored as a headline result",
+      "equivalent": "",
+      "tests": [
+        "tests/test_casing_persistence.py",
+        "tests/test_casing_absent_load_semantics.py",
+        "tests/test_casing_cross_process.py",
+        "tests/test_m270_r1_engine_contracts.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 55 passed in 5.26s"
+    }
+  ],
+  "killed": [
+    "AC-negative-md-accepted",
+    "AC-non-increasing-md-accepted",
+    "AC-negative-sigma-accepted",
+    "AC-sigma-added-linearly",
+    "AC-partial-sigma-used",
+    "AC-one-radius-gives-clearance",
+    "AC-clearance-adds-radii",
+    "AC-vertical-separation-dropped",
+    "AC-no-overlap-accepted",
+    "AC-threshold-zero-accepted",
+    "AC-threshold-touch-not-alert",
+    "AC-claims-iscwsa",
+    "BP-revolutions-uses-max-rpm",
+    "BP-revolutions-max-below-min-accepted",
+    "BP-weighted-rop-zero-when-undefined",
+    "BP-weighted-rop-excluded-rows-hidden",
+    "BP-dexp-wob-in-klbf",
+    "BP-cost-rig-day-not-hourly",
+    "BP-cost-rotating-hours-ignored",
+    "FI-weight-id-not-subtracted",
+    "FI-weight-id-ge-od-accepted",
+    "FI-free-point-zero-pull-accepted",
+    "FI-free-point-inverted",
+    "FI-stretch-buoyancy-sign",
+    "FI-stretch-linear-in-length",
+    "FI-jar-up-subtracts-overpull",
+    "FI-overshot-zero-clearance-ok",
+    "TR-vs-azimuth-not-passed",
+    "TR-dls-unit-not-passed",
+    "TR-north-east-swapped",
+    "TR-hd-reports-vs",
+    "WC-kill-mw-sidpp-subtracted",
+    "WC-kill-mw-zero-tvd-accepted",
+    "WC-fcp-ratio-inverted",
+    "WC-icp-sidpp-dropped",
+    "WC-maasp-negative-allowed",
+    "WC-lot-ignores-mud-head",
+    "WC-trip-margin-sign",
+    "LC-close-keeps-selection-routes",
+    "LC-status-bar-keeps-closed-window",
+    "LC-unregister-detaches-any-window",
+    "LC-status-bar-holds-window-strongly",
+    "LC-duplicate-route-accepted",
+    "LC-registry-holds-its-owner",
+    "LC-child-routes-not-disconnected",
+    "MV-snapshot-missing-as-zero",
+    "MV-active-volume-defaulted",
+    "MV-nan-frozen",
+    "MV-summary-drops-net-change",
+    "CP-snapshot-missing-load-as-zero",
+    "CP-reconstruct-missing-as-zero",
+    "CP-grade-dropped",
+    "CP-source-provenance-dropped",
+    "CP-summary-drops-collapse"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

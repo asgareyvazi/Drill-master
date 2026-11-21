@@ -1,0 +1,57 @@
+baseline exit=0 309 passed, 14 warnings in 22.67s
+AC-negative-md-accepted  KILLED    a negative measured depth is accepted as a survey station
+AC-non-increasing-md-accepted KILLED    a repeated MD (zero-length interval) is accepted and later divides by a zero span
+AC-negative-sigma-accepted KILLED    a negative 1-sigma uncertainty is accepted
+AC-sigma-added-linearly  KILLED    the two wells' 1-sigma values are added linearly instead of root-sum-square
+AC-partial-sigma-used    KILLED    a separation factor is computed when only some uncertainty axes were supplied
+AC-one-radius-gives-clearance KILLED    clearance is computed when only one well's radius is known
+AC-clearance-adds-radii  KILLED    clearance adds the wellbore radii to the centreline distance instead of subtracting them
+AC-vertical-separation-dropped KILLED    the 3D separation ignores the vertical component (lateral distance reported as 3D)
+AC-no-overlap-accepted   KILLED    two trajectories with no common MD interval are screened anyway
+AC-threshold-zero-accepted KILLED    a zero collision threshold is accepted (every station is then 'clear')
+AC-threshold-touch-not-alert KILLED    a station exactly at the collision threshold is not reported as an event
+AC-claims-iscwsa         KILLED    the screening result claims ISCWSA compliance (P19 is not approved)
+BP-revolutions-uses-max-rpm KILLED    bit revolutions use the maximum RPM instead of the mean of min and max
+BP-revolutions-max-below-min-accepted KILLED    an RPM maximum below the minimum is accepted
+BP-weighted-rop-zero-when-undefined KILLED    weighted ROP with no valid pairs reports 0 m/hr instead of undefined
+BP-weighted-rop-excluded-rows-hidden KILLED    rows dropped from weighted ROP (incomplete or invalid pairs) are no longer counted or warned about
+BP-dexp-wob-in-klbf      KILLED    the d-exponent denominator uses the klbf constant with WOB given in lbf
+BP-cost-rig-day-not-hourly KILLED    cost per foot multiplies trip hours by the daily rig rate
+BP-cost-rotating-hours-ignored KILLED    the full-cycle cost per foot ignores the supplied rotating hours
+FI-weight-id-not-subtracted KILLED    plain-end weight ignores the bore
+FI-weight-id-ge-od-accepted KILLED    an ID equal to the OD (zero wall) yields a zero-weight pipe instead of a refusal
+FI-free-point-zero-pull-accepted KILLED    a zero differential pull is accepted (division by zero / infinite free point)
+FI-free-point-inverted   KILLED    free point swaps pipe weight and pull
+FI-stretch-buoyancy-sign KILLED    heavier mud increases the free-hanging stretch
+FI-stretch-linear-in-length KILLED    the D81 defect: stretch under own weight taken as linear in length
+FI-jar-up-subtracts-overpull KILLED    the upward jar force subtracts the overpull
+FI-overshot-zero-clearance-ok KILLED    an overshot with no clearance over the fish is reported compatible
+TR-vs-azimuth-not-passed KILLED    the vertical-section azimuth chosen by the user is dropped (VS always toward north)
+TR-dls-unit-not-passed   KILLED    a deg/100ft request silently returns deg/30m dogleg severity
+TR-north-east-swapped    KILLED    northing and easting are exchanged in the wrapper output
+TR-hd-reports-vs         KILLED    horizontal displacement is reported as the vertical section
+WC-kill-mw-sidpp-subtracted KILLED    kill mud weight subtracts the SIDPP increment
+WC-kill-mw-zero-tvd-accepted KILLED    a zero TVD is accepted (division by zero)
+WC-fcp-ratio-inverted    KILLED    final circulating pressure scales the slow-rate pressure by MW/KMW
+WC-icp-sidpp-dropped     KILLED    initial circulating pressure omits the SIDPP
+WC-maasp-negative-allowed KILLED    a fracture EMW below the current mud weight yields a negative MAASP instead of a refusal
+WC-lot-ignores-mud-head  KILLED    a LOT surface pressure is converted to frac EMW without the mud hydrostatic already acting
+WC-trip-margin-sign      KILLED    trip margin is reported as pore EMW minus mud weight (overbalance shown as underbalance)
+LC-close-keeps-selection-routes KILLED    an accepted close leaves every SelectionManager route connected (stale updates to a closed window)
+LC-status-bar-keeps-closed-window KILLED    the status-bar singleton still points at a window after its accepted close
+LC-unregister-detaches-any-window KILLED    closing one window detaches the status bar from another, still open window
+LC-status-bar-holds-window-strongly KILLED    the process-wide status-bar singleton keeps the last registered window alive
+LC-duplicate-route-accepted KILLED    connecting the same route twice is accepted (a reopened owner receives every update twice)
+LC-registry-holds-its-owner KILLED    the route registry keeps its owner's bound methods strongly (owner becomes cyclic garbage: D63 path)
+LC-child-routes-not-disconnected KILLED    the window's tabs keep their SelectionManager routes after the accepted close
+MV-snapshot-missing-as-zero KILLED    an unknown active volume is frozen as 0 bbl in the historical snapshot
+MV-active-volume-defaulted KILLED    re-running a snapshot without an active volume computes a balance from 0 bbl
+MV-nan-frozen            KILLED    a NaN / infinite volume is frozen into the snapshot instead of unknown
+MV-summary-drops-net-change KILLED    the net-change headline is no longer stored with the record
+CP-snapshot-missing-load-as-zero KILLED    an absent load (not entered) is frozen as 0 psi / 0 lbf in the historical snapshot
+CP-reconstruct-missing-as-zero KILLED    re-running a stored snapshot turns an absent load into an explicit zero load
+CP-grade-dropped         KILLED    the casing grade label is not frozen into the snapshot
+CP-source-provenance-dropped KILLED    the M89 architecture provenance of the inputs is not stored
+CP-summary-drops-collapse KILLED    the collapse rating is not stored as a headline result
+
+mutants=54 killed=54 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=164
