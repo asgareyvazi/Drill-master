@@ -31,6 +31,9 @@ TR = "core/engineering/engines/trajectory.py"
 WC = "core/engineering/engines/well_control.py"
 MV = "core/engineering/mud_volume_persistence.py"
 CP = "core/engineering/casing_persistence.py"
+QL = "core/qt_lifetime.py"
+MGR = "core/managers.py"
+MW = "main_window.py"
 
 T270 = "tests/test_m270_r1_engine_contracts.py"          # added in M270 for the R-1 contracts
 TAC = ["tests/test_anti_collision_engine.py", T270]
@@ -43,6 +46,7 @@ TWC = ["tests/test_well_control_icp_fcp_consolidation.py", "tests/test_p0_engine
        "tests/test_engineering_ground_truth.py", "tests/test_engineering_independent_golden.py",
        "tests/test_well_control_kill_sheet.py", T270]
 TMV = ["tests/test_mud_volume_persistence.py", "tests/test_mud_volume_cross_process.py", T270]
+TLC = ["tests/test_m265_window_routes.py"]                # M268: window lifecycle (Qt, real MainWindow)
 TCP = ["tests/test_casing_persistence.py", "tests/test_casing_absent_load_semantics.py",
        "tests/test_casing_cross_process.py", T270]
 
@@ -208,6 +212,35 @@ MUTANTS = [
            "            tm_ppg = mw - form_emw\n",
            "            tm_ppg = form_emw - mw\n", TWC,
            "trip margin is reported as pore EMW minus mud weight (overbalance shown as underbalance)"),
+    # ------------------------------------------------------------------ M268: window lifecycle cleanup (D74)
+    Mutant("LC-close-keeps-selection-routes", MW,
+           "        self._closed_route_count = disconnect_window_routes(self)\n",
+           "        self._closed_route_count = len(routes_of(self))\n", TLC,
+           "an accepted close leaves every SelectionManager route connected (stale updates to a closed window)"),
+    Mutant("LC-status-bar-keeps-closed-window", MW,
+           "        self.status_manager.unregister_main_window(self)\n",
+           "", TLC,
+           "the status-bar singleton still points at a window after its accepted close"),
+    Mutant("LC-unregister-detaches-any-window", MGR,
+           "        if self._main_window is main_window:\n            self._main_window_ref = None\n",
+           "        self._main_window_ref = None\n", TLC,
+           "closing one window detaches the status bar from another, still open window"),
+    Mutant("LC-status-bar-holds-window-strongly", MGR,
+           "        self._main_window_ref = weak_or_strong(main_window)\n",
+           "        self._main_window_ref = (lambda window=main_window: window)\n", TLC,
+           "the process-wide status-bar singleton keeps the last registered window alive"),
+    Mutant("LC-duplicate-route-accepted", QL,
+           "                raise ValueError(\"route already connected\")\n",
+           "                pass\n", TLC,
+           "connecting the same route twice is accepted (a reopened owner receives every update twice)"),
+    Mutant("LC-registry-holds-its-owner", QL,
+           "            return weakref.WeakMethod(slot)\n",
+           "            return _Strong(slot)\n", TLC,
+           "the route registry keeps its owner's bound methods strongly (owner becomes cyclic garbage: D63 path)"),
+    Mutant("LC-child-routes-not-disconnected", QL,
+           "    owners = [window, *window.findChildren(QObject)]\n",
+           "    owners = [window]\n", TLC,
+           "the window's tabs keep their SelectionManager routes after the accepted close"),
     # ------------------------------------------------------------------ mud volume persistence (snapshot)
     Mutant("MV-snapshot-missing-as-zero", MV,
            "        params[key] = _clean_number(inputs.get(key))\n",

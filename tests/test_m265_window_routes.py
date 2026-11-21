@@ -162,23 +162,40 @@ def _route_total(win):
                if hasattr(o, "__dict__") and isinstance(o.__dict__.get("_lifetime_routes"), SignalRoutes))
 
 
-def test_an_open_window_follows_the_selection_and_a_closed_one_stops(world):
+@pytest.fixture(scope="module")
+def first_window(world):
+    """Window A: opened, followed one selection, closed once - shared by the tests below.
+
+    Closed windows stay alive by design (D63), so every window built here is retained for the rest of the
+    session; M267 measured about 85 MB per window, hence one shared window instead of one per test."""
     db, ids, user = world
     selection = SelectionManager()
     selection.clear()
     win = _open(db, user)
+    seen = {}
     try:
-        opened_routes = _route_total(win)
-        assert opened_routes >= 40, opened_routes          # 6 per DrillTabBase tab + the window's own routes
+        seen["opened_routes"] = _route_total(win)
         selection.select_well(ids["alpha"], {"id": ids["alpha"], "name": "SYN-M265-ALPHA"}, force=True)
         _pump(0.3)
-        assert "SYN-M265-ALPHA" in win.current_well_label.text()
-        assert win.well_info_tab.current_well_id == ids["alpha"]
-        assert StatusBarManager()._main_window is win
+        seen["label_open"] = win.current_well_label.text()
+        seen["well_info_open"] = win.well_info_tab.current_well_id
+        seen["status_bar_open"] = StatusBarManager()._main_window is win
     finally:
         selection.clear()
         _pump(0.1)
         _close(win)
+    yield win, seen
+
+
+def test_an_open_window_follows_the_selection_and_a_closed_one_stops(world, first_window):
+    _db, ids, _user = world
+    win, seen = first_window
+    selection = SelectionManager()
+    opened_routes = seen["opened_routes"]
+    assert opened_routes >= 40, opened_routes          # 6 per DrillTabBase tab + the window's own routes
+    assert "SYN-M265-ALPHA" in seen["label_open"]
+    assert seen["well_info_open"] == ids["alpha"]
+    assert seen["status_bar_open"]
     assert win._closed_route_count == opened_routes, "every recorded route is cut exactly once"
     assert _route_total(win) == 0
     assert StatusBarManager()._main_window is None, "the status-bar singleton forgets the closed window"
@@ -191,24 +208,27 @@ def test_an_open_window_follows_the_selection_and_a_closed_one_stops(world):
     selection.clear()
 
 
-def test_reopening_creates_one_route_set_and_routes_do_not_accumulate(world):
+def test_reopening_creates_one_route_set_and_routes_do_not_accumulate(world, first_window):
+    """Window B after A: the same number of routes as A had (no accumulation), B follows, A stays cut off."""
     db, ids, user = world
+    first, seen = first_window
     selection = SelectionManager()
-    counts, labels = [], []
-    for cycle in range(2):
-        win = _open(db, user)
-        counts.append(_route_total(win))
-        selection.select_well(ids["alpha"], {"id": ids["alpha"], "name": f"SYN-M265-CYCLE-{cycle}"}, force=True)
+    first_label = first.current_well_label.text()
+    win = _open(db, user)
+    try:
+        assert _route_total(win) == seen["opened_routes"], (_route_total(win), seen["opened_routes"])
+        selection.select_well(ids["alpha"], {"id": ids["alpha"], "name": "SYN-M265-CYCLE-1"}, force=True)
         _pump(0.3)
-        labels.append(win.current_well_label.text())
+        assert "SYN-M265-CYCLE-1" in win.current_well_label.text()
         assert StatusBarManager()._main_window is win
+        assert first.current_well_label.text() == first_label, "the first, closed window followed the reopen"
+        assert _route_total(first) == 0
+    finally:
         selection.clear()
         _pump(0.1)
         _close(win)
-        assert _route_total(win) == 0
-        del win
-    assert counts[0] == counts[1], counts
-    assert "SYN-M265-CYCLE-0" in labels[0] and "SYN-M265-CYCLE-1" in labels[1]
+    assert _route_total(win) == 0
+    assert win._closed_route_count == seen["opened_routes"]
 
 
 def test_the_status_bar_singleton_does_not_keep_a_window_alive():
@@ -223,9 +243,34 @@ def test_the_status_bar_singleton_does_not_keep_a_window_alive():
     probe = weakref.ref(window)
     manager.register_main_window(window)
     assert manager._main_window is window
-    del window
-    gc.collect()
-    assert probe() is None, "the singleton held the window strongly"
+    was_enabled = gc.isenabled()
+    gc.disable()                # reference counting alone: no collection pass that could free unrelated Qt garbage
+    try:
+        del window
+        assert probe() is None, "the singleton held the window strongly"
+    finally:
+        if was_enabled:
+            gc.enable()
     assert manager._main_window is None
     manager._main_window_ref = previous
     del app
+
+
+def test_unregistering_another_window_keeps_the_registered_one():
+    """Closing window A must not detach the status bar from window B, which registered after it."""
+    manager = StatusBarManager()
+    previous = manager._main_window_ref
+
+    class _Window(QObject):
+        status_label = None
+
+    first, second = _Window(), _Window()
+    try:
+        manager.register_main_window(first)
+        manager.register_main_window(second)
+        manager.unregister_main_window(first)
+        assert manager._main_window is second
+        manager.unregister_main_window(second)
+        assert manager._main_window is None
+    finally:
+        manager._main_window_ref = previous
