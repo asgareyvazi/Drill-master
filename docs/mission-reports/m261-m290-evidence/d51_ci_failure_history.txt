@@ -1,0 +1,220 @@
+M266 (D51): failed GitHub Actions jobs, branch arena/72010272-drill-master, the 300 most recent workflow runs (GitHub timestamps 2026-10-27 .. 2026-11-21).
+Source: GitHub REST API jobs + check-run annotations (raw job logs are served from a host outside the sandbox allowlist).
+
+TEST FAILURE      44069477824 b8b2c3a 2026-11-17T10:56 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 45.6)]
+      test: tests.test_m75_engine_inventory::test_engine_inventory_document_is_current
+      counts: collected=5555, passed=5550, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      44069477824 b8b2c3a 2026-11-17T10:56 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 49.8)]
+      test: tests.test_m75_engine_inventory::test_engine_inventory_document_is_current
+      counts: collected=5555, passed=5550, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      44069477824 b8b2c3a 2026-11-17T10:56 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 35.9)]
+      test: tests.test_m75_engine_inventory::test_engine_inventory_document_is_current
+      counts: collected=5555, passed=5550, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      44055136148 4b6514d 2026-11-17T09:23 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 44.9)]
+      test: tests.test_privacy_check::test_tracked_repository_population_is_clean
+      counts: collected=5527, passed=5522, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      44055136148 4b6514d 2026-11-17T09:23 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 36.5)]
+      test: tests.test_privacy_check::test_tracked_repository_population_is_clean
+      counts: collected=5527, passed=5522, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      44055136148 4b6514d 2026-11-17T09:23 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 31.7)]
+      test: tests.test_privacy_check::test_tracked_repository_population_is_clean
+      counts: collected=5527, passed=5522, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      43840196482 a2a0201 2026-11-16T09:29 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 45.1)]
+      test: tests.test_d59_stale_partial::test_an_identical_manifest_audited_under_another_name_is_refused_not_classified_audited
+      counts: collected=5519, passed=5514, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      43682536921 da53eb6 2026-11-15T05:46 job='windows-release' failed_step=[('Windows database, import, auth and packaging regression suite', 15.0)]
+TEST FAILURE      43682536897 da53eb6 2026-11-15T05:46 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 42.9)]
+      test: tests.test_data_layer_authorization::test_no_unreviewed_raw_sql_writer_bypasses_the_orm_guard
+      test: tests.test_m169_end_to_end_journey::test_m169_twenty_step_journey
+      counts: collected=5437, passed=5431, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      43682536897 da53eb6 2026-11-15T05:46 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 35.0)]
+      test: tests.test_data_layer_authorization::test_no_unreviewed_raw_sql_writer_bypasses_the_orm_guard
+      test: tests.test_m169_end_to_end_journey::test_m169_twenty_step_journey
+      counts: collected=5437, passed=5431, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      43682536897 da53eb6 2026-11-15T05:46 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 46.0)]
+      test: tests.test_data_layer_authorization::test_no_unreviewed_raw_sql_writer_bypasses_the_orm_guard
+      test: tests.test_m169_end_to_end_journey::test_m169_twenty_step_journey
+      counts: collected=5437, passed=5431, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      43590107366 6731be5 2026-11-14T11:27 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 38.6)]
+      test: tests.test_m113_constant_inventory::test_the_committed_inventory_is_current
+      counts: collected=5351, passed=5346, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      43590107366 6731be5 2026-11-14T11:27 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 31.2)]
+      test: tests.test_m113_constant_inventory::test_the_committed_inventory_is_current
+      counts: collected=5351, passed=5346, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      43590107366 6731be5 2026-11-14T11:27 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 44.0)]
+      test: tests.test_m113_constant_inventory::test_the_committed_inventory_is_current
+      counts: collected=5351, passed=5346, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42903438339 c20f5cd 2026-11-10T21:16 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 33.0)]
+      test: tests.test_database_migration_acceptance::test_v5_upgrade_adds_the_secondary_indexes_and_rejects_older_applications
+      test: tests.test_m112_dependency_audit::test_the_committed_audit_is_current_and_has_no_failure
+      test: tests.test_schema_indexes::test_without_the_indexes_the_same_queries_scan
+      counts: collected=5121, passed=5114, skipped=4, failed=3, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42903438339 c20f5cd 2026-11-10T21:16 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 31.9)]
+      test: tests.test_database_migration_acceptance::test_v5_upgrade_adds_the_secondary_indexes_and_rejects_older_applications
+      test: tests.test_m112_dependency_audit::test_the_committed_audit_is_current_and_has_no_failure
+      test: tests.test_schema_indexes::test_without_the_indexes_the_same_queries_scan
+      counts: collected=5121, passed=5114, skipped=4, failed=3, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42903438339 c20f5cd 2026-11-10T21:16 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 33.3)]
+      test: tests.test_database_migration_acceptance::test_v5_upgrade_adds_the_secondary_indexes_and_rejects_older_applications
+      test: tests.test_m112_dependency_audit::test_the_committed_audit_is_current_and_has_no_failure
+      test: tests.test_schema_indexes::test_without_the_indexes_the_same_queries_scan
+      counts: collected=5121, passed=5114, skipped=4, failed=3, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42903438335 c20f5cd 2026-11-10T21:16 job='windows-release' failed_step=[('Windows database, import, auth and packaging regression suite', 13.9)]
+      test: tests/test_m111_isolated_parse.py::test_the_entry_points_support_frozen_spawn_children
+TEST FAILURE      42484059701 28a1fbf 2026-11-08T13:15 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 38.2)]
+      test: tests.test_d46_index_build_cancel::test_a_cancelled_question_keeps_its_index_but_never_its_answer
+      counts: collected=5036, passed=5031, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42476643498 15db396 2026-11-08T11:38 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 41.6)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      counts: collected=5023, passed=5018, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42472656017 a6e506a 2026-11-08T10:43 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 42.8)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      note: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10
+      counts: collected=5023, passed=5018, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42472656017 a6e506a 2026-11-08T10:43 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 51.6)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      note: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10
+      counts: collected=5023, passed=5018, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42465610612 443a1e3 2026-11-08T09:04 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 43.4)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      note: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:398); fetchall (cursor.py:1136) Timeout (0:10
+      counts: collected=5023, passed=5018, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42465610612 443a1e3 2026-11-08T09:04 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 52.2)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      note: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10
+      counts: collected=5023, passed=5018, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42460255134 00ddbe6 2026-11-08T07:48 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 51.1)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      counts: collected=4978, passed=4973, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42387631121 76059dd 2026-11-07T15:41 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 39.4)]
+      test: tests.test_m111_isolated_parse::test_the_dialog_parses_in_a_child_and_saves_in_the_parent
+      counts: collected=4949, passed=4944, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42387631121 76059dd 2026-11-07T15:41 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 37.6)]
+      test: tests.test_m111_isolated_parse::test_the_dialog_parses_in_a_child_and_saves_in_the_parent
+      counts: collected=4949, passed=4944, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42387631121 76059dd 2026-11-07T15:41 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 33.2)]
+      test: tests.test_m111_isolated_parse::test_the_dialog_parses_in_a_child_and_saves_in_the_parent
+      counts: collected=4949, passed=4944, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42381281727 f620564 2026-11-07T14:22 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 41.4)]
+      test: tests.test_m111_isolated_parse::test_the_dialog_parses_in_a_child_and_saves_in_the_parent
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      note: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10
+      counts: collected=4925, passed=4919, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42381281727 f620564 2026-11-07T14:22 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 49.7)]
+      test: tests.test_m111_isolated_parse::test_the_dialog_parses_in_a_child_and_saves_in_the_parent
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      counts: collected=4925, passed=4919, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42381281727 f620564 2026-11-07T14:22 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 32.7)]
+      test: tests.test_m111_isolated_parse::test_the_dialog_parses_in_a_child_and_saves_in_the_parent
+      counts: collected=4925, passed=4920, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42375856374 75b2d38 2026-11-07T13:11 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 41.1)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      note: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10
+      counts: collected=4912, passed=4907, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42371267520 600b2f0 2026-11-07T12:10 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 40.4)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      note: a test did not finish within 0:10:00 (faulthandler watchdog, process ended); test frame: not found; blocked in: not found
+      counts: collected=4881, passed=4876, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42371267520 600b2f0 2026-11-07T12:10 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 30.1)]
+      note: a test did not finish within 0:15:00 (faulthandler watchdog, process ended); test frame: tests/test_m132_trajectory_layers.py:199 in viewer; blocked in: AxisItem.py:350 in _updateLabel
+      counts: collected=4881, passed=0, skipped=0, failed=0, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42357828918 7b13a1c 2026-11-07T09:00 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 50.2)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      counts: collected=4860, passed=4855, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      42357828918 7b13a1c 2026-11-07T09:00 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 41.1)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      counts: collected=4860, passed=4855, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  42126938336 82071b2 2026-11-05T23:05 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 28.8)]
+      note: a test did not finish within 0:15:00 (faulthandler watchdog, process ended); test frame: tests/test_m122_assistant_worker_lifecycle.py:266 in test_cancel_under_cpu_load_releases_every_worker; blocked 
+      counts: collected=4806, passed=0, skipped=0, failed=0, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41934748855 f790f40 2026-11-04T23:34 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 36.5)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_panel_cleanup_during_generation_ends_every_thread
+      counts: collected=4764, passed=4759, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41831032682 4878476 2026-11-04T12:38 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 31.3)]
+      test: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker
+      counts: collected=4723, passed=4718, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41795526348 c5ea349 2026-11-04T07:54 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 28.3)]
+      test: tests.test_m113_constant_inventory::test_the_committed_inventory_is_current
+      test: tests.test_m115_ux_startup::test_every_tab_inherits_right_to_left_except_the_documented_english_only_panels
+      test: tests.test_m115_ux_startup::test_every_tab_opens_in_both_directions
+      test: tests.test_m115_ux_startup::test_the_startup_breakdown_accounts_for_every_tab
+      counts: collected=4706, passed=4698, skipped=4, failed=1, errors=3, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41795526348 c5ea349 2026-11-04T07:54 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 35.4)]
+      test: tests.test_m113_constant_inventory::test_the_committed_inventory_is_current
+      test: tests.test_m115_ux_startup::test_every_tab_inherits_right_to_left_except_the_documented_english_only_panels
+      test: tests.test_m115_ux_startup::test_every_tab_opens_in_both_directions
+      test: tests.test_m115_ux_startup::test_the_startup_breakdown_accounts_for_every_tab
+      counts: collected=4706, passed=4698, skipped=4, failed=1, errors=3, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41616973235 fe7ee66 2026-11-03T10:10 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 21.9)]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[False]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[True]
+      test: tests.test_real_user_acceptance_regressions::test_pending_failed_parent_is_retained_and_save_blocked
+      counts: collected=4552, passed=4545, skipped=4, failed=3, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41616973235 fe7ee66 2026-11-03T10:10 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 21.1)]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[False]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[True]
+      test: tests.test_real_user_acceptance_regressions::test_pending_failed_parent_is_retained_and_save_blocked
+      counts: collected=4552, passed=4545, skipped=4, failed=3, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41616973235 fe7ee66 2026-11-03T10:10 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 20.9)]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[False]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[True]
+      test: tests.test_real_user_acceptance_regressions::test_pending_failed_parent_is_retained_and_save_blocked
+      counts: collected=4552, passed=4545, skipped=4, failed=3, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41611891235 333313f 2026-11-03T09:32 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 26.6)]
+      test: tests.test_m95_ux_responsiveness::test_the_measurement_tool_runs_and_reports_every_path
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[False]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[True]
+      test: tests.test_real_user_acceptance_regressions::test_pending_failed_parent_is_retained_and_save_blocked
+      counts: collected=4539, passed=4531, skipped=4, failed=4, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41611891235 333313f 2026-11-03T09:32 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 24.9)]
+      test: tests.test_m95_ux_responsiveness::test_the_measurement_tool_runs_and_reports_every_path
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[False]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[True]
+      test: tests.test_real_user_acceptance_regressions::test_pending_failed_parent_is_retained_and_save_blocked
+      counts: collected=4539, passed=4531, skipped=4, failed=4, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41611891235 333313f 2026-11-03T09:32 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 33.0)]
+      test: tests.test_m95_ux_responsiveness::test_the_measurement_tool_runs_and_reports_every_path
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[False]
+      test: tests.test_real_user_acceptance_regressions::test_force_refresh_preserves_report_and_section[True]
+      test: tests.test_real_user_acceptance_regressions::test_pending_failed_parent_is_retained_and_save_blocked
+      counts: collected=4539, passed=4531, skipped=4, failed=4, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41205652442 396b57d 2026-10-31T13:27 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 12.4)]
+      test: tests.test_model_registry::test_every_live_registry_with_mappers_is_the_authoritative_one
+      counts: collected=3939, passed=3934, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41205652442 396b57d 2026-10-31T13:27 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 15.6)]
+      test: tests.test_model_registry::test_every_live_registry_with_mappers_is_the_authoritative_one
+      counts: collected=3939, passed=3934, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      41205652442 396b57d 2026-10-31T13:27 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 12.0)]
+      test: tests.test_model_registry::test_every_live_registry_with_mappers_is_the_authoritative_one
+      counts: collected=3939, passed=3934, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TIMEOUT/WATCHDOG  41205652395 396b57d 2026-10-31T13:27 job='windows-release' failed_step=[('Windows database, import, auth and packaging regression suite', 12.7)]
+      note: tests.test_m52_lifecycle_stress.test_a_hang_is_killed_at_the_timeout_and_reported_as_such | AssertionError at tests\test_m52_lifecycle_stress.py:136 | AssertionError: assert False + where False = <bui
+TEST FAILURE      40663249338 981a67f 2026-10-28T09:18 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 13.4)]
+      test: tests.test_m50_trajectory_3d_disposal::test_destroyed_view_is_freed_now_and_leaves_no_qt_wrapper_for_gc[deleteLater-view]
+      counts: collected=3663, passed=3658, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      40663249338 981a67f 2026-10-28T09:18 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 13.6)]
+      test: tests.test_m50_trajectory_3d_disposal::test_destroyed_view_is_freed_now_and_leaves_no_qt_wrapper_for_gc[deleteLater-view]
+      counts: collected=3663, passed=3658, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      40663249338 981a67f 2026-10-28T09:18 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 18.8)]
+      test: tests.test_m50_trajectory_3d_disposal::test_destroyed_view_is_freed_now_and_leaves_no_qt_wrapper_for_gc[deleteLater-view]
+      counts: collected=3663, passed=3658, skipped=4, failed=1, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      40647262700 f93d06e 2026-10-28T06:59 job='windows-release' failed_step=[('Windows database, import, auth and packaging regression suite', 6.1)]
+      test: tests/test_trajectory_3d_lifecycle_m46.py::test_many_requests_in_one_event_cycle_draw_once_and
+TEST FAILURE      40499433606 6fb8420 2026-10-27T11:52 job='windows-release' failed_step=[('Windows database, import, auth and packaging regression suite', 5.7)]
+      test: tests/test_trajectory_3d_lifecycle_m46.py::test_many_requests_in_one_event_cycle_draw_once_and
+TIMEOUT/WATCHDOG  40486602573 5ef4b07 2026-10-27T10:11 job='windows-release' failed_step=[('Windows database, import, auth and packaging regression suite', 8.1)]
+      note: tests.test_m49_local_llm.test_status_when_nothing_listens_is_not_running | AssertionError at tests\test_m49_local_llm.py:97 | AssertionError: assert ('timeout' == 'not_running' - not_running + timeout
+OTHER             40483073550 41e2485 2026-10-27T09:44 job='windows-release' failed_step=[('Windows database, import, auth and packaging regression suite', 0.2)]
+TEST FAILURE      40478508102 f0313d0 2026-10-27T09:08 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 12.4)]
+      test: tests.test_data_layer_authorization::test_no_unreviewed_raw_sql_writer_bypasses_the_orm_guard
+      test: tests.test_exception_scan::test_repository_does_not_exceed_the_unexplained_silent_ceiling
+      counts: collected=3503, passed=3497, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      40478508102 f0313d0 2026-10-27T09:08 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 9.5)]
+      test: tests.test_data_layer_authorization::test_no_unreviewed_raw_sql_writer_bypasses_the_orm_guard
+      test: tests.test_exception_scan::test_repository_does_not_exceed_the_unexplained_silent_ceiling
+      counts: collected=3503, passed=3497, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+TEST FAILURE      40478508102 f0313d0 2026-10-27T09:08 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 16.8)]
+      test: tests.test_data_layer_authorization::test_no_unreviewed_raw_sql_writer_bypasses_the_orm_guard
+      test: tests.test_exception_scan::test_repository_does_not_exceed_the_unexplained_silent_ceiling
+      counts: collected=3503, passed=3497, skipped=4, failed=2, errors=0, xfailed=0, xpassed=0, deselected=0 
+Counter({'TEST FAILURE': 49, 'TIMEOUT/WATCHDOG': 11, 'OTHER': 1})

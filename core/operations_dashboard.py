@@ -94,6 +94,79 @@ KPI_SOURCES = {
     "cost_per_metre": "cost_records, daily_reports", "npt_cost": "cost_records, time_logs",
 }
 
+# M285: the structured specification of every dashboard KPI.  ``KPI_DEFINITIONS`` (the sentence) and
+# ``KPI_SOURCES`` (stored tables) stay as they were; these five fields complete the seven-field definition
+# (definition, unit, window, scope, source, method, missing behaviour) and state the counting rule that keeps a
+# figure from counting one record twice.  Restated from the definitions and the code below - not new semantics.
+_PERIOD = "selected period (dashboard filter; default last 7 days, today included)"
+_SCOPE = "wells matching the dashboard filter"
+KPI_SPECS = {
+    "wells_total": dict(window="none (current well list)", scope=_SCOPE, method="count of wells",
+                        missing="0 when no well matches", counting="each well once (wells.id)"),
+    "wells_active": dict(window="none (current status)", scope=_SCOPE, method="count of wells by status",
+                         missing="0 when no well matches", counting="each well once; one status group per well"),
+    "wells_planning": dict(window="none (current status)", scope=_SCOPE, method="count of wells by status",
+                           missing="0 when no well matches", counting="each well once; one status group per well"),
+    "wells_completed": dict(window="none (current status)", scope=_SCOPE, method="count of wells by status",
+                            missing="0 when no well matches", counting="each well once; one status group per well"),
+    "reports_total": dict(window="all dates", scope=_SCOPE, method="count of daily reports",
+                          missing="0 when no report is stored", counting="each report once (daily_reports.id)"),
+    "reports_window": dict(window=_PERIOD, scope=_SCOPE, method="count of daily reports by report date",
+                           missing="0 when no report falls in the period", counting="each report once"),
+    "latest_report": dict(window="all dates", scope=_SCOPE, method="maximum report date",
+                          missing="No data when no report is stored", counting="not additive"),
+    "npt_window": dict(window=_PERIOD, scope=_SCOPE, method="sum of NPT-flagged 24-h time-log durations",
+                       missing="No data when no time log exists in the period",
+                       counting="each 24-h time-log row once; morning-report rows are not added"),
+    "npt_share": dict(window=_PERIOD, scope=_SCOPE, method="NPT hours / all logged 24-h hours x 100",
+                      missing="No data when no hours are logged",
+                      counting="numerator and denominator from the same time-log rows"),
+    "wells_need_review": dict(window="none (current alerts)", scope=_SCOPE,
+                              method="count of wells with a warning or error alert",
+                              missing="0 when no alert exists", counting="each well once, however many alerts"),
+    "imports_window": dict(window=_PERIOD, scope="all wells (the audit log is not well-scoped)",
+                           method="count of DDR-import audit records", missing="0 when none is recorded",
+                           counting="each audit record once"),
+    "latest_depth": dict(window="latest report of each well", scope=_SCOPE,
+                         method="maximum 24:00 depth over the wells' latest reports",
+                         missing="No data when no latest report has a 24:00 depth",
+                         counting="not additive; the note names the well"),
+    "footage_window": dict(window=_PERIOD, scope=_SCOPE,
+                           method="sum over reports of 24:00 depth minus 00:00 depth (or the previous 24:00 depth "
+                                  "of the same well and wellbore)",
+                           missing="reports without both depths, or with a negative difference, are excluded and "
+                                   "counted; No data when none qualifies",
+                           counting="each report interval once per well and wellbore"),
+    "rop_window": dict(window=_PERIOD, scope=_SCOPE,
+                       method="footage-weighted ROP: sum of footage / sum of on-bottom hours "
+                              "(BitPerformanceEngine.weighted_rop)",
+                       missing="No data when no complete valid pair exists; invalid rows are excluded whole",
+                       counting="footage and hours from the same valid rows; never a mean of per-row ROPs"),
+    "survey_ready": dict(window="none (stored survey)", scope=_SCOPE,
+                         method="count of wells whose composed survey is READY, out of wells with stations",
+                         missing="No data when no well has survey stations", counting="each well once"),
+    "documents_total": dict(window="all dates", scope="document library (not well-scoped)",
+                            method="count of documents", missing="0 when the library is empty",
+                            counting="each document once"),
+    "cost_actual": dict(window=_PERIOD + "; undated records only with All dates", scope=_SCOPE,
+                        method="sum of actual cost records", missing="No data when currencies are mixed or unknown",
+                        counting="each cost record once; never summed across currencies"),
+    "afe_used": dict(window="same records as Actual cost", scope=_SCOPE,
+                     method="actual / planned (AFE) cost x 100",
+                     missing="No data when the planned total is zero or unknown, or currencies differ",
+                     counting="numerator and denominator over the same records"),
+    "cost_per_metre": dict(window="all dates", scope="single well only",
+                           method="all actual cost of the well / its deepest reported 24:00 depth",
+                           missing="No data for more than one well, without depth, or with mixed currencies",
+                           counting="each cost record of the well once"),
+    "npt_cost": dict(window="all dates", scope="single well only",
+                     method="ESTIMATE: all actual cost of the well x NPT hours / all logged hours",
+                     missing="No data for more than one well or without logged hours; no rig rate is assumed",
+                     counting="cost allocated by time share; not added to Actual cost"),
+}
+SPEC_FIELDS = ("window", "scope", "method", "missing", "counting")
+
+
 KPI_GROUPS = (
     ("Portfolio", ("wells_total", "wells_active", "wells_planning", "wells_completed")),
     ("Reporting", ("reports_total", "reports_window", "latest_report", "imports_window", "documents_total")),
@@ -119,6 +192,7 @@ class Kpi:
     as_of: Optional[date] = None
     note: str = ""               # why unavailable, or which currency / well the value refers to
     drilldown: Optional[dict] = None   # {"filter": {...}} or a navigation payload
+    spec: Optional[dict] = None        # M285: KPI_SPECS[key] - window, scope, method, missing, counting
 
 
 @dataclass(frozen=True)
@@ -444,7 +518,7 @@ def build_snapshot(db_manager, today: Optional[date] = None,
         if state is None:
             state = "no_data" if value is None else "ok"
         return Kpi(key, label, value, unit, state, KPI_DEFINITIONS[key], KPI_SOURCES[key],
-                   as_of if as_of is not None else latest, note, drilldown)
+                   as_of if as_of is not None else latest, note, drilldown, KPI_SPECS[key])
 
     # Drilling figures
     deepest = max((w for w in well_list if _finite(w.latest_depth) is not None),

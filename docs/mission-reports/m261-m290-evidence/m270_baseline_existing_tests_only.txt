@@ -1,0 +1,50 @@
+baseline exit=0 271 passed, 14 warnings in 13.30s
+AC-negative-md-accepted  SURVIVED  a negative measured depth is accepted as a survey station
+AC-non-increasing-md-accepted SURVIVED  a repeated MD (zero-length interval) is accepted and later divides by a zero span
+AC-negative-sigma-accepted SURVIVED  a negative 1-sigma uncertainty is accepted
+AC-sigma-added-linearly  KILLED    the two wells' 1-sigma values are added linearly instead of root-sum-square
+AC-partial-sigma-used    SURVIVED  a separation factor is computed when only some uncertainty axes were supplied
+AC-one-radius-gives-clearance SURVIVED  clearance is computed when only one well's radius is known
+AC-clearance-adds-radii  KILLED    clearance adds the wellbore radii to the centreline distance instead of subtracting them
+AC-vertical-separation-dropped SURVIVED  the 3D separation ignores the vertical component (lateral distance reported as 3D)
+AC-no-overlap-accepted   SURVIVED  two trajectories with no common MD interval are screened anyway
+AC-threshold-zero-accepted SURVIVED  a zero collision threshold is accepted (every station is then 'clear')
+AC-threshold-touch-not-alert SURVIVED  a station exactly at the collision threshold is not reported as an event
+AC-claims-iscwsa         KILLED    the screening result claims ISCWSA compliance (P19 is not approved)
+BP-revolutions-uses-max-rpm KILLED    bit revolutions use the maximum RPM instead of the mean of min and max
+BP-revolutions-max-below-min-accepted SURVIVED  an RPM maximum below the minimum is accepted
+BP-weighted-rop-zero-when-undefined KILLED    weighted ROP with no valid pairs reports 0 m/hr instead of undefined
+BP-weighted-rop-excluded-rows-hidden KILLED    rows dropped from weighted ROP (incomplete or invalid pairs) are no longer counted or warned about
+BP-dexp-wob-in-klbf      SURVIVED  the d-exponent denominator uses the klbf constant with WOB given in lbf
+BP-cost-rig-day-not-hourly SURVIVED  cost per foot multiplies trip hours by the daily rig rate
+BP-cost-rotating-hours-ignored SURVIVED  the full-cycle cost per foot ignores the supplied rotating hours
+FI-weight-id-not-subtracted SURVIVED  plain-end weight ignores the bore
+FI-weight-id-ge-od-accepted SURVIVED  an ID equal to the OD (zero wall) yields a zero-weight pipe instead of a refusal
+FI-free-point-zero-pull-accepted KILLED    a zero differential pull is accepted (division by zero / infinite free point)
+FI-free-point-inverted   SURVIVED  free point swaps pipe weight and pull
+FI-stretch-buoyancy-sign SURVIVED  heavier mud increases the free-hanging stretch
+FI-stretch-linear-in-length SURVIVED  the D81 defect: stretch under own weight taken as linear in length
+FI-jar-up-subtracts-overpull SURVIVED  the upward jar force subtracts the overpull
+FI-overshot-zero-clearance-ok KILLED    an overshot with no clearance over the fish is reported compatible
+TR-vs-azimuth-not-passed KILLED    the vertical-section azimuth chosen by the user is dropped (VS always toward north)
+TR-dls-unit-not-passed   SURVIVED  a deg/100ft request silently returns deg/30m dogleg severity
+TR-north-east-swapped    KILLED    northing and easting are exchanged in the wrapper output
+TR-hd-reports-vs         SURVIVED  horizontal displacement is reported as the vertical section
+WC-kill-mw-sidpp-subtracted KILLED    kill mud weight subtracts the SIDPP increment
+WC-kill-mw-zero-tvd-accepted SURVIVED  a zero TVD is accepted (division by zero)
+WC-fcp-ratio-inverted    KILLED    final circulating pressure scales the slow-rate pressure by MW/KMW
+WC-icp-sidpp-dropped     KILLED    initial circulating pressure omits the SIDPP
+WC-maasp-negative-allowed SURVIVED  a fracture EMW below the current mud weight yields a negative MAASP instead of a refusal
+WC-lot-ignores-mud-head  SURVIVED  a LOT surface pressure is converted to frac EMW without the mud hydrostatic already acting
+WC-trip-margin-sign      KILLED    trip margin is reported as pore EMW minus mud weight (overbalance shown as underbalance)
+MV-snapshot-missing-as-zero KILLED    an unknown active volume is frozen as 0 bbl in the historical snapshot
+MV-active-volume-defaulted KILLED    re-running a snapshot without an active volume computes a balance from 0 bbl
+MV-nan-frozen            KILLED    a NaN / infinite volume is frozen into the snapshot instead of unknown
+MV-summary-drops-net-change KILLED    the net-change headline is no longer stored with the record
+CP-snapshot-missing-load-as-zero KILLED    an absent load (not entered) is frozen as 0 psi / 0 lbf in the historical snapshot
+CP-reconstruct-missing-as-zero KILLED    re-running a stored snapshot turns an absent load into an explicit zero load
+CP-grade-dropped         SURVIVED  the casing grade label is not frozen into the snapshot
+CP-source-provenance-dropped SURVIVED  the M89 architecture provenance of the inputs is not stored
+CP-summary-drops-collapse SURVIVED  the collapse rating is not stored as a headline result
+
+mutants=47 killed=20 survived_non_equivalent=27 declared_equivalent=0 invalid=0 complete=True seconds=100

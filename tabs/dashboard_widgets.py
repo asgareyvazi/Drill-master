@@ -150,7 +150,12 @@ class KpiCard(QFrame):
         as_of = kpi.as_of.isoformat() if isinstance(kpi.as_of, (date, datetime)) else "—"
         self.foot.setText(f"{kpi.source} · as of {as_of}" if kpi.source else " ")
         unit = kpi.unit or "count / none"
-        self.setToolTip(f"{kpi.definition}\n\nUnit: {unit}\nSource: {kpi.source or '—'}\nData as of: {as_of}"
+        spec = getattr(kpi, "spec", None) or {}
+        spec_lines = "".join(f"\n{label}: {spec[key]}" for key, label in (
+            ("window", "Window"), ("scope", "Scope"), ("method", "Method"), ("missing", "If data is missing"),
+            ("counting", "Counting")) if spec.get(key))          # M285: the seven-field KPI definition
+        self.setToolTip(f"{kpi.definition}\n\nUnit: {unit}\nSource: {kpi.source or '—'}{spec_lines}"
+                        f"\nData as of: {as_of}"
                         + (f"\nNote: {kpi.note}" if kpi.note else "")
                         + ("\n\nClick to drill down." if kpi.drilldown else ""))
 

@@ -1,0 +1,23 @@
+Faulthandler-watchdog and wall-clock-timeout annotations in the same window:
+42472656017 a6e506a 2026-11-08T10:43 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 42.8)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10:00)! Thread 0x00007
+42472656017 a6e506a 2026-11-08T10:43 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 51.6)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10:00)! Thread 0x00007
+42465610612 443a1e3 2026-11-08T09:04 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 43.4)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:398); fetchall (cursor.py:1136) Timeout (0:10:00)! Thread 0x00007
+42465610612 443a1e3 2026-11-08T09:04 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 52.2)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10:00)! Thread 0x00007
+42381281727 f620564 2026-11-07T14:22 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 41.4)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10:00)! Thread 0x00007
+42375856374 75b2d38 2026-11-07T13:11 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 41.1)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - AssertionError: child exit 1; threads: select (selectors.py:415); fetchall (cursor.py:1136) Timeout (0:10:00)! Thread 0x00007
+42371267520 600b2f0 2026-11-07T12:10 job='source (3.11)' failed_step=[('Verify exact source, dependencies, tests and wheel', 40.4)]
+       ann: a test did not finish within 0:10:00 (faulthandler watchdog, process ended); test frame: not found; blocked in: not found
+42371267520 600b2f0 2026-11-07T12:10 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 30.1)]
+       ann: a test did not finish within 0:15:00 (faulthandler watchdog, process ended); test frame: tests/test_m132_trajectory_layers.py:199 in viewer; blocked in: AxisItem.py:350 in _updateLabel
+42357828918 7b13a1c 2026-11-07T09:00 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 50.2)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - Failed: the CPU-load cancel cycles did not finish within 720 s stdout: stderr:
+42357828918 7b13a1c 2026-11-07T09:00 job='source (3.13)' failed_step=[('Verify exact source, dependencies, tests and wheel', 41.1)]
+       ann: tests.test_m122_assistant_worker_lifecycle::test_cancel_under_cpu_load_releases_every_worker - Failed: the CPU-load cancel cycles did not finish within 720 s stdout: stderr:
+42126938336 82071b2 2026-11-05T23:05 job='source (3.12)' failed_step=[('Verify exact source, dependencies, tests and wheel', 28.8)]
+       ann: a test did not finish within 0:15:00 (faulthandler watchdog, process ended); test frame: tests/test_m122_assistant_worker_lifecycle.py:266 in test_cancel_under_cpu_load_releases_every_worker; blocked in: dataclasses.py:1

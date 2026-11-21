@@ -1525,7 +1525,7 @@
    "file": "core/qt_lifetime.py",
    "guarded": false,
    "lines": [
-    120
+    117
    ],
    "module": "PySide6"
   },

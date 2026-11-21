@@ -14,7 +14,9 @@ fixture's teardown is charged to the module's last test):
 * ``widgets`` - ``len(QApplication.allWidgets())`` once Qt is loaded (live widgets, including hidden top-levels);
 * ``threads`` - ``threading.active_count()``; ``fds`` - open file descriptors;
 * ``gc_objects`` - ``len(gc.get_objects())`` every ``DRILLMASTER_RSS_PROFILE_GC_EVERY`` tests (default 50) and at
-  every module boundary, else empty (it is expensive on a large heap).
+  every module boundary, else empty (it is expensive on a large heap);
+* ``qobject_wrappers`` (M267) - Python wrappers of ``QObject`` among those gc-tracked objects, at the same points;
+* ``tmp_entries`` (M267) - entries in ``tempfile.gettempdir()`` after the test (leaked temporary files / dirs).
 
 It only reads; it never collects garbage, deletes widgets or changes the session's GC policy, so the profile
 describes the suite as it normally runs. Linux only (``/proc``); elsewhere it does nothing.
@@ -25,13 +27,15 @@ import csv
 import gc
 import os
 import sys
+import tempfile
 import threading
 import time
 
 import pytest
 
 _FIELDS = ("index", "nodeid", "module", "seconds", "rss_anon_kb", "rss_file_kb", "rss_shmem_kb",
-           "d_anon_kb", "widgets", "d_widgets", "threads", "fds", "gc_objects")
+           "d_anon_kb", "widgets", "d_widgets", "threads", "fds", "gc_objects",
+           "qobject_wrappers", "tmp_entries")
 
 
 def _status() -> dict:
@@ -54,6 +58,20 @@ def _widgets():
     if QApplication.instance() is None:
         return ""
     return len(QApplication.allWidgets())
+
+
+def _qobject_wrappers(objects):
+    if "PySide6.QtCore" not in sys.modules:
+        return ""
+    from PySide6.QtCore import QObject
+    return sum(1 for obj in objects if issubclass(type(obj), QObject))     # type(): never runs __class__ code
+
+
+def _tmp_entries():
+    try:
+        return len(os.listdir(tempfile.gettempdir()))
+    except OSError:
+        return ""
 
 
 def _fds():
@@ -84,13 +102,17 @@ class _Profile:
         module = item.nodeid.split("::", 1)[0]
         boundary = nextitem is None or nextitem.nodeid.split("::", 1)[0] != module
         self.index += 1
-        objects = len(gc.get_objects()) if boundary or self.index % self.gc_every == 0 else ""
+        objects = wrappers = ""
+        if boundary or self.index % self.gc_every == 0:
+            tracked = gc.get_objects()
+            objects, wrappers = len(tracked), _qobject_wrappers(tracked)
+            del tracked
         d_widgets = (widgets_after - widgets_before
                      if isinstance(widgets_after, int) and isinstance(widgets_before, int) else "")
         self.writer.writerow([self.index, item.nodeid, module, f"{seconds:.3f}", after.get("RssAnon", ""),
                               after.get("RssFile", ""), after.get("RssShmem", ""),
                               after.get("RssAnon", 0) - before.get("RssAnon", 0), widgets_after, d_widgets,
-                              threading.active_count(), _fds(), objects])
+                              threading.active_count(), _fds(), objects, wrappers, _tmp_entries()])
         self.handle.flush()
 
     def pytest_unconfigure(self, config):

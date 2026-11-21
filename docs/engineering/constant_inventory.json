@@ -14,7 +14,7 @@
    "per metre": {
     "files": {
      "core/bit_runs.py": 17,
-     "core/operations_dashboard.py": 4,
+     "core/operations_dashboard.py": 5,
      "core/operations_intelligence.py": 4,
      "core/report_engine.py": 4,
      "tabs/bit_run_panel.py": 2,
@@ -22,7 +22,7 @@
      "tabs/w12_Analysis.py": 1,
      "tabs/w16_Cost_Management.py": 1
     },
-    "uses": 34
+    "uses": 35
    }
   },
   "dog-leg severity unit": {

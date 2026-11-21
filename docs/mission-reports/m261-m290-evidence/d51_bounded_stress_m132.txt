@@ -1,0 +1,12 @@
+M266 (D51) bounded stress: tests/test_m132_trajectory_layers.py x10, one competing busy-loop process (2-CPU sandbox), -X faulthandler, tree 7fe52ff + working changes; iterations 1-4 also overlapped other local test work.
+iter=1 rc=0 seconds=26 
+iter=2 rc=0 seconds=29 
+iter=3 rc=0 seconds=25 
+iter=4 rc=0 seconds=20 
+iter=5 rc=0 seconds=19 
+iter=6 rc=0 seconds=20 
+iter=7 rc=0 seconds=19 
+iter=8 rc=0 seconds=20 
+iter=9 rc=0 seconds=23 
+iter=10 rc=0 seconds=20 
+done
