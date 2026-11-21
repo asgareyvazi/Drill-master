@@ -2068,6 +2068,52 @@ class CalculationSourceLink(Base):
     created_at = Column(DateTime, default=_now_utc, nullable=False)
 
 
+class CalculationArchiveMark(Base):
+    """M286: archive / restore of a calculation-history record, as append-only events.
+
+    A record is archived while its latest mark is ``ARCHIVE``. Archiving hides a record from the default
+    workbench list. It never deletes, edits or re-runs the record, and the record stays citable and
+    comparable. The source is addressed by table name and primary key, as in ``calculation_source_links``.
+    ``source_created_at`` snapshots the source row's ``created_at``: a mark applies only while that row still
+    exists with the same timestamp, so a record that later reuses a deleted row's id never inherits its marks.
+    Every mark carries a reason and a mandatory audit record. Insert-only (storage guard
+    ``trg_calculation_archive_mark_*``).
+    """
+
+    __tablename__ = "calculation_archive_marks"
+
+    id = Column(Integer, primary_key=True)
+    source_table = Column(String(100), nullable=False)
+    source_id = Column(Integer, nullable=False)
+    source_created_at = Column(DateTime, nullable=True)    # the source row's created_at when it was marked
+    well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"))
+    action = Column(String(10), nullable=False)            # ARCHIVE | RESTORE
+    reason = Column(Text, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+
+
+
+class DdrValueState(Base):
+    """M272: the recorded state of one numeric DDR header field (``core.ddr_value_states``, append-only).
+
+    REPORTED / ZERO / CALCULATED / UNKNOWN / NOT_APPLICABLE / NOT_REPORTED. The latest event per (report, field)
+    wins, and each event carries a mandatory audit record. Insert-only (storage guard ``trg_ddr_value_state_*``).
+    The guard deletes a row only once its report is gone, so a report delete removes these after the report.
+    """
+    DELETED_AFTER_REPORT = True
+
+    __tablename__ = "ddr_value_states"
+
+    id = Column(Integer, primary_key=True)
+    report_id = Column(Integer, ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=False)
+    field = Column(String(60), nullable=False)
+    state = Column(String(20), nullable=False)
+    method = Column(Text)
+    note = Column(Text)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+
 # Nullable columns added after a table first shipped: (table, column, SQLite type).
 def report_reference_action(model) -> str:
     """The declared ON DELETE action of ``model.report_id`` towards daily_reports ('' when none) - M116 D33."""
@@ -5245,9 +5291,14 @@ class DatabaseManager:
             # Do not rely solely on SQLite FK pragma: several legacy tables
             # predate cascade definitions. Delete all mapped report children.
             removed = unlinked = 0
+            after_report = []
             for mapper in list(Base.registry.mappers):
                 model = mapper.class_
                 if model is DailyReport or not hasattr(model, "report_id"):
+                    continue
+                if getattr(model, "DELETED_AFTER_REPORT", False):
+                    # M272: an insert-only record whose storage guard allows a delete only once its report is gone
+                    after_report.append(model)
                     continue
                 if report_reference_action(model) == "SET NULL":
                     # M116 (D33): a lineage reference becomes unknown; the referencing record is kept.
@@ -5262,6 +5313,8 @@ class DatabaseManager:
             label = f"Report #{report.report_number}" if report.report_number is not None else f"report {report_id}"
             session.delete(report)
             session.flush()
+            for model in after_report:                             # same transaction, now that the owner is gone
+                removed += session.query(model).filter(model.report_id == report_id).delete(synchronize_session=False)
             # Mandatory audit: same transaction; counts only, never row content.
             details = {"child_rows_deleted": removed}
             if unlinked:

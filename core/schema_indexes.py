@@ -173,6 +173,11 @@ INDEX_PLAN: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("import_review_items", ('parent_time_log_id',), REVIEW_PARENT),
     ("tubular_reference_items", ('set_id',), REFERENCE_SET),
     ("tubular_reference_items", ('component_type',), REFERENCE_TYPE),
+    # M286: the archive state of history records (latest mark per source record); the well-delete cascade scan.
+    ("calculation_archive_marks", ('source_table', 'source_id'), LINEAGE),
+    ("calculation_archive_marks", ('well_id',), WELL_SCOPE),
+    # M272: the value states of one report (per field, latest wins) and the report-delete sweep.
+    ("ddr_value_states", ('report_id', 'field'), REPORT_CHILD),
 )
 
 

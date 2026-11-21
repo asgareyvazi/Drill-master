@@ -147,6 +147,15 @@ def trigger_statements() -> dict[str, str]:
         _nullable_reference("parent_id", "well_architecture_revisions"),
         _nullable_reference("created_by", "users"),
     ])
+    archive_mark_change = " OR ".join([          # M286
+        _frozen(("id", "source_table", "source_id", "source_created_at", "well_id", "action", "reason",
+                 "created_at")),
+        _nullable_reference("created_by", "users"),
+    ])
+    value_state_change = " OR ".join([            # M272
+        _frozen(("id", "report_id", "field", "state", "method", "note", "created_at")),
+        _nullable_reference("created_by", "users"),
+    ])
     view_change = " OR ".join([
         _frozen(_VIEW_FROZEN),
         _nullable_reference("wellbore_id", "wellbores"),
@@ -192,6 +201,14 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_npt_event_decision_immutable_v{v} BEFORE UPDATE ON npt_event_decisions "
             f"WHEN {_frozen(_NPT_DECISION_FROZEN)} BEGIN SELECT RAISE(ABORT, "
             "'npt_event_decisions: an audited decision is immutable'); END"),
+        f"trg_calculation_archive_mark_immutable_v{v}": (
+            f"CREATE TRIGGER trg_calculation_archive_mark_immutable_v{v} BEFORE UPDATE ON calculation_archive_marks "
+            f"WHEN {archive_mark_change} BEGIN SELECT RAISE(ABORT, "
+            "'calculation_archive_marks: an archive mark is immutable'); END"),
+        f"trg_ddr_value_state_immutable_v{v}": (
+            f"CREATE TRIGGER trg_ddr_value_state_immutable_v{v} BEFORE UPDATE ON ddr_value_states "
+            f"WHEN {value_state_change} BEGIN SELECT RAISE(ABORT, "
+            "'ddr_value_states: a recorded value state is immutable'); END"),
         f"trg_trajectory_view_immutable_v{v}": (
             f"CREATE TRIGGER trg_trajectory_view_immutable_v{v} BEFORE UPDATE ON trajectory_view_revisions "
             f"WHEN {view_change} BEGIN SELECT RAISE(ABORT, "
@@ -295,6 +312,10 @@ _OWNED = {
     "trg_trajectory_view": ("trajectory_view_revisions",
                             (("uq_trajectory_view_revision", ("view_key", "revision")),),
                             "NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_calculation_archive_mark": ("calculation_archive_marks", (),           # M286
+                                     "OLD.well_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM wells WHERE id = OLD.well_id)"),
+    "trg_ddr_value_state": ("ddr_value_states", (),                              # M272
+                            "NOT EXISTS (SELECT 1 FROM daily_reports WHERE id = OLD.report_id)"),
     # M136: an audit record has no owner whose deletion may take it along - never deleted ("0" = never).
     "trg_audit_log": ("audit_logs", (), "0"),
 }
@@ -329,6 +350,7 @@ _TABLE_OF = {"trg_plan_revision": "directional_plan_revisions", "trg_calculation
              "trg_well_architecture": "well_architecture_revisions",
              "trg_mse_lineage_repair": "mse_lineage_repairs", "trg_npt_event_decision": "npt_event_decisions",
              "trg_trajectory_view": "trajectory_view_revisions", "trg_audit_log": "audit_logs",
+             "trg_calculation_archive_mark": "calculation_archive_marks", "trg_ddr_value_state": "ddr_value_states",
              "trg_tubular_set": "tubular_reference_sets", "trg_tubular_item": "tubular_reference_items",
              "trg_report_revision": "report_revisions"}
 

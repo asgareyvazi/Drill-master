@@ -217,11 +217,15 @@ def _source_of(model, adapt) -> str:
             "directional_plan_revisions": "Directional plan"}[table]
 
 
-def _filtered(session, model, *, well_id, since, until, needle):
-    """M73: the well, period and text filters run in the database (indexed well_id, created_at)."""
+def _filtered(session, model, *, well_id, since, until, needle, hidden=None):
+    """M73: the well, period and text filters run in the database (indexed well_id, created_at).
+
+    M286: ``hidden`` is the set of archived record ids of this table, left out of the default list."""
     from sqlalchemy import func, or_
 
     query = session.query(model)
+    if hidden:
+        query = query.filter(~model.id.in_(sorted(hidden)))
     if well_id is not None:
         query = query.filter(model.well_id == well_id)
     if since is not None:
@@ -238,7 +242,7 @@ def _filtered(session, model, *, well_id, since, until, needle):
 
 def load_history(db, *, well_id: Optional[int] = None, sources: Optional[Iterable[str]] = None, text: str = "",
                  since: Optional[datetime] = None, until: Optional[datetime] = None,
-                 limit: Optional[int] = None, offset: int = 0) -> List[HistoryEntry]:
+                 limit: Optional[int] = None, offset: int = 0, include_archived: bool = True) -> List[HistoryEntry]:
     """Matching entries, newest first. Read-only; sessions stay inside.
 
     Filters run in the database; sources that are not wanted are not queried.
@@ -251,10 +255,12 @@ def load_history(db, *, well_id: Optional[int] = None, sources: Optional[Iterabl
     out: List[HistoryEntry] = []
     window = None if limit is None else max(0, int(offset)) + max(0, int(limit))
     with db.session_scope() as session:
+        hidden = {} if include_archived else _archived(session)
         for model, adapt in _adapters():
             if wanted is not None and _source_of(model, adapt) not in wanted:
                 continue
-            query = _filtered(session, model, well_id=well_id, since=since, until=until, needle=needle)
+            query = _filtered(session, model, well_id=well_id, since=since, until=until, needle=needle,
+                              hidden=hidden.get(model.__tablename__))
             query = query.order_by(model.created_at.desc(), model.id.desc())
             if window is not None:
                 query = query.limit(window)
@@ -266,17 +272,27 @@ def load_history(db, *, well_id: Optional[int] = None, sources: Optional[Iterabl
 
 
 def count_history(db, *, well_id: Optional[int] = None, sources: Optional[Iterable[str]] = None, text: str = "",
-                  since: Optional[datetime] = None, until: Optional[datetime] = None) -> int:
+                  since: Optional[datetime] = None, until: Optional[datetime] = None,
+                  include_archived: bool = True) -> int:
     """Number of matching entries (COUNT in the database), for the page indicator."""
     wanted = set(sources) if sources else None
     needle = text.strip().lower()
     total = 0
     with db.session_scope() as session:
+        hidden = {} if include_archived else _archived(session)
         for model, adapt in _adapters():
             if wanted is not None and _source_of(model, adapt) not in wanted:
                 continue
-            total += _filtered(session, model, well_id=well_id, since=since, until=until, needle=needle).count()
+            total += _filtered(session, model, well_id=well_id, since=since, until=until, needle=needle,
+                               hidden=hidden.get(model.__tablename__)).count()
     return total
+
+
+def _archived(session) -> Dict[str, set]:
+    """M286: archived record ids per table (latest mark ARCHIVE)."""
+    from core.calculation_workbench import archived_ids
+
+    return archived_ids(session)
 
 
 def entry_status(entry: HistoryEntry) -> Dict[str, str]:
@@ -883,6 +899,7 @@ COVERAGE = (
 NOT_CALCULATIONS = {
     "report_revisions": "daily report revisions (document history, not a calculation)",
     "calculation_source_links": "lineage links between calculation records, not a calculation",
+    "calculation_archive_marks": "M286 archive / restore events for history records, not a calculation",
     "trajectory_view_revisions": ("saved Well Trajectory Viewer views (M178): a presentation snapshot of the "
                                   "canonical composer's stations; reopen checks it against the current data "
                                   "(core.trajectory_views.drift), it is not a separate calculation"),

@@ -461,6 +461,10 @@ class DailyReportWidget(DrillTabBase):
         self.day_states_btn = QPushButton("🗂 Day states…")
         self.day_states_btn.setObjectName("day_states_btn")
         self.day_states_btn.clicked.connect(lambda: self.show_day_states())
+        # M272: what an empty / zero header number means (unknown, N/A, not reported, zero, calculated).
+        self.value_states_btn = QPushButton("🔢 Value states…")
+        self.value_states_btn.setObjectName("value_states_btn")
+        self.value_states_btn.clicked.connect(self._value_states_clicked)    # bound method (D74: no closure)
         
         
         self.print_btn = QPushButton("🖨️ Print")
@@ -488,6 +492,7 @@ class DailyReportWidget(DrillTabBase):
         button_layout.addWidget(self.new_btn)
         button_layout.addWidget(self.duplicate_btn)
         button_layout.addWidget(self.day_states_btn)
+        button_layout.addWidget(self.value_states_btn)
         button_layout.addWidget(self.print_btn)
         button_layout.addWidget(export_pdf_btn)
         button_layout.addWidget(self.submit_btn)
@@ -2311,6 +2316,21 @@ class DailyReportWidget(DrillTabBase):
                 carry.confirm(session, report_id, carried, actor={"user_id": user_id, "username": username})
             self.show_success(f"{len(carried)} carried section(s) confirmed for this day")
         return states
+
+    def value_states_dialog(self):
+        """M272: the value-states dialog of the open (saved) report, or None with a message."""
+        from dialogs.ddr_value_states_dialog import DdrValueStatesDialog
+        report_id = self.current_report_id
+        if not report_id:
+            self.show_error("Open a saved report first")
+            return None
+        user_id, _username = self.db._audit_actor() if hasattr(self.db, "_audit_actor") else (None, None)
+        return DdrValueStatesDialog(self.db, report_id, self, user_id=user_id)
+
+    def _value_states_clicked(self, _checked=False):
+        dialog = self.value_states_dialog()
+        if dialog is not None:
+            dialog.exec()
 
     # -------- متدهای کمکی برای سازگاری با سایر تب‌ها --------
     def set_current_report(self, report_id):

@@ -215,7 +215,15 @@ class ImportReviewDialog(QDialog):
                          f"({entry.get('before_state')} → {entry.get('after_state')}) by {entry.get('by') or '?'}"
                          + (f" - {entry.get('reason') or entry.get('note')}" if entry.get('reason') or
                             entry.get('note') else ""))
-        self.detail.setText("\n".join(lines))
+        lines.append(self.lineage_line(item))               # M273: the five stages and the stored-now check
+        self.detail.setText("\n".join(line for line in lines if line))
+
+    def lineage_line(self, item: Dict) -> str:
+        from core import import_value_lineage as ivl
+        try:
+            return ivl.summary_line(ivl.value_lineage(self.db, item["id"], self.well_id))
+        except ivl.LineageError as exc:
+            return f"Lineage: not available ({exc})"
 
     # ---- decisions -----------------------------------------------------------------------------------------
     def decide(self, items: List[Dict], decision: str) -> Dict[str, int]:

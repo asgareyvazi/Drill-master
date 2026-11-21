@@ -128,6 +128,11 @@ TABLE_POLICY: dict[str, TablePolicy] = {
     # M63: calculation cases are insert-only; they leave only with their well.
     "calculation_cases": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     "calculation_source_links": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    # M286: archive / restore marks are insert-only events written by report editors; they leave only with their
+    # well (a mark of a deleted record no longer applies: core.calculation_workbench.archived_ids).
+    "calculation_archive_marks": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
+    # M272: DDR value states are insert-only events written by report editors; they leave with their report or well.
+    "ddr_value_states": TablePolicy(write=(NOBODY,), delete=(DELETE_REPORTS, DELETE_WELL), insert=(EDIT,)),
     "survey_revisions": TablePolicy(write=(NOBODY,), delete=(DELETE_WELL,), insert=(EDIT,)),
     # M178: saved trajectory views are insert-only (revise / clone / archive / restore add a row); they leave only
     # with their well.

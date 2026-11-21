@@ -7,6 +7,8 @@ navigation target (``target``) the main window resolves to the screen that owns 
 * ``daily_report`` - a daily report without its end-of-day depth (``depth_2400``) or without a section;
 * ``import_review`` - DDR review items still open (DEFERRED_UNRESOLVED / VALIDATION_ERROR), one issue per report;
 * ``daily_report`` - a section carried forward from an earlier day and not yet confirmed for this day (M217 CARRIED);
+* ``daily_report`` - a numeric header field whose recorded value state (M272) no longer matches the stored value, or
+  whose stored value is not a finite number;
 * ``daily_report`` / ``well`` - a survey station with a missing inclination or azimuth (the trajectory engine refuses
   incomplete stations; nothing is guessed).
 
@@ -27,7 +29,8 @@ CATEGORY_REPORT = "Daily report incomplete"
 CATEGORY_REVIEW = "DDR review open"
 CATEGORY_CARRIED = "Carried forward, not confirmed"
 CATEGORY_SURVEY = "Survey station incomplete"
-CATEGORIES = (CATEGORY_REPORT, CATEGORY_REVIEW, CATEGORY_CARRIED, CATEGORY_SURVEY)
+CATEGORY_VALUE_STATE = "Value state inconsistent"
+CATEGORIES = (CATEGORY_REPORT, CATEGORY_REVIEW, CATEGORY_CARRIED, CATEGORY_SURVEY, CATEGORY_VALUE_STATE)
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,7 @@ def _label(report) -> str:
 def collect(db, well_id: int) -> List[Issue]:
     """Every record-level issue of ``well_id`` (read-only; the session is rolled back)."""
     from core import ddr_carry_forward as carry
+    from core import ddr_value_states as value_states
     from core.database import DailyReport, ImportReviewItem, SurveyPoint
 
     issues: List[Issue] = []
@@ -78,6 +82,11 @@ def collect(db, well_id: int) -> List[Issue]:
                 issues.append(Issue(CATEGORY_CARRIED, WARNING,
                                     f"Carried from an earlier day and not yet confirmed: {', '.join(carried)}",
                                     "daily_reports", report.id, report.id, _label(report), _report_target(report)))
+            inconsistent = [f"{entry['label']} ({entry['reason']})"
+                            for entry in value_states.states_in(session, report.id).values() if not entry["consistent"]]
+            if inconsistent:
+                issues.append(Issue(CATEGORY_VALUE_STATE, ERROR, "; ".join(inconsistent), "daily_reports", report.id,
+                                    report.id, _label(report), _report_target(report)))
         open_items: Dict[int, List[int]] = {}
         for item in (session.query(ImportReviewItem)
                      .filter(ImportReviewItem.well_id == well_id, ImportReviewItem.state.in_(OPEN_REVIEW_STATES))

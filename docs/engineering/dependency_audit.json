@@ -127,7 +127,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 70,
+    "evidence_tests": 71,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -168,6 +168,7 @@
      "test_m239_engine_semantics.py",
      "test_m269_kill_sheet_geometry_table.py",
      "test_m270_r1_engine_contracts.py",
+     "test_m286_workbench_clone_archive.py",
      "test_m289_cross_module_journey.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
@@ -1689,6 +1690,14 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/ddr_value_states_dialog.py",
+   "guarded": false,
+   "lines": [
+    11
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/drilling_report_dialogs.py",
    "guarded": false,
    "lines": [
@@ -2212,7 +2221,7 @@
     9,
     15,
     17,
-    2505
+    2525
    ],
    "module": "PySide6"
   },
@@ -2778,8 +2787,8 @@
    "file": "core/authorization.py",
    "guarded": false,
    "lines": [
-    271,
-    349
+    276,
+    354
    ],
    "module": "sqlalchemy"
   },
@@ -2787,7 +2796,7 @@
    "file": "core/calculation_history.py",
    "guarded": false,
    "lines": [
-    222
+    224
    ],
    "module": "sqlalchemy"
   },
@@ -2808,17 +2817,17 @@
     44,
     628,
     671,
-    3186,
-    3187,
-    3917,
-    4430,
-    5044,
-    3762,
-    3228,
-    8017,
-    6375,
-    6422,
-    6604
+    3232,
+    3233,
+    3963,
+    4476,
+    5090,
+    3808,
+    3274,
+    8070,
+    6428,
+    6475,
+    6657
    ],
    "module": "sqlalchemy"
   },

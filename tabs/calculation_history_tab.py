@@ -16,11 +16,12 @@ from typing import List, Optional
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPageSize, QPdfWriter, QTextDocument
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QAbstractItemView, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QPushButton,
     QSplitter, QTableWidget, QTableWidgetItem, QTextBrowser, QVBoxLayout, QWidget,
 )
 
 from core import calculation_history as ch
+from core import calculation_workbench as wb
 
 logger = logging.getLogger(__name__)
 COLUMNS = ("Source", "Name", "Method", "Version", "Created", "Scope", "Derived from")
@@ -52,7 +53,12 @@ class CalculationHistoryTab(QWidget):
         self.source_combo.currentIndexChanged.connect(self._refresh_clicked)
         self.text_edit.returnPressed.connect(self._refresh_clicked)
         self.well_only.toggled.connect(self._refresh_clicked)
-        for widget in (QLabel("Source:"), self.source_combo, self.text_edit, self.well_only, self.refresh_btn):
+        self.show_archived = QCheckBox("Show archived")          # M286: archived records are hidden by default
+        self.show_archived.setToolTip("Archived records are kept unchanged; they are only left out of this list.")
+        self.show_archived.toggled.connect(self._refresh_clicked)
+        self.archived_keys: set = set()
+        for widget in (QLabel("Source:"), self.source_combo, self.text_edit, self.well_only, self.show_archived,
+                       self.refresh_btn):
             filters.addWidget(widget)
         self.page, self.total = 0, 0
         self.prev_btn, self.next_btn = QPushButton("◀ Newer"), QPushButton("Older ▶")
@@ -91,7 +97,18 @@ class CalculationHistoryTab(QWidget):
         self.report_btn.clicked.connect(self._report_clicked)
         self.export_btn = QPushButton("Export list CSV…")
         self.export_btn.clicked.connect(self._export_clicked)
-        for button in (self.compare_btn, self.recalc_btn, self.save_recalc_btn, self.report_btn, self.export_btn):
+        self.clone_btn = QPushButton("Clone")                 # M286
+        self.clone_btn.setToolTip("Store a new case with the same inputs and stored results (not recalculated); "
+                                  "the original stays as it was.")
+        self.clone_btn.clicked.connect(self._clone_clicked)
+        self.archive_btn = QPushButton("Archive…")
+        self.archive_btn.setToolTip("Hide the record from this list (reason required, audited); nothing is deleted.")
+        self.archive_btn.clicked.connect(self._archive_clicked)
+        self.restore_btn = QPushButton("Restore…")
+        self.restore_btn.setToolTip("Return an archived record to the list (reason required, audited).")
+        self.restore_btn.clicked.connect(self._restore_clicked)
+        for button in (self.compare_btn, self.recalc_btn, self.save_recalc_btn, self.clone_btn, self.archive_btn,
+                       self.restore_btn, self.report_btn, self.export_btn):
             actions.addWidget(button)
         layout.addLayout(actions)
         lineage = QHBoxLayout()
@@ -148,7 +165,8 @@ class CalculationHistoryTab(QWidget):
                 self.status.setText("Select a well, or clear 'Selected well only'.")
             else:
                 source = self.source_combo.currentData()
-                filters = {"well_id": well, "sources": [source] if source else None, "text": self.text_edit.text()}
+                filters = {"well_id": well, "sources": [source] if source else None, "text": self.text_edit.text(),
+                           "include_archived": self.show_archived.isChecked()}
                 self.total = ch.count_history(self.db, **filters)          # M73: COUNT and paging in the database
                 pages = max(1, -(-self.total // PAGE_SIZE))
                 self.page = min(max(0, self.page), pages - 1)
@@ -159,9 +177,16 @@ class CalculationHistoryTab(QWidget):
         self.prev_btn.setEnabled(self.page > 0)
         self.next_btn.setEnabled(self.page + 1 < pages)
         self.statuses_label.clear()
+        self.archived_keys = set()
+        if self.db is not None and self.entries:
+            with self.db.session_scope() as session:
+                hidden = wb.archived_ids(session, {e.table for e in self.entries})
+            self.archived_keys = {e.key for e in self.entries if e.record_id in hidden.get(e.table, set())}
         self.table.setRowCount(len(self.entries))
         for row, entry in enumerate(self.entries):
             data = entry.to_row()
+            if entry.key in self.archived_keys:
+                data["name"] = f"{data['name']} [ARCHIVED]"
             for col, key in enumerate(("source", "name", "method", "version", "created_at", "scope", "parent")):
                 self.table.setItem(row, col, QTableWidgetItem(str(data[key])))
         self.detail.clear()
@@ -192,6 +217,10 @@ class CalculationHistoryTab(QWidget):
         self.report_btn.setEnabled(len(chosen) in (1, 2))
         self.save_recalc_btn.setEnabled(bool(self.last_outcome and self.last_outcome.get("values")))
         self.export_btn.setEnabled(bool(self.entries))
+        one = chosen[0] if len(chosen) == 1 else None
+        self.clone_btn.setEnabled(one is not None)
+        self.archive_btn.setEnabled(one is not None and one.key not in self.archived_keys)
+        self.restore_btn.setEnabled(one is not None and one.key in self.archived_keys)
 
     # -- actions ------------------------------------------------------------
     def report_html(self) -> str:
@@ -235,9 +264,68 @@ class CalculationHistoryTab(QWidget):
         if len(chosen) != 1 or not self.last_outcome:
             return None
         case = ch.save_recalculation(self.db, chosen[0], self.last_outcome)
+        self.refresh()                     # M286 (D83): before the message, which refresh used to overwrite
         self.status.setText(f"Stored recalculation as case #{case['id']}; the original record is unchanged.")
-        self.refresh()
         return case
+
+    # -- M286: clone / archive / restore ------------------------------------
+    def _user_id(self) -> Optional[int]:
+        from core.permissions import permissions
+
+        user = permissions.user
+        value = user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+        return value if isinstance(value, int) else None
+
+    def ask_reason(self, title: str) -> Optional[str]:
+        """The reason for an archive / restore (None when cancelled). Tests replace this method."""
+        text, ok = QInputDialog.getText(self, title, "Reason (kept in the audit log):")
+        return text if ok else None
+
+    def clone_selected(self, name: Optional[str] = None) -> Optional[dict]:
+        chosen = self.selected()
+        if len(chosen) != 1:
+            return None
+        try:
+            case = wb.clone(self.db, chosen[0], name, user_id=self._user_id())
+        except (wb.WorkbenchError, ValueError, LookupError) as exc:
+            self.status.setText(f"Clone refused: {exc}")
+            return None
+        self.refresh()                                      # before the message: refresh rewrites the status line
+        self.status.setText(f"Cloned {chosen[0].key} as case #{case['id']} (inputs and stored results copied, "
+                            "not recalculated); the original is unchanged.")
+        return case
+
+    def _set_archived(self, archive: bool) -> Optional[dict]:
+        chosen = self.selected()
+        if len(chosen) != 1:
+            return None
+        verb = "Archive" if archive else "Restore"
+        reason = self.ask_reason(f"{verb} {chosen[0].name}")
+        if reason is None:
+            return None
+        try:
+            mark = (wb.archive if archive else wb.restore)(self.db, chosen[0], reason, user_id=self._user_id())
+        except wb.WorkbenchError as exc:
+            self.status.setText(f"{verb} refused: {exc}")
+            return None
+        self.refresh()
+        self.status.setText(f"{verb}d {chosen[0].key}: {mark['reason']}. Nothing was deleted or changed.")
+        return mark
+
+    def archive_selected(self) -> Optional[dict]:
+        return self._set_archived(True)
+
+    def restore_selected(self) -> Optional[dict]:
+        return self._set_archived(False)
+
+    def _clone_clicked(self, _checked=False):
+        self.clone_selected()
+
+    def _archive_clicked(self, _checked=False):
+        self.archive_selected()
+
+    def _restore_clicked(self, _checked=False):
+        self.restore_selected()
 
     def export_report(self, path: str) -> bool:
         html = self.report_html()
