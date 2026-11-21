@@ -77,3 +77,77 @@ mutants for them; 7 survived the existing tests at first, and the tests written 
 mutated by any catalogue: `core/engineering/engines/anti_collision.py`, `bit_performance.py`, `fishing.py`,
 `trajectory.py`, `well_control.py` (the kill sheet calls it), `mud_volume_persistence.py`, `casing_persistence.py`.
 These are listed in the roadmap (report section C) as near-term qualification work.
+
+## M290 catalogue (36 areas) – M261–M290 update
+
+Written against the M261–M290 final code. It supersedes the 30-row table above for **state**; the rows above
+stay as the M241 record.
+
+**State vocabulary** (exactly as the M261–M290 mission defines it):
+* IMPLEMENTED AND QUALIFIED — SYNTHETIC
+* IMPLEMENTED — PARTIALLY QUALIFIED
+* IMPLEMENTED — NOT UI-INTEGRATED
+* ENGINE ONLY
+* UI ONLY
+* DOCUMENTED ONLY
+* BLOCKED BY OWNER DECISION
+* BLOCKED BY LICENSE OR DATA RIGHTS
+* NOT IMPLEMENTED
+* DEPRECATED
+* READ-ONLY
+
+"Fully implemented" needs all 15 points, including a UI entry, persistence, provenance, real-workflow tests and mutation coverage. **No area meets point 15 (real-world/field acceptance)**, so "QUALIFIED — SYNTHETIC" is the highest state used.
+
+**Fields per area:**
+* entry point (UI / module)
+* inputs and units
+* method and version
+* persistence
+* provenance
+* tests on the final tree
+* mutation catalogue(s)
+* state
+* limitations and owner gates
+
+| # | Area | Entry point | Inputs, units | Method, version | Persistence | Provenance | Tests | Mutation | State | Limitations, gates |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Well hierarchy and selection context | `main_window.py`, `core/selection_manager.py` | ids | M83/M102 context contract; M265 window-owned routes | DB | context path on results | `test_m70`, `test_m83`, `test_m102`, `test_m265` | m70_m76, m101_m120, LC-* | IMPLEMENTED AND QUALIFIED — SYNTHETIC | P17 desktop acceptance |
+| 2 | Window lifecycle (close, reopen, routes, status bar) | `main_window.closeEvent`, `core/qt_lifetime.py` | – | M265 | – | – | `test_m265_window_routes`, `test_d74_*` | LC-* (M268) | IMPLEMENTED — PARTIALLY QUALIFIED | closed windows retained by design (D74 cause 1, D63) |
+| 3 | DDR daily workspace | `tabs/w2_Daily_Report.py`, `tabs/w3_drilling_report.py` | API field units; missing = None | M54/M84; carry-forward M217 (confirmation only) | DB | report lineage | `test_m169`, `test_m217_*` | m54, m201_m230 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | real DDR NOT RUN |
+| 4 | DDR import and lineage | `core/ddr_import_service.py`, `dialogs/excel_import_dialog.py` | workbook cells | M61/M111/M213–M218 | DB | source → parsed → normalized → correction → accepted | `test_m213_*` … `test_m218_*` | m61_m67, m201_m230 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | real DDR acceptance NOT RUN |
+| 5 | Review queue, continuation rows | `core/import_review_queue.py` | – | M150 | DB | parent links | `test_m147_m152_*`, `test_m239_*` | m231_m260 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | – |
+| 6 | Data-quality workspace | `dialogs/data_quality_dialog.py` | – | M227 | DB | finding sources | `test_m227_*` | m201_m230 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | – |
+| 7 | Well architecture | `tabs/well_architecture_panel.py` | in, ft | M57/M65 | DB (revisions) | revision SHA | `test_m89_*` | m201_m230 | IMPLEMENTED — PARTIALLY QUALIFIED | independent validation |
+| 8 | Wellbore schematic | `tabs/w3b_wellbore_schematic_tab.py` | in, ft | M205 | document | provenance block | `test_m205_m207_*` | m201_m230 | IMPLEMENTED — PARTIALLY QUALIFIED | visual aid only, not verification |
+| 9 | Surveys, integrity, revisions | `tabs/w6_Trajectory_Widget.py` | MD/inc/azi | minimum curvature; M85/M105 | DB | survey revision | `test_m105_*`, `test_m270_*` (TR) | m101_m120, TR-* | IMPLEMENTED — PARTIALLY QUALIFIED | P10 datum/CRS |
+| 10 | Trajectory views, layers, saved views | `tabs/trajectory_viewer.py` | – | M132/M178 | DB (saved views) | – | `test_m132_*`, `test_m178_*` | m50 | IMPLEMENTED — PARTIALLY QUALIFIED | D51 not reproduced, not resolved |
+| 11 | Plan designer | `tabs/well_plan_designer_panel.py` | ft/m, deg | M86/M106 | DB | plan revision | `test_m106_*` | m101_m120 | IMPLEMENTED — PARTIALLY QUALIFIED | independent validation |
+| 12 | Anti-collision screening | `core/engineering/engines/anti_collision.py`, W13 (`tabs/w13_Engineering_Calculator.py`), plan designer | one linear unit | centreline + supplied 1σ RSS (not ISCWSA) | – | method/scope on result | `test_anti_collision_*`, `test_m270_*` | **AC-* 12/12** | IMPLEMENTED — PARTIALLY QUALIFIED | **BLOCKED BY OWNER DECISION** for ISCWSA (P19) |
+| 13 | Hydraulics | W13 | ppg, gpm, in, psi | W13 contracts M87/M107 | history | contract id | `test_m87_*`, `test_m125_*` | m83_m96, m121_m140 | IMPLEMENTED — PARTIALLY QUALIFIED | independent validation |
+| 14 | Mud volume | `core/engineering/engines/mud_volume.py` | bbl | balance; snapshot v1 | DB history | snapshot | `test_mud_volume_*`, `test_m270_*` | m101_m120, **MV-* 4/4** | IMPLEMENTED AND QUALIFIED — SYNTHETIC | P8 (7.48 kept) |
+| 15 | Mud engineering | `tabs/mud_engineering_panel.py` | ppg/pcf | – | DB | – | per-tab tests | partial | IMPLEMENTED — PARTIALLY QUALIFIED | P8 |
+| 16 | Casing design | `core/engineering/engines/casing.py` | psi, lbf, in, ppf | VME; `transition F r3` | DB history | M89 source block | `test_casing_*`, `test_m239_*`, `test_m270_*` | CAS-*, **CP-* 5/5** | IMPLEMENTED — PARTIALLY QUALIFIED | P12 methods, P18 tubular data |
+| 17 | Cementing | `core/engineering/engines/cement.py` | bbl, ft³, ppg | M109; no inferred TOC/BOC | DB history | snapshot | cement tests | m52 | IMPLEMENTED — PARTIALLY QUALIFIED | independent validation |
+| 18 | Torque and drag | `core/engineering/engines/torque_drag.py` | lbf, ft·lbf | soft string | DB history | snapshot | `test_torque_drag_*` | m121_m140, TD-* | IMPLEMENTED — PARTIALLY QUALIFIED | P3 (LGPL alternatives) |
+| 19 | MSE | `core/engineering/engines/mse.py` | lbf, rpm, ft/h | Teale; snapshot v1 | DB history | snapshot | `test_mse_*` | MSE-* | IMPLEMENTED AND QUALIFIED — SYNTHETIC | independent validation |
+| 20 | Bit performance, BHA, bit runs | `core/engineering/engines/bit_performance.py`, `tabs/bit_run_panel.py` | m, h, rpm, $ | weighted ROP, d-exponent, cost/ft | DB | – | `test_weighted_rop`, `test_m130_*`, `test_m270_*` | **BP-* 7/7** | IMPLEMENTED — PARTIALLY QUALIFIED | independent validation |
+| 21 | Well control, Kill Sheet | `core/engineering/well_control_kill_sheet.py`, `core/engineering/engines/well_control.py` | psi, ppg, bbl, stk | M177 | DB history | snapshot | `test_well_control_*`, `test_m269_*`, `test_m270_*` | KS-*, **WC-* 7/7** | IMPLEMENTED — PARTIALLY QUALIFIED | **TRAINING AID**; P11 |
+| 22 | Fishing / stuck pipe | `core/engineering/engines/fishing.py`, W13 stuck pipe | in, ft, lbf, ppg | legacy chart approximations (SCREENING); D81 fixed | W13 contract | contract | `test_m270_*`, `test_w13_fishing_result_ui` | **FI-* 8/8** | IMPLEMENTED — PARTIALLY QUALIFIED | screening only |
+| 23 | W13 calculator classifications | W13 | – | M107/M125 | – | contract | `test_m125_*` | m83_m96 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | – |
+| 24 | Executive dashboard, KPI definitions | `tabs/home_tab.py`, `tabs/dashboard_widgets.py` | per KPI | M53; **M285 seven-field specs** | derived | source, as-of on each KPI | `test_m53_*`, `test_operations_dashboard`, `test_m285_*` | m53_m56, **KP-* 4/4** | IMPLEMENTED — PARTIALLY QUALIFIED | w12 Analysis KPIs have no structured spec |
+| 25 | Operational analysis, NPT | `tabs/w12_Analysis.py`, `tabs/npt_reconciliation_panel.py` | h | M91/M104 | derived | evidence records | `test_m48_*` | m48, m101_m120 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | – |
+| 26 | Calculation workbench (MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE) | `tabs/calculation_history_tab.py` | – | M88/M108 | DB | snapshot + method | `test_m88_*`, `test_m108_*` | m101_m120 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | D81 makes pre-fix stuck-pipe records re-run DIFFERENT (correct) |
+| 27 | Report Center, export | `tabs/w11_Export.py`, `core/report_provenance.py` | – | M110 | files | provenance block | `test_m110_*` | m101_m120 | IMPLEMENTED — PARTIALLY QUALIFIED | no byte-identical claim for timestamped output |
+| 28 | End-of-well package | `tabs/well_package_panel.py` | – | M135 | files | manifest | `test_d59_*` | m121_m140 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | – |
+| 29 | Offline document intelligence | `tabs/knowledge_assistant.py` | – | keyword retrieval with exact citations | DB index | citations | `test_m49_*` … `test_m52_*` | m49–m52 | IMPLEMENTED — PARTIALLY QUALIFIED | P4, P5, P7 |
+| 30 | Units, constants | `core/unit_manager.py` | – | M113 inventory | – | – | inventory gate | m141_m170 | IMPLEMENTED — PARTIALLY QUALIFIED | P8 |
+| 31 | Security, authorization, audit, privacy | `core/authorization.py`, `tools/privacy/privacy_check.py` | – | M121–M140 | DB | audit log | SEC tests | m121_m140 (1 equivalent) | IMPLEMENTED — PARTIALLY QUALIFIED | P13, P14, P15, P16 |
+| 32 | Migrations, backup, restore | `core/db_maintenance.py` | – | additive migrations | DB | – | `test_m204_*` | m201_m230 | IMPLEMENTED AND QUALIFIED — SYNTHETIC | P17 |
+| 33 | Tubular reference import | `core/engineering/tubular_import.py` | in, ppf | M181/M220 | DB | import provenance | `test_m181_*`, `test_m220_*` | m201_m230 | **BLOCKED BY LICENSE OR DATA RIGHTS** (no shipped dataset); import implemented | P18 |
+| 34 | Planning, procedures, cost, safety, services | `w10`, `w14`, `w16`, `w8`, `w9`, `w5` | – | – | DB | – | per-tab, journeys | m171_m200 | IMPLEMENTED — PARTIALLY QUALIFIED | P9 currency |
+| 35 | Reliability tooling (D63 reproducer, fault reporter, RSS profile, watchdog) | `tools/quality/*` | – | M264/M267 | – | – | opt-in | – | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | – |
+| 36 | Windows installer, release gate | `.github/workflows/windows-release-gate.yml` | – | – | – | – | CI per SHA | none | IMPLEMENTED — PARTIALLY QUALIFIED | **BLOCKED BY OWNER DECISION** for signing (P16), field acceptance (P17) |
+
+Mutation reach after M270: all seven modules listed as unmutated in the M241 section above are now mutated
+(`mutation_m261_m290`). Areas not reached by any catalogue: 36 (installer) and the fishing UI. The M289 cross-module journey
+(`tests/test_m289_cross_module_journey.py`) chains areas 9, 12, 14, 16, 20, 21, 22, 24, 26 and 27.

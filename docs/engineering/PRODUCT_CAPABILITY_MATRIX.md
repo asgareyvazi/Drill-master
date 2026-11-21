@@ -1341,3 +1341,19 @@ Capability inventory with 11 statuses: `docs/engineering/M241_CAPABILITY_INVENTO
 | 50-source register (M257) | **RE-AUDITED 2026-11-17**: 46 unchanged, 3 new commits, 1 archived, no licence change | `oss_reaudit_m257.txt` |
 | 20-step journey (M258) | **DONE (synthetic, offscreen Linux)**: both journeys passed in the `db0cba3` suite; Windows desktop / field NOT RUN (P17) | `test_m169_twenty_step_journey`, `test_m229_product_journey` |
 | Overall | **PARTIAL** | report §D |
+
+# M261–M290 additions
+
+States in this section use the M261–M290 vocabulary; see `M241_CAPABILITY_INVENTORY.md`, "M290 catalogue (36 areas)". Evidence is synthetic: offscreen Qt (Linux) plus GitHub-hosted runners. **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.**
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Window-owned `SelectionManager` routes, disconnected on the accepted close; duplicate routes refused; status bar holds the window weakly (M265) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/qt_lifetime.py`, `tests/test_m265_window_routes.py`, LC-* mutants. Closed windows are still retained by design (D63) |
+| D63 opt-in reproducer and native fault reporter (M264) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/d63_window_release_probe.py`, `tools/quality/native/segv_bt.c`. Root cause not identified |
+| Dashboard KPI seven-field specification (definition, unit, window, scope, source, method, missing behaviour, plus counting rule) in the KPI card tooltip (M285) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/operations_dashboard.KPI_SPECS`, `tests/test_m285_kpi_specifications.py`, KP-* 4/4 killed; w12 Analysis KPIs not covered |
+| W13 stuck-pipe string stretch (D81: length squared) (M284) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/engineering/engines/fishing.py`, `tests/test_m270_r1_engine_contracts.py` (Hooke's law check), FI-*; legacy screening method |
+| Mutation coverage for anti-collision, bit performance, fishing, trajectory wrapper, well control, mud-volume and casing persistence (M270) | IMPLEMENTED AND QUALIFIED — SYNTHETIC (test + catalogue) | `tools/quality/mutation_m261_m290.py`: 58/58 on the final catalogue: 47 R-1, 7 LC, 4 KP; R-1 by the pre-existing tests alone: 20/47 |
+| Kill Sheet annulus for impossible casing IDs with the shoe at surface (R-2, M269) | BLOCKED BY OWNER DECISION (P11) | `docs/mission-reports/m261-m290-evidence/m269_kill_sheet_domain_table.md`; TRAINING AID |
+| ISCWSA error models in anti-collision | BLOCKED BY OWNER DECISION (P19) | the screening result states `iscwsa_compliant: False` (mutant AC-claims-iscwsa) |
+| M289 13-step synthetic cross-module journey (dashboard specs, KPI card, composed survey + revision, anti-collision, mud volume, casing, well control, fishing, weighted ROP, workbench re-run, end-of-well provenance) | IMPLEMENTED — PARTIALLY QUALIFIED | `tests/test_m289_cross_module_journey.py`. It uses the engines, persistence, workbench and KPI card, not a MainWindow. Real-window journeys: M139, M169, M229 |
+| M268 lifecycle mutants (LC-*) | IMPLEMENTED AND QUALIFIED — SYNTHETIC (test + catalogue) | 7/7 killed by `tests/test_m265_window_routes.py` |
