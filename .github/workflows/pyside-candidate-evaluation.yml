@@ -1,0 +1,96 @@
+name: PySide6 candidate evaluation (M324, isolated)
+# Evaluation only. requirements-lock.txt keeps PySide6 6.8.1.1; each job installs the lock and then overlays ONE
+# candidate PySide6 / Essentials / Addons / shiboken6 set in its throw-away runner environment. Nothing here changes
+# the product pin. The decision (M325) belongs to the owner; see
+# docs/mission-reports/m321-m360-evidence/m324_pyside_upgrade_decision.md.
+on:
+  push:
+    paths:
+      - '.github/workflows/pyside-candidate-evaluation.yml'
+      - 'tools/quality/pyside_eval/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pyside-eval-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+        pyside: ['6.8.2.1', '6.8.3']
+    env:
+      QT_QPA_PLATFORM: offscreen
+      DRILLMASTER_AI_IMPORT: '0'
+      DRILLMASTER_ENV: test
+      PYTHONPATH: .:tests
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Real Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libegl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+      - name: Locked runtime, then the candidate overlay
+        run: |
+          python -m pip install -r requirements-lock.txt pytest==9.1.1
+          python -m pip install --no-deps "PySide6==${{ matrix.pyside }}" "PySide6-Essentials==${{ matrix.pyside }}" "PySide6-Addons==${{ matrix.pyside }}" "shiboken6==${{ matrix.pyside }}"
+          python -c "import PySide6, shiboken6, sys; print('python', sys.version.split()[0], 'PySide6', PySide6.__version__, 'shiboken6', shiboken6.__version__)"
+      - name: D63 window-release probe (auto and product policy)
+        run: python tools/quality/pyside_eval/probe_loop.py --runs 3
+      - name: UI regression subset (322 tests locally on 6.8.1.1 / 6.8.2.1 / 6.8.3)
+        run: python -m pytest -p no:cacheprovider -q $(cat tools/quality/pyside_eval/ui_tests.txt)
+      - name: PyInstaller freeze smoke (product Qt modules)
+        run: |
+          python -m pip install -r requirements-build.txt
+          cd tools/quality/pyside_eval
+          python -m PyInstaller --noconfirm --onedir --log-level WARN --distpath "$RUNNER_TEMP/dist" --workpath "$RUNNER_TEMP/work" freeze_smoke.py
+          "$RUNNER_TEMP/dist/freeze_smoke/freeze_smoke"
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        pyside: ['6.8.2.1', '6.8.3']
+    env:
+      QT_QPA_PLATFORM: offscreen
+      DRILLMASTER_AI_IMPORT: '0'
+      DRILLMASTER_ENV: test
+      PYTHONPATH: .;tests
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Locked runtime and build tools, then the candidate overlay
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-lock.txt -r requirements-build.txt pytest==9.1.1
+          python -m pip install --no-deps "PySide6==${{ matrix.pyside }}" "PySide6-Essentials==${{ matrix.pyside }}" "PySide6-Addons==${{ matrix.pyside }}" "shiboken6==${{ matrix.pyside }}"
+          python -c "import PySide6, shiboken6, sys; print('python', sys.version.split()[0], 'PySide6', PySide6.__version__, 'shiboken6', shiboken6.__version__)"
+      - name: D63 window-release probe (auto and product policy)
+        run: python tools/quality/pyside_eval/probe_loop.py --runs 3
+      - name: UI regression subset
+        shell: pwsh
+        run: |
+          $tests = Get-Content tools/quality/pyside_eval/ui_tests.txt
+          python -m pytest -p no:cacheprovider -q @tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: PyInstaller build of packaging/DrillMaster.spec and frozen package smoke
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP 'work'
+          $dist = Join-Path $env:RUNNER_TEMP 'dist'
+          python -m PyInstaller --noconfirm --clean --workpath $work --distpath $dist packaging\DrillMaster.spec
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python packaging\package_smoke.py --bundle-dir (Join-Path $dist 'DrillMaster') --run --log-path (Join-Path $env:RUNNER_TEMP 'package-smoke.log')
+          $rc = $LASTEXITCODE
+          Get-Content (Join-Path $env:RUNNER_TEMP 'package-smoke.log') -ErrorAction SilentlyContinue | Select-Object -Last 20
+          exit $rc
