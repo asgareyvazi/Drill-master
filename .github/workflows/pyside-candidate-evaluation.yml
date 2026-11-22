@@ -58,7 +58,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        pyside: ['6.8.2.1', '6.8.3']
+        # 6.8.1.1 = the current pin without an overlay: the baseline that separates a candidate regression from a
+        # pre-existing Windows-only failure of the subset (the subset is wider than the Windows release gate list).
+        pyside: ['6.8.1.1', '6.8.2.1', '6.8.3']
     env:
       QT_QPA_PLATFORM: offscreen
       DRILLMASTER_AI_IMPORT: '0'
@@ -73,17 +75,25 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check -r requirements-lock.txt -r requirements-build.txt pytest==9.1.1
-          python -m pip install --no-deps "PySide6==${{ matrix.pyside }}" "PySide6-Essentials==${{ matrix.pyside }}" "PySide6-Addons==${{ matrix.pyside }}" "shiboken6==${{ matrix.pyside }}"
+          if ('${{ matrix.pyside }}' -ne '6.8.1.1') { python -m pip install --no-deps "PySide6==${{ matrix.pyside }}" "PySide6-Essentials==${{ matrix.pyside }}" "PySide6-Addons==${{ matrix.pyside }}" "shiboken6==${{ matrix.pyside }}" }
           python -c "import PySide6, shiboken6, sys; print('python', sys.version.split()[0], 'PySide6', PySide6.__version__, 'shiboken6', shiboken6.__version__)"
-      - name: D63 window-release probe (auto and product policy)
-        run: python tools/quality/pyside_eval/probe_loop.py --runs 3
-      - name: UI regression subset
+      - name: D63 window-release probe (auto mode only on the pin, where it is the known crash)
+        shell: pwsh
+        run: |
+          if ('${{ matrix.pyside }}' -eq '6.8.1.1') { python tools/quality/pyside_eval/probe_loop.py --runs 3 --modes product }
+          else { python tools/quality/pyside_eval/probe_loop.py --runs 3 }
+          exit $LASTEXITCODE
+      - name: UI regression subset (failures annotated by test id)
         shell: pwsh
         run: |
           $tests = Get-Content tools/quality/pyside_eval/ui_tests.txt
-          python -m pytest -p no:cacheprovider -q @tests
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $junit = Join-Path $env:RUNNER_TEMP 'ui.xml'
+          python -m pytest -p no:cacheprovider -q -rf @tests "--junitxml=$junit"
+          $rc = $LASTEXITCODE
+          python packaging\junit_report.py --junit $junit --annotations --pytest-exit $rc
+          exit $rc
       - name: PyInstaller build of packaging/DrillMaster.spec and frozen package smoke
+        if: ${{ !cancelled() }}
         shell: pwsh
         run: |
           $work = Join-Path $env:RUNNER_TEMP 'work'
