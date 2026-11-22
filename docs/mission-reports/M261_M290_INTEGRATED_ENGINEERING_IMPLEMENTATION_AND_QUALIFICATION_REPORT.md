@@ -29,6 +29,20 @@ New defects this mission:
 * **D83** (found and fixed in `07a0f8b`): a workbench confirmation was overwritten by the list refresh.
 * **D84–D87** (in my own new continuation-round code; caught by tests before the push of `07a0f8b`). See M262.
 
+## Addendum (M293, added in M291–M320) – coverage record for the final product source
+
+This addendum corrects the statement that coverage on the final code was "not measured". The historical text below is kept as written, and the statements this addendum supersedes are marked.
+
+1. **Direct code-SHA runs (`07a0f8b`).** The Source release gate run 44900584036 had its Python 3.12 coverage leg cancelled at the 60-minute job limit twice: attempt 1, job 136835435798, 11:45–12:45 UTC; attempt 2, job 136853947627, 13:01–14:01 UTC. **The direct code-SHA coverage run did not pass.**
+2. **Documentation-only descendant (`b6a6a33`).** Source release gate run 44917777718 passed on every leg. The Python 3.12 coverage leg (job 136886981465) took 47 min. Windows release validation run 44917777732 also passed.
+3. **Counts and coverage for job 136886981465.**
+   * Tests: 5,677 passed, 4 skipped (opt-in; not passes), 0 failed; 2,720.94 s for pytest under coverage (job log, as quoted in the M291–M320 brief).
+   * Coverage, from the job's check-run annotation as read through the API: **72.40 % (78,781 / 108,811) over 291 files**; floor 45.50 %.
+4. **Identical product source.** `b6a6a33` is the only child of `07a0f8b`. `git diff --name-only 07a0f8b b6a6a33` lists 8 files, all under `docs/`, so the product source tree is identical and the 72.40 % is valid coverage evidence for the product source of `07a0f8b`.
+5. **Runner variation.** The 3.12 leg took 45–46 min before, more than 60 min twice on 2026-11-21 (including a re-run of the old `4eae8f5`), and then 47 min on `b6a6a33` the same afternoon. The timing variation is a real observation; **its cause is not established**. D88 was never a code regression, and its environmental cause is not claimed as proven.
+
+D88 is reclassified from "OPEN – coverage not measured" to **"PARTIALLY RESOLVED: source-tree coverage evidence exists through a documentation-only descendant; direct code-SHA attempt failed; runner timing cause unknown"**. The 60-minute limit is unchanged.
+
 ## A. Delivery verification
 
 | Item | Value |
@@ -37,7 +51,7 @@ New defects this mission:
 | Pushed | `ac7657b..7fe52ff`, `7fe52ff..b21782b`, `b21782b..35d3bc6`, `35d3bc6..8a76829`, `8a76829..42eb03d`, `42eb03d..4eae8f5` (report), `4eae8f5..07a0f8b` (continuation round) and this report revision – each verified by `git ls-remote` |
 | Full local suite on the final code | **`07a0f8b`** (final code): exit 0; 5,677 passed, 4 skipped (opt-in, not passes), 0 failed; 2026-11-21 11:45:10 → 12:30:01 UTC (2,691 s). D74 at the end: 16 closed MainWindows, 188,315 widgets. Earlier: `4eae8f5` exit 0, 5,607 passed, 4 skipped, 2,693 s |
 | Full local suite on `b21782b` (profiled) | 1 failed, 5,604 passed, 4 skipped in 4,565.77 s (with the profiler). The failure, `test_release_boundary_imports::test_wheel_from_tracked_population_starts`, is an environment artefact: the sandbox venv is reached through a `.venv` symlink inside the checkout. The test passes with the real interpreter path; see M267 finding 7. D74 at the end of the run: 17 closed MainWindows, 197,792 widgets |
-| CI on the final code | **`07a0f8b`**: Windows release validation ✅ (run 44900583984); Source release gate: **3.11 ✅ (33 min), 3.13 ✅ (52 min), 3.12 coverage leg ❌ cancelled at the 60-minute job limit, twice** (attempt 2 was a diagnostic re-run). A/B: re-running the previously green `4eae8f5` at 14:05 gave the same result (3.12 cancelled at 60 min; 3.13 35 → 50 min), so this is an environmental slowdown of the hosted 3.12/3.13 legs, not a regression of `07a0f8b` (D88; `m290_ci_leg_timing_ab.txt`). **Coverage on the final code is therefore not measured in CI**; the last measured value is 72.28 % on `4eae8f5`. The 60-minute limit was not raised. Earlier: `4eae8f5` 2/2 ✅ (coverage 72.28 %, floor 45.50 %); `b21782b` 2/2 ✅ |
+| CI on the final code | **`07a0f8b`**: Windows release validation ✅ (run 44900583984); Source release gate: **3.11 ✅ (33 min), 3.13 ✅ (52 min), 3.12 coverage leg ❌ cancelled at the 60-minute job limit, twice** (attempt 2 was a diagnostic re-run). A/B: re-running the previously green `4eae8f5` at 14:05 gave the same result (3.12 cancelled at 60 min; 3.13 35 → 50 min), so this is an environmental slowdown of the hosted 3.12/3.13 legs, not a regression of `07a0f8b` (D88; `m290_ci_leg_timing_ab.txt`). **Coverage on the final code is therefore not measured in CI**; the last measured value is 72.28 % on `4eae8f5`. *[Superseded by the M293 addendum.]* The 60-minute limit was not raised. Earlier: `4eae8f5` 2/2 ✅ (coverage 72.28 %, floor 45.50 %); `b21782b` 2/2 ✅ |
 | Gate slip, corrected | `8a76829` was pushed although three gates failed (engine inventory, dependency audit, privacy findings in synthetic test ids in the profile CSV). A chained command did not stop on the failure. `42eb03d` restores all gates as a forward commit; nothing was amended. Later commits gate with `&&` |
 | Gates on the final tree (`07a0f8b`) | lint ratchet (`verify_release.verify_lint`): debt 0, ceiling 0; exception ceiling OK (two new narrow handlers were made explicit instead of raising the ceiling); constant inventory current; dependency audit 0 findings; engine inventory regenerated by the tool; privacy check 1,721 files, 0 findings. Chained with `&&` before the commit |
 | Branch protection | `drill-Master` reports `protected=false` with no rulesets, and the direct protection read is unavailable to this token. The policy still forbids writing to it, and this discrepancy has been reported without being tested by a write. |
@@ -398,4 +412,4 @@ See `docs/engineering/DRILLMASTER_ENGINEERING_ROADMAP_M290.md` (six categories).
 
 ## D. Overall status
 
-**PARTIAL.** UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Real DDR acceptance NOT RUN. P1–P19 OWNER REVIEW REQUIRED. CI coverage on the final code NOT MEASURED (D88). Not re-implemented: M274, M277, M280, M281, M287, M288.
+**PARTIAL.** UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. Real DDR acceptance NOT RUN. P1–P19 OWNER REVIEW REQUIRED. CI coverage on the final code NOT MEASURED (D88). *[Superseded by the M293 addendum: 72.40 % on the documentation-only descendant `b6a6a33`; the direct `07a0f8b` coverage run was cancelled.]* Not re-implemented: M274, M277, M280, M281, M287, M288.

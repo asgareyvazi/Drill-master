@@ -21,6 +21,13 @@ a field wins. Each event writes a mandatory audit record in the same transaction
 stored value is refused: a missing state with a stored number, ZERO with a non-zero number, REPORTED or
 CALCULATED without a number, or CALCULATED without a method. If the value is edited after its state was recorded,
 the contradiction is reported as INCONSISTENT; it is never repaired silently.
+
+M295: :func:`record_authored` is the production path for what an operator types *as written on the paper
+report* (``"12.5"``, ``"0"``, ``"N/A"``, ``"?"``, ``"NR"``). The text goes through :func:`parse_authored`, so a
+comma (``"1,5"``, ``"1,500"``), NaN, infinity or other text is refused with a reason and nothing is written. The
+parsed value and its state are written in one transaction, with one mandatory audit record that names the old
+and the new value. A report that is not editable (submitted, approved, final) is refused, the same edit lock that
+``save_daily_report`` applies.
 """
 from __future__ import annotations
 
@@ -191,3 +198,53 @@ def states_in(session, report_id: int) -> Dict[str, Dict[str, Any]]:
                       "recorded_state": row.state, "recorded": True, "method": row.method, "note": row.note,
                       "consistent": why is None, "reason": why or ""}
     return out
+
+
+AUTHORED_AUDIT_ACTION = "ddr_value_authored"
+
+
+def record_authored(db, report_id: int, field: str, typed: Any, *, calculated_method: str = "", note: str = "",
+                    user_id: Optional[int] = None) -> Dict[str, Any]:
+    """M295: write what the operator typed for one field (value and state together, audited, one transaction).
+
+    The typed text is parsed by :func:`parse_authored` before anything is opened, so a refused entry writes
+    nothing. With ``calculated_method`` and a typed number, the state is CALCULATED instead of REPORTED/ZERO.
+    Returns ``{"id", "report_id", "field", "state", "value", "previous"}``; raises :class:`ValueStateError`
+    (with a message an operator can act on) for every refusal.
+    """
+    from core.database import DdrValueState, _now_utc
+    from core.report_lifecycle import is_editable
+
+    if field not in FIELDS:
+        raise ValueStateError(f"{field!r} is not a numeric DDR header field")
+    label = FIELDS[field]
+    try:
+        value, state = parse_authored(typed)
+    except ValueStateError as exc:
+        raise ValueStateError(f"{label}: {exc}") from None
+    method = str(calculated_method or "").strip()
+    if method:
+        if value is None:
+            raise ValueStateError(f"{label}: a calculation method needs a typed number")
+        state = CALCULATED
+    with db.session_scope() as session:
+        report = _report(session, report_id)
+        if not is_editable(report.status):
+            raise ValueStateError(f"{label}: the report is {report.status} and cannot be edited; "
+                                  "use the workflow actions to reopen it")
+        previous = getattr(report, field)
+        why = contradiction(state, value, method)       # cannot trigger for a parsed entry; kept as the invariant
+        if why:
+            raise ValueStateError(f"{label}: {why}")
+        if previous != value:
+            setattr(report, field, value)
+            report.updated_at = _now_utc()
+        row = DdrValueState(report_id=report_id, field=field, state=state, method=method or None,
+                            note=str(note or "").strip() or None, created_by=user_id)
+        session.add(row)
+        session.flush()
+        db._add_mandatory_audit(session, AUTHORED_AUDIT_ACTION, "daily_reports", report_id, label,
+                                f"{CONTRACT}: {field} {previous!r} -> {value!r} = {state}"
+                                + (f" ({method})" if method else ""))
+        return {"id": row.id, "report_id": report_id, "field": field, "state": state, "value": value,
+                "previous": previous}

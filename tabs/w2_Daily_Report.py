@@ -2325,12 +2325,21 @@ class DailyReportWidget(DrillTabBase):
             self.show_error("Open a saved report first")
             return None
         user_id, _username = self.db._audit_actor() if hasattr(self.db, "_audit_actor") else (None, None)
-        return DdrValueStatesDialog(self.db, report_id, self, user_id=user_id)
+        # M295: typed values change the stored report; with unsaved form edits they stay disabled so a later
+        # Save Report cannot overwrite them with the form's stale inputs.
+        return DdrValueStatesDialog(self.db, report_id, self, user_id=user_id,
+                                    allow_typed_values=not self._has_unsaved_edits())
+
+    def after_value_states(self, dialog) -> None:
+        """M295: reload the form when the dialog wrote typed values (the form must show the stored values)."""
+        if dialog is not None and dialog.values_changed:
+            self.load_report_by_id(dialog.report_id)
 
     def _value_states_clicked(self, _checked=False):
         dialog = self.value_states_dialog()
         if dialog is not None:
             dialog.exec()
+            self.after_value_states(dialog)
 
     # -------- متدهای کمکی برای سازگاری با سایر تب‌ها --------
     def set_current_report(self, report_id):

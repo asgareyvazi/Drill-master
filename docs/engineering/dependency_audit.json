@@ -1693,7 +1693,7 @@
    "file": "dialogs/ddr_value_states_dialog.py",
    "guarded": false,
    "lines": [
-    11
+    18
    ],
    "module": "PySide6"
   },
@@ -2221,7 +2221,7 @@
     9,
     15,
     17,
-    2525
+    2534
    ],
    "module": "PySide6"
   },

@@ -1360,3 +1360,10 @@ States in this section use the M261–M290 vocabulary; see `M241_CAPABILITY_INVE
 | DDR value states for the 11 numeric header fields, W2 "Value states…" editor, INCONSISTENT listed in the data-quality workspace (M272, `07a0f8b`) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/ddr_value_states.py`, `dialogs/ddr_value_states_dialog.py`, `tests/test_m272_ddr_value_states.py`, VS-*; not written by import/PDF; real DDR NOT RUN |
 | Lineage of one imported value (source → parsed → normalized → correction → accepted) with the stored-now check, in the import review dialog (M273, `07a0f8b`) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/import_value_lineage.py`, `tests/test_m273_import_value_lineage.py`, IL-*; review items only |
 | Workbench clone / archive / restore with reasons, audit and "Show archived" (M286, `07a0f8b`) | IMPLEMENTED AND QUALIFIED — SYNTHETIC | `core/calculation_workbench.py`, `tests/test_m286_workbench_clone_archive.py`, `tests/test_m286_m272_authorization.py`, WB-*; D83 fixed |
+
+### Addendum (M293) – CI coverage of the M261–M290 product source
+
+* Direct code SHA `07a0f8b`: the Python 3.12 coverage leg was cancelled at the 60-minute job limit twice (jobs 136835435798 and 136853947627).
+* Documentation-only descendant `b6a6a33`, whose product source is identical (8 files changed, all under `docs/`): all four CI legs passed. The 3.12 coverage job 136886981465 recorded 5,677 passed, 4 skipped, 0 failed, and **72.40 % (78,781 / 108,811) over 291 files**.
+* The cause of the runner timing variation is unknown.
+* Every later code SHA needs its own qualification.
