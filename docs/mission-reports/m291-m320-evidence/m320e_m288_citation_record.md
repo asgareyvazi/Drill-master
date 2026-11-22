@@ -25,6 +25,11 @@ UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. SYNTHETIC data only.
 * **UI:** Knowledge Assistant evidence header › **Export with citations…** (enabled only for a ready answer) and
   **Verify citation file…**. The result appears in a status line.
 
+**Windows layout (found by CI on `2273aa4`).** The two buttons first sat on the evidence header and widened the
+panel past the M49 limit of 1,300 px on Windows. They now sit on their own row with the status line. With enlarged
+fonts the width is 1,275 px, identical to the layout before M320 E; on the header row it was 1,487 px. The UI test
+asserts that the citation row is no wider than the header row.
+
 **Tests:** `tests/test_m320e_citation_record.py` has 7 tests, 0 failures. They cover:
 * the exact slice and SHA-256;
 * a changed page;

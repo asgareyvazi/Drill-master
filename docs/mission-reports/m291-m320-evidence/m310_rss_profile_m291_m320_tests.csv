@@ -1,0 +1,223 @@
+index,nodeid,module,seconds,rss_anon_kb,rss_file_kb,rss_shmem_kb,d_anon_kb,widgets,d_widgets,threads,fds,gc_objects,qobject_wrappers,tmp_entries
+1,tests/test_m295_authored_value_entry.py::test_a_typed_entry_writes_value_and_state_together_with_one_audit[312.5-312.5-REPORTED],tests/test_m295_authored_value_entry.py,1.494,100332,31440,0,20796,,,1,16,200086,0,344
+2,tests/test_m295_authored_value_entry.py::test_a_typed_entry_writes_value_and_state_together_with_one_audit[ 0 -0.0-ZERO],tests/test_m295_authored_value_entry.py,1.029,101756,31452,0,112,,,1,16,206245,0,344
+3,tests/test_m295_authored_value_entry.py::test_a_typed_entry_writes_value_and_state_together_with_one_audit[N/A-None-NOT_APPLICABLE],tests/test_m295_authored_value_entry.py,1.121,101872,31452,0,116,,,1,16,212584,0,344
+4,tests/test_m295_authored_value_entry.py::test_a_typed_entry_writes_value_and_state_together_with_one_audit[?-None-UNKNOWN],tests/test_m295_authored_value_entry.py,1.093,102396,31452,0,264,,,1,16,218923,0,344
+5,tests/test_m295_authored_value_entry.py::test_a_typed_entry_writes_value_and_state_together_with_one_audit[NR-None-NOT_REPORTED],tests/test_m295_authored_value_entry.py,1.209,102936,31452,0,16,,,1,16,207520,0,344
+6,tests/test_m295_authored_value_entry.py::test_a_typed_entry_writes_value_and_state_together_with_one_audit[-3--3.0-REPORTED],tests/test_m295_authored_value_entry.py,1.020,103348,31452,0,152,,,1,16,213859,0,344
+7,"tests/test_m295_authored_value_entry.py::test_a_refused_entry_writes_nothing_and_says_why[1,5-commas are refused]",tests/test_m295_authored_value_entry.py,1.035,103400,31452,0,52,,,1,16,219987,0,344
+8,"tests/test_m295_authored_value_entry.py::test_a_refused_entry_writes_nothing_and_says_why[1,500-commas are refused]",tests/test_m295_authored_value_entry.py,1.057,103828,31452,0,168,,,1,16,226093,0,344
+9,tests/test_m295_authored_value_entry.py::test_a_refused_entry_writes_nothing_and_says_why[nan-not a finite number],tests/test_m295_authored_value_entry.py,1.028,104388,31452,0,36,,,1,16,232199,0,344
+10,tests/test_m295_authored_value_entry.py::test_a_refused_entry_writes_nothing_and_says_why[inf-not a finite number],tests/test_m295_authored_value_entry.py,1.021,104952,31452,0,40,,,1,16,238305,0,344
+11,tests/test_m295_authored_value_entry.py::test_a_refused_entry_writes_nothing_and_says_why[-inf-not a finite number],tests/test_m295_authored_value_entry.py,1.041,105508,31452,0,32,,,1,16,244411,0,344
+12,tests/test_m295_authored_value_entry.py::test_a_refused_entry_writes_nothing_and_says_why[12 m-neither a number],tests/test_m295_authored_value_entry.py,1.023,106548,31452,0,516,,,1,16,250517,0,344
+13,tests/test_m295_authored_value_entry.py::test_a_refused_entry_writes_nothing_and_says_why[abc-neither a number],tests/test_m295_authored_value_entry.py,1.017,107880,31452,0,808,,,1,16,256623,0,344
+14,tests/test_m295_authored_value_entry.py::test_comma_entries_never_become_another_number,tests/test_m295_authored_value_entry.py,1.060,109164,31452,0,760,,,1,16,261731,0,344
+15,tests/test_m295_authored_value_entry.py::test_calculated_needs_a_number_and_records_the_method,tests/test_m295_authored_value_entry.py,1.042,110332,31452,0,908,,,1,16,267888,0,344
+16,tests/test_m295_authored_value_entry.py::test_unknown_field_and_locked_report_are_refused,tests/test_m295_authored_value_entry.py,1.099,111676,31452,0,820,,,1,16,274030,0,344
+17,tests/test_m295_authored_value_entry.py::test_an_audit_failure_rolls_back_value_and_state,tests/test_m295_authored_value_entry.py,1.115,113176,31452,0,976,,,1,16,244547,0,344
+18,tests/test_m295_authored_value_entry.py::test_w2_typed_entry_reaches_storage_reloads_the_form_and_survives_save_report,tests/test_m295_authored_value_entry.py,1.595,134828,54952,0,21392,0,,1,17,285384,63,344
+19,tests/test_m295_authored_value_entry.py::test_w2_with_unsaved_edits_disables_typed_entries,tests/test_m295_authored_value_entry.py,1.121,137936,54952,0,1000,0,0,1,17,294489,121,344
+20,tests/test_m296_import_value_states.py::test_classification[None-BLANK-NOT_REPORTED],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294532,121,344
+21,tests/test_m296_import_value_states.py::test_classification[-BLANK-NOT_REPORTED],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294552,121,344
+22,tests/test_m296_import_value_states.py::test_classification[  -BLANK-NOT_REPORTED],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294572,121,344
+23,tests/test_m296_import_value_states.py::test_classification[0-NUMBER-ZERO0],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294592,121,344
+24,tests/test_m296_import_value_states.py::test_classification[0.0-NUMBER-ZERO],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294612,121,344
+25,tests/test_m296_import_value_states.py::test_classification[0-NUMBER-ZERO1],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294632,121,344
+26,tests/test_m296_import_value_states.py::test_classification[155-NUMBER-REPORTED],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294652,121,344
+27,tests/test_m296_import_value_states.py::test_classification[312.5-NUMBER-REPORTED],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294672,121,344
+28,tests/test_m296_import_value_states.py::test_classification[N/A-TOKEN-NOT_APPLICABLE],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294692,121,344
+29,tests/test_m296_import_value_states.py::test_classification[?-TOKEN-UNKNOWN],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294712,121,344
+30,tests/test_m296_import_value_states.py::test_classification[unknown-TOKEN-UNKNOWN],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294732,121,344
+31,tests/test_m296_import_value_states.py::test_classification[NR-TOKEN-NOT_REPORTED],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294752,121,344
+32,"tests/test_m296_import_value_states.py::test_classification[1,5-AMBIGUOUS-None]",tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294772,121,344
+33,"tests/test_m296_import_value_states.py::test_classification[1,500-AMBIGUOUS-None]",tests/test_m296_import_value_states.py,0.001,138988,54952,0,0,0,0,1,17,294792,121,344
+34,tests/test_m296_import_value_states.py::test_classification[12.5 ppg-AMBIGUOUS-None],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294812,121,344
+35,tests/test_m296_import_value_states.py::test_classification[12 m-AMBIGUOUS-None],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294832,121,344
+36,tests/test_m296_import_value_states.py::test_classification[nan-AMBIGUOUS-None0],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294852,121,344
+37,tests/test_m296_import_value_states.py::test_classification[nan-AMBIGUOUS-None1],tests/test_m296_import_value_states.py,0.002,138988,54952,0,0,0,0,1,17,294872,121,344
+38,tests/test_m296_import_value_states.py::test_classification[inf-AMBIGUOUS-None],tests/test_m296_import_value_states.py,0.001,138988,54952,0,0,0,0,1,17,294892,121,344
+39,tests/test_m296_import_value_states.py::test_classification[True-AMBIGUOUS-None],tests/test_m296_import_value_states.py,0.001,138988,54952,0,0,0,0,1,17,294912,121,344
+40,tests/test_m296_import_value_states.py::test_a_source_number_never_replaces_a_normalized_value,tests/test_m296_import_value_states.py,0.001,138988,54952,0,0,0,0,1,17,294932,121,344
+41,tests/test_m296_import_value_states.py::test_a_value_changed_in_the_preview_is_classified_as_it_is,tests/test_m296_import_value_states.py,0.001,138988,54952,0,0,0,0,1,17,294952,121,344
+42,tests/test_m296_import_value_states.py::test_an_undecided_review_row_stays_the_authority,tests/test_m296_import_value_states.py,0.001,138988,54952,0,0,0,0,1,17,294972,121,344
+43,tests/test_m296_import_value_states.py::test_zero_number_blank_token_ambiguous_and_unit_in_one_import,tests/test_m296_import_value_states.py,7.623,202120,54976,0,63132,0,0,1,17,321984,121,344
+44,tests/test_m296_import_value_states.py::test_zero_is_stored_as_zero_and_blank_stays_none_without_events,tests/test_m296_import_value_states.py,14.373,276500,54976,0,74380,0,0,1,17,341067,121,344
+45,tests/test_m296_import_value_states.py::test_a_deferred_ambiguous_value_is_corrected_strictly_from_the_queue,tests/test_m296_import_value_states.py,8.051,246372,54976,0,-30128,0,0,1,17,359309,121,344
+46,tests/test_m296_import_value_states.py::test_identical_reimport_writes_no_second_state,tests/test_m296_import_value_states.py,8.723,287196,54976,0,40824,0,0,1,17,377673,121,344
+47,tests/test_m296_import_value_states.py::test_an_existing_state_is_kept_and_a_contradiction_is_not_recorded,tests/test_m296_import_value_states.py,7.727,287200,54976,0,4,0,0,1,17,394701,121,344
+48,tests/test_m296_import_value_states.py::test_an_audit_failure_rolls_back_the_whole_import,tests/test_m296_import_value_states.py,7.674,287204,54976,0,4,0,0,1,17,401721,121,344
+49,tests/test_m296_import_value_states.py::test_a_later_import_failure_rolls_the_states_back,tests/test_m296_import_value_states.py,8.353,287204,54976,0,0,0,0,1,17,410355,121,344
+50,tests/test_m296_import_value_states.py::test_the_dialog_shows_the_pending_import_review,tests/test_m296_import_value_states.py,7.717,287544,54976,0,340,0,0,1,17,426914,121,344
+51,tests/test_m298_m299_registry_and_batch.py::test_registry_is_backward_compatible_with_the_eleven_fields,tests/test_m298_m299_registry_and_batch.py,0.001,287544,54976,0,0,0,0,1,17,426957,121,344
+52,tests/test_m298_m299_registry_and_batch.py::test_units_bounds_and_import_support_come_from_the_canonical_schema_only,tests/test_m298_m299_registry_and_batch.py,0.001,287544,54976,0,0,0,0,1,17,426977,121,344
+53,tests/test_m298_m299_registry_and_batch.py::test_every_entry_carries_the_full_contract,tests/test_m298_m299_registry_and_batch.py,0.001,287544,54976,0,0,0,0,1,17,426997,121,344
+54,tests/test_m298_m299_registry_and_batch.py::test_a_clean_batch_saves_every_field,tests/test_m298_m299_registry_and_batch.py,1.177,287544,54976,0,0,0,0,1,17,434174,121,344
+55,tests/test_m298_m299_registry_and_batch.py::test_per_field_semantics_with_refusals,tests/test_m298_m299_registry_and_batch.py,1.289,287544,54976,0,0,0,0,1,17,355630,121,344
+56,tests/test_m298_m299_registry_and_batch.py::test_an_audit_failure_on_one_field_leaves_no_row_for_it_and_keeps_the_others,tests/test_m298_m299_registry_and_batch.py,1.044,287544,54976,0,0,0,0,1,17,362715,121,344
+57,tests/test_m298_m299_registry_and_batch.py::test_a_storage_failure_after_the_state_row_rolls_that_field_back,tests/test_m298_m299_registry_and_batch.py,1.069,287544,54976,0,0,0,0,1,17,369193,121,344
+58,tests/test_m298_m299_registry_and_batch.py::test_the_dialog_reports_a_partial_save_clearly,tests/test_m298_m299_registry_and_batch.py,1.067,287544,54976,0,0,0,0,1,17,375369,121,344
+59,tests/test_m300_m301_value_lineage.py::test_accepted_without_correction_is_checked_against_the_persisted_value,tests/test_m300_m301_value_lineage.py,8.251,287544,54976,0,0,0,0,1,17,392921,121,344
+60,tests/test_m300_m301_value_lineage.py::test_an_accepted_proposal_without_a_value_is_reported_as_such,tests/test_m300_m301_value_lineage.py,8.237,287544,54976,0,0,0,0,1,17,410192,121,344
+61,tests/test_m300_m301_value_lineage.py::test_an_unresolvable_target_is_not_checked_with_the_reason,tests/test_m300_m301_value_lineage.py,8.018,289588,54976,0,2044,0,0,1,17,427463,121,344
+62,tests/test_m300_m301_value_lineage.py::test_without_a_snapshot_the_normalized_value_is_used_unless_a_conversion_is_declared,tests/test_m300_m301_value_lineage.py,8.297,291636,54976,0,2048,0,0,1,17,444734,121,344
+63,tests/test_m300_m301_value_lineage.py::test_unreadable_payload_or_history_is_unreadable,tests/test_m300_m301_value_lineage.py,7.808,292852,54976,0,1216,0,0,1,17,462071,121,344
+64,tests/test_m300_m301_value_lineage.py::test_pending_and_rejected_items_are_not_applicable,tests/test_m300_m301_value_lineage.py,8.512,294912,54976,0,2060,0,0,1,17,479465,121,344
+65,tests/test_m300_m301_value_lineage.py::test_every_check_is_one_of_the_five_outcomes,tests/test_m300_m301_value_lineage.py,8.165,297024,54976,0,2112,0,0,1,17,496736,121,344
+66,tests/test_m300_m301_value_lineage.py::test_an_imported_header_value_without_review_has_a_stable_lineage,tests/test_m300_m301_value_lineage.py,7.058,297040,54976,0,16,0,0,1,17,503713,121,344
+67,tests/test_m300_m301_value_lineage.py::test_a_later_typed_entry_is_changed_since_and_named,tests/test_m300_m301_value_lineage.py,7.077,297776,54976,0,736,0,0,1,17,426942,121,344
+68,tests/test_m300_m301_value_lineage.py::test_a_value_with_a_review_item_points_to_it_and_blank_fields_are_not_applicable,tests/test_m300_m301_value_lineage.py,8.244,263492,54976,0,-34284,0,0,1,17,433851,121,344
+69,tests/test_m300_m301_value_lineage.py::test_a_report_without_an_import_record_is_not_checked,tests/test_m300_m301_value_lineage.py,1.027,263496,54976,0,4,0,0,1,17,436544,121,344
+70,tests/test_m302_lineage_ui.py::test_w2_value_states_dialog_opens_the_lineage_of_the_selected_field,tests/test_m302_lineage_ui.py,8.373,263504,55464,0,8,0,0,1,17,460657,202,344
+71,tests/test_m302_lineage_ui.py::test_import_review_dialog_opens_the_lineage_with_the_correction,tests/test_m302_lineage_ui.py,8.120,264028,55652,0,524,0,0,1,17,481337,202,344
+72,tests/test_m303_m306_clone_contract_and_bulk.py::test_every_adapter_has_exactly_one_clone_contract,tests/test_m303_m306_clone_contract_and_bulk.py,0.002,264028,55652,0,0,0,0,1,17,481380,202,344
+73,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_invalid_clone_is_refused_with_a_reason_and_writes_nothing[change0-no readable inputs],tests/test_m303_m306_clone_contract_and_bulk.py,1.057,264028,55652,0,0,0,0,1,17,494203,202,344
+74,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_invalid_clone_is_refused_with_a_reason_and_writes_nothing[change1-unreadable stored inputs],tests/test_m303_m306_clone_contract_and_bulk.py,1.030,264032,55652,0,4,0,0,1,17,503843,202,344
+75,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_invalid_clone_is_refused_with_a_reason_and_writes_nothing[change2-no stored results to copy],tests/test_m303_m306_clone_contract_and_bulk.py,1.028,264032,55652,0,0,0,0,1,17,513483,202,344
+76,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_invalid_clone_is_refused_with_a_reason_and_writes_nothing[change3-unreadable stored results],tests/test_m303_m306_clone_contract_and_bulk.py,1.045,264032,55652,0,0,0,0,1,17,523123,202,344
+77,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_invalid_clone_is_refused_with_a_reason_and_writes_nothing[change4-failed its integrity check (HASH MISMATCH)],tests/test_m303_m306_clone_contract_and_bulk.py,1.024,264032,55652,0,0,0,0,1,17,532763,202,344
+78,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_invalid_clone_is_refused_with_a_reason_and_writes_nothing[change5-is missing components],tests/test_m303_m306_clone_contract_and_bulk.py,1.074,264032,55652,0,0,0,0,1,17,542403,202,344
+79,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_invalid_clone_is_refused_with_a_reason_and_writes_nothing[change6-has no clone contract],tests/test_m303_m306_clone_contract_and_bulk.py,1.043,264032,55652,0,0,0,0,1,17,552043,202,344
+80,tests/test_m303_m306_clone_contract_and_bulk.py::test_a_deleted_source_is_refused,tests/test_m303_m306_clone_contract_and_bulk.py,1.227,264032,55652,0,0,0,0,1,17,506976,202,344
+81,tests/test_m303_m306_clone_contract_and_bulk.py::test_clone_provenance_names_the_source_and_what_the_clone_is_not,tests/test_m303_m306_clone_contract_and_bulk.py,1.133,264032,55652,0,0,0,0,1,17,517101,202,344
+82,tests/test_m303_m306_clone_contract_and_bulk.py::test_a_reused_source_id_is_detected_not_trusted,tests/test_m303_m306_clone_contract_and_bulk.py,1.044,264032,55652,0,0,0,0,1,17,526956,202,344
+83,tests/test_m303_m306_clone_contract_and_bulk.py::test_a_source_without_creation_time_is_identity_weak_and_cannot_be_archived,tests/test_m303_m306_clone_contract_and_bulk.py,1.069,264032,55652,0,0,0,0,1,17,537710,202,344
+84,tests/test_m303_m306_clone_contract_and_bulk.py::test_bulk_preview_writes_nothing_and_classifies_every_row,tests/test_m303_m306_clone_contract_and_bulk.py,1.103,264036,55652,0,4,0,0,1,17,548467,202,344
+85,tests/test_m303_m306_clone_contract_and_bulk.py::test_bulk_apply_is_per_row_with_audit_and_explicit_partial,tests/test_m303_m306_clone_contract_and_bulk.py,1.129,264036,55652,0,0,0,0,1,17,559196,202,344
+86,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_audit_fault_on_one_row_leaves_no_mark_for_it_and_keeps_the_others,tests/test_m303_m306_clone_contract_and_bulk.py,1.128,264036,55652,0,0,0,0,1,17,569348,202,344
+87,tests/test_m303_m306_clone_contract_and_bulk.py::test_an_unauthorized_bulk_writes_nothing,tests/test_m303_m306_clone_contract_and_bulk.py,1.049,264036,55652,0,0,0,0,1,17,579229,202,344
+88,tests/test_m303_m306_clone_contract_and_bulk.py::test_workbench_bulk_archive_clone_refusal_and_clone_vs_source,tests/test_m303_m306_clone_contract_and_bulk.py,1.227,264036,55808,0,0,0,0,1,17,603001,202,344
+89,tests/test_m308_window_release_policy.py::test_policy_by_version[6.8.1.1-False],tests/test_m308_window_release_policy.py,0.002,264036,55808,0,0,0,0,1,17,603044,202,344
+90,tests/test_m308_window_release_policy.py::test_policy_by_version[6.8.1-False],tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603064,202,344
+91,tests/test_m308_window_release_policy.py::test_policy_by_version[6.6.0-False],tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603084,202,344
+92,tests/test_m308_window_release_policy.py::test_policy_by_version[6.8.2-True],tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603104,202,344
+93,tests/test_m308_window_release_policy.py::test_policy_by_version[6.8.2.1-True],tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603124,202,344
+94,tests/test_m308_window_release_policy.py::test_policy_by_version[6.9.0-True],tests/test_m308_window_release_policy.py,0.002,264036,55808,0,0,0,0,1,17,603144,202,344
+95,tests/test_m308_window_release_policy.py::test_policy_by_version[6.10.3-True],tests/test_m308_window_release_policy.py,0.002,264036,55808,0,0,0,0,1,17,603164,202,344
+96,tests/test_m308_window_release_policy.py::test_policy_by_version[-False],tests/test_m308_window_release_policy.py,0.002,264036,55808,0,0,0,0,1,17,603184,202,344
+97,tests/test_m308_window_release_policy.py::test_policy_by_version[6.8.x-False],tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603204,202,344
+98,tests/test_m308_window_release_policy.py::test_policy_by_version[garbage-False],tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603224,202,344
+99,tests/test_m308_window_release_policy.py::test_policy_by_version[None-None],tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603244,202,344
+100,tests/test_m308_window_release_policy.py::test_the_operator_can_force_retention,tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603264,202,344
+101,tests/test_m308_window_release_policy.py::test_release_installs_weak_attributes_that_let_the_window_go,tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603293,202,344
+102,tests/test_m308_window_release_policy.py::test_retention_installs_nothing_and_keeps_the_window_alive,tests/test_m308_window_release_policy.py,0.001,264036,55808,0,0,0,0,1,17,603321,202,344
+103,tests/test_m308_window_release_policy.py::test_the_product_classes_follow_the_installed_pyside,tests/test_m308_window_release_policy.py,0.015,264036,55808,0,0,0,0,1,17,604902,202,344
+104,tests/test_m308_window_release_policy.py::test_main_window_applies_the_policy_before_it_builds_any_tab,tests/test_m308_window_release_policy.py,1.425,308420,73240,0,44384,0,0,1,17,705675,202,344
+105,tests/test_m309_d51_monitor.py::test_classification[job0-messages0-SUCCESS],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705779,202,344
+106,tests/test_m309_d51_monitor.py::test_classification[job1-messages1-IN_PROGRESS],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705799,202,344
+107,tests/test_m309_d51_monitor.py::test_classification[job2-messages2-D51_WATCHDOG],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705819,202,344
+108,tests/test_m309_d51_monitor.py::test_classification[job3-messages3-D51_WATCHDOG],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705839,202,344
+109,tests/test_m309_d51_monitor.py::test_classification[job4-messages4-TEST_FAILURE],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705862,202,344
+110,tests/test_m309_d51_monitor.py::test_classification[job5-messages5-JOB_TIMEOUT],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705882,202,344
+111,tests/test_m309_d51_monitor.py::test_classification[job6-messages6-SUPERSEDED],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705902,202,344
+112,tests/test_m309_d51_monitor.py::test_classification[job7-messages7-SUPERSEDED],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705922,202,344
+113,tests/test_m309_d51_monitor.py::test_classification[job8-messages8-OTHER],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705942,202,344
+114,tests/test_m309_d51_monitor.py::test_classification[job9-messages9-OTHER],tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705962,202,344
+115,tests/test_m309_d51_monitor.py::test_absence_is_never_reported_as_a_fix,tests/test_m309_d51_monitor.py,0.002,313172,73240,0,0,0,0,1,17,705965,202,344
+116,tests/test_m30_semantic_regressions.py::test_search_honors_well_scope_for_every_entity_and_ai,tests/test_m30_semantic_regressions.py,0.094,313696,73288,0,524,0,0,1,17,710292,202,344
+117,tests/test_m30_semantic_regressions.py::test_search_literal_wildcards_are_not_pattern_syntax,tests/test_m30_semantic_regressions.py,0.704,315280,73288,0,264,0,0,1,17,626832,202,344
+118,tests/test_m30_semantic_regressions.py::test_failed_retrieval_is_not_empty_success,tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,626879,202,344
+119,tests/test_m30_semantic_regressions.py::test_scope_coverage_distinguishes_persisted_from_possible,tests/test_m30_semantic_regressions.py,0.150,315280,73288,0,0,0,0,1,17,645998,202,344
+120,tests/test_m30_semantic_regressions.py::test_scope_rejects_invalid_unassigned_candidates_without_mutation,tests/test_m30_semantic_regressions.py,0.096,315280,73288,0,0,0,0,1,17,650150,202,344
+121,tests/test_m30_semantic_regressions.py::test_attribution_serialization_does_not_alias_outcomes,tests/test_m30_semantic_regressions.py,0.090,315280,73288,0,0,0,0,1,17,653506,202,344
+122,tests/test_m30_semantic_regressions.py::test_invalid_inventory_movement_rolls_back_prior_worksheet[not-a-number],tests/test_m30_semantic_regressions.py,0.089,315280,73288,0,0,0,0,1,17,656786,202,344
+123,tests/test_m30_semantic_regressions.py::test_invalid_inventory_movement_rolls_back_prior_worksheet[True],tests/test_m30_semantic_regressions.py,0.086,315280,73288,0,0,0,0,1,17,659941,202,344
+124,tests/test_m30_semantic_regressions.py::test_invalid_inventory_movement_rolls_back_prior_worksheet[nan],tests/test_m30_semantic_regressions.py,0.092,315280,73288,0,0,0,0,1,17,663096,202,344
+125,tests/test_m30_semantic_regressions.py::test_invalid_inventory_movement_rolls_back_prior_worksheet[inf],tests/test_m30_semantic_regressions.py,0.085,315280,73288,0,0,0,0,1,17,666251,202,344
+126,tests/test_m30_semantic_regressions.py::test_carry_forward_requires_same_unit_and_unique_latest_date,tests/test_m30_semantic_regressions.py,0.100,315280,73288,0,0,0,0,1,17,670166,202,344
+127,tests/test_m30_semantic_regressions.py::test_bulk_same_name_different_unit_does_not_overwrite,tests/test_m30_semantic_regressions.py,0.091,315280,73288,0,0,0,0,1,17,673671,202,344
+128,tests/test_m30_semantic_regressions.py::test_invalid_recorded_time_does_not_produce_factual_totals[broken],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,673695,202,344
+129,tests/test_m30_semantic_regressions.py::test_invalid_recorded_time_does_not_produce_factual_totals[True],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,673715,202,344
+130,tests/test_m30_semantic_regressions.py::test_invalid_recorded_time_does_not_produce_factual_totals[nan],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,673735,202,344
+131,tests/test_m30_semantic_regressions.py::test_invalid_recorded_time_does_not_produce_factual_totals[inf],tests/test_m30_semantic_regressions.py,0.001,315280,73288,0,0,0,0,1,17,673755,202,344
+132,tests/test_m30_semantic_regressions.py::test_invalid_recorded_time_does_not_produce_factual_totals[-1],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,673775,202,344
+133,tests/test_m30_semantic_regressions.py::test_nonboolean_npt_classification_is_unknown,tests/test_m30_semantic_regressions.py,0.001,315280,73288,0,0,0,0,1,17,673795,202,344
+134,tests/test_m30_semantic_regressions.py::test_comparison_formula_matches_negative_plan_denominator,tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,673815,202,344
+135,tests/test_m30_semantic_regressions.py::test_backup_source_disappearing_does_not_create_empty_success,tests/test_m30_semantic_regressions.py,0.006,315280,73288,0,0,0,0,1,18,673862,202,344
+136,tests/test_m30_semantic_regressions.py::test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success[inputs0],tests/test_m30_semantic_regressions.py,0.001,315280,73288,0,0,0,0,1,18,673882,202,344
+137,tests/test_m30_semantic_regressions.py::test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success[inputs1],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,18,673902,202,344
+138,tests/test_m30_semantic_regressions.py::test_mse_never_reports_nonfinite_or_underflowed_calculation_as_success[inputs2],tests/test_m30_semantic_regressions.py,0.001,315280,73288,0,0,0,0,1,18,673922,202,344
+139,tests/test_m30_semantic_regressions.py::test_search_database_exception_reaches_ui_failed_state,tests/test_m30_semantic_regressions.py,0.080,315280,73288,0,0,0,0,1,17,676429,202,344
+140,tests/test_m30_semantic_regressions.py::test_bulk_duplicate_identity_is_not_first_match_mutation,tests/test_m30_semantic_regressions.py,0.093,315280,73288,0,0,0,0,1,17,677898,202,344
+141,tests/test_m30_semantic_regressions.py::test_inventory_ui_invalid_calculation_and_unattached_saves_in_subprocess,tests/test_m30_semantic_regressions.py,0.206,315280,73288,0,0,0,0,1,17,677924,202,344
+142,tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[total],tests/test_m30_semantic_regressions.py,0.001,315280,73288,0,0,0,0,1,17,677944,202,344
+143,tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[variance],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,677964,202,344
+144,tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[percentage],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,677984,202,344
+145,tests/test_m30_semantic_regressions.py::test_finite_financial_inputs_must_not_emit_infinite_facts[plan],tests/test_m30_semantic_regressions.py,0.002,315280,73288,0,0,0,0,1,17,678004,202,344
+146,tests/test_m30_semantic_regressions.py::test_bad_bulk_movement_preserves_previous_row[bad],tests/test_m30_semantic_regressions.py,0.122,315280,73288,0,0,0,0,1,17,654891,202,344
+147,tests/test_m30_semantic_regressions.py::test_bad_bulk_movement_preserves_previous_row[True],tests/test_m30_semantic_regressions.py,0.087,315280,73288,0,0,0,0,1,17,658072,202,344
+148,tests/test_m30_semantic_regressions.py::test_bad_bulk_movement_preserves_previous_row[False],tests/test_m30_semantic_regressions.py,0.089,315280,73288,0,0,0,0,1,17,661253,202,344
+149,tests/test_m30_semantic_regressions.py::test_bad_bulk_movement_preserves_previous_row[nan],tests/test_m30_semantic_regressions.py,0.091,315544,73288,0,264,0,0,1,17,664434,202,344
+150,tests/test_m30_semantic_regressions.py::test_bad_bulk_movement_preserves_previous_row[inf],tests/test_m30_semantic_regressions.py,0.093,315544,73288,0,0,0,0,1,17,667615,202,344
+151,tests/test_m30_semantic_regressions.py::test_unrepresentable_integer_uses_engineering_error_contract[require_number],tests/test_m30_semantic_regressions.py,0.002,315544,73288,0,0,0,0,1,17,667639,202,344
+152,tests/test_m30_semantic_regressions.py::test_unrepresentable_integer_uses_engineering_error_contract[optional_number],tests/test_m30_semantic_regressions.py,0.002,315544,73288,0,0,0,0,1,17,667659,202,344
+153,tests/test_m30_semantic_regressions.py::test_read_only_legacy_inventory_decoder_handles_huge_integer,tests/test_m30_semantic_regressions.py,0.001,315544,73288,0,0,0,0,1,17,667679,202,344
+154,tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[unknown],tests/test_m30_semantic_regressions.py,0.002,315544,73288,0,0,0,0,1,17,667738,202,344
+155,tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[N/A],tests/test_m30_semantic_regressions.py,0.002,315544,73288,0,0,0,0,1,17,667758,202,344
+156,tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[not recorded],tests/test_m30_semantic_regressions.py,0.001,315544,73288,0,0,0,0,1,17,667778,202,344
+157,tests/test_m30_semantic_regressions.py::test_explicit_unknown_currency_markers_do_not_authorize_money_totals[\u2014],tests/test_m30_semantic_regressions.py,0.002,315544,73288,0,0,0,0,1,17,667782,202,344
+158,tests/test_m311_architecture_diff.py::test_identical_components_are_identical,tests/test_m311_architecture_diff.py,0.002,315544,73288,0,0,0,0,1,17,667821,202,344
+159,tests/test_m311_architecture_diff.py::test_changed_added_and_removed_components_are_named_with_old_and_new_values,tests/test_m311_architecture_diff.py,0.002,315544,73288,0,0,0,0,1,17,667841,202,344
+160,tests/test_m311_architecture_diff.py::test_duplicate_identities_are_matched_in_order_and_stated,tests/test_m311_architecture_diff.py,0.002,315544,73288,0,0,0,0,1,17,667861,202,344
+161,tests/test_m311_architecture_diff.py::test_revisions_are_ordered_checked_and_pinned_cases_listed,tests/test_m311_architecture_diff.py,1.037,316028,73288,0,484,0,0,1,17,673868,202,344
+162,tests/test_m311_architecture_diff.py::test_a_tampered_revision_is_never_compared,tests/test_m311_architecture_diff.py,1.041,316968,73288,0,416,0,0,1,17,679417,202,344
+163,tests/test_m311_architecture_diff.py::test_architecture_panel_compares_with_the_previous_revision,tests/test_m311_architecture_diff.py,1.100,317964,74044,0,736,0,0,1,17,686372,209,344
+164,tests/test_m314_ddr_hydraulics_check.py::test_recomputes_bit_hydraulics_from_recorded_values,tests/test_m314_ddr_hydraulics_check.py,1.029,321032,74044,0,696,0,0,1,17,693223,209,344
+165,tests/test_m314_ddr_hydraulics_check.py::test_a_wrong_recorded_hsi_is_reported_as_different,tests/test_m314_ddr_hydraulics_check.py,1.044,321720,74044,0,688,0,0,1,17,699914,209,344
+166,tests/test_m314_ddr_hydraulics_check.py::test_a_recorded_tfa_that_disagrees_with_the_nozzles_is_flagged,tests/test_m314_ddr_hydraulics_check.py,1.027,322248,74044,0,528,0,0,1,17,704820,209,344
+167,tests/test_m314_ddr_hydraulics_check.py::test_tfa_comes_from_complete_nozzle_rows_only,tests/test_m314_ddr_hydraulics_check.py,1.042,323096,74044,0,848,0,0,1,17,711511,209,344
+168,tests/test_m314_ddr_hydraulics_check.py::test_missing_inputs_are_named_and_never_zero[bit_size-bit size],tests/test_m314_ddr_hydraulics_check.py,1.070,323964,74044,0,868,0,0,1,17,689554,162,344
+169,tests/test_m314_ddr_hydraulics_check.py::test_missing_inputs_are_named_and_never_zero[pump_output_min-None],tests/test_m314_ddr_hydraulics_check.py,1.045,324224,74044,0,260,0,0,1,17,696245,162,344
+170,tests/test_m314_ddr_hydraulics_check.py::test_no_tfa_and_no_nozzles_is_not_computed,tests/test_m314_ddr_hydraulics_check.py,1.045,324400,74044,0,176,0,0,1,17,702936,162,344
+171,tests/test_m314_ddr_hydraulics_check.py::test_no_mud_weight_and_conflicting_mud_weights_choose_nothing,tests/test_m314_ddr_hydraulics_check.py,1.051,324808,74044,0,408,0,0,1,17,709717,162,344
+172,tests/test_m314_ddr_hydraulics_check.py::test_no_recorded_hsi_is_not_checked_but_still_computed,tests/test_m314_ddr_hydraulics_check.py,1.068,325744,74044,0,676,0,0,1,17,716408,162,344
+173,tests/test_m314_ddr_hydraulics_check.py::test_unknown_report_is_refused,tests/test_m314_ddr_hydraulics_check.py,1.050,326884,74044,0,616,0,0,1,17,721480,162,344
+174,tests/test_m314_ddr_hydraulics_check.py::test_save_stores_an_immutable_case_with_lineage_to_the_source_row,tests/test_m314_ddr_hydraulics_check.py,1.039,328140,74044,0,996,0,0,1,17,729627,162,344
+175,tests/test_m314_ddr_hydraulics_check.py::test_summary_lines_name_scope_and_status,tests/test_m314_ddr_hydraulics_check.py,1.031,329616,74044,0,952,0,0,1,17,736124,162,344
+176,tests/test_m314_ddr_hydraulics_check.py::test_two_drilling_parameter_rows_refuse_to_choose,tests/test_m314_ddr_hydraulics_check.py,1.093,330716,74044,0,840,0,0,1,17,741499,162,344
+177,tests/test_m314_ddr_hydraulics_check.py::test_w2_button_opens_the_check_of_the_open_report_and_saves_a_case,tests/test_m314_ddr_hydraulics_check.py,1.111,332196,74044,0,956,0,0,1,17,749552,219,344
+178,tests/test_m314_ddr_hydraulics_check.py::test_w2_missing_inputs_show_dashes_and_cannot_be_saved,tests/test_m314_ddr_hydraulics_check.py,1.086,334216,74044,0,704,0,0,1,17,756049,219,344
+179,tests/test_m314_ddr_hydraulics_check.py::test_w2_without_a_saved_report_explains_instead_of_opening,tests/test_m314_ddr_hydraulics_check.py,1.097,334972,74044,0,756,0,0,1,17,761789,265,344
+180,tests/test_m317_cement_job_reconciliation.py::test_reconciles_pumped_volume_gauge_annulus_and_displacement,tests/test_m317_cement_job_reconciliation.py,1.207,335900,74044,0,668,0,0,1,17,732953,221,344
+181,tests/test_m317_cement_job_reconciliation.py::test_over_displacement_is_flagged,tests/test_m317_cement_job_reconciliation.py,1.118,335908,74044,0,8,0,0,1,17,739046,221,344
+182,tests/test_m317_cement_job_reconciliation.py::test_yield_unit_is_never_assumed,tests/test_m317_cement_job_reconciliation.py,1.039,335952,74044,0,44,0,0,1,17,745139,221,344
+183,tests/test_m317_cement_job_reconciliation.py::test_missing_or_inverted_toc_boc_is_never_inferred[values0-neither is inferred],tests/test_m317_cement_job_reconciliation.py,1.027,336200,74044,0,248,0,0,1,17,751232,221,344
+184,tests/test_m317_cement_job_reconciliation.py::test_missing_or_inverted_toc_boc_is_never_inferred[values1-neither is inferred],tests/test_m317_cement_job_reconciliation.py,1.027,336584,74044,0,384,0,0,1,17,757325,221,344
+185,tests/test_m317_cement_job_reconciliation.py::test_missing_or_inverted_toc_boc_is_never_inferred[values2-is not below],tests/test_m317_cement_job_reconciliation.py,1.031,337564,74044,0,720,0,0,1,17,763418,221,344
+186,tests/test_m317_cement_job_reconciliation.py::test_surface_toc_zero_is_a_real_depth,tests/test_m317_cement_job_reconciliation.py,1.033,338548,74044,0,460,0,0,1,17,767726,221,344
+187,tests/test_m317_cement_job_reconciliation.py::test_declared_caliper_changes_the_open_hole_size_only,tests/test_m317_cement_job_reconciliation.py,1.091,339628,74044,0,820,0,0,1,17,773819,221,344
+188,tests/test_m317_cement_job_reconciliation.py::test_liner_displacement_is_not_applicable,tests/test_m317_cement_job_reconciliation.py,1.014,340844,74044,0,692,0,0,1,17,779912,221,344
+189,tests/test_m317_cement_job_reconciliation.py::test_other_well_and_unknown_string_are_refused,tests/test_m317_cement_job_reconciliation.py,1.080,342076,74044,0,708,0,0,1,17,786005,221,344
+190,tests/test_m317_cement_job_reconciliation.py::test_nothing_recorded_is_not_computed_and_cannot_be_saved,tests/test_m317_cement_job_reconciliation.py,1.103,343284,74044,0,684,0,0,1,17,792098,221,344
+191,tests/test_m317_cement_job_reconciliation.py::test_save_stores_a_case_linked_to_the_cement_report_and_changes_nothing,tests/test_m317_cement_job_reconciliation.py,1.104,344316,74044,0,508,0,0,1,17,797374,221,344
+192,tests/test_m317_cement_job_reconciliation.py::test_summary_states_unknowns_as_unknown,tests/test_m317_cement_job_reconciliation.py,1.129,345372,74044,0,796,0,0,1,17,769733,221,344
+193,tests/test_m317_cement_job_reconciliation.py::test_architecture_panel_reconciles_and_saves_through_the_buttons,tests/test_m317_cement_job_reconciliation.py,1.165,345656,74044,0,284,0,0,1,17,777780,264,344
+194,tests/test_m318_td_friction_sensitivity.py::test_vertical_anchor_and_ff_zero_identity,tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,777831,264,344
+195,tests/test_m318_td_friction_sensitivity.py::test_deviated_curves_are_monotonic_in_the_expected_direction,tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,777851,264,344
+196,tests/test_m318_td_friction_sensitivity.py::test_locate_brackets_but_never_interpolates_a_friction_factor,tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,777871,264,344
+197,tests/test_m318_td_friction_sensitivity.py::test_one_factor_cannot_be_located,tests/test_m318_td_friction_sensitivity.py,0.001,346708,74044,0,0,0,0,1,17,777891,264,344
+198,tests/test_m318_td_friction_sensitivity.py::test_declared_factors_are_validated[-no default],tests/test_m318_td_friction_sensitivity.py,0.001,346708,74044,0,0,0,0,1,17,777913,264,344
+199,"tests/test_m318_td_friction_sensitivity.py::test_declared_factors_are_validated[0,25 0,3-commas are refused]",tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,777935,264,344
+200,tests/test_m318_td_friction_sensitivity.py::test_declared_factors_are_validated[0.2 abc-not a number],tests/test_m318_td_friction_sensitivity.py,0.001,346708,74044,0,0,0,0,1,17,777957,264,344
+201,"tests/test_m318_td_friction_sensitivity.py::test_declared_factors_are_validated[0.2 1.5-outside [0, 1]]",tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,777979,264,344
+202,"tests/test_m318_td_friction_sensitivity.py::test_declared_factors_are_validated[-0.1-outside [0, 1]]",tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,777999,264,344
+203,tests/test_m318_td_friction_sensitivity.py::test_declared_factors_are_validated[0.00 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10 0.11 0.12-At most 12],tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,778021,264,344
+204,tests/test_m318_td_friction_sensitivity.py::test_parse_accepts_spaces_and_semicolons,tests/test_m318_td_friction_sensitivity.py,0.002,346708,74044,0,0,0,0,1,17,778041,264,344
+205,tests/test_m318_td_friction_sensitivity.py::test_no_run_is_refused_and_an_engine_refusal_is_listed_not_skipped,tests/test_m318_td_friction_sensitivity.py,0.001,346708,74044,0,0,0,0,1,17,778063,264,344
+206,tests/test_m318_td_friction_sensitivity.py::test_save_stores_declared_factors_observations_and_locations,tests/test_m318_td_friction_sensitivity.py,1.020,346900,74044,0,192,0,0,1,17,780906,264,344
+207,tests/test_m318_td_friction_sensitivity.py::test_w13_sensitivity_runs_on_the_last_pinned_run_and_saves,tests/test_m318_td_friction_sensitivity.py,1.275,362188,74400,0,15288,0,0,1,17,785392,264,344
+208,tests/test_m320d_report_sections.py::test_empty_ddr_states_every_missing_section,tests/test_m320d_report_sections.py,0.963,368344,74400,0,88,0,0,1,17,795314,264,344
+209,tests/test_m320d_report_sections.py::test_recorded_ddr_sections_are_included_with_row_counts,tests/test_m320d_report_sections.py,0.945,368692,74400,0,348,0,0,1,17,805040,264,344
+210,tests/test_m320d_report_sections.py::test_eowr_states_empty_sections_and_names_unrendered_data,tests/test_m320d_report_sections.py,0.963,370112,74400,0,1420,0,0,1,17,819030,264,344
+211,tests/test_m320d_report_sections.py::test_cost_query_failure_is_a_named_status,tests/test_m320d_report_sections.py,0.002,370112,74400,0,0,0,0,1,17,819054,264,344
+212,tests/test_m320d_report_sections.py::test_manifest_reaches_every_format[excel],tests/test_m320d_report_sections.py,1.010,371432,74400,0,1320,0,0,1,17,828230,264,344
+213,tests/test_m320d_report_sections.py::test_manifest_reaches_every_format[csv],tests/test_m320d_report_sections.py,0.960,372476,74400,0,1044,0,0,1,17,837458,264,344
+214,tests/test_m320d_report_sections.py::test_manifest_reaches_every_format[pdf],tests/test_m320d_report_sections.py,1.088,373620,75456,0,1144,0,0,1,17,846677,264,344
+215,tests/test_m320d_report_sections.py::test_kinds_without_a_manifest_say_so,tests/test_m320d_report_sections.py,0.920,374548,75456,0,928,0,0,1,17,853899,264,344
+216,tests/test_m320e_citation_record.py::test_record_quotes_are_exact_slices_of_the_stored_page,tests/test_m320e_citation_record.py,0.131,375332,75516,0,784,0,0,1,17,858147,264,344
+217,tests/test_m320e_citation_record.py::test_changed_page_is_reported_never_re_anchored,tests/test_m320e_citation_record.py,0.212,375860,75516,0,528,0,0,1,17,802642,217,344
+218,tests/test_m320e_citation_record.py::test_corrupted_span_missing_page_and_missing_document,tests/test_m320e_citation_record.py,0.134,375860,75516,0,0,0,0,1,17,806060,217,344
+219,tests/test_m320e_citation_record.py::test_deleted_document_is_document_missing,tests/test_m320e_citation_record.py,0.152,375860,75516,0,0,0,0,1,17,809301,217,344
+220,tests/test_m320e_citation_record.py::test_save_and_load_round_trip_with_markdown,tests/test_m320e_citation_record.py,0.138,375860,75516,0,0,0,0,1,17,812351,217,344
+221,tests/test_m320e_citation_record.py::test_no_ready_answer_cannot_be_recorded,tests/test_m320e_citation_record.py,0.168,375860,75516,0,0,0,0,1,17,813612,217,344
+222,tests/test_m320e_citation_record.py::test_assistant_exports_and_verifies_through_the_buttons,tests/test_m320e_citation_record.py,0.165,375860,75516,0,0,0,0,1,17,816278,217,344

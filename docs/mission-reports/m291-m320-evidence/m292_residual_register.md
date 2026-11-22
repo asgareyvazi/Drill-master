@@ -46,6 +46,9 @@ Classes: RESOLVED · PARTIALLY RESOLVED · OPEN · NOT REPRODUCED · REPRODUCED 
   updated); the guard tests now run before every push.
 * **`ae016a7` CI:** its 3.12 and 3.13 legs were cancelled at 47 min by the concurrency group when `d57f5b2` was
   pushed (superseded, not failed). That commit has no 3.12/3.13 result; 3.11 and Windows passed.
+* **M320 E Windows layout:** the citation buttons on the Knowledge Assistant evidence header widened the panel to
+  1,590 px on Windows (M49 limit 1,300). Windows gate run `45001056829` failed on `2273aa4`. They now sit on their
+  own row (1,275 px, the same as before M320 E), and a structural assertion was added to the M320 E UI test.
 * **Exception ceiling:** M308/M314/M317 added four unexplained silent handlers (87 > 83). Each one is now marked
   `# silent-ok:` with its reason; the ceiling was not raised.
 

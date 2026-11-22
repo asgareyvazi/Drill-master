@@ -138,6 +138,18 @@ def test_assistant_exports_and_verifies_through_the_buttons(world, tmp_path, mon
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (target, ""))
     try:
         assert not panel.export_citations_button.isEnabled()
+        # The citation row must not widen the panel (Windows CI: M49 keeps minimumSizeHint < 1300 px). The header
+        # row with "Open source in library" sets the width; the citation row stays at or below it.
+        evidence_layout = panel.evidence_table.parentWidget().layout()
+        rows = [evidence_layout.itemAt(i).layout() for i in range(evidence_layout.count())
+                if evidence_layout.itemAt(i).layout() is not None]
+
+        def _holding(widget):
+            return next(r for r in rows if any(r.itemAt(i).widget() is widget for i in range(r.count())))
+
+        header, citation = _holding(panel.open_source_button), _holding(panel.export_citations_button)
+        assert header is not citation
+        assert citation.minimumSize().width() <= header.minimumSize().width()
         panel.question_edit.blockSignals(True)
         panel.question_edit.setPlainText(KICK)
         panel.question_edit.blockSignals(False)
