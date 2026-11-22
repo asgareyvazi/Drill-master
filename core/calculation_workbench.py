@@ -97,6 +97,11 @@ def _mark(db, entry, action: str, reason: str, *, user_id: Optional[int]) -> Dic
             raise WorkbenchError(f"{entry.table}:{entry.record_id} does not exist.")
         current = ARCHIVED if entry.record_id in archived_ids(session, [entry.table]).get(entry.table, set()) \
             else ACTIVE
+        if action == ARCHIVE and hasattr(type(source), "created_at") and getattr(source, "created_at") is None:
+            # M304 (D87 review): a mark is pinned to the row by its created_at; without one a later record that
+            # reuses the id would inherit the archive state, so the mark is refused instead of being weak.
+            raise WorkbenchError(f"{entry.table}:{entry.record_id} has no creation time, so its identity cannot "
+                                 f"be pinned against id reuse; archiving it is refused.")
         if action == ARCHIVE and current == ARCHIVED:
             raise WorkbenchError(f"{entry.table}:{entry.record_id} is already archived.")
         if action == RESTORE and current == ACTIVE:
@@ -129,10 +134,12 @@ def clone(db, entry, name: Optional[str] = None, *, user_id: Optional[int] = Non
     inputs cannot be read is refused rather than cloned empty.
     """
     from core import calculation_cases as cc
+    from core.calculation_clone_contract import clone_check
 
     name = str(name or "").strip() or f"{entry.name} (clone)"
-    if not isinstance(entry.inputs, dict) or not entry.inputs:
-        raise WorkbenchError(f"{entry.key} has no readable inputs; it cannot be cloned.")
+    allowed, reason = clone_check(entry, db)          # M303: the adapter matrix refuses an invalid clone
+    if not allowed:
+        raise WorkbenchError(reason)
     if entry.table == "calculation_cases":
         return cc.clone_case(db, cc.get_case(db, entry.record_id), name, user_id=user_id)
     results = entry.full_results or entry.results or {}
@@ -140,7 +147,118 @@ def clone(db, entry, name: Optional[str] = None, *, user_id: Optional[int] = Non
         db, calculator=f"{entry.source} (clone)", name=name, inputs=entry.inputs, results=results,
         method=entry.method or entry.source, method_version=entry.version, well_id=entry.well_id,
         wellbore_id=entry.wellbore_id, user_id=user_id,
-        note=f"Clone of {entry.key} ({entry.version}): inputs and stored results copied unchanged, not recalculated",
+        note=(f"Clone of {entry.key} ({entry.version}; scope {entry.scope}): inputs and stored results copied "
+              f"unchanged, not recalculated, not approved"),
         source_link={"link_type": "clone_of", "source_table": entry.table, "source_id": entry.record_id,
                      "source_method": entry.method, "source_method_version": entry.version,
                      "verification_status": CLONE_STATUS, "method_changed": False})
+
+
+# -- M305: bulk archive / restore ---------------------------------------------------------------------------
+BULK_CONTRACT = "PER_ROW"   # each row is its own transaction (mark + mandatory audit); refused rows write nothing
+WILL, SKIP, REFUSE = "WILL", "SKIP", "REFUSE"
+DONE, SKIPPED, REFUSED, FAILED = "DONE", "SKIPPED", "REFUSED", "FAILED"
+
+
+def _authorized(db) -> Optional[str]:
+    """None when the current principal may insert archive marks, else the refusal text (nothing is written)."""
+    from core.authorization import AuthorizationError, authorize_change
+
+    state = getattr(db, "_authorization", None)
+    if state is None:
+        return None
+    try:
+        authorize_change(state, "calculation_archive_marks", "insert")
+    except AuthorizationError as exc:
+        return f"not authorized: {exc}"
+    return None
+
+
+def bulk_preview(db, entries: Iterable[Any], action: str) -> Dict[str, Any]:
+    """What a bulk ARCHIVE or RESTORE would do, row by row, without writing anything.
+
+    Each row is ``WILL`` (it will be marked), ``SKIP`` (already in the requested state) or ``REFUSE`` (with the
+    reason, e.g. no creation time or the record no longer exists). An unauthorized user gets every row refused.
+    """
+    from core.calculation_cases import _source_row
+
+    if action not in (ARCHIVE, RESTORE):
+        raise WorkbenchError(f"Unknown bulk action {action!r}.")
+    entries = list(entries)
+    denied = _authorized(db)
+    rows: List[Dict[str, Any]] = []
+    with db.session_scope() as session:
+        archived = archived_ids(session, {e.table for e in entries}) if entries else {}
+        for entry in entries:
+            row = {"key": entry.key, "name": entry.name, "table": entry.table, "record_id": entry.record_id}
+            current = ARCHIVED if entry.record_id in archived.get(entry.table, set()) else ACTIVE
+            row["current"] = current
+            source = _source_row(session, entry.table, entry.record_id)
+            if denied:
+                row.update(plan=REFUSE, reason=denied)
+            elif source is None:
+                row.update(plan=REFUSE, reason="the record no longer exists")
+            elif (action == ARCHIVE and current == ARCHIVED) or (action == RESTORE and current == ACTIVE):
+                row.update(plan=SKIP, reason=f"already {current.lower()}")
+            elif action == ARCHIVE and hasattr(type(source), "created_at") and source.created_at is None:
+                row.update(plan=REFUSE, reason="no creation time: identity cannot be pinned against id reuse")
+            else:
+                row.update(plan=WILL, reason="")
+            rows.append(row)
+    seen: Set[str] = set()
+    for row in rows:                                   # the same record twice in one batch is marked once
+        if row["key"] in seen and row["plan"] == WILL:
+            row.update(plan=SKIP, reason="listed twice in this batch")
+        seen.add(row["key"])
+    counts = {plan: sum(1 for r in rows if r["plan"] == plan) for plan in (WILL, SKIP, REFUSE)}
+    return {"action": action, "contract": BULK_CONTRACT, "rows": rows, "counts": counts,
+            "authorized": denied is None}
+
+
+def bulk_apply(db, entries: Iterable[Any], action: str, reason: str, *,
+               user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Apply a bulk ARCHIVE or RESTORE with one reason. PER_ROW: each WILL row gets its own mark + audit
+    transaction; a row that fails is reported (FAILED) and the others keep their result. ``partial`` is True
+    whenever at least one requested row did not end DONE or SKIPPED."""
+    reason = str(reason or "").strip()
+    if not reason:
+        raise WorkbenchError(f"A reason is required to {action.lower()} calculation records.")
+    entries = list(entries)
+    preview = bulk_preview(db, entries, action)
+    if not preview["authorized"]:
+        raise WorkbenchError(f"Bulk {action.lower()} refused: {preview['rows'][0]['reason'] if preview['rows'] else ''}")
+    by_key = {e.key: e for e in entries}
+    results: List[Dict[str, Any]] = []
+    for row in preview["rows"]:
+        out = {k: row[k] for k in ("key", "name", "table", "record_id")}
+        if row["plan"] == SKIP:
+            out.update(status=SKIPPED, detail=row["reason"])
+        elif row["plan"] == REFUSE:
+            out.update(status=REFUSED, detail=row["reason"])
+        else:
+            try:
+                mark = _mark(db, by_key[row["key"]], action, reason, user_id=user_id)
+                out.update(status=DONE, detail=f"mark #{mark['id']}")
+            except WorkbenchError as exc:
+                out.update(status=REFUSED, detail=str(exc))
+            except Exception as exc:  # silent-ok: reported per row as FAILED; that row's transaction rolled back
+                out.update(status=FAILED, detail=f"{type(exc).__name__}: {exc}")
+        results.append(out)
+    counts = {s: sum(1 for r in results if r["status"] == s) for s in (DONE, SKIPPED, REFUSED, FAILED)}
+    partial = bool(counts[REFUSED] or counts[FAILED]) and bool(counts[DONE])
+    return {"action": action, "contract": BULK_CONTRACT, "reason": reason, "rows": results, "counts": counts,
+            "partial": partial, "message": bulk_message(action, counts, partial)}
+
+
+def bulk_message(action: str, counts: Dict[str, int], partial: bool) -> str:
+    verb = "Archived" if action == ARCHIVE else "Restored"
+    text = f"{verb} {counts[DONE]} record(s)"
+    extras = [f"{counts[SKIPPED]} skipped"] if counts[SKIPPED] else []
+    if counts[REFUSED]:
+        extras.append(f"{counts[REFUSED]} refused")
+    if counts[FAILED]:
+        extras.append(f"{counts[FAILED]} NOT SAVED (storage error)")
+    text += (" (" + ", ".join(extras) + ")" if extras else "") + "."
+    if partial:
+        text = "PARTIAL: " + text + " Rows that were done stay done; see the per-row status."
+    return text + " Nothing was deleted or changed."

@@ -59,6 +59,11 @@ class DdrValueStatesDialog(QDialog):
         self.save_button.setObjectName("ddr_value_states_save")
         self.save_button.clicked.connect(self.save)
         buttons.addButton(self.save_button, QDialogButtonBox.ActionRole)
+        self.lineage_button = QPushButton("🧬 Lineage…")                  # M302: read-only, selected field
+        self.lineage_button.setObjectName("ddr_value_states_lineage")
+        self.lineage_button.clicked.connect(self.open_lineage)
+        buttons.addButton(self.lineage_button, QDialogButtonBox.ActionRole)
+        self.lineage_dialog = None
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         self.fields: List[str] = []
@@ -71,7 +76,9 @@ class DdrValueStatesDialog(QDialog):
         self.table.setRowCount(len(self.fields))
         for row, field in enumerate(self.fields):
             entry = self.shown[field]
-            self.table.setItem(row, 0, QTableWidgetItem(entry["label"]))
+            label = QTableWidgetItem(entry["label"])
+            label.setToolTip(vs.describe(field))                    # M298: unit, import support, missing contract
+            self.table.setItem(row, 0, label)
             self.table.setItem(row, 1, QTableWidgetItem("—" if entry["value"] is None else f"{entry['value']:g}"))
             combo = QComboBox()
             for state in vs.STATES:
@@ -82,7 +89,9 @@ class DdrValueStatesDialog(QDialog):
             method = QLineEdit(entry["method"] or "")
             self.table.setCellWidget(row, 3, method)
             recorded = ("INCONSISTENT: " + entry["reason"]) if not entry["consistent"] else \
-                ("yes" if entry["recorded"] else "implicit")
+                (("yes (import)" if entry.get("source") == "import" else "yes") if entry["recorded"] else "implicit")
+            if entry.get("pending_review") is not None:                        # M296: ambiguous imported value
+                recorded += f"; import review pending: {entry['pending_review']!r} (not stored)"
             self.table.setItem(row, 4, QTableWidgetItem(recorded))
             typed = QLineEdit("")
             typed.setPlaceholderText("no entry")
@@ -94,6 +103,18 @@ class DdrValueStatesDialog(QDialog):
         combo = self.table.cellWidget(row, 2)
         combo.setCurrentIndex(vs.STATES.index(state))
         self.table.cellWidget(row, 3).setText(method)
+
+    def open_lineage(self, _checked: bool = False):
+        """M302: the read-only lineage of the selected field (non-blocking; kept in ``lineage_dialog``)."""
+        from dialogs import value_lineage_dialog as vld
+
+        row = self.table.currentRow()
+        if row < 0 or row >= len(self.fields):
+            self.status.setText("Select a field first to see its lineage.")
+            return None
+        self.lineage_dialog = vld.open_non_blocking(vld.for_imported_value(self.db, self.report_id,
+                                                                           self.fields[row], self))
+        return self.lineage_dialog
 
     def set_typed(self, field: str, text: str) -> None:
         self.table.cellWidget(self.fields.index(field), TYPED_COLUMN).setText(text)
@@ -126,24 +147,13 @@ class DdrValueStatesDialog(QDialog):
         return out
 
     def save(self) -> Dict[str, List]:
-        saved, refused = [], []
-        for field, typed, method in self.typed_pending():
-            try:
-                vs.record_authored(self.db, self.report_id, field, typed, calculated_method=method,
-                                   user_id=self.user_id)
-                saved.append(field)
-                self.values_changed = True
-            except vs.ValueStateError as exc:
-                refused.append((field, str(exc)))
-        for field, state, method in self.pending():
-            try:
-                vs.record(self.db, self.report_id, field, state, method=method, user_id=self.user_id)
-                saved.append(field)
-            except vs.ValueStateError as exc:
-                refused.append((field, str(exc)))
+        # M299: explicit PER_FIELD batch contract (each field its own transaction; partial saves are reported).
+        entries = [{"field": field, "typed": typed, "method": method}
+                   for field, typed, method in self.typed_pending()]
+        entries += [{"field": field, "state": state, "method": method} for field, state, method in self.pending()]
+        result = vs.save_batch(self.db, self.report_id, entries, user_id=self.user_id)
+        self.values_changed = self.values_changed or result.values_changed
         self.refresh()
-        message = f"Saved {len(saved)} state(s)."
-        if refused:
-            message += " Refused: " + "; ".join(reason for _field, reason in refused)
-        self.status.setText(message)
-        return {"saved": saved, "refused": refused, "values_changed": self.values_changed}
+        self.status.setText(result.message())
+        return {"saved": result.saved, "refused": result.refused, "failed": result.failed,
+                "partial": result.partial, "values_changed": self.values_changed}

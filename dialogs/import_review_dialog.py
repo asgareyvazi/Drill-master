@@ -125,9 +125,12 @@ class ImportReviewDialog(QDialog):
         self.ignore_btn = QPushButton("🚫 Ignore")
         self.correct_btn = QPushButton("✏ Correct value…")
         self.reopen_btn = QPushButton("↺ Reopen…")
+        self.lineage_btn = QPushButton("🧬 Lineage…")                     # M302: read-only lineage of one item
+        self.lineage_btn.setObjectName("import_review_lineage_btn")
+        self.lineage_dialog = None
         close_btn = QPushButton("Close")
         for button in (self.attach_btn, self.attach_all_btn, self.reject_btn, self.ignore_btn, self.correct_btn,
-                       self.reopen_btn):
+                       self.reopen_btn, self.lineage_btn):
             actions.addWidget(button)
         actions.addStretch()
         actions.addWidget(close_btn)
@@ -138,6 +141,7 @@ class ImportReviewDialog(QDialog):
         self.ignore_btn.clicked.connect(lambda: self._decide_selected("IGNORED"))
         self.correct_btn.clicked.connect(self._correct_selected)
         self.reopen_btn.clicked.connect(self._reopen_selected)
+        self.lineage_btn.clicked.connect(self._lineage_selected)
         close_btn.clicked.connect(self.accept)
         for combo in (self.state_filter, self.type_filter, self.sheet_filter):
             combo.currentIndexChanged.connect(self.populate)
@@ -276,6 +280,21 @@ class ImportReviewDialog(QDialog):
             QMessageBox.information(self, "Import review", "Select exactly one row.")
             return None
         return selected[0]
+
+    def _lineage_selected(self, _checked: bool = False):
+        """M302: open the read-only lineage of the one selected item (non-blocking; kept in ``lineage_dialog``)."""
+        from core import import_value_lineage as ivl
+        from dialogs import value_lineage_dialog as vld
+
+        item = self._single()
+        if item is None:
+            return None
+        try:
+            self.lineage_dialog = vld.open_non_blocking(vld.for_review_item(self.db, item["id"], self.well_id, self))
+        except ivl.LineageError as exc:
+            QMessageBox.warning(self, "Import review", str(exc))
+            return None
+        return self.lineage_dialog
 
     def _correct_selected(self) -> None:
         item = self._single()

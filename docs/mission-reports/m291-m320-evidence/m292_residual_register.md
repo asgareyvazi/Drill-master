@@ -14,8 +14,8 @@ Classes: RESOLVED · PARTIALLY RESOLVED · OPEN · NOT REPRODUCED · REPRODUCED 
 
 | ID | Claim | Re-check | Class at the start of M291 |
 |---|---|---|---|
-| M272 | value states for the 11 numeric DDR header fields, W2 editor, data quality | Present at `07a0f8b`, 35+ tests. **M272-G1 (new):** `parse_authored` and its D86 comma rule are unit-tested, but no production path calls them. The W2 dialog takes a state from a combo box and the W2 numeric inputs are spin boxes. Not in import or PDF. | PARTIALLY RESOLVED |
-| M273 | review-item lineage, stored-now check | Present. **M273-G1 (new):** an ACCEPTED item without a CORRECTED history entry is always NOT_CHECKED, including auto-accepted items. No lineage for imported values that have no review item. | PARTIALLY RESOLVED |
+| M272 | value states for the 11 numeric DDR header fields, W2 editor, data quality | Present at `07a0f8b`. **M272-G1 (new):** `parse_authored` had no production caller. **Update M295/M296/M297:** the W2 value-states dialog has a typed column that goes through `parse_authored` and `record_authored` (`ae016a7`); the Excel and supported-PDF imports record value states in the import transaction (`core/ddr_import_value_states.py`). The W2 header spin boxes themselves are unchanged (they cannot hold a comma). Partial-success semantics kept and made explicit (M299). | RESOLVED |
+| M273 | review-item lineage, stored-now check | Present. **M273-G1 (new):** an ACCEPTED item without a correction was always NOT_CHECKED; imported values without a review item had no lineage. **Update M300/M301/M302:** accepted items are checked against the latest correction, else the persisted acceptance snapshot, else the normalized value when no conversion is declared, else NOT_CHECKED with a reason; non-accepted items are NOT_APPLICABLE; imported values have a stable `iv:` identity and read-only lineage without review items; a read-only lineage dialog is reachable from W2 and the review queue. | RESOLVED |
 | M286 | clone / archive / restore | Present for every history kind through `_source_row`. Tests exercise one casing record and one calculation case. No bulk operation and no clone/source side-by-side view. D87 identity rests on `created_at` equality, which is weak when the timestamp is NULL. | PARTIALLY RESOLVED |
 | M285 | dashboard KPI specs | 20 dashboard KPIs specified; W12 Analysis KPIs not specified | PARTIALLY RESOLVED |
 | M289 | 13-step journey | synthetic, no MainWindow | PARTIALLY RESOLVED |
@@ -34,7 +34,7 @@ Classes: RESOLVED · PARTIALLY RESOLVED · OPEN · NOT REPRODUCED · REPRODUCED 
 | D83 | workbench status set after refresh; test plus mutant | RESOLVED |
 | D84 | policies for the two event tables; authorization tests | RESOLVED |
 | D85 | `DELETED_AFTER_REPORT` sweep; test plus mutant | RESOLVED |
-| D86 | comma refusal in `parse_authored` | RESOLVED in the helper; **live path missing** (M272-G1, M295) |
+| D86 | comma refusal in `parse_authored` | RESOLVED: live in the W2 typed column (M295, `ae016a7`); import keeps `1,500` for review (M296) |
 | D87 | `source_created_at` snapshot | PARTIALLY RESOLVED (NULL / equal-timestamp identity; M304) |
 | D88 | 3.12 coverage leg: direct-SHA cancellations; 72.40 % on the documentation-only descendant | PARTIALLY RESOLVED (M293 addendum); timing cause unknown |
 

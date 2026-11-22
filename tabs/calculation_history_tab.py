@@ -21,10 +21,13 @@ from PySide6.QtWidgets import (
 )
 
 from core import calculation_history as ch
+from core import calculation_clone_contract as ccc
 from core import calculation_workbench as wb
 
 logger = logging.getLogger(__name__)
 COLUMNS = ("Source", "Name", "Method", "Version", "Created", "Scope", "Derived from")
+CLONE_TIP = ("Store a new case with the same inputs and stored results (not recalculated, not approved); "
+             "the original stays as it was.")
 PAGE_SIZE = 200          # M73: rows per page; filters and paging run in the database
 
 
@@ -98,8 +101,7 @@ class CalculationHistoryTab(QWidget):
         self.export_btn = QPushButton("Export list CSV…")
         self.export_btn.clicked.connect(self._export_clicked)
         self.clone_btn = QPushButton("Clone")                 # M286
-        self.clone_btn.setToolTip("Store a new case with the same inputs and stored results (not recalculated); "
-                                  "the original stays as it was.")
+        self.clone_btn.setToolTip(CLONE_TIP)
         self.clone_btn.clicked.connect(self._clone_clicked)
         self.archive_btn = QPushButton("Archive…")
         self.archive_btn.setToolTip("Hide the record from this list (reason required, audited); nothing is deleted.")
@@ -107,8 +109,23 @@ class CalculationHistoryTab(QWidget):
         self.restore_btn = QPushButton("Restore…")
         self.restore_btn.setToolTip("Return an archived record to the list (reason required, audited).")
         self.restore_btn.clicked.connect(self._restore_clicked)
+        # M305: bulk archive / restore of the selected rows (preview, one reason, per-row status)
+        self.bulk_archive_btn = QPushButton("Archive selected…")
+        self.bulk_archive_btn.setToolTip("Preview, then archive every selected record with one reason (per-row "
+                                         "status; each row is its own audited transaction).")
+        self.bulk_archive_btn.clicked.connect(self._bulk_archive_clicked)
+        self.bulk_restore_btn = QPushButton("Restore selected…")
+        self.bulk_restore_btn.setToolTip("Preview, then restore every selected archived record with one reason.")
+        self.bulk_restore_btn.clicked.connect(self._bulk_restore_clicked)
+        # M306: a clone next to its source (read-only; a clone is a copy, not a rerun)
+        self.clone_compare_btn = QPushButton("Clone vs source…")
+        self.clone_compare_btn.setToolTip("Show a cloned case next to the record it was copied from.")
+        self.clone_compare_btn.clicked.connect(self._clone_compare_clicked)
+        self.last_bulk: Optional[dict] = None
+        self.clone_dialog = None
         for button in (self.compare_btn, self.recalc_btn, self.save_recalc_btn, self.clone_btn, self.archive_btn,
-                       self.restore_btn, self.report_btn, self.export_btn):
+                       self.restore_btn, self.bulk_archive_btn, self.bulk_restore_btn, self.clone_compare_btn,
+                       self.report_btn, self.export_btn):
             actions.addWidget(button)
         layout.addLayout(actions)
         lineage = QHBoxLayout()
@@ -218,7 +235,12 @@ class CalculationHistoryTab(QWidget):
         self.save_recalc_btn.setEnabled(bool(self.last_outcome and self.last_outcome.get("values")))
         self.export_btn.setEnabled(bool(self.entries))
         one = chosen[0] if len(chosen) == 1 else None
-        self.clone_btn.setEnabled(one is not None)
+        refusal = ccc.explain(one) if one is not None else None        # M303: the adapter matrix decides
+        self.clone_btn.setEnabled(one is not None and refusal is None)
+        self.clone_btn.setToolTip(f"Clone refused: {refusal}" if refusal else CLONE_TIP)
+        self.bulk_archive_btn.setEnabled(any(e.key not in self.archived_keys for e in chosen))
+        self.bulk_restore_btn.setEnabled(any(e.key in self.archived_keys for e in chosen))
+        self.clone_compare_btn.setEnabled(one is not None and one.table == "calculation_cases")
         self.archive_btn.setEnabled(one is not None and one.key not in self.archived_keys)
         self.restore_btn.setEnabled(one is not None and one.key in self.archived_keys)
 
@@ -317,6 +339,74 @@ class CalculationHistoryTab(QWidget):
 
     def restore_selected(self) -> Optional[dict]:
         return self._set_archived(False)
+
+    # -- M305: bulk archive / restore ----------------------------------------
+    def confirm_bulk(self, preview: dict) -> Optional[str]:
+        """Show the per-row preview and ask for the reason (None when cancelled). Tests replace this method."""
+        from PySide6.QtWidgets import QMessageBox
+
+        lines = [f"{r['plan']}: {r['key']} {('– ' + r['reason']) if r['reason'] else ''}" for r in preview["rows"]]
+        verb = "Archive" if preview["action"] == wb.ARCHIVE else "Restore"
+        answer = QMessageBox.question(self, f"{verb} {len(lines)} record(s)",
+                                      "\n".join(lines[:40]) + ("\n…" if len(lines) > 40 else "")
+                                      + "\n\nEach row is its own audited transaction; nothing is deleted.")
+        if answer != QMessageBox.Yes:
+            return None
+        return self.ask_reason(f"{verb} {preview['counts'][wb.WILL]} record(s)")
+
+    def bulk_set_archived(self, archive: bool) -> Optional[dict]:
+        chosen = self.selected()
+        if not chosen:
+            return None
+        action = wb.ARCHIVE if archive else wb.RESTORE
+        preview = wb.bulk_preview(self.db, chosen, action)
+        if not preview["authorized"]:
+            self.status.setText(f"Bulk {action.lower()} refused: {preview['rows'][0]['reason']}")
+            return None
+        if not preview["counts"][wb.WILL]:
+            self.status.setText(f"Nothing to {action.lower()}: " + "; ".join(
+                f"{r['key']} {r['reason']}" for r in preview["rows"]))
+            return None
+        reason = self.confirm_bulk(preview)
+        if reason is None:
+            return None
+        try:
+            result = wb.bulk_apply(self.db, chosen, action, reason, user_id=self._user_id())
+        except wb.WorkbenchError as exc:
+            self.status.setText(str(exc))
+            return None
+        self.last_bulk = result
+        self.refresh()                                       # before the message: refresh rewrites the status line
+        details = "; ".join(f"{r['key']} {r['status']}" + (f" ({r['detail']})" if r["status"] != wb.DONE else "")
+                            for r in result["rows"])
+        self.status.setText(f"{result['message']} {details}")
+        return result
+
+    def _bulk_archive_clicked(self, _checked=False):
+        self.bulk_set_archived(True)
+
+    def _bulk_restore_clicked(self, _checked=False):
+        self.bulk_set_archived(False)
+
+    # -- M306: clone vs source -----------------------------------------------
+    def clone_comparison(self) -> Optional[dict]:
+        chosen = self.selected()
+        if len(chosen) != 1 or chosen[0].table != "calculation_cases":
+            return None
+        from dialogs.clone_comparison_dialog import CloneComparisonDialog
+
+        comparison = ccc.side_by_side(self.db, chosen[0].record_id)
+        if comparison["status"] == "NOT_A_CLONE":
+            self.status.setText(f"{chosen[0].key} is not a clone; there is no source to compare with.")
+            return comparison
+        self.clone_dialog = CloneComparisonDialog(comparison, self)
+        self.clone_dialog.setAttribute(Qt.WA_DeleteOnClose, True)
+        self.clone_dialog.open()
+        self.status.setText(f"Clone vs source: {comparison['status']} (copy, not a rerun).")
+        return comparison
+
+    def _clone_compare_clicked(self, _checked=False):
+        self.clone_comparison()
 
     def _clone_clicked(self, _checked=False):
         self.clone_selected()

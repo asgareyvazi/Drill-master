@@ -35,7 +35,9 @@ def test_an_open_item_shows_source_parsed_normalized_and_no_acceptance(imported)
     assert source["detail"]["file"] == item["source_file"]
     assert (parsed["status"], parsed["detail"]["original_text"]) == (ivl.RECORDED, "5")
     assert correction["status"] == "NONE"
-    assert accepted["status"] == DEFERRED_UNRESOLVED and lineage["check"] == ivl.NOT_CHECKED
+    # M300: nothing accepted -> NOT_APPLICABLE (was NOT_CHECKED under M273), with the reason.
+    assert accepted["status"] == DEFERRED_UNRESOLVED and lineage["check"] == ivl.NOT_APPLICABLE
+    assert lineage["reason"] == f"no value was accepted (the item is {DEFERRED_UNRESOLVED})"
 
 
 def test_an_accepted_correction_still_stored_is_a_match(imported):  # noqa: F811
@@ -106,7 +108,8 @@ def test_reopened_item_is_not_checked_and_the_latest_correction_is_the_expected_
     _correct(db, well, item["id"], "5")
     reopen_item(db, item["id"], well, "SYN: value re-read")
     reopened = ivl.value_lineage(db, item["id"], well)
-    assert reopened["stages"][4]["status"] == DEFERRED_UNRESOLVED and reopened["check"] == ivl.NOT_CHECKED
+    # M300: a reopened item has no accepted value -> NOT_APPLICABLE (was NOT_CHECKED under M273).
+    assert reopened["stages"][4]["status"] == DEFERRED_UNRESOLVED and reopened["check"] == ivl.NOT_APPLICABLE
     assert reopened["stages"][3]["detail"]["reopened"] == 1
     _correct(db, well, item["id"], "6")
     lineage = ivl.value_lineage(db, item["id"], well)

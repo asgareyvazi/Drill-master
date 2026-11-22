@@ -337,6 +337,10 @@ class DDRImportService:
         # Keep the unmodified proposal set in the audit snapshot above, but
         # never let REVIEW/REJECT rows reach ORM construction as canonical facts.
         _strip_unaccepted_review_proposals(extracted)
+        # M296: the numeric header fields that reach persistence are classified (number / blank / explicit
+        # token / ambiguous); ambiguous values are removed and kept as review items, never interpreted.
+        from core import ddr_import_value_states as import_states
+        value_state_plan = import_states.prepare(extracted)
         selected_well_id = self.well_id
         results = {
             "imported": 0,
@@ -755,6 +759,18 @@ class DDRImportService:
                 return results
 
             results["report_id"] = report_id
+
+            # M296: explicit header tokens (N/A, ?, NR ...) become recorded value states in this transaction;
+            # an existing state is never superseded and a contradiction is reported, not repaired.
+            stage = "value_states"
+            value_state_outcomes = import_states.record_import_states(
+                self.db, session, report_id, value_state_plan, fingerprint=source_fingerprint)
+            results["value_states"] = {"contract": import_states.CONTRACT, "fields": value_state_plan["fields"],
+                                       "outcomes": value_state_outcomes,
+                                       "ambiguous": list(value_state_plan["ambiguous"])}
+            line = import_states.summary(value_state_plan, value_state_outcomes)
+            if line:
+                results["details"].append(line)
 
             # Mud with unit preservation
             stage = "mud_report"

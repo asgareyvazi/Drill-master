@@ -32,7 +32,8 @@ and the new value. A report that is not editable (submitted, approved, final) is
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Optional, Tuple
+from dataclasses import dataclass, field as dataclass_field
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 CONTRACT = "ddr-value-states-v1"
 REPORTED, ZERO, CALCULATED = "REPORTED", "ZERO", "CALCULATED"
@@ -180,8 +181,11 @@ def states(db, report_id: int) -> Dict[str, Dict[str, Any]]:
 
 def states_in(session, report_id: int) -> Dict[str, Dict[str, Any]]:
     """:func:`states` inside the caller's session (read-only; used by the data-quality workspace)."""
+    from core import ddr_import_value_states as import_states
+
     report = _report(session, report_id)
     latest = _latest(session, report_id)
+    pending = import_states.pending_review_fields(session, report_id)     # M296: ambiguous imported values
     out: Dict[str, Dict[str, Any]] = {}
     for field, label in FIELDS.items():
         value = getattr(report, field)
@@ -191,12 +195,15 @@ def states_in(session, report_id: int) -> Dict[str, Dict[str, Any]]:
             unreadable = state == INCONSISTENT
             out[field] = {"label": label, "value": value, "state": state, "recorded": False,
                           "method": None, "note": None, "consistent": not unreadable,
-                          "reason": f"the stored value {value!r} is not a finite number" if unreadable else ""}
+                          "reason": f"the stored value {value!r} is not a finite number" if unreadable else "",
+                          "source": None, "pending_review": pending.get(field)}
             continue
         why = contradiction(row.state, value, row.method or "")
         out[field] = {"label": label, "value": value, "state": INCONSISTENT if why else row.state,
                       "recorded_state": row.state, "recorded": True, "method": row.method, "note": row.note,
-                      "consistent": why is None, "reason": why or ""}
+                      "consistent": why is None, "reason": why or "",
+                      "source": "import" if import_states.is_import_event(row) else "operator",
+                      "pending_review": pending.get(field)}
     return out
 
 
@@ -248,3 +255,129 @@ def record_authored(db, report_id: int, field: str, typed: Any, *, calculated_me
                                 + (f" ({method})" if method else ""))
         return {"id": row.id, "report_id": report_id, "field": field, "state": state, "value": value,
                 "previous": previous}
+
+
+# ---- M298: schema-driven value-state registry ---------------------------------------------------------------
+REGISTRY_CONTRACT = "ddr-value-state-registry-v1"
+MISSING_CONTRACT = ("UNKNOWN, NOT_APPLICABLE and NOT_REPORTED keep the stored value None (never 0); ZERO needs a "
+                    "stored 0; REPORTED and CALCULATED need a stored finite number; CALCULATED needs a method")
+VALIDATION = ("finite number only: NaN, infinity, booleans and text are refused; a comma is refused (decimal or "
+              "thousands separator?); a contradicting state is refused, a later contradiction is reported as "
+              "INCONSISTENT and never repaired")
+
+
+@dataclass(frozen=True)
+class ValueField:
+    """One registered numeric DDR header field and everything the value-state contract says about it."""
+    key: str
+    label: str
+    unit: Optional[str]                     # canonical unit, or None when no canonical spec declares one
+    unit_source: str
+    bounds: Tuple[Optional[float], Optional[float]]
+    import_excel: bool                      # mapped by the canonical schema, so Excel IR / template can feed it
+    import_pdf: bool                        # same canonical aliases on the PDF routes (native fallback, MinerU)
+    states: Tuple[str, ...] = STATES
+    missing_contract: str = MISSING_CONTRACT
+    validation: str = VALIDATION
+    provenance: Tuple[str, ...] = dataclass_field(default_factory=lambda: (
+        AUDIT_ACTION, AUTHORED_AUDIT_ACTION, "ddr_import_value_state"))
+    ui: Tuple[str, ...] = ("W2 Value states dialog: state choice", "W2 Value states dialog: typed entry")
+
+    @property
+    def persistence(self) -> str:
+        return f"daily_reports.{self.key} (value) + ddr_value_states (append-only state events)"
+
+    def as_row(self) -> Dict[str, Any]:
+        return {"key": self.key, "label": self.label, "unit": self.unit or "not declared",
+                "unit_source": self.unit_source, "bounds": list(self.bounds), "states": list(self.states),
+                "missing_contract": self.missing_contract, "validation": self.validation,
+                "provenance": list(self.provenance), "import_excel": self.import_excel,
+                "import_pdf": self.import_pdf, "ui": list(self.ui), "persistence": self.persistence}
+
+
+def registry() -> Dict[str, ValueField]:
+    """The registry for :data:`FIELDS` (same keys, same order), derived from ``core.canonical_schema``.
+
+    A field without a canonical spec has no declared unit and no import mapping; nothing is invented for it.
+    """
+    from core import canonical_schema
+
+    out: Dict[str, ValueField] = {}
+    for key, label in FIELDS.items():
+        spec = canonical_schema.get_field_spec(f"daily_report.{key}")
+        if spec is None:
+            out[key] = ValueField(key, label, None, "no canonical spec (the DDR form owns the unit)", (None, None),
+                                  False, False)
+            continue
+        out[key] = ValueField(key, label, spec.unit or None, "core.canonical_schema",
+                              canonical_schema.get_engineering_bounds(f"daily_report.{key}"), True, True)
+    return out
+
+
+def describe(key: str) -> str:
+    """A one-paragraph description of a registered field (UI tooltip)."""
+    entry = registry()[key]
+    unit = entry.unit or "not declared"
+    imports = ", ".join(name for name, ok in (("Excel", entry.import_excel), ("PDF", entry.import_pdf)) if ok)
+    return (f"{entry.label} - unit: {unit} ({entry.unit_source}). Import: {imports or 'not mapped'}. "
+            f"{entry.missing_contract}.")
+
+
+# ---- M299: batch transaction contract -----------------------------------------------------------------------
+BATCH_CONTRACT = "ddr-value-state-batch-v1"
+PER_FIELD = "PER_FIELD"
+
+
+@dataclass
+class BatchResult:
+    """Outcome of :func:`save_batch` - every entry is reported exactly once."""
+    semantics: str = PER_FIELD
+    saved: List[str] = dataclass_field(default_factory=list)
+    refused: List[Tuple[str, str]] = dataclass_field(default_factory=list)     # contract refusals (expected)
+    failed: List[Tuple[str, str]] = dataclass_field(default_factory=list)      # storage / audit failures
+    values_changed: bool = False
+
+    @property
+    def partial(self) -> bool:
+        return bool(self.saved) and bool(self.refused or self.failed)
+
+    def message(self) -> str:
+        total = len(self.saved) + len(self.refused) + len(self.failed)
+        text = f"Saved {len(self.saved)} state(s) of {total} change(s)."
+        if self.partial:
+            text += " PARTIAL SAVE: each field is saved on its own; the saved fields stay saved."
+        if self.refused:
+            text += " Refused: " + "; ".join(reason for _field, reason in self.refused)
+        if self.failed:
+            text += " NOT SAVED (storage error, nothing written for these fields): " + "; ".join(
+                f"{FIELDS.get(field, field)}: {reason}" for field, reason in self.failed)
+        return text
+
+
+def save_batch(db, report_id: int, entries: Sequence[Dict[str, Any]], *,
+               user_id: Optional[int] = None) -> BatchResult:
+    """Save several value-state changes of one report with explicit PER_FIELD semantics.
+
+    Each entry is ``{"field", "typed"}`` (typed value, :func:`record_authored`) or ``{"field", "state"[, "method"]}``
+    (state only, :func:`record`). Every entry is its own transaction: its value, state event and mandatory audit
+    record commit or roll back together, so there is never a state row without its audit or a value without its
+    state. One entry failing does not undo or block the others; the result names every saved, refused and failed
+    field, and :attr:`BatchResult.partial` says when the batch was only partly saved.
+    """
+    result = BatchResult()
+    for entry in entries:
+        name = entry["field"]
+        try:
+            if "typed" in entry:
+                record_authored(db, report_id, name, entry["typed"], calculated_method=entry.get("method", ""),
+                                note=entry.get("note", ""), user_id=user_id)
+                result.values_changed = True
+            else:
+                record(db, report_id, name, entry["state"], method=entry.get("method", ""),
+                       note=entry.get("note", ""), user_id=user_id)
+            result.saved.append(name)
+        except ValueStateError as exc:
+            result.refused.append((name, str(exc)))
+        except Exception as exc:  # silent-ok: reported per field in BatchResult.failed; that field's transaction rolled back
+            result.failed.append((name, f"{type(exc).__name__}: {exc}"))
+    return result

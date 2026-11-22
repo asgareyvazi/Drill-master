@@ -101,7 +101,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 17,
+    "evidence_tests": 18,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
@@ -116,6 +116,7 @@
      "test_m205_m207_schematic_provenance.py",
      "test_m223_library_architecture_cement_lineage.py",
      "test_m229_product_journey.py",
+     "test_m303_m306_clone_contract_and_bulk.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -127,7 +128,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 71,
+    "evidence_tests": 72,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -170,6 +171,7 @@
      "test_m270_r1_engine_contracts.py",
      "test_m286_workbench_clone_archive.py",
      "test_m289_cross_module_journey.py",
+     "test_m303_m306_clone_contract_and_bulk.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -207,7 +209,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 17,
+    "evidence_tests": 18,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
@@ -222,6 +224,7 @@
      "test_m205_m207_schematic_provenance.py",
      "test_m223_library_architecture_cement_lineage.py",
      "test_m229_product_journey.py",
+     "test_m303_m306_clone_contract_and_bulk.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -233,7 +236,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 66,
+    "evidence_tests": 67,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -269,6 +272,7 @@
      "test_m205_m207_schematic_provenance.py",
      "test_m223_library_architecture_cement_lineage.py",
      "test_m229_product_journey.py",
+     "test_m303_m306_clone_contract_and_bulk.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -552,7 +556,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 24,
+    "evidence_tests": 25,
     "licence": "own code (product licence)",
     "method_id": "survey.azimuth_transform",
     "status": "IMPLEMENTED",
@@ -570,6 +574,7 @@
      "test_m178_trajectory_views.py",
      "test_m198_backup_restore_qualification.py",
      "test_m289_cross_module_journey.py",
+     "test_m303_m306_clone_contract_and_bulk.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -585,7 +590,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 24,
+    "evidence_tests": 25,
     "licence": "own code (product licence)",
     "method_id": "survey.datum_transform",
     "status": "IMPLEMENTED",
@@ -603,6 +608,7 @@
      "test_m178_trajectory_views.py",
      "test_m198_backup_restore_qualification.py",
      "test_m289_cross_module_journey.py",
+     "test_m303_m306_clone_contract_and_bulk.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -618,7 +624,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 24,
+    "evidence_tests": 25,
     "licence": "own code (product licence)",
     "method_id": "survey.revision",
     "status": "IMPLEMENTED",
@@ -636,6 +642,7 @@
      "test_m178_trajectory_views.py",
      "test_m198_backup_restore_qualification.py",
      "test_m289_cross_module_journey.py",
+     "test_m303_m306_clone_contract_and_bulk.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -1645,6 +1652,15 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/clone_comparison_dialog.py",
+   "guarded": false,
+   "lines": [
+    12,
+    13
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/daily_report_dialogs.py",
    "guarded": false,
    "lines": [
@@ -1876,6 +1892,15 @@
    "module": "PySide6"
   },
   {
+   "file": "dialogs/value_lineage_dialog.py",
+   "guarded": false,
+   "lines": [
+    16,
+    17
+   ],
+   "module": "PySide6"
+  },
+  {
    "file": "dialogs/well_control_kill_sheet_history_dialog.py",
    "guarded": false,
    "lines": [
@@ -1939,7 +1964,8 @@
    "lines": [
     16,
     17,
-    18
+    18,
+    346
    ],
    "module": "PySide6"
   },
