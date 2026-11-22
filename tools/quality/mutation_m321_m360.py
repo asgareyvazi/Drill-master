@@ -37,7 +37,8 @@ HR = "core/history_replay.py"
 W3C = "tabs/w3c_section_data.py"
 
 T323 = "tests/test_m323_m328_residuals_and_replay.py"
-TAD = ["tests/test_m311_architecture_diff.py", T323]
+TAD = ["tests/test_m311_architecture_diff.py", "tests/test_m329_architecture_diff_table_export.py", T323]
+WAP = "tabs/well_architecture_panel.py"
 THC = ["tests/test_m314_ddr_hydraulics_check.py"]
 TCJ = ["tests/test_m317_cement_job_reconciliation.py", T323]
 TTDS = ["tests/test_m318_td_friction_sensitivity.py", T323]
@@ -51,18 +52,18 @@ TW3C = ["tests/test_cement_report_null_roundtrip.py"]
 MUTANTS = [
     # ------------------------------------------------------------------ M311 architecture diff
     Mutant("AD-unknown-equals-zero", AD,
-           "                       if (old.get(f) if old.get(f) != \"\" else None) != (new.get(f) if new.get(f) != \"\" "
+           "               if (old.get(f) if old.get(f) != \"\" else None) != (new.get(f) if new.get(f) != \"\" "
            "else None)]\n",
-           "                       if (old.get(f) or 0) != (new.get(f) or 0)]\n", TAD,
+           "               if (old.get(f) or 0) != (new.get(f) or 0)]\n", TAD,
            "a field that went from 0 to unknown (or back) is not reported as a change"),
-    Mutant("AD-binding-ignored", AD, "            if old.get(BINDING) != new.get(BINDING):\n",
-           "            if False:\n", TAD, "a changed tubular-library binding is not reported"),
+    Mutant("AD-binding-ignored", AD, "    if old.get(BINDING) != new.get(BINDING):\n",
+           "    if False:\n", TAD, "a changed tubular-library binding is not reported"),
     Mutant("AD-duplicates-unstated", AD, "        if max(len(olds), len(news)) > 1:\n",
            "        if max(len(olds), len(news)) > 2:\n", TAD,
            "two components with the same identity are matched silently (no ambiguity note)"),
     Mutant("AD-added-as-removed", AD,
-           "                rows.append({\"kind\": key[0], \"name\": key[1], \"status\": ADDED, \"changes\": [], \"new\": new})\n",
-           "                rows.append({\"kind\": key[0], \"name\": key[1], \"status\": REMOVED, \"changes\": [], \"new\": new})\n",
+           "                rows.append({**base, \"status\": ADDED, \"changes\": [], \"new\": new})\n",
+           "                rows.append({**base, \"status\": REMOVED, \"changes\": [], \"new\": new})\n",
            TAD, "an added component is reported as removed"),
     Mutant("AD-geometry-not-affecting", AD,
            "        r[\"status\"] in (ADDED, REMOVED) or any(c[\"field\"] in GEOMETRY for c in r[\"changes\"]))})\n",
@@ -86,6 +87,37 @@ MUTANTS = [
            "the pinned-work list names cases of the newer revision instead of the superseded one"),
     Mutant("AD-unknown-shown-as-zero", AD, "    return \"unknown\" if value in (None, \"\") else",
            "    return \"0\" if value in (None, \"\") else", TAD, "an unknown value is displayed as 0"),
+    # ------------------------------------------------------------------ M329 diff table / duplicates / export
+    Mutant("AD-dup-no-exact-first", AD,
+           "        exact = next((j for j in free_new if not _changes(old, news[j])), None)\n",
+           "        exact = None\n", TAD, "reordered same-named components are reported as two spurious changes"),
+    Mutant("AD-dup-remainder-not-flagged", AD,
+           "free_new[k] if k < len(free_new) else None, True))\n",
+           "free_new[k] if k < len(free_new) else None, False))\n", TAD,
+           "a stored-order match of duplicates is not flagged ambiguous"),
+    Mutant("AD-occurrence-off-by-one", AD, "\"occurrence_old\": oi + 1 if dup and oi is not None else None,",
+           "\"occurrence_old\": oi if dup and oi is not None else None,", TAD,
+           "the older occurrence number names the wrong duplicate"),
+    Mutant("AD-table-always-unchanged", AD, "        if r[\"status\"] == UNCHANGED and not include_unchanged:\n",
+           "        if False:\n", TAD, "the table lists unchanged components unless asked"),
+    Mutant("AD-export-unknown-as-zero", AD, "    if value in (None, \"\"):\n        return \"\"\n",
+           "    if value in (None, \"\"):\n        return 0\n", TAD, "an unknown value is exported as 0"),
+    Mutant("AD-export-formula-live", AD,
+           "    if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES):\n        return \"'\" + value\n",
+           "    if isinstance(value, str) and value.startswith(_FORMULA_PREFIXES):\n        return value\n", TAD,
+           "a component name starting with '=' is exported as a live spreadsheet formula"),
+    Mutant("AD-export-sha-wrong", AD, "(f\"{side} components SHA-256\", info[\"components_sha256\"])",
+           "(f\"{side} components SHA-256\", info[\"id\"])", TAD,
+           "the export does not carry the revision SHA-256 (cannot be tied to the frozen revision)"),
+    Mutant("AD-export-ignores-unchanged-option", AD,
+           "table_rows(result, include_unchanged=include_unchanged)", "table_rows(result)", TAD,
+           "the export omits unchanged components although the user asked for them"),
+    Mutant("AD-binding-label-top-level", AD, "    snap = binding.get(\"snapshot\") or {}\n",
+           "    snap = binding\n", TAD,
+           "D90 regression: the binding label reads the top level and shows every library change as unknown"),
+    Mutant("AD-panel-comparison-outlives-refresh", WAP,
+           "        self.last_comparison = None            # M329",
+           "        pass  # M329", TAD, "a comparison of the previous well stays shown / exportable after refresh"),
     # ------------------------------------------------------------------ M314 DDR hydraulics check
     Mutant("HC-hsi-band-dropped", HC,
            "        inside = low * (1 - HSI_TOLERANCE) <= recorded_hsi <= high * (1 + HSI_TOLERANCE)\n",

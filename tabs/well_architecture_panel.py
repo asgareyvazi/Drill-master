@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton,
                                QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from core import cement_job_reconciliation as cj
@@ -111,6 +111,29 @@ class WellArchitecturePanel(QWidget):
         self.status = QLabel("")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+        # M329: the revision comparison as a table, exportable with its revision SHAs (hidden until compared).
+        from core import architecture_diff as ad
+
+        self.diff_table = QTableWidget(0, len(ad.TABLE_COLUMNS))
+        self.diff_table.setObjectName("architecture_diff_table")
+        self.diff_table.setHorizontalHeaderLabels(list(ad.TABLE_COLUMNS))
+        self.diff_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.diff_table.setVisible(False)
+        layout.addWidget(self.diff_table, 1)
+        diff_row = QHBoxLayout()
+        self.diff_unchanged_check = QCheckBox("Show unchanged components")
+        self.diff_unchanged_check.setObjectName("architecture_diff_unchanged")
+        self.diff_unchanged_check.toggled.connect(lambda _c=False: self._fill_diff_table())
+        self.export_diff_btn = QPushButton("Export comparison…")
+        self.export_diff_btn.setObjectName("architecture_diff_export_btn")
+        self.export_diff_btn.clicked.connect(lambda _c=False: self.export_comparison())
+        diff_row.addWidget(self.diff_unchanged_check)
+        diff_row.addStretch(1)
+        diff_row.addWidget(self.export_diff_btn)
+        self.diff_controls = QWidget()
+        self.diff_controls.setLayout(diff_row)
+        self.diff_controls.setVisible(False)
+        layout.addWidget(self.diff_controls)
         self._update_actions()
 
     # -- context ------------------------------------------------------------
@@ -126,6 +149,8 @@ class WellArchitecturePanel(QWidget):
         from core import survey_revisions as sr
 
         self.revisions, surveys = [], []
+        self.last_comparison = None            # M329: a comparison never outlives the well/revision list it came from
+        self._fill_diff_table()
         if self.db is not None and self.well_id:
             try:
                 self.revisions = wa.list_revisions(self.db, self.well_id)
@@ -275,7 +300,45 @@ class WellArchitecturePanel(QWidget):
             return None
         self.last_comparison = result
         self.status.setText(" ".join(ad.summary_lines(result, limit=12)))
+        self._fill_diff_table()
         return result
+
+    def _fill_diff_table(self) -> None:
+        from core import architecture_diff as ad
+
+        result = self.last_comparison
+        rows = ad.table_rows(result, include_unchanged=self.diff_unchanged_check.isChecked()) if result else []
+        self.diff_table.setRowCount(len(rows))
+        for i, row in enumerate(rows):
+            for j, value in enumerate(row):
+                text = ad._show(value) if j in (5, 6) else str(value)
+                self.diff_table.setItem(i, j, QTableWidgetItem(text))
+        self.diff_table.setVisible(result is not None)
+        self.diff_controls.setVisible(result is not None)
+
+    def export_comparison(self, path: Optional[str] = None) -> Optional[str]:
+        """M329: write the last comparison as CSV or XLSX (metadata with both revision SHA-256s, then the table)."""
+        from core import architecture_diff as ad
+
+        result = self.last_comparison
+        if result is None:
+            self.status.setText("Compare two revisions before exporting.")
+            return None
+        if path is None:
+            from PySide6.QtWidgets import QFileDialog
+
+            name = f"architecture_rev{result['older']['revision']}_vs_rev{result['newer']['revision']}.xlsx"
+            path, _filter = QFileDialog.getSaveFileName(self, "Export comparison", name,
+                                                        "Excel (*.xlsx);;CSV (*.csv)")
+            if not path:
+                return None
+        try:
+            written = ad.export(result, path, include_unchanged=self.diff_unchanged_check.isChecked())
+        except (ad.ArchitectureDiffError, OSError) as exc:
+            self.status.setText(f"Comparison not exported: {exc}")
+            return None
+        self.status.setText(f"Comparison exported to {written}.")
+        return written
 
     def _compare_clicked(self, _checked: bool = False):
         self.compare_selected()

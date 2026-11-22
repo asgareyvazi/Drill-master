@@ -101,7 +101,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 21,
+    "evidence_tests": 22,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
@@ -120,6 +120,7 @@
      "test_m311_architecture_diff.py",
      "test_m317_cement_job_reconciliation.py",
      "test_m323_m328_residuals_and_replay.py",
+     "test_m329_architecture_diff_table_export.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -131,7 +132,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 76,
+    "evidence_tests": 77,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -180,6 +181,7 @@
      "test_m318_td_friction_sensitivity.py",
      "test_m31_scenarios.py",
      "test_m323_m328_residuals_and_replay.py",
+     "test_m329_architecture_diff_table_export.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
      "test_m49_knowledge_ui.py",
@@ -216,7 +218,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 21,
+    "evidence_tests": 22,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
@@ -235,6 +237,7 @@
      "test_m311_architecture_diff.py",
      "test_m317_cement_job_reconciliation.py",
      "test_m323_m328_residuals_and_replay.py",
+     "test_m329_architecture_diff_table_export.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -2388,7 +2391,8 @@
    "file": "tabs/well_architecture_panel.py",
    "guarded": false,
    "lines": [
-    15
+    15,
+    328
    ],
    "module": "PySide6"
   },
@@ -2588,6 +2592,14 @@
    "lines": [
     699,
     957
+   ],
+   "module": "openpyxl"
+  },
+  {
+   "file": "core/architecture_diff.py",
+   "guarded": false,
+   "lines": [
+    268
    ],
    "module": "openpyxl"
   },
