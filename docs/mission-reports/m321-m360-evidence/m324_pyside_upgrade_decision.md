@@ -2,6 +2,8 @@
 
 **Decision owner:** product owner. **Status: BLOCKED BY OWNER DECISION.** This package does not change the pin. `requirements-lock.txt` keeps PySide6 / Essentials / Addons / shiboken6 at **6.8.1.1**. `requirements.txt` and `pyproject.toml` keep `>=6.6,<7`. The mission brief does not count as licence or dependency approval. M325 (the pin change) runs only with explicit owner approval.
 
+Dates: sources were read on 2026-10-13 (session date). The sandbox system clock runs ahead (2026-11-22), so timestamps inside generated artifacts (database `created_at`, file mtimes) show that date; they are not the reading date.
+
 Every candidate below was evaluated in an **isolated environment**: `pip install --no-deps --target /tmp/ps<version>` locally, and a throw-away CI runner overlay (`.github/workflows/pyside-candidate-evaluation.yml`). The product environment was never modified.
 
 ## 1. Candidate set: the requested 6.8.5 target does not exist publicly

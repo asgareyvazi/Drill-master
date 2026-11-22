@@ -159,3 +159,23 @@ def test_w13_sensitivity_runs_on_the_last_pinned_run_and_saves(w13, env):  # noq
     case = cc.list_cases(manager, calculator="T&D friction sensitivity", well_id=ids["A"][0])[0]
     assert case["inputs"]["survey_revision_id"]["value"] == rev["id"]
     assert case["inputs"]["observed_pickup"]["value"] is None             # the refused observation is not stored
+
+
+# ---- M327: locate() rules on hand-built curves (mutation survivors) ----------------------------------------------
+def _curve(values, curve="torque"):
+    return {"rows": [{"friction_factor": 0.1 * (i + 1), "status": "OK", curve: v} for i, v in enumerate(values)]}
+
+
+def test_a_non_monotonic_curve_is_never_located():
+    where = tds.locate(_curve([100.0, 300.0, 200.0]), "torque", 250.0)
+    assert where["status"] == tds.NOT_CHECKED and "not monotonic" in where["reason"]
+
+
+def test_one_factor_states_why_it_cannot_be_located():
+    where = tds.locate(_curve([100.0]), "torque", 100.0)
+    assert where["status"] == tds.NOT_CHECKED and where["reason"] == "fewer than two successful friction factors"
+
+
+def test_an_observed_zero_is_an_observation():
+    where = tds.locate(_curve([100.0, 200.0]), "torque", 0.0)
+    assert where["status"] == tds.BELOW and "observed 0" in where["reason"]

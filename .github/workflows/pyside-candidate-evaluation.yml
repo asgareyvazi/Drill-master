@@ -98,9 +98,18 @@ jobs:
         run: |
           $work = Join-Path $env:RUNNER_TEMP 'work'
           $dist = Join-Path $env:RUNNER_TEMP 'dist'
-          python -m PyInstaller --noconfirm --clean --workpath $work --distpath $dist packaging\DrillMaster.spec
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python packaging\package_smoke.py --bundle-dir (Join-Path $dist 'DrillMaster') --run --log-path (Join-Path $env:RUNNER_TEMP 'package-smoke.log')
+          $build = Join-Path $env:RUNNER_TEMP 'pyinstaller-build.log'
+          $smoke = Join-Path $env:RUNNER_TEMP 'package-smoke.log'
+          $ErrorActionPreference = 'Continue'
+          python -m PyInstaller --noconfirm --clean --workpath $work --distpath $dist packaging\DrillMaster.spec *> $build
           $rc = $LASTEXITCODE
-          Get-Content (Join-Path $env:RUNNER_TEMP 'package-smoke.log') -ErrorAction SilentlyContinue | Select-Object -Last 20
+          if ($rc -ne 0) {
+            python packaging\junit_report.py --annotate --annotate-title "PyInstaller build failed (PySide6 ${{ matrix.pyside }})" --annotate-message "PyInstaller exited $rc" --annotate-file $build --tail-lines 40
+            exit $rc
+          }
+          python packaging\package_smoke.py --bundle-dir (Join-Path $dist 'DrillMaster') --run --log-path $smoke *> (Join-Path $env:RUNNER_TEMP 'smoke-console.log')
+          $rc = $LASTEXITCODE
+          if ($rc -ne 0) {
+            python packaging\junit_report.py --annotate --annotate-title "Frozen package smoke failed (PySide6 ${{ matrix.pyside }})" --annotate-message "package_smoke exited $rc" --annotate-file $smoke --annotate-file (Join-Path $env:RUNNER_TEMP 'smoke-console.log') --tail-lines 40
+          }
           exit $rc

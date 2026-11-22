@@ -190,3 +190,24 @@ def test_architecture_panel_reconciles_and_saves_through_the_buttons(world):
     finally:
         tab.deleteLater()
         app.processEvents()
+
+
+# ---- M327: boundaries (mutation survivors) -----------------------------------------------------------------------
+def test_unregistered_yield_unit_is_refused_even_when_nothing_could_be_pumped(world):
+    db, ids, rev = world
+    with pytest.raises(cj.ReconciliationError, match="not supported"):
+        cj.reconcile(db, _job(db, ids["dev"], cement_volume=None), rev["id"], "9-5/8 csg", yield_unit="kg/sk")
+
+
+@pytest.mark.parametrize("factor, status", [(1.01, cj.WITHIN), (1.019, cj.WITHIN), (1.03, cj.OVER_CAPACITY)])
+def test_displacement_allowance_is_two_percent_of_the_capacity_to_the_shoe(world, factor, status):
+    db, ids, rev = world
+    job = _job(db, ids["dev"], displacement_volume=round(CAPACITY_TO_SHOE * factor, 3))
+    assert cj.reconcile(db, job, rev["id"], "9-5/8 csg", yield_unit="ft3/sk")["displacement"]["status"] == status
+
+
+def test_zero_length_cement_interval_is_refused_not_zero_volume(world):
+    db, ids, rev = world
+    result = cj.reconcile(db, _job(db, ids["dev"], top_of_cement=900.0, bottom_of_cement=900.0), rev["id"],
+                          "9-5/8 csg", yield_unit="ft3/sk")
+    assert result["gauge_bbl"] is None and any("is not below" in n for n in result["notes"])

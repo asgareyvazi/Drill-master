@@ -172,3 +172,14 @@ def test_assistant_exports_and_verifies_through_the_buttons(world, tmp_path, mon
         panel.cleanup()
         panel.deleteLater()
         app.processEvents()
+
+
+def test_a_page_of_another_document_is_page_missing(world):
+    db, _ids, answer = world
+    record = cr.build_record(answer, KICK)
+    cited = record["citations"][0]
+    with db.session_scope() as s:
+        foreign = s.query(DocumentPage).filter(DocumentPage.document_id != int(cited["document_id"])).first().id
+    moved = json.loads(json.dumps(record))
+    moved["citations"][0]["page_id"] = foreign
+    assert cr.verify_record(db, moved)[0]["status"] == cr.PAGE_MISSING

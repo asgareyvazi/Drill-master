@@ -112,3 +112,10 @@ def test_kinds_without_a_manifest_say_so(env, tmp_path):  # noqa: F811
     assert engine.last_provenance["sections"] is None
     row = [v for k, v in rp.rows(engine.last_provenance) if k == "section manifest"][0]
     assert "not available for report kind 'npt'" in row
+
+
+def test_a_record_of_only_empty_fields_is_not_recorded():
+    entry = rs.ddr_manifest({"params": {"bit_size": None, "wob": "", "nozzles": []}, "mud": {"mw": 10.0}})
+    by = {e["section"]: e for e in entry}
+    assert by["Drilling parameters"]["status"] == rs.NOT_RECORDED and by["Drilling parameters"]["rows"] == 0
+    assert by["Mud properties"]["status"] == rs.INCLUDED and by["Mud properties"]["rows"] == 1

@@ -219,3 +219,37 @@ def test_m328_history_tab_replays_and_stores_a_linked_rerun(world):
     link = cc.source_links(db, new["id"])[0]
     assert (link["link_type"], link["source_id"], link["verification_status"]) == ("rerun_of", case["id"], "MATCH")
     assert cc.get_case(db, case["id"])["results"] == case["results"]          # the original is unchanged
+
+
+def test_m328_a_field_on_one_side_only_is_always_a_difference():
+    from core import history_replay as hr
+
+    method = "m317.cement_job_reconciliation"
+    stored = {"pumped_bbl": {"value": 102.4}, "gauge_bbl": {"value": 80.0}}
+    fresh = {"pumped_bbl": {"value": 102.4}, "capacity_to_shoe_bbl": {"value": 240.2}}
+    diffs = {d["field_id"]: d for d in hr.compare(method, stored, fresh)}
+    assert set(diffs) == {"gauge_bbl", "capacity_to_shoe_bbl"}
+    assert diffs["gauge_bbl"]["reason"] == "only in the stored case" and diffs["gauge_bbl"]["current"] is None
+    assert diffs["capacity_to_shoe_bbl"]["reason"] == "only in the replay" and diffs["capacity_to_shoe_bbl"]["unit"] == "bbl"
+    assert hr.compare(method, stored, dict(stored)) == []
+
+
+def test_m328_a_changed_status_text_is_a_difference():
+    from core import history_replay as hr
+
+    method = "m317.cement_job_reconciliation"
+    diffs = hr.compare(method, {"displacement_status": {"value": cj.OVER_CAPACITY}},
+                       {"displacement_status": {"value": cj.WITHIN}})
+    assert diffs == [{"field_id": "displacement_status", "stored": cj.OVER_CAPACITY, "current": cj.WITHIN,
+                      "unit": "", "tolerance": None, "reason": "text differs"}]
+
+
+def test_m328_pre_snapshot_hydraulics_and_td_cases_are_not_reproducible():
+    from core import ddr_hydraulics_check as hc
+    from core import history_replay as hr
+    from core import torque_drag_sensitivity as tds
+
+    status, why = hr.reproducibility(hc.METHOD_ID, {"report_id": {"value": 1}}, hc.METHOD_VERSION)
+    assert status == "NOT REPRODUCIBLE" and "before M328" in why
+    status, why = hr.reproducibility(tds.METHOD_ID, {"survey_revision_id": {"value": 3}}, tds.METHOD_VERSION)
+    assert status == "NOT REPRODUCIBLE" and "before M328" in why

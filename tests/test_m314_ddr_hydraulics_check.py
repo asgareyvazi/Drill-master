@@ -172,6 +172,69 @@ def test_two_drilling_parameter_rows_refuse_to_choose(world):
     assert result["status"] == "NOT_COMPUTED" and "2 drilling-parameter records" in result["problems"][0]
 
 
+
+# ---- M327: boundaries of the display bands and of the input rules (mutation survivors) ------------------------
+def _with_recorded(data, key, value):
+    import copy
+
+    out = copy.deepcopy(data)
+    out["inputs"][key]["value"] = value
+    return hc.evaluate(out)
+
+
+def test_hsi_band_is_five_percent_on_both_sides_of_the_recomputed_range(world):
+    db, ids = world
+    data = hc.gather(db, _record(db, ids))
+    computed = hc.evaluate(data)["computed"]
+    low, high = computed["min"]["hsi"], computed["max"]["hsi"]
+    assert low < high
+    status = {f: _with_recorded(data, "hsi_recorded", v)["hsi_check"]["status"]
+              for f, v in (("above+3%", high * 1.03), ("above+7%", high * 1.07),
+                           ("below-3%", low * 0.97), ("below-7%", low * 0.93), ("half", low * 0.5))}
+    assert status == {"above+3%": hc.AGREES, "above+7%": hc.DIFFERS, "below-3%": hc.AGREES,
+                      "below-7%": hc.DIFFERS, "half": hc.DIFFERS}
+
+
+def test_tfa_agreement_band_is_one_percent_of_the_nozzle_tfa(world):
+    db, ids = world
+    data = hc.gather(db, _record(db, ids))
+    nozzle = data["inputs"]["tfa_nozzles_in2"]["value"]
+    assert _with_recorded(data, "tfa_recorded_in2", nozzle * 1.005)["tfa_check"]["status"] == hc.AGREES
+    assert _with_recorded(data, "tfa_recorded_in2", nozzle * 1.05)["tfa_check"]["status"] == hc.DIFFERS
+    assert _with_recorded(data, "tfa_recorded_in2", nozzle * 0.95)["tfa_check"]["status"] == hc.DIFFERS
+
+
+def test_two_drilling_parameter_rows_show_no_values_from_either_row(world):
+    db, ids = world
+    report_id = _record(db, ids)
+    with db.session_scope() as session:
+        first = session.query(DrillingParameters).filter_by(report_id=report_id).one()
+        session.add(DrillingParameters(well_id=ids["dev"], report_id=report_id, report_date=first.report_date,
+                                       bit_size=12.25))
+    data = hc.gather(db, report_id)
+    assert data["drilling_parameters_id"] is None
+    assert all(data["inputs"][k]["value"] is None
+               for k in ("bit_size_in", "tfa_recorded_in2", "flow_min_gpm", "flow_max_gpm", "hsi_recorded"))
+
+
+def test_a_recorded_zero_flow_or_hsi_is_missing_not_a_value(world):
+    db, ids = world
+    result = hc.check(db, _record(db, ids, dp={"pump_output_max": 0.0, "hsi": 0.0}))
+    assert list(result["computed"]) == ["min"]
+    assert result["inputs"]["flow_max_gpm"]["status"] == "MISSING"
+    assert result["inputs"]["hsi_recorded"]["status"] == "MISSING"
+    assert result["hsi_check"]["status"] == hc.NOT_CHECKED
+
+
+def test_evaluate_refuses_to_compute_when_the_snapshot_states_a_problem(world):
+    db, ids = world
+    data = hc.gather(db, _record(db, ids))
+    data["problems"] = ["2 drilling-parameter records on this report; the check needs exactly one"]
+    result = hc.evaluate(data)
+    assert result["status"] == "NOT_COMPUTED" and result["computed"] == {}
+    assert "2 drilling-parameter records" in result["hsi_check"]["reason"]
+
+
 # ---- UI: the production path (W2 Daily Report -> "💧 Hydraulics check…") ---------------------------------------
 def _w2(db, monkeypatch):
     from PySide6.QtWidgets import QApplication, QMessageBox
@@ -240,3 +303,9 @@ def test_w2_without_a_saved_report_explains_instead_of_opening(world, monkeypatc
     finally:
         tab.deleteLater()
         del app
+
+
+def test_no_flow_at_all_names_pump_output_as_missing(world):
+    db, ids = world
+    result = hc.check(db, _record(db, ids, dp={"pump_output_min": None, "pump_output_max": None}))
+    assert result["status"] == "NOT_COMPUTED" and "pump output" in result["missing"]

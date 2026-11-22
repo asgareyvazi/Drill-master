@@ -104,3 +104,9 @@ def test_main_window_applies_the_policy_before_it_builds_any_tab():
     source = inspect.getsource(main_window.MainWindow.__init__)
     applied = source.find("self.window_release_policy = apply_window_release_policy()")
     assert 0 <= applied < source.find("self.init_ui()")             # init_ui -> create_tab_widget builds the tabs
+
+
+@pytest.mark.parametrize("version", ["6.8.3a1", "6.8.2rc1", "6.9.0x", "v6.8.3", "6.8b.3"])
+def test_versions_with_non_digit_components_retain_windows(version):
+    assert lt._version_tuple(version) is None
+    assert lt.window_release_policy(version, env={})["release"] is False

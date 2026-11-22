@@ -166,3 +166,10 @@ def test_library_binding_change_names_both_cited_items_d90():
     change = next(r for r in unbound["rows"] if r["kind"] == "casing")["changes"]
     assert change == [{"field": "library binding", "old": "SYN casing set v1 item aaaaaaaaaaaa", "new": None}]
     assert "library binding SYN casing set v1 item aaaaaaaaaaaa → unknown" in " ".join(ad.summary_lines(unbound))
+
+
+def test_a_revision_with_only_changed_fields_is_not_identical():
+    result = ad.compare_components(ARCH, _with({("formation", "SYN F2"): {"note": "SYN re-picked"}}))
+    assert result["counts"][ad.CHANGED] == 1 and result["counts"][ad.ADDED] == result["counts"][ad.REMOVED] == 0
+    assert not result["identical"]
+    assert ad.summary_lines(result)[0] != "identical components."
