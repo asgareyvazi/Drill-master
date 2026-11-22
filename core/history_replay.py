@@ -1,0 +1,262 @@
+"""M328 — Calculation History replay adapters for M314, M317 and M318 saved cases.
+
+A replay re-runs the CURRENT method on the immutable input snapshot stored with the case and compares every stored
+result field with the fresh one. It never re-reads the mutable source (the daily report, the cement report, W13
+widgets): the snapshot is the record of what was computed.
+
+Outcome vocabulary (shared with Calculation History):
+
+* ``MATCH``            – every stored field equals the fresh field within its tolerance;
+* ``DIFFERENT``        – at least one field differs (listed with stored / current / tolerance / unit);
+* ``NOT_REPRODUCIBLE`` – the case cannot be replayed (method version not available in this build, case saved before
+  M328 without a snapshot, the frozen architecture revision cannot be read here);
+* ``UNREADABLE``       – the stored snapshot or result is malformed or fails its integrity (SHA-256) check.
+
+Field tolerances are absolute and per unit (``FIELD_TOLERANCES``); text / status fields compare exactly. Tolerances
+cover floating-point repeatability only. The M314 ±5 % HSI band is an engineering display band and is NOT used here.
+
+Nothing is written by ``verify``; ``save_rerun`` stores a NEW case linked ``rerun_of`` the original.
+"""
+from __future__ import annotations
+
+import math
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+REPLAY_VERSION = "M328 v1"
+
+# unit -> absolute tolerance (repeatability, not engineering acceptance)
+FIELD_TOLERANCES: Dict[str, float] = {
+    "gpm": 1e-6, "psi": 0.01, "hp": 0.01, "hp/in²": 0.001, "ft/s": 0.01, "lbf": 0.1, "bbl": 0.001, "%": 0.01,
+    "m": 0.001, "klbf": 0.001, "ft·lbf": 0.1, "": 1e-9,
+}
+
+
+def _unit_of(method: str, key: str) -> str:
+    """Unit of a stored result field, from the field name conventions of each method (never guessed)."""
+    if method == "m314.ddr_bit_hydraulics_check":
+        for suffix, unit in (("_flow_gpm", "gpm"), ("_pressure_drop_psi", "psi"), ("_hhp", "hp"), ("_hsi", "hp/in²"),
+                             ("_jet_velocity_fps", "ft/s"), ("_impact_force_lbs", "lbf")):
+            if key.endswith(suffix):
+                return unit
+        return ""
+    if method == "m317.cement_job_reconciliation":
+        return {"pumped_bbl": "bbl", "gauge_bbl": "bbl", "capacity_to_shoe_bbl": "bbl",
+                "implied_excess_pct": "%"}.get(key, "")
+    if method == "m318.td_friction_sensitivity":
+        from core.torque_drag_sensitivity import CURVES
+
+        for curve, (_engine_key, unit) in CURVES.items():
+            if key.endswith(f"_{curve}"):
+                return "ft·lbf" if unit in ("ft-lbf", "ft·lbf", "ft-lb") else unit
+        return ""
+    return ""
+
+
+def _value(entry: Any) -> Any:
+    return entry.get("value") if isinstance(entry, dict) else entry
+
+
+def _input(inputs: Dict[str, Any], key: str) -> Any:
+    return _value(inputs.get(key))
+
+
+def compare(method: str, stored: Dict[str, Any], fresh: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Every field on either side: numeric within its unit tolerance, text exactly, one-sided fields listed."""
+    differences: List[Dict[str, Any]] = []
+    for key in sorted(set(stored) | set(fresh)):
+        unit = _unit_of(method, key)
+        tolerance = FIELD_TOLERANCES.get(unit, FIELD_TOLERANCES[""])
+        if key not in stored or key not in fresh:
+            differences.append({"field_id": key, "stored": _value(stored.get(key)), "current": _value(fresh.get(key)),
+                                "unit": unit, "tolerance": tolerance,
+                                "reason": "only in the stored case" if key in stored else "only in the replay"})
+            continue
+        a, b = _value(stored[key]), _value(fresh[key])
+        numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (a, b))
+        if numeric:
+            if not (math.isfinite(a) and math.isfinite(b)) or abs(a - b) > tolerance:
+                differences.append({"field_id": key, "stored": a, "current": b, "unit": unit, "tolerance": tolerance,
+                                    "reason": f"differs by {abs(a - b):g} {unit}".rstrip()})
+        elif a != b:
+            differences.append({"field_id": key, "stored": a, "current": b, "unit": unit, "tolerance": None,
+                                "reason": "text differs"})
+    return differences
+
+
+def _outcome(status: str, detail: str, current: str, *, values=None, differences=None,
+             method_matches=None) -> Dict[str, Any]:
+    return {"status": status, "detail": detail, "current_method": current, "method_matches": method_matches,
+            "values": values or {}, "differences": differences or [], "not_compared": [],
+            "replay_version": REPLAY_VERSION}
+
+
+# ---- M314 ---------------------------------------------------------------------------------------------------
+def _m314_current() -> str:
+    from core import ddr_hydraulics_check as hc
+
+    return f"{hc.METHOD_ID} {hc.METHOD_VERSION}"
+
+
+def _m314_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import ddr_hydraulics_check as hc
+
+    if version != hc.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"hydraulics check version {version!r} is not available in this build"
+    if not isinstance(_input(inputs, "snapshot"), dict):
+        return "NOT REPRODUCIBLE", "the case was saved before M328 and holds no frozen input snapshot"
+    return "REPRODUCIBLE", "re-run from the frozen gathered DDR inputs (the daily report is not re-read)"
+
+
+def _m314_replay(db, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    from core import ddr_hydraulics_check as hc
+
+    snapshot = _input(inputs, "snapshot")
+    if not isinstance(snapshot.get("inputs"), dict):
+        raise ValueError("the frozen snapshot has no gathered inputs")
+    if not isinstance(snapshot.get("problems"), list):
+        raise ValueError("the frozen snapshot has no list of gathering problems")
+    data = {"inputs": snapshot["inputs"], "problems": list(snapshot["problems"]),
+            "report_id": snapshot.get("report_id"), "well_id": snapshot.get("well_id"),
+            "drilling_parameters_id": snapshot.get("drilling_parameters_id")}
+    result = hc.evaluate(data)
+    return hc.case_results(result)
+
+
+# ---- M317 ---------------------------------------------------------------------------------------------------
+def _m317_current() -> str:
+    from core import cement_job_reconciliation as cj
+
+    return f"{cj.METHOD_ID} {cj.METHOD_VERSION}"
+
+
+def _m317_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import cement_job_reconciliation as cj
+
+    if version != cj.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"cement reconciliation version {version!r} is not available in this build"
+    missing = [k for k in ("job_snapshot", "architecture_revision_id", "components_sha256", "string")
+               if _input(inputs, k) in (None, "")]
+    if missing:
+        return "NOT REPRODUCIBLE", f"the case does not record {', '.join(missing)}"
+    return "REPRODUCIBLE", "re-run from the frozen recorded job and the SHA-256-checked architecture revision"
+
+
+def _m317_replay(db, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    from core import cement_job_reconciliation as cj
+    from core import well_architecture as wa
+
+    if db is None:
+        raise LookupError("the architecture revision cannot be read here")
+    revision = wa.get_revision(db, int(_input(inputs, "architecture_revision_id")))   # SHA-256 checked
+    if revision["components_sha256"] != _input(inputs, "components_sha256"):
+        raise wa.ArchitectureError("the architecture revision is not the one the case used (SHA-256 differs)")
+    job = _input(inputs, "job_snapshot")
+    if not isinstance(job, dict):
+        raise ValueError("the frozen recorded job is not a mapping")
+    result = cj.compute(dict(job), revision, _input(inputs, "string"), yield_unit=_input(inputs, "yield_unit"),
+                        open_hole_in=_input(inputs, "open_hole_in"), caliper_in=_input(inputs, "caliper_in"))
+    if result.get("status") != "COMPUTED":
+        raise ValueError(f"the replay computed nothing: {result.get('reason') or result.get('status')}")
+    return cj.case_payload(result)[1]
+
+
+# ---- M318 ---------------------------------------------------------------------------------------------------
+def _m318_current() -> str:
+    from core import torque_drag_sensitivity as tds
+
+    return f"{tds.METHOD_ID} {tds.METHOD_VERSION}"
+
+
+def _m318_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import torque_drag_sensitivity as tds
+
+    if version != tds.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"T&D sensitivity version {version!r} is not available in this build"
+    if not isinstance(_input(inputs, "run_snapshot"), dict):
+        return "NOT REPRODUCIBLE", "the case was saved before M328 and holds no frozen run snapshot"
+    if not _input(inputs, "survey_revision_id"):
+        return "NOT REPRODUCIBLE", "the case is not tied to a pinned survey revision"
+    return "REPRODUCIBLE", "re-run from the frozen survey stations and string after their SHA-256 checks"
+
+
+class SnapshotIntegrityError(ValueError):
+    """A frozen snapshot fails its own SHA-256 check (reported as UNREADABLE)."""
+
+
+def _m318_replay(db, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    from core import survey_revisions as sr
+    from core import torque_drag_sensitivity as tds
+
+    snap = _input(inputs, "run_snapshot")
+    pin = snap.get("survey_source") or {}
+    if sr.stations_sha256(snap.get("survey") or []) != pin.get("stations_sha256") \
+            or pin.get("stations_sha256") != _input(inputs, "survey_stations_sha256"):
+        raise SnapshotIntegrityError("the frozen survey stations fail their SHA-256 check")
+    if tds.components_sha256(snap.get("components") or []) != snap.get("components_sha256"):
+        raise SnapshotIntegrityError("the frozen drill-string components fail their SHA-256 check")
+    result = tds.sweep(snap, _input(inputs, "friction_factors") or [])
+    observations = {curve: _input(inputs, f"observed_{curve}") for curve in tds.CURVES}
+    return tds.case_payload(result, observations)[1]
+
+
+ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
+    "m314.ddr_bit_hydraulics_check": (_m314_reproducible, _m314_replay, _m314_current),
+    "m317.cement_job_reconciliation": (_m317_reproducible, _m317_replay, _m317_current),
+    "m318.td_friction_sensitivity": (_m318_reproducible, _m318_replay, _m318_current),
+}
+
+
+def handles(method: Optional[str]) -> bool:
+    return method in ADAPTERS
+
+
+def reproducibility(method: str, inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    if not isinstance(inputs, dict):
+        return "NOT REPRODUCIBLE", "the stored inputs are not readable"
+    return ADAPTERS[method][0](inputs, version)
+
+
+def verify(db, method: str, inputs: Dict[str, Any], results: Dict[str, Any], version: str) -> Dict[str, Any]:
+    """Replay one saved case; never raises for a bad record (reported UNREADABLE / NOT_REPRODUCIBLE)."""
+    from core import well_architecture as wa
+
+    check, replay, current_of = ADAPTERS[method]
+    current = current_of()
+    status, why = reproducibility(method, inputs, version)
+    if status != "REPRODUCIBLE":
+        return _outcome("NOT_REPRODUCIBLE", why, current)
+    if not isinstance(results, dict) or not all(isinstance(v, dict) for v in results.values()):
+        return _outcome("UNREADABLE", "the stored result is not a case payload; it is shown as saved", current)
+    try:
+        fresh = replay(db, inputs)
+    except KeyError as exc:                         # a KeyError is a LookupError: a malformed snapshot, not a miss
+        return _outcome("UNREADABLE", f"the frozen snapshot lacks the field {exc}; nothing was recomputed", current)
+    except LookupError as exc:
+        return _outcome("NOT_REPRODUCIBLE", f"{exc}; the stored result is shown as saved", current)
+    except (SnapshotIntegrityError, wa.ArchitectureError) as exc:
+        return _outcome("UNREADABLE", f"{exc}; nothing was recomputed", current)
+    except (TypeError, ValueError, AttributeError) as exc:
+        return _outcome("UNREADABLE", f"the frozen snapshot could not be replayed ({type(exc).__name__}: {exc})",
+                        current)
+    differences = compare(method, results, fresh)
+    return _outcome("DIFFERENT" if differences else "MATCH",
+                    f"{len(differences)} field(s) differ" if differences else
+                    f"all {len(fresh)} field(s) match within their tolerances",
+                    current, values=fresh, differences=differences, method_matches=True)
+
+
+def save_rerun(db, entry, outcome: Dict[str, Any], user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Store a replay as a NEW case linked ``rerun_of`` the original; the original is never written."""
+    from core import calculation_cases as cc
+
+    if outcome.get("status") not in ("MATCH", "DIFFERENT") or not outcome.get("values"):
+        raise ValueError(f"Nothing to store: replay status {outcome.get('status')}.")
+    return cc.save_case(
+        db, calculator=f"{entry.source} replay", name=f"{entry.name} (replay)", inputs=entry.inputs,
+        results=outcome["values"], method=entry.method, method_version=entry.version, well_id=entry.well_id,
+        wellbore_id=entry.wellbore_id, user_id=user_id,
+        note=f"{REPLAY_VERSION} replay of case #{entry.record_id} from its frozen snapshot: {outcome['status']}",
+        source_link={"link_type": "rerun_of", "source_table": entry.table, "source_id": entry.record_id,
+                     "source_method": entry.method, "source_method_version": entry.version,
+                     "recalc_method": entry.method, "recalc_method_version": entry.version,
+                     "verification_status": outcome["status"], "method_changed": False})

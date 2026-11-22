@@ -278,6 +278,13 @@ class CalculationHistoryTab(QWidget):
         method = ("same method" if outcome["method_matches"] else "METHOD CHANGED"
                   if outcome["method_matches"] is False else "method not compared")
         self.status.setText(f"Recalculation: {outcome['status']} ({method}). {outcome['detail']}".strip())
+        if outcome.get("replay_version"):       # M328: every differing field, with unit and tolerance
+            rows = [f"{d['field_id']}: stored {d.get('stored')!r} → replay {d.get('current')!r}"
+                    + (f" ({d['unit']}, tolerance {d['tolerance']:g})" if d.get("tolerance") is not None and
+                       d.get("unit") else "") + f" – {d.get('reason', '')}"
+                    for d in outcome.get("differences") or []]
+            self.detail.append(f"{outcome['replay_version']} replay from the frozen snapshot: "
+                               + ("; ".join(rows) if rows else "no field differs"))
         self._update_actions()
         return outcome
 

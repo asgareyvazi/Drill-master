@@ -18,10 +18,12 @@ DEVIATED = [{"md": 0, "inc": 0, "azi": 0}, {"md": 500, "inc": 0, "azi": 0}, {"md
 
 
 def _run(survey, **extra):
+    from core.survey_revisions import stations_sha256
     from core.w13_weight import engine_components
 
+    pin = {"revision_id": 7, "revision": 2, "stations_sha256": stations_sha256(survey)}
     return {"survey": survey, "components": engine_components(PIPE), "mud_density_ppg": 10.0, "wob_klbf": 0.0,
-            "wellbore_id_in": None, "survey_source": {"revision_id": 7, "revision": 2}, **extra}
+            "wellbore_id_in": None, "survey_source": pin, **extra}
 
 
 def test_vertical_anchor_and_ff_zero_identity():
@@ -112,8 +114,8 @@ def test_save_stores_declared_factors_observations_and_locations(tmp_path):
         assert stored["method_version"] == tds.METHOD_VERSION and tds.LABEL in stored["note"]
         from core import calculation_history as ch
         entry = [e for e in ch.load_history(db, sources=["Calculation case"]) if e.record_id == case["id"]][0]
-        assert ch.entry_status(entry)["reproducible"] == "NOT REPRODUCIBLE"   # no re-run adapter: stated, never faked
-        assert ch.recalculate_entry(entry, db)["status"] == "NOT_REPRODUCIBLE"
+        assert ch.entry_status(entry)["reproducible"] == "REPRODUCIBLE"       # M328 replay adapter
+        assert ch.recalculate_entry(entry, db)["status"] == "MATCH"
         with pytest.raises(ValueError):
             tds.save_case(db, tds.sweep(_run(DEVIATED, mud_density_ppg=-1.0), [0.1]), {}, well_id=ids["dev"])
     finally:

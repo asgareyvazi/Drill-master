@@ -197,3 +197,58 @@ def test_unchanged_cement_nulls_round_trip_and_explicit_zero_is_saved():
         host_widget.deleteLater()
         db.close()
         app.processEvents()
+
+
+def test_m323_d89_new_cement_and_casing_reports_never_store_placeholders():
+    """D89: a NEW report (no stored row) saves untouched placeholders as NULL - never yield 1.18, TOC 0 or burst 0.
+
+    Before M323 the placeholders of a new form were stored as recorded data, and M317 then computed a pumped volume
+    from a default yield and treated TOC 0 as cement to surface."""
+    try:
+        from PySide6.QtWidgets import QApplication, QWidget
+    except ImportError as exc:  # pragma: no cover - depends on host Qt libraries
+        pytest.skip(f"Qt runtime unavailable: {exc}")
+
+    app = QApplication.instance() or QApplication([])
+    db = _mgr()
+    host_widget = QWidget()
+    try:
+        project_id = _base(db)
+        well_id = _well(db, project_id, "Cement-new")
+        section_id = _section(db, well_id, "New-record")
+        from tabs.w3c_section_data import SectionDataWidget
+
+        section_widget = SectionDataWidget(db, parent=host_widget)
+        section_widget.on_well_changed(well_id, {})
+        section_widget.on_section_changed(section_id, {})
+        tab = section_widget.cement_tab
+        assert db.get_cement_report(section_id=section_id) is None
+        assert tab.slurry_yield.value() == pytest.approx(1.18)          # placeholder only
+        assert tab.cement_source_status.text().startswith("⚠ NEW RECORD")
+        tab.cement_volume.setValue(400)                                  # the operator records sacks and TOC = 0
+        tab.top_of_cement.setValue(1.0)
+        tab.top_of_cement.setValue(0.0)
+        assert tab.save_data()
+        saved = db.get_cement_report(section_id=section_id)
+        assert saved["cement_volume"] == 400 and saved["top_of_cement"] == 0      # entered 0 is a value
+        for key in ("slurry_density", "slurry_yield", "mix_water", "thickening_time", "compressive_strength",
+                    "fluid_loss", "displacement_volume", "bottom_of_cement"):
+            assert saved[key] is None, key
+
+        from core import cement_job_reconciliation as cj
+        job = cj.recorded_job(db, saved["id"])
+        assert job["yield"] is None and job["sacks"] == 400 and job["toc_m"] == 0.0
+
+        casing = section_widget.casing_tab
+        assert casing.casing_source_status.text().startswith("⚠ NEW RECORD")
+        casing.burst_pressure.setValue(7000)
+        assert casing.save_data()
+        stored = db.get_casing_report(section_id=section_id)
+        assert stored["burst_pressure"] == 7000
+        for key in ("collapse_pressure", "tensile_strength", "makeup_torque", "drift_diameter", "internal_yield",
+                    "running_speed", "fillup_frequency", "centralizer_spacing", "scratcher_spacing"):
+            assert stored[key] is None, key
+    finally:
+        host_widget.deleteLater()
+        app.processEvents()
+        db.engine.dispose()

@@ -151,8 +151,8 @@ def test_save_stores_an_immutable_case_with_lineage_to_the_source_row(world):
     from core import calculation_history as ch
     entry = [e for e in ch.load_history(db, sources=["Calculation case"]) if e.record_id == case["id"]][0]
     status = ch.entry_status(entry)
-    assert status["reproducible"] == "NOT REPRODUCIBLE" and hc.METHOD_ID in status["reproducible_reason"]
-    assert ch.recalculate_entry(entry, db)["status"] == "NOT_REPRODUCIBLE"
+    assert status["reproducible"] == "REPRODUCIBLE", status       # M328: frozen-snapshot replay adapter
+    assert ch.recalculate_entry(entry, db)["status"] == "MATCH"
 
 
 def test_summary_lines_name_scope_and_status(world):

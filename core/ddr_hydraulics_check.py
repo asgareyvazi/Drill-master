@@ -121,10 +121,15 @@ def gather(db, report_id: int) -> Dict[str, Any]:
 
 def check(db, report_id: int) -> Dict[str, Any]:
     """Recompute bit hydraulics from the recorded inputs and compare with the recorded HSI."""
+    return evaluate(gather(db, report_id))
+
+
+def evaluate(data: Dict[str, Any]) -> Dict[str, Any]:
+    """The check on gathered inputs: live (``gather``) or frozen in a saved case (M328 replay). Pure; reads nothing."""
     from core.hydraulics_engine import AdvancedHydraulicsEngine as H
 
-    data = gather(db, report_id)
     inputs = data["inputs"]
+    report_id = data["report_id"]
     recorded_tfa, nozzle_tfa = inputs["tfa_recorded_in2"]["value"], inputs["tfa_nozzles_in2"]["value"]
     tfa_check = {"status": NOT_CHECKED, "reason": "needs both the recorded TFA and complete nozzle rows"}
     if recorded_tfa and nozzle_tfa:
@@ -174,12 +179,13 @@ def save_check(db, result: Dict[str, Any], *, user_id: Optional[int] = None) -> 
     inputs = {name: {"value": e["value"], "unit": e["unit"], "label": f"{name} ({e['source']})",
                      "source": e["status"]} for name, e in result["inputs"].items()}
     inputs["report_id"] = {"value": result["report_id"], "unit": "", "label": "daily report id", "source": "RECORDED"}
-    results: Dict[str, Any] = {}
-    for label, values in result["computed"].items():
-        for key, value in values.items():
-            results[f"{label}_{key}"] = {"value": value, "label": f"{key} at {label} pump output"}
-    results["hsi_check"] = {"value": result["hsi_check"]["status"], "label": result["hsi_check"]["reason"]}
-    results["tfa_check"] = {"value": result["tfa_check"]["status"], "label": result["tfa_check"]["reason"]}
+    # M328: the exact gathered inputs (value, unit, source path, status, note), so a replay never reads the DDR
+    inputs["snapshot"] = {"value": {"inputs": result["inputs"], "problems": list(result["problems"]),
+                                    "report_id": result["report_id"],
+                                    "well_id": result["well_id"],
+                                    "drilling_parameters_id": result["drilling_parameters_id"]},
+                          "unit": "", "label": "frozen gathered inputs (M328 replay)", "source": "SNAPSHOT"}
+    results = case_results(result)
     return cc.save_case(db, calculator="DDR hydraulics check", name=f"Hydraulics check report #{result['report_id']}",
                         inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
                         well_id=result["well_id"], user_id=user_id,
@@ -188,6 +194,17 @@ def save_check(db, result: Dict[str, Any], *, user_id: Optional[int] = None) -> 
                                      "source_id": result["drilling_parameters_id"],
                                      "verification_status": result["hsi_check"]["status"],
                                      "recalc_method": METHOD_ID, "recalc_method_version": METHOD_VERSION})
+
+
+def case_results(result: Dict[str, Any]) -> Dict[str, Any]:
+    """The stored result fields of a check (one builder for save and replay)."""
+    results: Dict[str, Any] = {}
+    for label, values in result["computed"].items():
+        for key, value in values.items():
+            results[f"{label}_{key}"] = {"value": value, "label": f"{key} at {label} pump output"}
+    results["hsi_check"] = {"value": result["hsi_check"]["status"], "label": result["hsi_check"]["reason"]}
+    results["tfa_check"] = {"value": result["tfa_check"]["status"], "label": result["tfa_check"]["reason"]}
+    return results
 
 
 def summary_lines(result: Dict[str, Any]) -> List[str]:

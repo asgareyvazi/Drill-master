@@ -4,14 +4,17 @@ The recorded job is one ``cement_reports`` row: sacks, slurry yield, recorded to
 recorded displacement (bbl). The geometry is one immutable ``well_architecture_revisions`` row and one cemented
 string in it. The reconciliation answers three questions and never more:
 
-1. Pumped slurry volume = sacks × yield ÷ 5.6146 ft³/bbl. The yield unit is not stored on the report, so the
-   caller must declare it ("ft3/sk"). Without a declaration the volume stays None.
+1. Pumped slurry volume = sacks × yield converted to bbl/sk through the declared yield unit (``YIELD_UNITS``,
+   M331). The yield unit is not stored on the report, so the caller must declare one of the registered units.
+   Without a declaration (or with an unregistered unit) the volume stays None / the request is refused.
 2. Gauge annulus volume between the **recorded** TOC and BOC, with the existing worksheet
    (``well_architecture.cement_annulus``: cased intervals use the outer string's ID, open hole uses the declared
    caliper, the entered open-hole size or the recorded hole size, otherwise unknown). The implied excess is
    (pumped − gauge) ÷ gauge. It is an implied figure, not a washout measurement.
 3. Displacement capacity of the string from its top to its shoe (``CementEngine.displacement``). The shoe track is
-   not recorded, so the capacity is the upper bound to the shoe. The recorded displacement is compared with it.
+   not recorded, so the capacity is the upper bound to the shoe. The recorded displacement is compared with it:
+   above the bound it is EXCEEDS_CAPACITY; at or below it is WITHIN_UPPER_BOUND, which is NOT a statement that the
+   displacement was right (under-displacement cannot be judged without the shoe track; M323 A-3).
    For a liner, displacement runs through the running string, so this check is NOT_APPLICABLE.
 
 Never inferred: TOC, BOC, yield unit, shoe track, hole size. A missing TOC or BOC leaves the gauge volume None. The
@@ -25,12 +28,24 @@ from typing import Any, Dict, List, Optional
 
 CONTRACT = "cement-job-reconciliation-v1"
 METHOD_ID = "m317.cement_job_reconciliation"
-METHOD_VERSION = "M317 v1 (well_architecture.cement_annulus + CementEngine.displacement)"
+METHOD_VERSION = "M317 v2 (yield-unit registry; well_architecture.cement_annulus + CementEngine.displacement)"
+SUPPORTED_VERSIONS = ("M317 v1 (well_architecture.cement_annulus + CementEngine.displacement)", METHOD_VERSION)
 LABEL = "WORKSHEET — RECORDED CEMENT JOB VS ARCHITECTURE — NOT A CEMENT EVALUATION"
-YIELD_UNITS = {"ft3/sk": 1.0}            # only the unit whose conversion is already in the cement engine
+# M331: controlled yield-unit registry. Each entry converts the declared yield to bbl per sack with an explicit,
+# documented factor. An unregistered unit is refused, never inferred.
+#   ft3/sk : ÷ 5.6146 ft³/bbl  (CementEngine.BBL_PER_CUFT, the value every existing cement worksheet uses)
+#   gal/sk : ÷ 42 gal/bbl      (US gallon; exact by definition)
+#   bbl/sk : × 1
+#   L/sk   : ÷ 158.987294928 L/bbl (exact: 1 bbl = 0.158987294928 m³)
+#   m3/sk  : ÷ 0.158987294928 m³/bbl
+YIELD_UNITS = {"ft3/sk": "BBL_PER_CUFT", "gal/sk": 42.0, "bbl/sk": 1.0, "L/sk": 158.987294928,
+               "m3/sk": 0.158987294928}
+YIELD_BASIS = {"ft3/sk": "÷ 5.6146 ft³/bbl (cement engine constant)", "gal/sk": "÷ 42 US gal/bbl (exact)",
+               "bbl/sk": "× 1", "L/sk": "÷ 158.987294928 L/bbl (exact)", "m3/sk": "÷ 0.158987294928 m³/bbl (exact)"}
 M_TO_FT = 3.28084
 DISPLACEMENT_TOLERANCE = 0.02            # relative, display tolerance for rounding in recorded reports
-CONSISTENT, OVER_CAPACITY, NOT_CHECKED, NOT_APPLICABLE = "CONSISTENT", "EXCEEDS_CAPACITY", "NOT_CHECKED", "NOT_APPLICABLE"
+WITHIN, OVER_CAPACITY, NOT_CHECKED, NOT_APPLICABLE = ("WITHIN_UPPER_BOUND", "EXCEEDS_CAPACITY", "NOT_CHECKED",
+                                                     "NOT_APPLICABLE")
 
 
 class ReconciliationError(ValueError):
@@ -58,6 +73,25 @@ def _depth(value: Any) -> Optional[float]:
     return number if math.isfinite(number) and number >= 0 else None
 
 
+def _recorded_zero(value: Any) -> bool:
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        return float(value) == 0.0
+    except (TypeError, ValueError):  # silent-ok: not a number at all, so not a recorded zero
+        return False
+
+
+def bbl_per_sack(yield_value: float, unit: str) -> float:
+    """Declared yield → bbl per sack through the registry (M331). Raises for an unregistered unit."""
+    from core.engineering.engines.cement import BBL_PER_CUFT
+
+    if unit not in YIELD_UNITS:
+        raise ReconciliationError(f"Yield unit {unit!r} is not supported; declare one of {sorted(YIELD_UNITS)}.")
+    divisor = BBL_PER_CUFT if YIELD_UNITS[unit] == "BBL_PER_CUFT" else YIELD_UNITS[unit]
+    return yield_value / divisor
+
+
 def recorded_job(db, cement_report_id: int) -> Dict[str, Any]:
     from core.database import CementReport
 
@@ -68,7 +102,9 @@ def recorded_job(db, cement_report_id: int) -> Dict[str, Any]:
         return {"id": row.id, "well_id": row.well_id, "report_id": row.report_id, "name": row.report_name or "",
                 "job_type": row.job_type or "", "sacks": _num(row.cement_volume), "yield": _num(row.slurry_yield),
                 "slurry_density_pcf": _num(row.slurry_density), "toc_m": _depth(row.top_of_cement),
-                "boc_m": _depth(row.bottom_of_cement), "displacement_bbl": _num(row.displacement_volume)}
+                "boc_m": _depth(row.bottom_of_cement), "displacement_bbl": _num(row.displacement_volume),
+                "recorded_zero": [k for k, v in (("sacks", row.cement_volume), ("yield", row.slurry_yield),
+                                                 ("displacement", row.displacement_volume)) if _recorded_zero(v)]}
 
 
 def list_jobs(db, well_id: int) -> List[Dict[str, Any]]:
@@ -83,10 +119,17 @@ def reconcile(db, cement_report_id: int, architecture_revision_id: int, string_n
               yield_unit: Optional[str] = None, open_hole_in: Optional[float] = None,
               caliper_in: Optional[float] = None) -> Dict[str, Any]:
     from core import well_architecture as wa
-    from core.engineering.engines.cement import BBL_PER_CUFT, CementEngine
 
-    job = recorded_job(db, cement_report_id)
-    revision = wa.get_revision(db, architecture_revision_id)
+    return compute(recorded_job(db, cement_report_id), wa.get_revision(db, architecture_revision_id), string_name,
+                   yield_unit=yield_unit, open_hole_in=open_hole_in, caliper_in=caliper_in)
+
+
+def compute(job: Dict[str, Any], revision: Dict[str, Any], string_name: str, *, yield_unit: Optional[str] = None,
+            open_hole_in: Optional[float] = None, caliper_in: Optional[float] = None) -> Dict[str, Any]:
+    """The reconciliation of one recorded job (a dict, live or frozen) against one verified revision."""
+    from core import well_architecture as wa
+    from core.engineering.engines.cement import CementEngine
+
     if revision["well_id"] != job["well_id"]:
         raise ReconciliationError(f"Architecture revision {revision['revision']} belongs to well {revision['well_id']},"
                                   f" the cement report to well {job['well_id']}.")
@@ -101,12 +144,16 @@ def reconcile(db, cement_report_id: int, architecture_revision_id: int, string_n
 
     # 1. pumped slurry volume
     pumped = None
-    if job["sacks"] is None or job["yield"] is None:
+    zeros = [k for k in ("sacks", "yield") if k in (job.get("recorded_zero") or [])]
+    if zeros:
+        notes.append(f"pumped volume not computed: {' and '.join(zeros)} recorded as 0 (no slurry volume can be "
+                     f"derived from a zero)")
+    elif job["sacks"] is None or job["yield"] is None:
         notes.append("pumped volume not computed: sacks and slurry yield must both be recorded")
     elif yield_unit is None:
         notes.append("pumped volume not computed: the yield unit is not stored on the report and was not declared")
     else:
-        pumped = job["sacks"] * job["yield"] * YIELD_UNITS[yield_unit] / BBL_PER_CUFT
+        pumped = job["sacks"] * bbl_per_sack(job["yield"], yield_unit)
 
     # 2. gauge annulus between the recorded TOC and BOC
     toc, boc = job["toc_m"], job["boc_m"]
@@ -152,9 +199,10 @@ def reconcile(db, cement_report_id: int, architecture_revision_id: int, string_n
         else:
             over = job["displacement_bbl"] > capacity * (1 + DISPLACEMENT_TOLERANCE)
             displacement.update(
-                status=OVER_CAPACITY if over else CONSISTENT,
+                status=OVER_CAPACITY if over else WITHIN,
                 reason=(f"recorded {job['displacement_bbl']:g} bbl vs {capacity:g} bbl string capacity to the shoe "
-                        f"(upper bound: the shoe track is not recorded)"))
+                        f"(upper bound: the shoe track is not recorded"
+                        + ("" if over else "; under-displacement cannot be judged") + ")"))
     return {"contract": CONTRACT, "method": METHOD_ID, "method_version": METHOD_VERSION, "label": LABEL,
             "well_id": job["well_id"], "job": job, "architecture_revision_id": revision["id"],
             "architecture_revision": revision["revision"], "components_sha256": revision["components_sha256"],
@@ -176,14 +224,16 @@ def summary_lines(result: Dict[str, Any]) -> List[str]:
              f"Cement report #{job['id']} vs architecture rev {result['architecture_revision']}, string "
              f"{result['string']} ({result['string_kind']}).",
              f"Pumped slurry: {show(result['pumped_bbl'], 'bbl')}"
-             + (f" ({job['sacks']:g} sk × {job['yield']:g} {result['yield_unit']})" if result["pumped_bbl"] else "") + ".",
+             + (f" ({job['sacks']:g} sk × {job['yield']:g} {result['yield_unit']})" if result["pumped_bbl"] is not None else "")
+             + ".",
              f"Recorded interval: TOC {show(job['toc_m'], 'm', 1)}, BOC {show(job['boc_m'], 'm', 1)}; gauge annulus "
              f"{show(result['gauge_bbl'], 'bbl')}; implied excess {show(result['implied_excess_pct'], '%', 1)}."]
     if result["architecture_interval"]:
         arch = result["architecture_interval"]
         lines.append(f"Architecture cement record: {arch['top_md']:g}–{arch['bottom_md']:g} m"
-                     + (f" (recorded TOC differs by {result['toc_difference_m']:+.1f} m)"
-                        if result["toc_difference_m"] else "") + ".")
+                     + ("" if result["toc_difference_m"] is None else
+                        " (recorded TOC equals the architecture record)" if result["toc_difference_m"] == 0 else
+                        f" (recorded TOC differs by {result['toc_difference_m']:+.1f} m)") + ".")
     d = result["displacement"]
     lines.append(f"Displacement: {d['status']}" + (f" – {d['reason']}" if d["reason"] else "") + ".")
     lines += [f"Note: {n}." for n in result["notes"]]
@@ -196,6 +246,19 @@ def save_case(db, result: Dict[str, Any], *, user_id: Optional[int] = None) -> D
 
     if result.get("status") != "COMPUTED":
         raise ValueError("Nothing was computed; there is no reconciliation to store.")
+    job = result["job"]
+    inputs, results = case_payload(result)
+    return cc.save_case(db, calculator="Cement job reconciliation",
+                        name=f"Cement job #{job['id']} vs arch rev {result['architecture_revision']} ({result['string']})",
+                        inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
+                        well_id=result["well_id"], user_id=user_id, note=LABEL,
+                        source_link={"link_type": "recalculation_of", "source_table": "cement_reports",
+                                     "source_id": job["id"], "verification_status": result["displacement"]["status"],
+                                     "recalc_method": METHOD_ID, "recalc_method_version": METHOD_VERSION})
+
+
+def case_payload(result: Dict[str, Any]):
+    """(inputs, results) of a reconciliation case: one builder for save and M328 replay."""
     job = result["job"]
     inputs = {
         "cement_report_id": {"value": job["id"], "unit": "", "label": "cement report id", "source": "RECORDED"},
@@ -212,6 +275,11 @@ def save_case(db, result: Dict[str, Any], *, user_id: Optional[int] = None) -> D
         **{f"recorded_{k}": {"value": job[k], "unit": u, "label": f"recorded {k}", "source": "RECORDED"}
            for k, u in (("sacks", "sk"), ("yield", result["yield_unit"] or "undeclared"), ("toc_m", "m"),
                         ("boc_m", "m"), ("displacement_bbl", "bbl"))},
+        "components_sha256": {"value": result["components_sha256"], "unit": "", "label": "architecture SHA-256",
+                              "source": "RECORDED"},
+        # M328: the recorded job exactly as reconciled; a replay never re-reads the (mutable) cement report
+        "job_snapshot": {"value": dict(job), "unit": "", "label": "frozen recorded job (M328 replay)",
+                         "source": "SNAPSHOT"},
     }
     results = {"pumped_bbl": {"value": result["pumped_bbl"], "label": "pumped slurry (bbl)"},
                "gauge_bbl": {"value": result["gauge_bbl"], "label": "gauge annulus, recorded TOC-BOC (bbl)"},
@@ -220,10 +288,4 @@ def save_case(db, result: Dict[str, Any], *, user_id: Optional[int] = None) -> D
                                         "label": "string capacity to shoe (bbl, upper bound)"},
                "displacement_check": {"value": result["displacement"]["status"],
                                       "label": result["displacement"]["reason"]}}
-    return cc.save_case(db, calculator="Cement job reconciliation",
-                        name=f"Cement job #{job['id']} vs arch rev {result['architecture_revision']} ({result['string']})",
-                        inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
-                        well_id=result["well_id"], user_id=user_id, note=LABEL,
-                        source_link={"link_type": "recalculation_of", "source_table": "cement_reports",
-                                     "source_id": job["id"], "verification_status": result["displacement"]["status"],
-                                     "recalc_method": METHOD_ID, "recalc_method_version": METHOD_VERSION})
+    return inputs, results

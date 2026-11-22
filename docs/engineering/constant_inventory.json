@@ -209,6 +209,7 @@
    "variants": {
     "42.0": {
      "files": {
+      "core/cement_job_reconciliation.py": 1,
       "core/engineering/engines/cement.py": 2,
       "core/engineering/engines/mud_volume.py": 1,
       "core/hydraulics_engine.py": 1,
@@ -217,7 +218,7 @@
       "core/well_volumes.py": 1,
       "dialogs/engineering_dialogs.py": 1
      },
-     "uses": 8,
+     "uses": 9,
      "value": 42.0
     }
    }

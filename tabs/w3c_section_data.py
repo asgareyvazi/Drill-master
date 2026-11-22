@@ -55,6 +55,7 @@ class CementReportTab(QWidget):
         self._cement_touched = set()
         self.init_ui()
         self._connect_cement_edit_tracking()
+        self.clear_form()
 
     def _connect_cement_edit_tracking(self):
         """Track intentional edits so an unchanged NULL remains unknown."""
@@ -132,7 +133,7 @@ class CementReportTab(QWidget):
         if unknown:
             names = ", ".join(self.CEMENT_NULL_FIELDS[key] for key in unknown)
             self.cement_source_status.setText(
-                "⚠ UNKNOWN SOURCE VALUES (database NULL): " + names + ". "
+                ("⚠ NEW RECORD – NOT RECORDED YET: " if getattr(self, "_cement_new_record", False) else "⚠ UNKNOWN SOURCE VALUES (database NULL): ") + names + ". "
                 "Highlighted controls show placeholders; saving without editing "
                 "preserves NULL."
             )
@@ -538,6 +539,7 @@ class CementReportTab(QWidget):
         display = self._cement_display_values()
         self._loaded_cement_source = {key: deepcopy(data[key]) for key in display if key in data}
         self._loaded_cement_display = display
+        self._cement_new_record = False
         self._cement_touched.clear()
         self._refresh_cement_source_status()
 
@@ -553,8 +555,15 @@ class CementReportTab(QWidget):
         self.compressive_strength.setValue(2500)
         self.materials_table.setRowCount(0)
         self.cement_summary.clear()
-        self._loaded_cement_source = {}
-        self._loaded_cement_display = {}
+        self._start_new_cement_record()
+
+    def _start_new_cement_record(self):
+        """M323 / D89: a new record has no recorded values. The widget placeholders are NOT data: every nullable
+        field starts as an unknown (NULL) source value, so an untouched placeholder is saved as NULL, never as 0
+        or as a typical value. Entering a value (including 0) records it."""
+        self._loaded_cement_source = {key: None for key in self.CEMENT_NULL_FIELDS}
+        self._loaded_cement_display = self._cement_display_values()
+        self._cement_new_record = True
         self._cement_touched.clear()
         self._refresh_cement_source_status()
 
@@ -590,6 +599,7 @@ class CasingReportTab(QWidget):
         self._casing_touched = set()
         self.init_ui()
         self._connect_casing_edit_tracking()
+        self.clear_form()
 
     def _connect_casing_edit_tracking(self):
         controls = {
@@ -652,7 +662,7 @@ class CasingReportTab(QWidget):
         if unknown:
             names = ", ".join(self.CASING_NULL_FIELDS[key] for key in unknown)
             self.casing_source_status.setText(
-                "⚠ UNKNOWN SOURCE VALUES (database NULL): " + names + ". "
+                ("⚠ NEW RECORD – NOT RECORDED YET: " if getattr(self, "_casing_new_record", False) else "⚠ UNKNOWN SOURCE VALUES (database NULL): ") + names + ". "
                 "Highlighted controls show placeholders; saving without editing "
                 "preserves NULL."
             )
@@ -900,6 +910,7 @@ class CasingReportTab(QWidget):
         display = self._casing_display_values()
         self._loaded_casing_source = {key: deepcopy(data[key]) for key in display if key in data}
         self._loaded_casing_display = display
+        self._casing_new_record = False
         self._casing_touched.clear()
         self._refresh_casing_source_status()
 
@@ -911,8 +922,15 @@ class CasingReportTab(QWidget):
         self.fillup_frequency.setValue(0)
         self.casing_table.setRowCount(0)
         self.casing_summary.clear()
-        self._loaded_casing_source = {}
-        self._loaded_casing_display = {}
+        self._start_new_casing_record()
+
+    def _start_new_casing_record(self):
+        """M323 / D89: a new record has no recorded values. The widget placeholders are NOT data: every nullable
+        field starts as an unknown (NULL) source value, so an untouched placeholder is saved as NULL, never as 0
+        or as a typical value. Entering a value (including 0) records it."""
+        self._loaded_casing_source = {key: None for key in self.CASING_NULL_FIELDS}
+        self._loaded_casing_display = self._casing_display_values()
+        self._casing_new_record = True
         self._casing_touched.clear()
         self._refresh_casing_source_status()
 

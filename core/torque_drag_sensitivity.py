@@ -72,6 +72,9 @@ def sweep(run: Optional[Mapping[str, Any]], factors: Iterable[Any]) -> Dict[str,
 
     if not run or not run.get("survey") or not run.get("components"):
         raise SensitivityError("Run torque and drag on a pinned survey first; the sweep re-uses that run's inputs.")
+    if not (run.get("survey_source") or {}).get("revision_id"):
+        # M323 (A-6): a sweep on an unpinned survey could never be traced or replayed; it is refused, not stored
+        raise SensitivityError("The run is not tied to a pinned survey revision; pin the survey and re-run T&D.")
     declared = normalize_factors(factors)
     rows: List[Dict[str, Any]] = []
     for ff in declared:
@@ -89,8 +92,24 @@ def sweep(run: Optional[Mapping[str, Any]], factors: Iterable[Any]) -> Dict[str,
     return {"contract": CONTRACT, "method": METHOD_ID, "method_version": METHOD_VERSION, "label": LABEL,
             "engine_method": TorqueDragEngine.METHOD, "factors": declared, "rows": rows,
             "survey_source": dict(run.get("survey_source") or {}), "mud_density_ppg": run["mud_density_ppg"],
+            # M328: the exact engine inputs of the sweep, frozen for replay (never re-read from W13 widgets)
+            "run_snapshot": {"survey": [dict(st) for st in run["survey"]],
+                             "components": [dict(c) for c in run["components"]],
+                             "mud_density_ppg": run["mud_density_ppg"], "wob_klbf": run.get("wob_klbf"),
+                             "wellbore_id_in": run.get("wellbore_id_in"),
+                             "survey_source": dict(run.get("survey_source") or {}),
+                             "components_sha256": components_sha256(run["components"])},
             "wob_klbf": run.get("wob_klbf"), "wellbore_id_in": run.get("wellbore_id_in"),
             "failed": [r["friction_factor"] for r in rows if r["status"] != "OK"]}
+
+
+def components_sha256(components: Iterable[Mapping[str, Any]]) -> str:
+    """SHA-256 of the engine components (canonical JSON), stored with the run snapshot and checked on replay."""
+    import hashlib
+    import json
+
+    payload = json.dumps([dict(c) for c in components], sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def locate(result: Mapping[str, Any], curve: str, observed: Optional[float]) -> Dict[str, Any]:
@@ -148,6 +167,16 @@ def save_case(db, result: Mapping[str, Any], observations: Mapping[str, Optional
     ok_rows = [r for r in result["rows"] if r["status"] == "OK"]
     if not ok_rows:
         raise ValueError("No friction factor ran successfully; there is nothing to store.")
+    if not result.get("run_snapshot"):
+        raise ValueError("The sweep carries no run snapshot; it cannot be stored reproducibly.")
+    inputs, results = case_payload(result, observations)
+    return cc.save_case(db, calculator="T&D friction sensitivity", name=f"FF sweep {result['factors']}",
+                        inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
+                        well_id=well_id, user_id=user_id, note=f"{LABEL}; engine {result['engine_method']}")
+
+
+def case_payload(result: Mapping[str, Any], observations: Mapping[str, Optional[float]]):
+    """(inputs, results) of a sweep case: one builder for save and M328 replay."""
     pin = result["survey_source"]
     inputs = {"friction_factors": {"value": result["factors"], "unit": "", "label": "declared friction factors",
                                    "source": "DECLARED"},
@@ -155,8 +184,16 @@ def save_case(db, result: Mapping[str, Any], observations: Mapping[str, Optional
               "wob_klbf": {"value": result["wob_klbf"], "unit": "klbf", "label": "WOB"},
               "wellbore_id_in": {"value": result["wellbore_id_in"], "unit": "in", "label": "hole ID"},
               "survey_revision_id": {"value": pin.get("revision_id"), "unit": "",
-                                     "label": f"survey revision {pin.get('revision')}"}}
-    for curve, value in observations.items():
+                                     "label": f"survey revision {pin.get('revision')}",
+                                     "source": "PINNED" if pin.get("revision_id") else "NOT_PINNED"},
+              "survey_stations_sha256": {"value": pin.get("stations_sha256"), "unit": "",
+                                         "label": "pinned survey SHA-256"},
+              "engine_method": {"value": result["engine_method"], "unit": "", "label": "T&D engine method"},
+              "run_snapshot": {"value": result.get("run_snapshot"), "unit": "",
+                               "label": "frozen survey stations, string and run inputs (M328 replay)",
+                               "source": "SNAPSHOT"}}
+    for curve in CURVES:
+        value = observations.get(curve)
         inputs[f"observed_{curve}"] = {"value": value, "unit": CURVES[curve][1], "label": f"observed {curve}",
                                        "source": "OBSERVED" if value is not None else "NOT_ENTERED"}
     results: Dict[str, Any] = {}
@@ -164,9 +201,9 @@ def save_case(db, result: Mapping[str, Any], observations: Mapping[str, Optional
         for curve in CURVES:
             results[f"ff_{r['friction_factor']:g}_{curve}"] = {"value": r[curve], "label": f"{curve} at FF "
                                                                                         f"{r['friction_factor']:g}"}
-    for curve, value in observations.items():
-        where = locate(result, curve, value)
+        if r["status"] != "OK":
+            results[f"ff_{r['friction_factor']:g}_status"] = {"value": "FAILED", "label": r["reason"]}
+    for curve in CURVES:
+        where = locate(result, curve, observations.get(curve))
         results[f"located_{curve}"] = {"value": where["status"], "label": where["reason"]}
-    return cc.save_case(db, calculator="T&D friction sensitivity", name=f"FF sweep {result['factors']}",
-                        inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
-                        well_id=well_id, user_id=user_id, note=f"{LABEL}; engine {result['engine_method']}")
+    return inputs, results

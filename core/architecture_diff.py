@@ -93,22 +93,28 @@ def compare_revisions(db, older_id: int, newer_id: int) -> Dict[str, Any]:
     result = compare_components(older["components"], newer["components"])
     result.update({"older": {k: older[k] for k in ("id", "revision", "components_sha256", "created_at")},
                    "newer": {k: newer[k] for k in ("id", "revision", "components_sha256", "created_at")},
-                   "well_id": older["well_id"], "pinned_cases": _pinned_cases(db, older["id"])})
+                   "well_id": older["well_id"], "pinned_cases": _pinned_cases(db, older["id"], older["well_id"])})
     return result
 
 
-def _pinned_cases(db, revision_id: int) -> List[Dict[str, Any]]:
-    """Calculation cases whose inputs pin the older revision (shown, never recalculated)."""
-    from core.database import CalculationCase
+def _pinned_cases(db, revision_id: int, well_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Saved work whose inputs pin the older revision (shown, never recalculated).
+
+    M323 (A-1): uses the canonical lookup of Calculation History (``_architecture_users``), so casing-design runs
+    (``casing_calculations``) are listed next to calculation cases (cement worksheets, M317 reconciliations)."""
+    from core import calculation_history as ch
+    from core import database as d
 
     out: List[Dict[str, Any]] = []
+    models = {d.CasingCalculationRecord.__tablename__: d.CasingCalculationRecord,
+              d.CalculationCase.__tablename__: d.CalculationCase}
     with db.session_scope() as session:
-        for case in session.query(CalculationCase).order_by(CalculationCase.id):
-            inputs = case.inputs or {}
-            entry = inputs.get("architecture_revision_id") if isinstance(inputs, dict) else None
-            value = entry.get("value") if isinstance(entry, dict) else entry
-            if value == revision_id:
-                out.append({"id": case.id, "calculator": case.calculator, "name": case.name})
+        for key in ch._architecture_users(session, d, revision_id, well_id):
+            table, _sep, rid = key.partition(":")
+            row = session.get(models[table], int(rid))
+            name = (getattr(row, "name", None) or getattr(row, "label", None) or "") if row else ""
+            calculator = getattr(row, "calculator", None) or ("Casing design" if table != "calculation_cases" else "")
+            out.append({"key": key, "table": table, "id": int(rid), "name": name, "calculator": calculator})
     return out
 
 
@@ -130,6 +136,6 @@ def summary_lines(result: Dict[str, Any], *, limit: Optional[int] = None) -> Lis
                      + " — worksheets pinned to the older revision are not updated.")
     if result.get("pinned_cases"):
         lines.append("Cases pinned to the older revision: " + ", ".join(
-            f"#{p['id']} {p['name']}" for p in result["pinned_cases"]) + " (not recalculated).")
+            f"{p['key']} {p['name']}".rstrip() for p in result["pinned_cases"]) + " (not recalculated).")
     lines += [f"Note: {n}." for n in result["notes"]]
     return lines

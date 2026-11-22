@@ -53,7 +53,7 @@ def test_reconciles_pumped_volume_gauge_annulus_and_displacement(world):
     assert result["architecture_interval"] == {"top_md": 500.0, "bottom_md": 1000.0}
     assert result["toc_difference_m"] == -100.0
     assert result["displacement"]["capacity_to_shoe_bbl"] == pytest.approx(CAPACITY_TO_SHOE, abs=0.001)
-    assert result["displacement"]["status"] == cj.CONSISTENT
+    assert result["displacement"]["status"] == cj.WITHIN
     assert "upper bound" in result["displacement"]["reason"]
 
 
@@ -71,7 +71,7 @@ def test_yield_unit_is_never_assumed(world):
     assert any("yield unit" in n for n in result["notes"])
     assert result["gauge_bbl"] is not None                       # the geometry part still works
     with pytest.raises(cj.ReconciliationError):
-        cj.reconcile(db, _job(db, ids["dev"]), rev["id"], "9-5/8 csg", yield_unit="L/sk")
+        cj.reconcile(db, _job(db, ids["dev"]), rev["id"], "9-5/8 csg", yield_unit="kg/sk")   # a mass basis
 
 
 @pytest.mark.parametrize("values, note", [
@@ -139,15 +139,15 @@ def test_save_stores_a_case_linked_to_the_cement_report_and_changes_nothing(worl
     stored = cc.get_case(db, case["id"])
     assert stored["method_version"] == cj.METHOD_VERSION
     assert stored["inputs"]["yield_unit"]["source"] == "DECLARED"
-    assert stored["results"]["displacement_check"]["value"] == cj.CONSISTENT
+    assert stored["results"]["displacement_check"]["value"] == cj.WITHIN
     link = cc.source_links(db, case["id"])[0]
     assert (link["source_table"], link["source_id"]) == ("cement_reports", job_id)
     assert cj.recorded_job(db, job_id) == before
     assert wa.get_revision(db, rev["id"])["components_sha256"] == rev["components_sha256"]
     from core import calculation_history as ch
     entry = [e for e in ch.load_history(db, sources=["Calculation case"]) if e.record_id == case["id"]][0]
-    assert ch.entry_status(entry)["reproducible"] == "NOT REPRODUCIBLE"   # no re-run adapter: stated, never faked
-    assert ch.recalculate_entry(entry, db)["status"] == "NOT_REPRODUCIBLE"
+    assert ch.entry_status(entry)["reproducible"] == "REPRODUCIBLE"       # M328 replay adapter
+    assert ch.recalculate_entry(entry, db)["status"] == "MATCH"
 
 
 def test_summary_states_unknowns_as_unknown(world):
@@ -181,7 +181,7 @@ def test_architecture_panel_reconciles_and_saves_through_the_buttons(world):
         assert "Pumped slurry: unknown" in panel.status.text() and cj.LABEL in panel.status.text()
         panel.yield_unit_combo.setCurrentIndex(panel.yield_unit_combo.findData("ft3/sk"))
         panel.reconcile_btn.click()
-        assert "Displacement: CONSISTENT" in panel.status.text()
+        assert "Displacement: WITHIN_UPPER_BOUND" in panel.status.text()
         assert panel.save_reconcile_btn.isEnabled()
         panel.save_reconcile_btn.click()
         assert "saved as calculation case" in panel.status.text() and not panel.save_reconcile_btn.isEnabled()

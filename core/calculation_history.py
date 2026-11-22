@@ -295,6 +295,12 @@ def _archived(session) -> Dict[str, set]:
     return archived_ids(session)
 
 
+def _replay_adapter(method: Optional[str]) -> bool:
+    from core import history_replay as hr
+
+    return hr.handles(method)
+
+
 def entry_status(entry: HistoryEntry) -> Dict[str, str]:
     """M73: three separate answers instead of one label.
 
@@ -315,6 +321,10 @@ def entry_status(entry: HistoryEntry) -> Dict[str, str]:
         from core import well_architecture as wa
 
         reproducible, why = wa.cement_reproducibility(entry.inputs, entry.version)
+    elif entry.table == "calculation_cases" and _replay_adapter(entry.method):
+        from core import history_replay as hr        # M328: M314 / M317 / M318 frozen-snapshot replay
+
+        reproducible, why = hr.reproducibility(entry.method, entry.inputs, entry.version)
     elif entry.table == "calculation_cases":
         reproducible, why = contracts.reproducibility(entry.method, entry.version)
     elif entry.table == "trajectory_calculations":
@@ -540,6 +550,10 @@ def _recalculate_entry(entry: HistoryEntry, db=None) -> Dict[str, Any]:
         from core import well_architecture as wa
 
         return wa.verify_cement_case(db, entry.inputs, entry.results, entry.version)
+    if entry.table == "calculation_cases" and _replay_adapter(entry.method):
+        from core import history_replay as hr        # M328: replay from the immutable input snapshot
+
+        return hr.verify(db, entry.method, entry.inputs, entry.results, entry.version)
     if entry.table == "calculation_cases" and entry.method == BIT_RUN_METHOD:
         from core import bit_runs as br               # M130: frozen run figures; DDR changes are reported
 
@@ -747,6 +761,10 @@ def save_recalculation(db, entry: HistoryEntry, outcome: Dict[str, Any]) -> Dict
 
         return wa.save_cement_rerun(db, entry.record_id, entry.inputs, outcome, well_id=entry.well_id,
                                     wellbore_id=entry.wellbore_id, name=entry.name)
+    if entry.table == "calculation_cases" and _replay_adapter(entry.method):
+        from core import history_replay as hr        # M328: same frozen inputs and method, linked rerun_of
+
+        return hr.save_rerun(db, entry, outcome)
     if entry.table == "calculation_cases" and entry.method == BIT_RUN_METHOD:
         from core import bit_runs as br               # M130: same scenario payload and method, linked rerun_of
 
