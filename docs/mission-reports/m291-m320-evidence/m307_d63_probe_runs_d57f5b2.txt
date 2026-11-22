@@ -1,0 +1,93 @@
+M307 D63 native diagnosis — raw probe output (tools/quality/d63_window_release_probe.py --windows 3 --mode auto, LD_PRELOAD tools/quality/native/segv_dictkey.c)
+Python 3.11.2 (Debian, non-PIE), offscreen, 2026-11-22, tree d57f5b2. SYNTHETIC databases only.
+
+## Session 1: PySide6 6.8.1.1 (project pin), 3 runs
+=== run 1 ===
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+
+=== native SIGSEGV (segv_dictkey) fault 0x7f5413a1d4f0 RIP 0x7f5413a1d4f0 [rsp] 0x515ee6 ===
+keys=0x7f5408df9e40 entry_index=3 of nentries=7 value=0x7f540bfe9710
+FREED VALUE IS ATTRIBUTE: 'notationChanged'
+  [0] cleared bottomChanged 
+  [1] cleared topChanged 
+  [2] cleared decimalsChanged 
+  [3] FREED   notationChanged 
+  [4] pending changed P
+  [5] pending destroyed P
+  [6] pending objectNameChanged P
+<runner>: line 1: 16242 Segmentation fault      LD_PRELOAD=/tmp/segv_dictkey.so timeout 600 /home/user/.venv/bin/python tools/quality/d63_window_release_probe.py --windows 3 --mode auto
+rc=139
+=== run 2 ===
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+
+=== native SIGSEGV (segv_dictkey) fault 0x7ffbbb6925b0 RIP 0x7ffbbb6925b0 [rsp] 0x557c7d ===
+not the free_keys_object site; no dict decoding
+<runner>: line 1: 16413 Segmentation fault      LD_PRELOAD=/tmp/segv_dictkey.so timeout 600 /home/user/.venv/bin/python tools/quality/d63_window_release_probe.py --windows 3 --mode auto
+rc=139
+=== run 3 ===
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+
+=== native SIGSEGV (segv_dictkey) fault 0x7f99cfc51fe0 RIP 0x7f99cfc51fe0 [rsp] 0x557c7d ===
+not the free_keys_object site; no dict decoding
+<runner>: line 1: 16668 Segmentation fault      LD_PRELOAD=/tmp/segv_dictkey.so timeout 600 /home/user/.venv/bin/python tools/quality/d63_window_release_probe.py --windows 3 --mode auto
+rc=139
+DONE
+
+## Session 2: A/B — PySide6 6.8.2.1 from an isolated --target directory (diagnosis only; project pin unchanged), 5 runs; then 6.8.1.1 control, 2 runs
+=== 6.8.2.1 run 1 ===
+PySide6 6.8.2.1 /tmp/pyside682/PySide6/__init__.py
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+window 3: alive after its last reference was dropped: False
+mode=auto windows=3 alive_at_end=0 live_widgets=0 - no crash
+rc=0
+=== 6.8.2.1 run 2 ===
+PySide6 6.8.2.1 /tmp/pyside682/PySide6/__init__.py
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+window 3: alive after its last reference was dropped: False
+mode=auto windows=3 alive_at_end=0 live_widgets=0 - no crash
+rc=0
+=== 6.8.2.1 run 3 ===
+PySide6 6.8.2.1 /tmp/pyside682/PySide6/__init__.py
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+window 3: alive after its last reference was dropped: False
+mode=auto windows=3 alive_at_end=0 live_widgets=0 - no crash
+rc=0
+=== 6.8.2.1 run 4 ===
+PySide6 6.8.2.1 /tmp/pyside682/PySide6/__init__.py
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+window 3: alive after its last reference was dropped: False
+mode=auto windows=3 alive_at_end=0 live_widgets=0 - no crash
+rc=0
+=== 6.8.2.1 run 5 ===
+PySide6 6.8.2.1 /tmp/pyside682/PySide6/__init__.py
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+window 3: alive after its last reference was dropped: False
+mode=auto windows=3 alive_at_end=0 live_widgets=0 - no crash
+rc=0
+=== 6.8.1.1 control run 1 ===
+PySide6 6.8.1.1
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+
+=== native SIGSEGV (segv_dictkey) fault (nil) RIP 0x5007f4 [rsp] 0x557c7d ===
+not the free_keys_object site; no dict decoding
+<runner>: line 1: 18809 Segmentation fault      LD_PRELOAD=/tmp/segv_dictkey.so timeout 600 /home/user/.venv/bin/python tools/quality/d63_window_release_probe.py --windows 3 --mode auto
+rc=139
+=== 6.8.1.1 control run 2 ===
+PySide6 6.8.1.1
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+
+=== native SIGSEGV (segv_dictkey) fault 0x40 RIP 0x40 [rsp] 0x557c7d ===
+not the free_keys_object site; no dict decoding
+<runner>: line 1: 19120 Segmentation fault      LD_PRELOAD=/tmp/segv_dictkey.so timeout 600 /home/user/.venv/bin/python tools/quality/d63_window_release_probe.py --windows 3 --mode auto
+rc=139
+DONE

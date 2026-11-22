@@ -465,6 +465,10 @@ class DailyReportWidget(DrillTabBase):
         self.value_states_btn = QPushButton("🔢 Value states…")
         self.value_states_btn.setObjectName("value_states_btn")
         self.value_states_btn.clicked.connect(self._value_states_clicked)    # bound method (D74: no closure)
+        # M314: recorded vs recomputed bit hydraulics of the open report (SCREENING, read-only on the report).
+        self.hydraulics_check_btn = QPushButton("💧 Hydraulics check…")
+        self.hydraulics_check_btn.setObjectName("hydraulics_check_btn")
+        self.hydraulics_check_btn.clicked.connect(self._hydraulics_check_clicked)
         
         
         self.print_btn = QPushButton("🖨️ Print")
@@ -493,6 +497,7 @@ class DailyReportWidget(DrillTabBase):
         button_layout.addWidget(self.duplicate_btn)
         button_layout.addWidget(self.day_states_btn)
         button_layout.addWidget(self.value_states_btn)
+        button_layout.addWidget(self.hydraulics_check_btn)
         button_layout.addWidget(self.print_btn)
         button_layout.addWidget(export_pdf_btn)
         button_layout.addWidget(self.submit_btn)
@@ -2340,6 +2345,24 @@ class DailyReportWidget(DrillTabBase):
         if dialog is not None:
             dialog.exec()
             self.after_value_states(dialog)
+
+    def hydraulics_check_dialog(self):
+        """M314: the hydraulics-check dialog of the open (saved) report, or None with a message."""
+        from dialogs.ddr_hydraulics_check_dialog import DdrHydraulicsCheckDialog
+        report_id = self.current_report_id
+        if not report_id:
+            self.show_error("Open a saved report first")
+            return None
+        if self._has_unsaved_edits():
+            self.show_error("Save the report first: the check reads the stored values")
+            return None
+        user_id, _username = self.db._audit_actor() if hasattr(self.db, "_audit_actor") else (None, None)
+        return DdrHydraulicsCheckDialog(self.db, report_id, self, user_id=user_id)
+
+    def _hydraulics_check_clicked(self, _checked=False):
+        dialog = self.hydraulics_check_dialog()
+        if dialog is not None:
+            dialog.exec()
 
     # -------- متدهای کمکی برای سازگاری با سایر تب‌ها --------
     def set_current_report(self, report_id):

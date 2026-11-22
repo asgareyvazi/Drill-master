@@ -4,10 +4,17 @@
   ``SelectionManager`` to slots owned by one window, disconnected on the window's accepted close, so a closed
   window gets no stale selection updates and a reopened one gets exactly one set of routes.
 * ``weak_or_strong``: a weak reference where possible (``StatusBarManager`` no longer keeps a closed window).
-* ``WeakWindowAttribute``: NOT used by the product.  Making the tabs' window attributes weak lets a closed
-  window be freed - and freeing closed windows reproduces the D63 SIGSEGV deterministically once three windows
-  have been built (auto gc 3/3, 5/5 in scratch runs).  M265 therefore keeps closed windows retained, by
-  design, and the descriptor survives only for the opt-in reproducer ``tools/quality/d63_window_release_probe.py``.
+* ``WeakWindowAttribute`` + ``window_release_policy`` / ``apply_window_release_policy`` (M308): the three tab
+  attributes that pointed back at their window (``HomeTab.parent_window``, ``WellInfoTab.main_window``,
+  ``DailyReportWidget.parent_window``) kept every closed window alive (D74).  Making them weak lets a closed window
+  be freed, and on PySide6 6.8.1.1 freeing closed windows reproduces the D63 SIGSEGV deterministically.
+  M307 identified the D63 cause: PySide6 6.8.1.1 registers a weakref callback on the signal source whose user
+  data is a raw pointer to the SignalInstance (``instanceInitialize`` -> ``WeakRef::create(source, sourceGone,
+  self)``); when the SignalInstance is freed first, ``sourceGone`` writes into freed memory.  Upstream commit
+  e226b5827c ("Reduce number of weakref handlers for sender tracking", PYSIDE-2201) replaced it with shared
+  state; it ships in 6.8.2.  The policy therefore releases closed windows only on PySide6 >= 6.8.2 and keeps them
+  retained (the M265 behaviour) on older versions, on an unparseable version, or when
+  ``DRILLMASTER_RETAIN_CLOSED_WINDOWS=1``.
 """
 from __future__ import annotations
 
@@ -38,20 +45,93 @@ def weak_or_strong(value):
 
 
 class WeakWindowAttribute:
-    """D63 diagnostic only (see the module docstring).  Data descriptor: ``self.parent_window = window`` stores a weak reference; reading it returns the window
-    or ``None`` once the window has been freed."""
+    """Data descriptor: ``self.parent_window = window`` stores a weak reference; reading it returns the window or
+    ``None`` once the window has been freed.  A value stored as a plain instance attribute before the descriptor
+    was installed is still returned (installing it never hides an existing reference)."""
 
     def __set_name__(self, owner, name):
+        self._name = name
         self._slot = f"_weak_ref_{name}"
 
     def __get__(self, obj, objtype=None):
         if obj is None:
             return self
-        ref = obj.__dict__.get(self._slot)
+        if self._slot not in obj.__dict__:
+            return obj.__dict__.get(self._name)
+        ref = obj.__dict__[self._slot]
         return ref() if ref is not None else None
 
     def __set__(self, obj, value):
         obj.__dict__[self._slot] = weak_or_strong(value)
+
+
+FIXED_PYSIDE = (6, 8, 2)     # first PySide6 release with upstream commit e226b5827c (M307, D63)
+RETAIN_ENV = "DRILLMASTER_RETAIN_CLOSED_WINDOWS"
+WINDOW_ATTRIBUTES = (("tabs.home_tab", "HomeTab", "parent_window"),
+                     ("tabs.w1_well_info", "WellInfoTab", "main_window"),
+                     ("tabs.w2_Daily_Report", "DailyReportWidget", "parent_window"))
+
+
+def _version_tuple(text):
+    parts = []
+    for piece in str(text or "").split(".")[:3]:
+        digits = "".join(ch for ch in piece if ch.isdigit())
+        if not digits or digits != piece:
+            return None
+        parts.append(int(digits))
+    return tuple(parts) if len(parts) == 3 else None
+
+
+def window_release_policy(version=None, env=None) -> dict:
+    """Whether closed MainWindows may be freed: ``{"release": bool, "pyside": str, "reason": str}``.  Never raises."""
+    import os
+
+    env = os.environ if env is None else env
+    if version is None:
+        try:
+            import PySide6
+            version = PySide6.__version__
+        except ImportError:  # silent-ok: unknown version -> unparseable -> windows are retained (the safe M265 default)
+            version = ""
+    if str(env.get(RETAIN_ENV, "")).strip() == "1":
+        return {"release": False, "pyside": version, "reason": f"{RETAIN_ENV}=1: closed windows are retained"}
+    parsed = _version_tuple(version)
+    if parsed is None:
+        return {"release": False, "pyside": version,
+                "reason": f"PySide6 version {version!r} is not recognised; closed windows are retained (safe default)"}
+    if parsed < FIXED_PYSIDE:
+        return {"release": False, "pyside": version,
+                "reason": (f"PySide6 {version} has the D63 SignalInstance use-after-free (fixed upstream in 6.8.2, "
+                           f"commit e226b5827c); closed windows are retained")}
+    return {"release": True, "pyside": version,
+            "reason": f"PySide6 {version} includes the D63 fix; closed windows can be freed"}
+
+
+_APPLIED: dict = {}
+
+
+def apply_window_release_policy(policy=None, targets=None) -> dict:
+    """Install ``WeakWindowAttribute`` on the tab classes when the policy allows releasing closed windows.
+
+    Idempotent.  Called by ``MainWindow.__init__`` before its tabs exist.  ``targets`` (``(owner_class, name)``
+    pairs) is for tests; by default the three ``WINDOW_ATTRIBUTES``.  Returns the policy plus the attributes
+    that are weak now.
+    """
+    import importlib
+
+    policy = policy or window_release_policy()
+    weak = []
+    if policy["release"]:
+        if targets is None:
+            targets = [(getattr(importlib.import_module(module), cls), name) for module, cls, name in WINDOW_ATTRIBUTES]
+        for owner, name in targets:
+            if not isinstance(owner.__dict__.get(name), WeakWindowAttribute):
+                descriptor = WeakWindowAttribute()
+                descriptor.__set_name__(owner, name)
+                setattr(owner, name, descriptor)
+            weak.append(f"{owner.__name__}.{name}")
+            _APPLIED[f"{owner.__module__}.{owner.__name__}.{name}"] = policy["pyside"]
+    return {**policy, "weak_attributes": weak}
 
 
 class SignalRoutes:

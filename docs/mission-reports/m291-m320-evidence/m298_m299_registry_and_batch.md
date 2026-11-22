@@ -4,7 +4,7 @@ UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED. SYNTHETIC data only.
 
 ## M298 — schema-driven registry
 
-`core.ddr_value_states.ValueField`, `registry()`, `describe()`. One entry per field with: key, label, unit,
+`core.ddr_value_states.ValueField`, `field_registry()` (named so that it cannot be mistaken for an ORM registry by the `test_model_registry` guard), `describe()`. One entry per field with: key, label, unit,
 allowed states, missing-value contract, validation (engineering bounds from `core.canonical_schema`), provenance
 source, and import / UI / persistence support flags. Backward compatible: the registry lists exactly the 11 M272
 fields in the same order, and every old call site keeps working. The W2 dialog uses `describe()` as its row

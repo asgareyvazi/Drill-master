@@ -19,24 +19,57 @@ Classes: RESOLVED · PARTIALLY RESOLVED · OPEN · NOT REPRODUCED · REPRODUCED 
 | M286 | clone / archive / restore | Present for every history kind through `_source_row`. Tests exercise one casing record and one calculation case. No bulk operation and no clone/source side-by-side view. D87 identity rests on `created_at` equality, which is weak when the timestamp is NULL. | PARTIALLY RESOLVED |
 | M285 | dashboard KPI specs | 20 dashboard KPIs specified; W12 Analysis KPIs not specified | PARTIALLY RESOLVED |
 | M289 | 13-step journey | synthetic, no MainWindow | PARTIALLY RESOLVED |
-| M274, M277, M280, M281, M287, M288 | – | not re-implemented in M261–M290 | NOT STARTED (in this mission series) |
+| M274, M277, M280, M281, M287, M288 | – | not re-implemented in M261–M290 | NOT STARTED at the start of M291; see the M291–M320 status table below |
 | M275, M276, M278, M279, M282, M283 | mutation coverage | mutation only; no workflow change | PARTIALLY RESOLVED |
 
 ## Defects
 
 | ID | Re-check | Class |
 |---|---|---|
-| D51 | 1 event in 300 historical runs. None of the 13 later source-gate runs inspected in M294 failed on a watchdog. | NOT REPRODUCED |
-| D63 | deterministic opt-in reproducer; freed object unidentified; no native debugger in the sandbox | REPRODUCED — ROOT CAUSE UNKNOWN |
-| D74 | routes fixed (M265); 16 closed MainWindows / 188,315 widgets retained at the end of the full suite | PARTIALLY RESOLVED |
+| D51 | 1 event in 300 historical runs. None of the 13 later source-gate runs inspected in M294 failed on a watchdog. **M309:** monitor `tools/quality/d51_ci_monitor.py`, window 2026-11-18 → 2026-11-22: 28 SUCCESS, 18 SUPERSEDED, 2 JOB_TIMEOUT (D88 class), 4 IN_PROGRESS, **0 D51_WATCHDOG** | NOT REPRODUCED (absence bounds the rate; it is not a fix) |
+| D63 | **M307:** freed object decoded (QDoubleValidator signal-instance cache, `notationChanged`); cause = PySide6 6.8.1.1 SignalInstance weakref use-after-free (`WeakRef::create(source, sourceGone, self)`), fixed upstream in 6.8.2 (e226b5827c); A/B 6.8.1.1 5/5 SIGSEGV vs 6.8.2.1 0/5. Fix = pin bump, not done | OWNER DECISION REQUIRED |
+| D74 | routes fixed (M265); **M308:** version-gated weak window attributes; on 6.8.2.1 0/3 closed windows and 0 widgets left, on the pinned 6.8.1.1 still retained (3/3, 28,680 widgets) | PARTIALLY RESOLVED |
 | D81 | string stretch ∝ L²; test against Hooke's law | RESOLVED |
 | D82 | route registry with `WeakMethod`; regression test | RESOLVED |
 | D83 | workbench status set after refresh; test plus mutant | RESOLVED |
 | D84 | policies for the two event tables; authorization tests | RESOLVED |
 | D85 | `DELETED_AFTER_REPORT` sweep; test plus mutant | RESOLVED |
 | D86 | comma refusal in `parse_authored` | RESOLVED: live in the W2 typed column (M295, `ae016a7`); import keeps `1,500` for review (M296) |
-| D87 | `source_created_at` snapshot | PARTIALLY RESOLVED (NULL / equal-timestamp identity; M304) |
+| D87 | `source_created_at` snapshot. **M304:** a source with NULL `created_at` is refused for cloning; a reused id with a different `created_at` is SOURCE_REPLACED and not compared. Two rows with an equal timestamp and a reused id stay indistinguishable | PARTIALLY RESOLVED |
 | D88 | 3.12 coverage leg: direct-SHA cancellations; 72.40 % on the documentation-only descendant | PARTIALLY RESOLVED (M293 addendum); timing cause unknown |
+
+### Regressions found and fixed during M291–M320 (stated, not hidden)
+
+* **`field_registry` (M298):** `core/ddr_value_states.registry()` tripped the repo-wide `test_model_registry` AST
+  guard (a function named `registry` is reserved). The guard runs only in the full suite, so the failure was pushed
+  in `d57f5b2` and CI was expected to fail on it. The function was renamed `field_registry()` (tests and evidence
+  updated); the guard tests now run before every push.
+* **`ae016a7` CI:** its 3.12 and 3.13 legs were cancelled at 47 min by the concurrency group when `d57f5b2` was
+  pushed (superseded, not failed). That commit has no 3.12/3.13 result; 3.11 and Windows passed.
+* **Exception ceiling:** M308/M314/M317 added four unexplained silent handlers (87 > 83). Each one is now marked
+  `# silent-ok:` with its reason; the ceiling was not raised.
+
+## M291–M320 implementation status
+
+| Item | Mission | Evidence | Class |
+|---|---|---|---|
+| M295–M297 value-state entry and import | M295–M297 | `m295_m297_value_state_entry_and_import.md` | RESOLVED for the 11 header fields (synthetic) |
+| M298–M299 registry and batch | M298–M299 | `m298_m299_registry_and_batch.md` | RESOLVED (synthetic) |
+| M300–M302 value lineage | M300–M302 | `m300_m302_value_lineage.md` | RESOLVED (synthetic) |
+| M303 clone contract (11 adapters) | M303 | `m303_m306_clone_contract_bulk_and_compare.md` | RESOLVED |
+| M304 clone provenance / D87 | M304 | same | PARTIALLY RESOLVED (D87 equal-timestamp case) |
+| M305 bulk archive / restore | M305 | same | RESOLVED (synthetic) |
+| M306 clone vs source | M306 | same | RESOLVED (copy, never a rerun) |
+| D63 root cause | M307 | `m307_m308_d63_root_cause_and_d74.md` | OWNER DECISION REQUIRED (PySide6 ≥ 6.8.2 pin) |
+| D74 release policy | M308 | same, `m308_d74_product_policy_runs.txt` | PARTIALLY RESOLVED |
+| D51 monitoring | M309 | `m309_d51_monitoring.md` | NOT REPRODUCED |
+| **M274** architecture revision diff | M311 | `m311_m274_architecture_revision_diff.md` | RESOLVED (synthetic) |
+| **M277** DDR hydraulics check | M314 | `m314_m277_ddr_hydraulics_check.md` | RESOLVED (SCREENING; history NOT REPRODUCIBLE, stated) |
+| **M280** cement job reconciliation | M317 | `m317_m280_cement_job_reconciliation.md` | RESOLVED (WORKSHEET; history NOT REPRODUCIBLE, stated) |
+| **M281** T&D friction sensitivity | M318 | `m318_m281_td_friction_sensitivity.md` | RESOLVED (SCREENING; never interpolates a factor) |
+| **M287** Report Center section manifest | M320 D | `m320d_m287_report_section_manifest.md` | RESOLVED for DDR and EOWR; NPT / Cost / Plan stated as not available |
+| **M288** answers with exact citations | M320 E | `m320e_m288_citation_record.md` | RESOLVED (synthetic; a citation is not a semantic verification) |
+| Dialog lifetime re-check (`WA_DeleteOnClose`) | M308 follow-up | lineage and clone-comparison dialogs contain no validator (the D63 object); callers only overwrite their reference | RESOLVED |
 
 ## Mutation
 

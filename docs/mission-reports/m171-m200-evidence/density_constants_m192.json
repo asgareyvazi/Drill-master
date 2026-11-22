@@ -4,6 +4,9 @@
    "7.48": 2,
    "7.48052": 1
   },
+  "core/ddr_hydraulics_check.py": {
+   "7.48052": 2
+  },
   "core/engineering/engines/mud_volume.py": {
    "7.4805": 1
   },
@@ -67,6 +70,18 @@
    "file": "core/calculator_contracts.py",
    "line": 265,
    "text": "reference=\"P = 0.052\u00b7MW(ppg)\u00b7TVD(ft); PF = P + SIDPP (pcf\u2192ppg uses 7.48 as the W13 handler does)\","
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/ddr_hydraulics_check.py",
+   "line": 10,
+   "text": "``MudProperties.mw_ppg`` (\u00f7 7.48052, as every hydraulics calculation already does). The P8 owner decision"
+  },
+  {
+   "constant": "7.48052",
+   "file": "core/ddr_hydraulics_check.py",
+   "line": 114,
+   "text": "\"DERIVED\", \"pcf -> ppg by MudProperties.mw_ppg (\u00f7 7.48052, hydraulics engine)\")"
   },
   {
    "constant": "7.4805",
@@ -203,7 +218,7 @@
   {
    "constant": "7.48",
    "file": "tabs/w13_Engineering_Calculator.py",
-   "line": 3618,
+   "line": 3717,
    "text": "ppg = r['final_mw_pcf'] / 7.48"
   },
   {
@@ -252,6 +267,6 @@
  "totals": {
   "7.48": 17,
   "7.4805": 2,
-  "7.48052": 14
+  "7.48052": 16
  }
 }

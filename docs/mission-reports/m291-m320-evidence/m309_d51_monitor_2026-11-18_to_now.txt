@@ -1,0 +1,118 @@
+IN_PROGRESS   44991888122 d57f5b2 2026-11-22T06:01 'source (3.12)' None None min
+IN_PROGRESS   44991888122 d57f5b2 2026-11-22T06:01 'source (3.11)' None None min
+IN_PROGRESS   44991888122 d57f5b2 2026-11-22T06:01 'source (3.13)' None None min
+IN_PROGRESS   44991888182 d57f5b2 2026-11-22T06:01 'windows-release' None None min
+SUCCESS       44988561940 ae016a7 2026-11-22T05:14 'windows-release' success 36.5 min
+SUPERSEDED    44988561839 ae016a7 2026-11-22T05:14 'source (3.12)' cancelled 47.0 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44988561839 ae016a7 2026-11-22T05:14 'source (3.13)' cancelled 47.0 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUCCESS       44988561839 ae016a7 2026-11-22T05:14 'source (3.11)' success 44.3 min
+SUCCESS       44917777732 b6a6a33 2026-11-21T15:10 'windows-release' success 36.4 min
+SUCCESS       44917777718 b6a6a33 2026-11-21T15:10 'source (3.13)' success 37.1 min
+SUCCESS       44917777718 b6a6a33 2026-11-21T15:10 'source (3.11)' success 36.6 min
+SUCCESS       44917777718 b6a6a33 2026-11-21T15:10 'source (3.12)' success 47.3 min
+SUCCESS       44900583984 07a0f8b 2026-11-21T11:45 'windows-release' success 36.4 min
+JOB_TIMEOUT   44900584036 07a0f8b 2026-11-21T11:45 'source (3.12)' cancelled 60.2 min
+      ann: The job has exceeded the maximum execution time of 1h0m0s
+      ann: The operation was canceled.
+SUCCESS       44900584036 07a0f8b 2026-11-21T11:45 'source (3.11)' success 33.1 min
+SUCCESS       44900584036 07a0f8b 2026-11-21T11:45 'source (3.13)' success 52.1 min
+SUCCESS       44892791369 4eae8f5 2026-11-21T10:07 'windows-release' success 27.4 min
+SUCCESS       44892791428 4eae8f5 2026-11-21T10:07 'source (3.13)' success 50.6 min
+JOB_TIMEOUT   44892791428 4eae8f5 2026-11-21T10:07 'source (3.12)' cancelled 60.2 min
+      ann: The job has exceeded the maximum execution time of 1h0m0s
+      ann: The operation was canceled.
+SUCCESS       44892791428 4eae8f5 2026-11-21T10:07 'source (3.11)' success 34.9 min
+SUPERSEDED    44892365280 42eb03d 2026-11-21T10:02 'windows-release' cancelled 5.1 min
+      ann: Canceling since a higher priority waiting request for windows-release-Windows release validation-refs/heads/arena/72010272-drill-master exists
+      ann: No files were found with the provided path: D:\a\_temp/DrillMaster-M42-tests-44892365280/windows-regressions.xml
+D:\a\_temp/DrillMaster-M42-tests-44892365280/windows-regression-summary.md
+D:\a\_temp/DrillMaster-M42-tests-44892365280/windows-regression-report.json
+D:\a\_temp/DrillMaster-build-transcr
+      ann: no release metadata exists to report on; the packaging stage failed
+      ann: The operation was canceled.
+      ann: installed package version 6.7.1 read back from the installed package specification
+SUPERSEDED    44892365163 42eb03d 2026-11-21T10:02 'source (3.12)' cancelled 5.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44892365163 42eb03d 2026-11-21T10:02 'source (3.11)' cancelled 5.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44892365163 42eb03d 2026-11-21T10:02 'source (3.13)' cancelled 5.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44892214146 8a76829 2026-11-21T10:00 'source (3.13)' cancelled 1.6 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44892214146 8a76829 2026-11-21T10:00 'source (3.11)' cancelled 1.6 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44892214146 8a76829 2026-11-21T10:00 'source (3.12)' cancelled 1.6 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44892214139 8a76829 2026-11-21T10:00 'windows-release' cancelled 1.7 min
+      ann: Canceling since a higher priority waiting request for windows-release-Windows release validation-refs/heads/arena/72010272-drill-master exists
+      ann: No files were found with the provided path: D:\a\_temp/DrillMaster-M42-tests-44892214139/windows-regressions.xml
+D:\a\_temp/DrillMaster-M42-tests-44892214139/windows-regression-summary.md
+D:\a\_temp/DrillMaster-M42-tests-44892214139/windows-regression-report.json
+D:\a\_temp/DrillMaster-build-transcr
+      ann: no release metadata exists to report on; the packaging stage failed
+      ann: The operation was canceled.
+      ann: installed package version 6.7.1 read back from the installed package specification
+SUPERSEDED    44891704413 35d3bc6 2026-11-21T09:53 'windows-release' cancelled 6.9 min
+      ann: Canceling since a higher priority waiting request for windows-release-Windows release validation-refs/heads/arena/72010272-drill-master exists
+      ann: No files were found with the provided path: D:\a\_temp/DrillMaster-M42-tests-44891704413/windows-regressions.xml
+D:\a\_temp/DrillMaster-M42-tests-44891704413/windows-regression-summary.md
+D:\a\_temp/DrillMaster-M42-tests-44891704413/windows-regression-report.json
+D:\a\_temp/DrillMaster-build-transcr
+      ann: no release metadata exists to report on; the packaging stage failed
+      ann: The operation was canceled.
+      ann: installed package version 6.7.1 read back from the installed package specification
+SUPERSEDED    44891704447 35d3bc6 2026-11-21T09:53 'source (3.12)' cancelled 7.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44891704447 35d3bc6 2026-11-21T09:53 'source (3.11)' cancelled 7.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44891704447 35d3bc6 2026-11-21T09:53 'source (3.13)' cancelled 7.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUCCESS       44885344913 b21782b 2026-11-21T08:32 'source (3.12)' success 45.4 min
+SUCCESS       44885344913 b21782b 2026-11-21T08:32 'source (3.13)' success 40.6 min
+SUCCESS       44885344913 b21782b 2026-11-21T08:32 'source (3.11)' success 35.6 min
+SUCCESS       44885344824 b21782b 2026-11-21T08:32 'windows-release' success 31.1 min
+SUPERSEDED    44884419363 7fe52ff 2026-11-21T08:20 'windows-release' cancelled 11.9 min
+      ann: Canceling since a higher priority waiting request for windows-release-Windows release validation-refs/heads/arena/72010272-drill-master exists
+      ann: No files were found with the provided path: D:\a\_temp/DrillMaster-M42-tests-44884419363/windows-regressions.xml
+D:\a\_temp/DrillMaster-M42-tests-44884419363/windows-regression-summary.md
+D:\a\_temp/DrillMaster-M42-tests-44884419363/windows-regression-report.json
+D:\a\_temp/DrillMaster-build-transcr
+      ann: no release metadata exists to report on; the packaging stage failed
+      ann: The operation was canceled.
+      ann: installed package version 6.7.1 read back from the installed package specification
+SUPERSEDED    44884419360 7fe52ff 2026-11-21T08:20 'source (3.12)' cancelled 12.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44884419360 7fe52ff 2026-11-21T08:20 'source (3.11)' cancelled 12.1 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUPERSEDED    44884419360 7fe52ff 2026-11-21T08:20 'source (3.13)' cancelled 12.0 min
+      ann: Canceling since a higher priority waiting request for source-gate-Source release gate-refs/heads/arena/72010272-drill-master exists
+      ann: The operation was canceled.
+SUCCESS       44874611815 ac7657b 2026-11-21T06:14 'source (3.13)' success 40.7 min
+SUCCESS       44874611815 ac7657b 2026-11-21T06:14 'source (3.11)' success 37.2 min
+SUCCESS       44874611815 ac7657b 2026-11-21T06:14 'source (3.12)' success 46.4 min
+SUCCESS       44874611822 ac7657b 2026-11-21T06:14 'windows-release' success 36.0 min
+SUCCESS       44274631225 db0cba3 2026-11-18T09:18 'source (3.13)' success 50.8 min
+SUCCESS       44274631225 db0cba3 2026-11-18T09:18 'source (3.12)' success 49.9 min
+SUCCESS       44274631225 db0cba3 2026-11-18T09:18 'source (3.11)' success 39.9 min
+SUCCESS       44274630565 db0cba3 2026-11-18T09:18 'windows-release' success 30.0 min
+SUCCESS       44241789432 649e33d 2026-11-18T05:05 'windows-release' success 30.4 min
+SUCCESS       44241789437 649e33d 2026-11-18T05:05 'source (3.12)' success 46.5 min
+SUCCESS       44241789437 649e33d 2026-11-18T05:05 'source (3.11)' success 39.9 min
+SUCCESS       44241789437 649e33d 2026-11-18T05:05 'source (3.13)' success 40.4 min
+counts: {'IN_PROGRESS': 4, 'SUCCESS': 28, 'SUPERSEDED': 18, 'JOB_TIMEOUT': 2}  d51_recurred=False
+absence of D51 in this window is not a fix; it only bounds the observed recurrence rate

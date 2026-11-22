@@ -151,3 +151,22 @@ stay as the M241 record.
 Mutation reach after M270: all seven modules listed as unmutated in the M241 section above are now mutated
 (`mutation_m261_m290`). Areas not reached by any catalogue: 36 (installer) and the fishing UI. The M289 cross-module journey
 (`tests/test_m289_cross_module_journey.py`) chains areas 9, 12, 14, 16, 20, 21, 22, 24, 26 and 27.
+
+## M320 update (M291–M320)
+
+This section only changes the areas M291–M320 touched; every other M290 row is unchanged. Detail is in
+`PRODUCT_CAPABILITY_MATRIX.md`, "M291–M320 additions".
+
+| Area | Change | State |
+|---|---|---|
+| Well architecture | revision diff with pinned-case consequences (M311) | IMPLEMENTED — PARTIALLY QUALIFIED |
+| Hydraulics | DDR recorded vs recomputed check (M314) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Cementing | recorded job vs architecture reconciliation (M317) | IMPLEMENTED — PARTIALLY QUALIFIED (WORKSHEET) |
+| Torque & drag | friction-factor sensitivity (M318) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Report Center / end-of-well | per-section manifest in the provenance (M320 D) | IMPLEMENTED — PARTIALLY QUALIFIED |
+| Document intelligence | citation record export and offline verification (M320 E) | IMPLEMENTED — PARTIALLY QUALIFIED |
+| Reliability tooling (35) | D51 monitor (M309), `segv_dictkey.c` (M307), D63 probe `--mode product` (M308) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) |
+| Qt lifecycle | release policy gated on version; the shipped pin 6.8.1.1 still retains windows | **BLOCKED BY OWNER DECISION** (pin ≥ 6.8.2) |
+
+Mutation reach: no M291–M320 module is in a mutation catalogue. That is the qualification gap, and it is stated
+here rather than closed by assumption.

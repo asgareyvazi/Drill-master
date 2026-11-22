@@ -295,7 +295,7 @@ class ValueField:
                 "import_pdf": self.import_pdf, "ui": list(self.ui), "persistence": self.persistence}
 
 
-def registry() -> Dict[str, ValueField]:
+def field_registry() -> Dict[str, ValueField]:
     """The registry for :data:`FIELDS` (same keys, same order), derived from ``core.canonical_schema``.
 
     A field without a canonical spec has no declared unit and no import mapping; nothing is invented for it.
@@ -316,7 +316,7 @@ def registry() -> Dict[str, ValueField]:
 
 def describe(key: str) -> str:
     """A one-paragraph description of a registered field (UI tooltip)."""
-    entry = registry()[key]
+    entry = field_registry()[key]
     unit = entry.unit or "not declared"
     imports = ", ".join(name for name, ok in (("Excel", entry.import_excel), ("PDF", entry.import_pdf)) if ok)
     return (f"{entry.label} - unit: {unit} ({entry.unit_source}). Import: {imports or 'not mapped'}. "

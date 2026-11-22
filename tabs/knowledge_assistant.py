@@ -549,7 +549,21 @@ class KnowledgeAssistantPanel(QWidget):
         self.open_source_button.setEnabled(False)
         self.open_source_button.clicked.connect(lambda: self.open_evidence_row(self.evidence_table.currentRow()))
         evidence_header.addWidget(self.open_source_button)
+        # M320-E: freeze the shown answer as an offline citation record; re-check a record against the library.
+        self.export_citations_button = QPushButton("Export with citations…")
+        self.export_citations_button.setObjectName("knowledgeExportCitations")
+        self.export_citations_button.setEnabled(False)
+        self.export_citations_button.clicked.connect(self._export_citations_clicked)
+        self.verify_citations_button = QPushButton("Verify citation file…")
+        self.verify_citations_button.setObjectName("knowledgeVerifyCitations")
+        self.verify_citations_button.clicked.connect(self._verify_citations_clicked)
+        evidence_header.addWidget(self.export_citations_button)
+        evidence_header.addWidget(self.verify_citations_button)
         evidence_layout.addLayout(evidence_header)
+        self.citation_status = QLabel("")
+        self.citation_status.setObjectName("knowledgeCitationStatus")
+        self.citation_status.setWordWrap(True)
+        evidence_layout.addWidget(self.citation_status)
         self.evidence_table = QTableWidget(0, 7)
         self.evidence_table.setHorizontalHeaderLabels(("Source", "Document", "Page", "Review", "Match",
                                                        "Found by", "Passage"))
@@ -1114,6 +1128,9 @@ class KnowledgeAssistantPanel(QWidget):
     # ------------------------------------------------------------ results
     def show_answer(self, answer: ka.Answer):
         self.last_answer = answer
+        self.last_answer_question = self.question_edit.toPlainText().strip()
+        if hasattr(self, "export_citations_button"):
+            self.export_citations_button.setEnabled(answer is not None and answer.state == "ready")
         parts = []
         check_line = ""
         if answer.check is not None and answer.state in ("ready", "model_unavailable"):
@@ -1194,6 +1211,56 @@ class KnowledgeAssistantPanel(QWidget):
                 self.evidence_table.selectRow(row)
                 self.open_evidence_row(row)
                 return
+
+    def export_citations(self, path: Optional[str] = None) -> Optional[list]:
+        """M320-E: write the shown answer as ``.citations.json`` + ``.md`` (exact spans and page SHA-256)."""
+        from core import citation_record as cr
+
+        try:
+            record = cr.build_record(self.last_answer, getattr(self, "last_answer_question", ""))
+        except cr.CitationRecordError as exc:
+            self.citation_status.setText(f"Not exported: {exc}")
+            return None
+        if path is None:
+            from PySide6.QtWidgets import QFileDialog
+
+            path, _filter = QFileDialog.getSaveFileName(self, "Export answer with citations", "answer.citations.json",
+                                                        "Citation record (*.json)")
+            if not path:
+                return None
+        try:
+            written = cr.save(record, path)
+        except OSError as exc:
+            self.citation_status.setText(f"Not exported: {exc}")
+            return None
+        self.citation_status.setText(f"Exported {len(record['citations'])} citation(s) to {written[0]} and "
+                                     f"{written[1]} — {record['citation_label']} · {record['semantic_label']}.")
+        return written
+
+    def _export_citations_clicked(self, _checked=False):
+        self.export_citations()
+
+    def verify_citation_file(self, path: Optional[str] = None) -> Optional[list]:
+        """M320-E: re-check every citation of a record against the library now (read-only, nothing repaired)."""
+        from core import citation_record as cr
+
+        if path is None:
+            from PySide6.QtWidgets import QFileDialog
+
+            path, _filter = QFileDialog.getOpenFileName(self, "Verify citation file", "", "Citation record (*.json)")
+            if not path:
+                return None
+        try:
+            results = cr.verify_record(self.db_manager, cr.load(path))
+        except cr.CitationRecordError as exc:
+            self.citation_status.setText(f"Not verified: {exc}")
+            return None
+        details = "; ".join(f"[{r['label']}] {r['status']} – {r['reason']}" for r in results)
+        self.citation_status.setText(f"{cr.summary(results)}. {details}")
+        return results
+
+    def _verify_citations_clicked(self, _checked=False):
+        self.verify_citation_file()
 
     def open_evidence_row(self, row) -> bool:
         if self.last_answer is None or not 0 <= row < len(self.last_answer.evidence):

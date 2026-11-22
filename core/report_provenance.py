@@ -139,6 +139,10 @@ def rows(prov: Dict[str, Any]) -> List[List[str]]:
     out += [["source", value] for value in prov["sources"]]
     out += [["revision", value] for value in prov["revisions"]]
     out += [["method", value] for value in prov["methods"]]
+    if "sections" in prov:                                   # M320-D: every template section and its status
+        from core import report_sections
+
+        out += report_sections.rows(prov["sections"], prov["scope"]["kind"])
     return out
 
 
@@ -219,7 +223,10 @@ def emit(engine, kind: str, target_id: int, data, html: str, path: str, fmt: str
          excel_kwargs: Optional[Dict[str, Any]] = None) -> bool:
     """The one output step of every report engine: provenance in every format."""
     excel_kwargs = excel_kwargs or {}
+    from core import report_sections
+
     prov = build(engine.db, kind, target_id, direction=getattr(engine, "direction", "ltr"))
+    prov["sections"] = report_sections.manifest(kind, data)
     engine.last_provenance = prov
     if fmt == "pdf":
         return engine._save_pdf(attach(html, prov), path)

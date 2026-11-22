@@ -1367,3 +1367,23 @@ States in this section use the M261–M290 vocabulary; see `M241_CAPABILITY_INVE
 * Documentation-only descendant `b6a6a33`, whose product source is identical (8 files changed, all under `docs/`): all four CI legs passed. The 3.12 coverage job 136886981465 recorded 5,677 passed, 4 skipped, 0 failed, and **72.40 % (78,781 / 108,811) over 291 files**.
 * The cause of the runner timing variation is unknown.
 * Every later code SHA needs its own qualification.
+
+# M291–M320 additions
+
+Report: `docs/mission-reports/M291_M320_INTEGRATED_IMPLEMENTATION_AND_RELIABILITY_REPORT.md`. Evidence is in
+`docs/mission-reports/m291-m320-evidence/`. All of it is synthetic: offscreen Qt on Linux plus GitHub-hosted
+runners. **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.** There is no mutation catalogue for M291–M320,
+so nothing new below is labelled "QUALIFIED".
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Architecture revision diff: ADDED/REMOVED/CHANGED per component with old → new, geometry consequences and pinned cases; W3b "Compare with previous" (M274 → M311) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/architecture_diff.py`, `tests/test_m311_architecture_diff.py` (6); no mutation catalogue |
+| DDR hydraulics check: recorded HSI/TFA vs `calc_bit_hydraulics` at min/max recorded flow, missing values → NOT_COMPUTED; W2 "Hydraulics check" (M277 → M314) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/ddr_hydraulics_check.py`, `dialogs/ddr_hydraulics_check_dialog.py`, `tests/test_m314_ddr_hydraulics_check.py` (16); Calculation History lists it as NOT REPRODUCIBLE (no contract) |
+| Cement job reconciliation: recorded sacks × yield vs gauge annulus on a frozen architecture, displacement vs shoe capacity; W3b Architecture page (M280 → M317) | IMPLEMENTED — PARTIALLY QUALIFIED (WORKSHEET) | `core/cement_job_reconciliation.py`, `tests/test_m317_cement_job_reconciliation.py` (14); `ft3/sk` yield only |
+| T&D friction-factor sensitivity over declared factors, observation bracketed (never interpolated); W13 Weight (M281 → M318) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/torque_drag_sensitivity.py`, `tests/test_m318_td_friction_sensitivity.py` (14) |
+| Report Center section manifest (INCLUDED / NOT_RECORDED / SUMMARISED / QUERY_FAILED / NOT_RENDERED) in the provenance of every DDR and EOWR export; "Not recorded" statements in the body (M287 → M320 D) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/report_sections.py`, `core/report_provenance.py`, `core/report_engine.py`, `tests/test_m320d_report_sections.py` (8); NPT / Cost / Plan reports state that no manifest is available |
+| Knowledge Assistant answer exported with exact citations (span + page SHA-256 + quote, JSON + md) and verified offline (EXACT / PAGE_CHANGED / SPAN_MISMATCH / PAGE_MISSING / DOCUMENT_MISSING / UNREADABLE) (M288 → M320 E) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/citation_record.py`, `tabs/knowledge_assistant.py`, `tests/test_m320e_citation_record.py` (7); "Not semantically verified" is kept |
+| Value states on import, field registry, batch edit, value lineage (M295–M302) | IMPLEMENTED — PARTIALLY QUALIFIED | `ae016a7`, `d57f5b2`; real DDR NOT RUN |
+| Clone contract for all 11 history adapters, clone provenance, bulk archive / restore, clone vs source (M303–M306) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/calculation_clone_contract.py`, `tests/test_m303_m306_*`; D87 equal-timestamp case open |
+| Closed-window release policy gated on PySide6 ≥ 6.8.2 (D63/D74, M307–M308) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/qt_lifetime.py`, `tests/test_m308_window_release_policy.py` (16); the lock stays at 6.8.1.1, so windows are still retained on the shipped pin — **OWNER DECISION REQUIRED** |
+| D51 CI monitor (M309) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/d51_ci_monitor.py`, `tests/test_m309_d51_monitor.py` (11) |

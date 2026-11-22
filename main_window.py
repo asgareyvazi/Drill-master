@@ -31,7 +31,7 @@ from core.database import (
 from core.managers import StatusBarManager, AutoSaveManager, ShortcutManager
 from core.permissions import require_permission
 from core.selection_manager import SelectionManager
-from core.qt_lifetime import disconnect_window_routes, routes_of
+from core.qt_lifetime import apply_window_release_policy, disconnect_window_routes, routes_of
 from core.functions import CentralFunctions
 from core.version import __version__
 
@@ -159,6 +159,9 @@ class MainWindow(QMainWindow):
         self.db_manager = db_manager
         self.user = user
         self.startup_result = startup_result
+        # M308 (D74/D63): weak tab -> window attributes only on a PySide6 without the D63 use-after-free;
+        # applied before any tab exists. On the pinned 6.8.1.1 closed windows stay retained (M265 behaviour).
+        self.window_release_policy = apply_window_release_policy()
 
         # Managers
         self.sel_manager = SelectionManager()

@@ -1,0 +1,32 @@
+M308 D74 product-policy measurement (tools/quality/d63_window_release_probe.py --windows 3 --mode product; no runtime patch)
+Python 3.11.2, offscreen, SYNTHETIC databases, 2026-11-22, tree d57f5b2 + M307/M308 working changes.
+
+=== 6.8.1.1 (pinned) product run 1 ===
+product policy: {'release': False, 'pyside': '6.8.1.1', 'reason': 'PySide6 6.8.1.1 has the D63 SignalInstance use-after-free (fixed upstream in 6.8.2, commit e226b5827c); closed windows are retained'}
+window 1: alive after its last reference was dropped: True
+window 2: alive after its last reference was dropped: True
+window 3: alive after its last reference was dropped: True
+mode=product windows=3 alive_at_end=3 live_widgets=28680 - no crash
+rc=0
+=== 6.8.1.1 (pinned) product run 2 ===
+product policy: {'release': False, 'pyside': '6.8.1.1', 'reason': 'PySide6 6.8.1.1 has the D63 SignalInstance use-after-free (fixed upstream in 6.8.2, commit e226b5827c); closed windows are retained'}
+window 1: alive after its last reference was dropped: True
+window 2: alive after its last reference was dropped: True
+window 3: alive after its last reference was dropped: True
+mode=product windows=3 alive_at_end=3 live_widgets=28680 - no crash
+rc=0
+=== 6.8.2.1 (isolated) product run 1 ===
+product policy: {'release': True, 'pyside': '6.8.2.1', 'reason': 'PySide6 6.8.2.1 includes the D63 fix; closed windows can be freed'}
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+window 3: alive after its last reference was dropped: False
+mode=product windows=3 alive_at_end=0 live_widgets=0 - no crash
+rc=0
+=== 6.8.2.1 (isolated) product run 2 ===
+product policy: {'release': True, 'pyside': '6.8.2.1', 'reason': 'PySide6 6.8.2.1 includes the D63 fix; closed windows can be freed'}
+window 1: alive after its last reference was dropped: False
+window 2: alive after its last reference was dropped: False
+window 3: alive after its last reference was dropped: False
+mode=product windows=3 alive_at_end=0 live_widgets=0 - no crash
+rc=0
+DONE

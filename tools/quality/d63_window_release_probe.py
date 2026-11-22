@@ -37,7 +37,8 @@ sys.path[:0] = [str(ROOT), str(ROOT / "tests")]
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--windows", type=int, default=3)
-    parser.add_argument("--mode", choices=("auto", "collect", "retain"), default="auto")
+    parser.add_argument("--mode", choices=("auto", "collect", "retain", "product"), default="auto",
+                        help="product (M308): no runtime patch; the product's window_release_policy decides")
     args = parser.parse_args(argv)
     work = Path(tempfile.mkdtemp(prefix="d63_probe_"))
     for key, value in {"DRILLMASTER_ENV": "test", "DRILLMASTER_DATA_DIR": str(work),
@@ -55,7 +56,10 @@ def main(argv=None) -> int:
     from core.selection_manager import SelectionManager
     from synthetic_operations import make_file_database
 
-    if args.mode != "retain":
+    if args.mode == "product":
+        from core.qt_lifetime import window_release_policy
+        print(f"product policy: {window_release_policy()}", flush=True)
+    if args.mode not in ("retain", "product"):
         import tabs.home_tab as home
         import tabs.w1_well_info as w1
         import tabs.w2_Daily_Report as w2

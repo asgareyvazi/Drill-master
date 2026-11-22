@@ -1,0 +1,45 @@
+Disassembly of the two crash sites in /usr/bin/python3.11 (objdump -d)
+
+### free_keys_object loop (fault 0x515ee3)
+0000000000515e99 <PyDict_Update@@Base+0xa19>:
+  515e99:	49 8d 6c 2e 20       	lea    0x20(%r14,%rbp,1),%rbp
+  515e9e:	4d 85 ff             	test   %r15,%r15
+  515ea1:	7f 12                	jg     515eb5 <PyDict_Update@@Base+0xa35>
+  515ea3:	eb 4b                	jmp    515ef0 <PyDict_Update@@Base+0xa70>
+  515ea5:	0f 1f 00             	nopl   (%rax)
+  515ea8:	48 83 c3 01          	add    $0x1,%rbx
+  515eac:	48 83 c5 10          	add    $0x10,%rbp
+  515eb0:	4c 39 fb             	cmp    %r15,%rbx
+  515eb3:	74 3b                	je     515ef0 <PyDict_Update@@Base+0xa70>
+  515eb5:	48 8b 7d 00          	mov    0x0(%rbp),%rdi
+  515eb9:	48 85 ff             	test   %rdi,%rdi
+  515ebc:	74 0a                	je     515ec8 <PyDict_Update@@Base+0xa48>
+  515ebe:	48 83 2f 01          	subq   $0x1,(%rdi)
+  515ec2:	0f 84 e8 00 00 00    	je     515fb0 <PyDict_Update@@Base+0xb30>
+  515ec8:	48 8b 7d 08          	mov    0x8(%rbp),%rdi
+  515ecc:	48 85 ff             	test   %rdi,%rdi
+  515ecf:	74 d7                	je     515ea8 <PyDict_Update@@Base+0xa28>
+  515ed1:	48 83 2f 01          	subq   $0x1,(%rdi)
+  515ed5:	75 d1                	jne    515ea8 <PyDict_Update@@Base+0xa28>
+  515ed7:	48 8b 47 08          	mov    0x8(%rdi),%rax
+  515edb:	48 83 c3 01          	add    $0x1,%rbx
+  515edf:	48 83 c5 10          	add    $0x10,%rbp
+  515ee3:	ff 50 30             	call   *0x30(%rax)
+  515ee6:	4c 39 fb             	cmp    %r15,%rbx
+  515ee9:	75 ca                	jne    515eb5 <PyDict_Update@@Base+0xa35>
+  515eeb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+
+### weakref clear: Py_CLEAR(wr_callback) -> _Py_Dealloc (return address 0x557c7d)
+0000000000557c58 <PyWeakref_GetObject@@Base+0x278>:
+  557c58:	48 83 2f 01          	subq   $0x1,(%rdi)
+  557c5c:	74 1a                	je     557c78 <PyWeakref_GetObject@@Base+0x298>
+  557c5e:	48 c7 43 18 00 00 00 	movq   $0x0,0x18(%rbx)
+  557c65:	00 
+  557c66:	eb bd                	jmp    557c25 <PyWeakref_GetObject@@Base+0x245>
+  557c68:	48 8b 53 30          	mov    0x30(%rbx),%rdx
+  557c6c:	48 89 50 30          	mov    %rdx,0x30(%rax)
+  557c70:	eb 93                	jmp    557c05 <PyWeakref_GetObject@@Base+0x225>
+  557c72:	48 89 42 28          	mov    %rax,0x28(%rdx)
+  557c76:	eb 96                	jmp    557c0e <PyWeakref_GetObject@@Base+0x22e>
+  557c78:	e8 73 8b fa ff       	call   5007f0 <_Py_Dealloc@@Base>
+  557c7d:	eb df                	jmp    557c5e <PyWeakref_GetObject@@Base+0x27e>

@@ -419,6 +419,10 @@ table {{
     <td class="label">SPP</td><td class="value">{_range(params.get('pump_pressure_min'), params.get('pump_pressure_max'), " psi")}</td>
 </tr>
 </table>"""
+        else:
+            html += f'''
+<div class="section-title">⚙️ Drilling Parameters</div>
+<p class="note">{not_recorded_text("drilling parameter")}</p>'''
 
         # Mud Report
         if mud:
@@ -444,6 +448,10 @@ table {{
     <td class="label">Loss DH</td><td class="value">{fmt_num(mud.get('loss_downhole'),1)} bbl</td>
 </tr>
 </table>"""
+        else:
+            html += f'''
+<div class="section-title">🧪 Mud Properties</div>
+<p class="note">{not_recorded_text("mud")}</p>'''
 
         # 24h Operations
         html += """
@@ -476,6 +484,8 @@ table {{
     <td>{desc_html}</td>
 </tr>"""
 
+        if not logs_24:
+            html += f'<tr><td colspan="7">{not_recorded_text("24-hour operations")}</td></tr>'
         html += "</table>"
 
         # Morning Tour
@@ -500,6 +510,10 @@ table {{
     <td>{wrap_html(log.activity_description)}</td>
 </tr>"""
             html += "</table>"
+        else:
+            html += f'''
+<div class="section-title">☀️ Morning Tour</div>
+<p class="note">{not_recorded_text("morning tour")}</p>'''
 
         # Time Analysis. When no time has been logged the percentages are
         # unknown, not "100% productive / 0% NPT" — render "—" and draw an empty
@@ -541,6 +555,10 @@ table {{
             html += f"""
 <div class="section-title">📝 Operations Summary</div>
 <div class="summary-box">{wrap_html(summary)}</div>"""
+        else:
+            html += f'''
+<div class="section-title">📝 Operations Summary</div>
+<p class="note">{not_recorded_text("operations summary")}</p>'''
 
         # Footer
         html += f"""
@@ -1135,6 +1153,8 @@ h3 {{
 <td>{summary}</td>
 </tr>"""
             html += "</table>"
+        else:
+            html += f'<p class="note">{not_recorded_text("daily report")}</p>'
 
         # Drilling Performance
         html += '<div class="page-break"></div><h1>5. Drilling Performance</h1>'
@@ -1155,6 +1175,8 @@ h3 {{
 <td>{safe_str(p.pump_pressure_max)}</td>
 </tr>"""
             html += "</table>"
+        else:
+            html += f'<p class="note">{not_recorded_text("drilling parameter")}</p>'
 
         # Mud Summary
         html += "<h1>6. Mud Summary</h1>"

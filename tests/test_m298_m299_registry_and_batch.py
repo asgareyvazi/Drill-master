@@ -36,7 +36,7 @@ def world(tmp_path):
 
 # ---- M298 -------------------------------------------------------------------------------------------------------
 def test_registry_is_backward_compatible_with_the_eleven_fields():
-    registry = vs.registry()
+    registry = vs.field_registry()
     assert list(registry) == list(vs.FIELDS) == M272_FIELDS
     assert all(registry[key].label == vs.FIELDS[key] for key in registry)
     columns = {column.name for column in DailyReport.__table__.columns}
@@ -44,7 +44,7 @@ def test_registry_is_backward_compatible_with_the_eleven_fields():
 
 
 def test_units_bounds_and_import_support_come_from_the_canonical_schema_only():
-    for key, entry in vs.registry().items():
+    for key, entry in vs.field_registry().items():
         spec = canonical_schema.get_field_spec(f"daily_report.{key}")
         if spec is None:
             assert (entry.unit, entry.import_excel, entry.import_pdf, entry.bounds) == (None, False, False, (None, None))
@@ -52,13 +52,13 @@ def test_units_bounds_and_import_support_come_from_the_canonical_schema_only():
         else:
             assert entry.unit == (spec.unit or None) and entry.import_excel and entry.import_pdf
             assert entry.bounds == canonical_schema.get_engineering_bounds(f"daily_report.{key}")
-    registry = vs.registry()
+    registry = vs.field_registry()
     assert registry["depth_2400"].unit == "m" and registry["mw_pcf"].unit == "pcf"
     assert registry["wob"].unit is None                    # never invented
 
 
 def test_every_entry_carries_the_full_contract():
-    for entry in vs.registry().values():
+    for entry in vs.field_registry().values():
         row = entry.as_row()
         assert set(row) == {"key", "label", "unit", "unit_source", "bounds", "states", "missing_contract",
                             "validation", "provenance", "import_excel", "import_pdf", "ui", "persistence"}

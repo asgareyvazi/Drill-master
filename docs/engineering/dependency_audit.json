@@ -101,7 +101,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 18,
+    "evidence_tests": 20,
     "licence": "own code (product licence)",
     "method_id": "architecture.casing_inputs",
     "status": "IMPLEMENTED",
@@ -117,6 +117,8 @@
      "test_m223_library_architecture_cement_lineage.py",
      "test_m229_product_journey.py",
      "test_m303_m306_clone_contract_and_bulk.py",
+     "test_m311_architecture_diff.py",
+     "test_m317_cement_job_reconciliation.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -128,7 +130,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 72,
+    "evidence_tests": 75,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -172,6 +174,9 @@
      "test_m286_workbench_clone_archive.py",
      "test_m289_cross_module_journey.py",
      "test_m303_m306_clone_contract_and_bulk.py",
+     "test_m311_architecture_diff.py",
+     "test_m317_cement_job_reconciliation.py",
+     "test_m318_td_friction_sensitivity.py",
      "test_m31_scenarios.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -209,7 +214,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 18,
+    "evidence_tests": 20,
     "licence": "own code (product licence)",
     "method_id": "architecture.cement_annulus",
     "status": "IMPLEMENTED",
@@ -225,6 +230,8 @@
      "test_m223_library_architecture_cement_lineage.py",
      "test_m229_product_journey.py",
      "test_m303_m306_clone_contract_and_bulk.py",
+     "test_m311_architecture_diff.py",
+     "test_m317_cement_job_reconciliation.py",
      "test_m74_well_architecture.py",
      "test_m78_workflows.py",
      "test_m80_recovery_offline.py",
@@ -236,7 +243,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 67,
+    "evidence_tests": 70,
     "licence": "own code (product licence)",
     "method_id": "engine.cement",
     "status": "IMPLEMENTED",
@@ -273,7 +280,10 @@
      "test_m223_library_architecture_cement_lineage.py",
      "test_m229_product_journey.py",
      "test_m303_m306_clone_contract_and_bulk.py",
+     "test_m311_architecture_diff.py",
+     "test_m317_cement_job_reconciliation.py",
      "test_m31_scenarios.py",
+     "test_m320d_report_sections.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
      "test_m49_knowledge_ui.py",
@@ -556,7 +566,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 25,
+    "evidence_tests": 26,
     "licence": "own code (product licence)",
     "method_id": "survey.azimuth_transform",
     "status": "IMPLEMENTED",
@@ -575,6 +585,7 @@
      "test_m198_backup_restore_qualification.py",
      "test_m289_cross_module_journey.py",
      "test_m303_m306_clone_contract_and_bulk.py",
+     "test_m318_td_friction_sensitivity.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -590,7 +601,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 25,
+    "evidence_tests": 26,
     "licence": "own code (product licence)",
     "method_id": "survey.datum_transform",
     "status": "IMPLEMENTED",
@@ -609,6 +620,7 @@
      "test_m198_backup_restore_qualification.py",
      "test_m289_cross_module_journey.py",
      "test_m303_m306_clone_contract_and_bulk.py",
+     "test_m318_td_friction_sensitivity.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -624,7 +636,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 25,
+    "evidence_tests": 26,
     "licence": "own code (product licence)",
     "method_id": "survey.revision",
     "status": "IMPLEMENTED",
@@ -643,6 +655,7 @@
      "test_m198_backup_restore_qualification.py",
      "test_m289_cross_module_journey.py",
      "test_m303_m306_clone_contract_and_bulk.py",
+     "test_m318_td_friction_sensitivity.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -658,7 +671,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 21,
+    "evidence_tests": 22,
     "licence": "own code (product licence)",
     "method_id": "engine.torque_drag",
     "status": "IMPLEMENTED",
@@ -673,6 +686,7 @@
      "test_engineering_non_finite_contract.py",
      "test_m112_dependency_audit.py",
      "test_m239_engine_semantics.py",
+     "test_m318_td_friction_sensitivity.py",
      "test_m76_engineering_labels.py",
      "test_m90_engine_qualification.py",
      "test_mse_cross_process.py",
@@ -1543,7 +1557,8 @@
    "file": "core/qt_lifetime.py",
    "guarded": false,
    "lines": [
-    117
+    197,
+    92
    ],
    "module": "PySide6"
   },
@@ -1551,21 +1566,21 @@
    "file": "core/report_engine.py",
    "guarded": true,
    "lines": [
-    557,
-    558,
-    559,
-    1273,
-    1274,
-    1275,
-    1673,
-    1674,
-    1675,
-    1949,
-    1950,
-    1951,
-    2209,
-    2210,
-    2211
+    575,
+    576,
+    577,
+    1295,
+    1296,
+    1297,
+    1695,
+    1696,
+    1697,
+    1971,
+    1972,
+    1973,
+    2231,
+    2232,
+    2233
    ],
    "module": "PySide6"
   },
@@ -1693,6 +1708,15 @@
    "lines": [
     13,
     14
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/ddr_hydraulics_check_dialog.py",
+   "guarded": false,
+   "lines": [
+    14,
+    15
    ],
    "module": "PySide6"
   },
@@ -1926,7 +1950,7 @@
     23,
     24,
     25,
-    2835
+    2838
    ],
    "module": "PySide6"
   },
@@ -2034,7 +2058,9 @@
    "lines": [
     25,
     26,
-    27
+    27,
+    1225,
+    1248
    ],
    "module": "PySide6"
   },
@@ -2247,7 +2273,7 @@
     9,
     15,
     17,
-    2534
+    2557
    ],
    "module": "PySide6"
   },
@@ -2594,16 +2620,16 @@
    "file": "core/report_engine.py",
    "guarded": true,
    "lines": [
-    592,
-    593,
-    1302,
-    1303,
-    1700,
-    1701,
-    1976,
-    1977,
-    2236,
-    2237
+    610,
+    611,
+    1324,
+    1325,
+    1722,
+    1723,
+    1998,
+    1999,
+    2258,
+    2259
    ],
    "module": "openpyxl"
   },
@@ -2611,8 +2637,8 @@
    "file": "core/report_provenance.py",
    "guarded": false,
    "lines": [
-    175,
-    190
+    179,
+    194
    ],
    "module": "openpyxl"
   },
@@ -2660,7 +2686,7 @@
    "file": "tabs/w13_Engineering_Calculator.py",
    "guarded": true,
    "lines": [
-    2888
+    2987
    ],
    "module": "openpyxl"
   },
@@ -2766,8 +2792,8 @@
    "file": "main_window.py",
    "guarded": true,
    "lines": [
-    891,
-    902
+    894,
+    905
    ],
    "module": "qtribbon"
   },

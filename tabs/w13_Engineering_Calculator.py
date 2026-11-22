@@ -2814,8 +2814,107 @@ class EngineeringCalculatorTab(DrillTabBase):
         res_grid.addWidget(self.wt_td, 3, 1, 1, 3)
 
         layout.addWidget(g_res)
+        layout.addWidget(self._wt_build_sensitivity_group())
         layout.addStretch()
         return tab
+
+    def _wt_build_sensitivity_group(self):
+        """M318: friction-factor sensitivity on the last successful T&D run (declared factors, observations)."""
+        from core import torque_drag_sensitivity as tds
+
+        group = QGroupBox("Friction-factor sensitivity (SCREENING)")
+        grid = QGridLayout(group)
+        self.wt_ff_list = QLineEdit()
+        self.wt_ff_list.setObjectName("wt_ff_list")
+        self.wt_ff_list.setPlaceholderText("declare factors, e.g. 0.15 0.25 0.35 (no default)")
+        self.wt_ff_observed = {}
+        grid.addWidget(QLabel("Friction factors:"), 0, 0)
+        grid.addWidget(self.wt_ff_list, 0, 1, 1, 3)
+        for col, (curve, (_key, unit)) in enumerate(tds.CURVES.items()):
+            edit = QLineEdit()
+            edit.setObjectName(f"wt_ff_observed_{curve}")
+            edit.setPlaceholderText(f"observed {curve} ({unit}), optional")
+            self.wt_ff_observed[curve] = edit
+            grid.addWidget(edit, 1, col)
+        self.wt_ff_run_btn = QPushButton("Run sensitivity")
+        self.wt_ff_run_btn.setObjectName("wt_ff_run_btn")
+        self.wt_ff_run_btn.clicked.connect(self._wt_ff_run_clicked)
+        self.wt_ff_save_btn = QPushButton("Save sensitivity case")
+        self.wt_ff_save_btn.setObjectName("wt_ff_save_btn")
+        self.wt_ff_save_btn.setEnabled(False)
+        self.wt_ff_save_btn.clicked.connect(self._wt_ff_save_clicked)
+        grid.addWidget(self.wt_ff_run_btn, 2, 0)
+        grid.addWidget(self.wt_ff_save_btn, 2, 1)
+        self.wt_ff_result = QLabel("Run torque and drag on a pinned survey, declare friction factors, then run.")
+        self.wt_ff_result.setObjectName("wt_ff_result")
+        self.wt_ff_result.setWordWrap(True)
+        self.wt_ff_result.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        grid.addWidget(self.wt_ff_result, 3, 0, 1, 4)
+        self._wt_ff_last = None
+        return group
+
+    def _wt_ff_observations(self):
+        from core import ddr_value_states as vs
+
+        observed, problems = {}, []
+        for curve, edit in self.wt_ff_observed.items():
+            text = edit.text().strip()
+            if not text:
+                observed[curve] = None
+                continue
+            try:
+                value, state = vs.parse_authored(text)       # D86 rules: commas refused, never another number
+            except vs.ValueStateError as exc:
+                problems.append(f"{curve}: {exc}")
+                value, state = None, None
+            if state is not None and value is None:
+                problems.append(f"{curve}: {state} is not an observation")
+            observed[curve] = value
+        return observed, problems
+
+    def run_ff_sensitivity(self):
+        from core import torque_drag_sensitivity as tds
+
+        self._wt_ff_last = None
+        self.wt_ff_save_btn.setEnabled(False)
+        try:
+            result = tds.sweep(getattr(self, "_wt_last_td_run", None), tds.parse_factors(self.wt_ff_list.text()))
+        except tds.SensitivityError as exc:
+            self.wt_ff_result.setText(f"NOT RUN: {exc}")
+            return None
+        observed, problems = self._wt_ff_observations()
+        lines = tds.table_lines(result)
+        for curve, value in observed.items():
+            if value is not None:
+                where = tds.locate(result, curve, value)
+                lines.append(f"Observed {curve}: {where['status']} – {where['reason']}")
+        lines += [f"Observation refused – {p}" for p in problems]
+        self.wt_ff_result.setText("\n".join(lines))
+        self._wt_ff_last = (result, observed)
+        self.wt_ff_save_btn.setEnabled(any(r["status"] == "OK" for r in result["rows"]))
+        return result
+
+    def _wt_ff_run_clicked(self, _checked=False):
+        self.run_ff_sensitivity()
+
+    def save_ff_sensitivity(self):
+        from core import torque_drag_sensitivity as tds
+        from core.authorization import AuthorizationError
+
+        if self._wt_ff_last is None or getattr(self, "db", None) is None:
+            return None
+        result, observed = self._wt_ff_last
+        try:
+            case = tds.save_case(self.db, result, observed, well_id=getattr(self, "current_well_id", None))
+        except (ValueError, AuthorizationError) as exc:
+            self.wt_ff_result.setText(self.wt_ff_result.text() + f"\nNot saved: {exc}")
+            return None
+        self.wt_ff_save_btn.setEnabled(False)
+        self.wt_ff_result.setText(self.wt_ff_result.text() + f"\nSaved as calculation case #{case['id']}.")
+        return case
+
+    def _wt_ff_save_clicked(self, _checked=False):
+        self.save_ff_sensitivity()
 
     # ========== Weight Methods ==========
 

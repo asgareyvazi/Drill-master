@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QPushButton,
                                QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
+from core import cement_job_reconciliation as cj
 from core import well_architecture as wa
 from core.authorization import AuthorizationError
 
@@ -41,8 +42,11 @@ class WellArchitecturePanel(QWidget):
         self.validate_btn.clicked.connect(lambda _c=False: self.validate_current())
         self.freeze_btn.clicked.connect(lambda _c=False: self.freeze_current())
         self.load_btn.clicked.connect(lambda _c=False: self.load_selected())
+        self.compare_btn = QPushButton("Compare with previous")        # M311: component-level revision diff
+        self.compare_btn.setObjectName("architecture_compare_btn")
+        self.compare_btn.clicked.connect(self._compare_clicked)
         for widget in (QLabel("Survey revision:"), self.survey_combo, self.validate_btn, self.freeze_btn,
-                       self.load_btn):
+                       self.load_btn, self.compare_btn):
             row.addWidget(widget)
         layout.addLayout(row)
         self.table = QTableWidget(0, len(self.COLUMNS))
@@ -83,6 +87,27 @@ class WellArchitecturePanel(QWidget):
                        self.save_cement_btn):
             cement.addWidget(widget)
         layout.addLayout(cement)
+        # M317: a recorded cement job (W3c cement report) against the selected revision and string.
+        job_row = QHBoxLayout()
+        self.job_combo = QComboBox()
+        self.job_combo.setObjectName("cement_job_combo")
+        self.yield_unit_combo = QComboBox()
+        self.yield_unit_combo.setObjectName("cement_yield_unit")
+        self.yield_unit_combo.addItem("not declared", None)       # the report does not store the yield unit
+        for unit in cj.YIELD_UNITS:
+            self.yield_unit_combo.addItem(unit, unit)
+        self.reconcile_btn = QPushButton("Reconcile recorded job")
+        self.reconcile_btn.setObjectName("cement_reconcile_btn")
+        self.reconcile_btn.clicked.connect(self._reconcile_clicked)
+        self.save_reconcile_btn = QPushButton("Save reconciliation")
+        self.save_reconcile_btn.setObjectName("cement_reconcile_save_btn")
+        self.save_reconcile_btn.clicked.connect(self._save_reconcile_clicked)
+        self.last_reconciliation: Optional[Dict[str, Any]] = None
+        self.last_comparison: Optional[Dict[str, Any]] = None
+        for widget in (QLabel("Recorded cement job:"), self.job_combo, QLabel("Yield unit:"), self.yield_unit_combo,
+                       self.reconcile_btn, self.save_reconcile_btn):
+            job_row.addWidget(widget)
+        layout.addLayout(job_row)
         self.status = QLabel("")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -108,6 +133,13 @@ class WellArchitecturePanel(QWidget):
             except Exception as exc:  # shown and logged; the schematic keeps working
                 logger.warning("architecture revisions could not be read: %s", exc)
                 self.status.setText(f"Architecture revisions could not be read: {exc}")
+        self.job_combo.clear()
+        if self.db is not None and self.well_id:
+            try:
+                for job in cj.list_jobs(self.db, self.well_id):
+                    self.job_combo.addItem(f"#{job['id']} {job['name'] or job['job_type'] or 'cement job'}", job["id"])
+            except Exception as exc:  # shown and logged; the schematic keeps working
+                logger.warning("cement reports could not be read: %s", exc)
         self.survey_combo.clear()
         self.survey_combo.addItem("(none)", None)
         for survey in surveys:
@@ -126,6 +158,7 @@ class WellArchitecturePanel(QWidget):
 
     def _selection_changed(self) -> None:
         self.last_cement = None
+        self.last_reconciliation = None
         rev = self._selected()
         self.string_combo.clear()
         if rev is not None:
@@ -144,8 +177,16 @@ class WellArchitecturePanel(QWidget):
         self.validate_btn.setEnabled(has_well)
         self.freeze_btn.setEnabled(has_well)
         self.load_btn.setEnabled(selected)
+        if hasattr(self, "compare_btn"):
+            rev = self._selected()
+            self.compare_btn.setEnabled(rev is not None and any(r["revision"] < rev["revision"]
+                                                                 for r in self.revisions))
         self.cement_btn.setEnabled(selected and self.string_combo.count() > 0)
         self.save_cement_btn.setEnabled(getattr(self, "last_cement", None) is not None)
+        if hasattr(self, "reconcile_btn"):
+            self.reconcile_btn.setEnabled(selected and self.string_combo.count() > 0 and self.job_combo.count() > 0)
+            self.save_reconcile_btn.setEnabled(self.last_reconciliation is not None
+                                               and self.last_reconciliation["status"] == "COMPUTED")
 
     # -- actions --------------------------------------------------------------
     def current_components(self) -> List[Dict[str, Any]]:
@@ -216,6 +257,69 @@ class WellArchitecturePanel(QWidget):
                             "open_hole_in": hole, "wellbore_id": rev.get("wellbore_id")}
         self._update_actions()
         return self.last_cement
+
+    def compare_selected(self) -> Optional[Dict[str, Any]]:
+        """M311: the selected revision against the next older one (read-only; pinned worksheets are listed)."""
+        from core import architecture_diff as ad
+
+        rev = self._selected()
+        older = max((r for r in self.revisions if rev is not None and r["revision"] < rev["revision"]),
+                    key=lambda r: r["revision"], default=None)
+        if rev is None or older is None:
+            self.status.setText("Select a revision that has an older revision to compare with.")
+            return None
+        try:
+            result = ad.compare_revisions(self.db, older["id"], rev["id"])
+        except (ad.ArchitectureDiffError, wa.ArchitectureError, LookupError) as exc:
+            self.status.setText(f"Not compared: {exc}")
+            return None
+        self.last_comparison = result
+        self.status.setText(" ".join(ad.summary_lines(result, limit=12)))
+        return result
+
+    def _compare_clicked(self, _checked: bool = False):
+        self.compare_selected()
+
+    def reconcile_selected(self) -> Optional[Dict[str, Any]]:
+        """M317: the selected recorded cement job against the selected revision and string (WORKSHEET)."""
+        rev, job_id = self._selected(), self.job_combo.currentData()
+        self.last_reconciliation = None
+        if rev is None or job_id is None or not self.string_combo.currentText():
+            self.status.setText("Select an architecture revision, a cemented string and a recorded cement job.")
+            self._update_actions()
+            return None
+        try:
+            result = cj.reconcile(self.db, job_id, rev["id"], self.string_combo.currentText(),
+                                  yield_unit=self.yield_unit_combo.currentData(),
+                                  open_hole_in=self.hole_spin.value() or None,
+                                  caliper_in=self.caliper_spin.value() or None)
+        except (cj.ReconciliationError, LookupError, wa.ArchitectureError) as exc:
+            self.status.setText(f"Not reconciled: {exc}")
+            self._update_actions()
+            return None
+        self.last_reconciliation = result
+        self.status.setText(" ".join(cj.summary_lines(result)))
+        self._update_actions()
+        return result
+
+    def _reconcile_clicked(self, _checked: bool = False):
+        self.reconcile_selected()
+
+    def save_reconciliation(self) -> Optional[Dict[str, Any]]:
+        if self.last_reconciliation is None:
+            return None
+        try:
+            case = cj.save_case(self.db, self.last_reconciliation)
+        except (ValueError, AuthorizationError) as exc:
+            self.status.setText(f"Not saved: {exc}")
+            return None
+        self.status.setText(f"Reconciliation saved as calculation case #{case['id']}. {cj.LABEL}.")
+        self.last_reconciliation = None
+        self._update_actions()
+        return case
+
+    def _save_reconcile_clicked(self, _checked: bool = False):
+        self.save_reconciliation()
 
     def save_cement_case(self) -> Optional[Dict[str, Any]]:
         """Store the worksheet as an immutable calculation case pinned to the architecture revision."""
