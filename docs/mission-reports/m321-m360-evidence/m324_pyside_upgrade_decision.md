@@ -115,4 +115,4 @@ The obligations for the one-folder PyInstaller distribution are the same for eve
 
 ## 8. CI evaluation runs
 
-Filled in after the evaluation workflow ran on the pushed SHA: see `m324_ci_evaluation.md`.
+See `m324_ci_evaluation.md`. Summary (run `45024680781` on `b18706d`): both candidates freed three real MainWindows without a crash on Windows and on Linux 3.11/3.12, and the UI subset passes on Windows. **Open:** Linux 3.13 × 6.8.3 (the probe step failed without per-run output; hang detection was added), and the frozen exe has not yet been launched on a candidate (the smoke stops at the lock-pinned licence check, which is M325 work). Until these close, **6.8.2.1 is the safer candidate**; it is the only one that passed every completed leg.

@@ -8,6 +8,7 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -17,6 +18,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--modes", default="auto,product")
+    parser.add_argument("--timeout", type=int, default=300, help="seconds per probe run before it counts as a HANG")
     args = parser.parse_args(argv)
     import PySide6
 
@@ -24,11 +26,19 @@ def main(argv=None) -> int:
     results = []
     for mode in args.modes.split(","):
         for run in range(1, args.runs + 1):
-            proc = subprocess.run([sys.executable, str(ROOT / "tools/quality/d63_window_release_probe.py"),
-                                   "--windows", "3", "--mode", mode], capture_output=True, text=True, timeout=900)
+            started = time.monotonic()
+            try:
+                proc = subprocess.run([sys.executable, str(ROOT / "tools/quality/d63_window_release_probe.py"),
+                                       "--windows", "3", "--mode", mode], capture_output=True, text=True,
+                                      timeout=args.timeout)
+            except subprocess.TimeoutExpired as exc:          # a hang is a finding, never an unannotated failure
+                out = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+                err = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+                proc = subprocess.CompletedProcess(exc.cmd, "HANG", out, err + f"\n(no exit after {args.timeout} s)")
+            elapsed = time.monotonic() - started
             last = (proc.stdout.strip().splitlines() or [""])[-1]
             line = f"PySide6 {PySide6.__version__} {sys.platform} py{sys.version_info[0]}.{sys.version_info[1]} " \
-                   f"mode={mode} run={run} rc={proc.returncode} {last}"
+                   f"mode={mode} run={run} rc={proc.returncode} {elapsed:.0f}s {last}"
             print(line, flush=True)
             results.append(line)
             if proc.returncode != 0:

@@ -101,6 +101,12 @@ jobs:
           $build = Join-Path $env:RUNNER_TEMP 'pyinstaller-build.log'
           $smoke = Join-Path $env:RUNNER_TEMP 'package-smoke.log'
           $ErrorActionPreference = 'Continue'
+          # Runner checkout only (never committed): the smoke checks bundled licence metadata against the lock pins,
+          # so the throw-away lock names the candidate. This is the M325 lock edit, rehearsed - not applied.
+          if ('${{ matrix.pyside }}' -ne '6.8.1.1') {
+            (Get-Content requirements-lock.txt) -replace '^(PySide6|PySide6_Addons|PySide6_Essentials|shiboken6)==6\.8\.1\.1$', ('$1==' + '${{ matrix.pyside }}') | Set-Content requirements-lock.txt
+            Select-String -Path requirements-lock.txt -Pattern '^(PySide6|shiboken6)' | ForEach-Object { $_.Line }
+          }
           python -m PyInstaller --noconfirm --clean --workpath $work --distpath $dist packaging\DrillMaster.spec *> $build
           $rc = $LASTEXITCODE
           if ($rc -ne 0) {
