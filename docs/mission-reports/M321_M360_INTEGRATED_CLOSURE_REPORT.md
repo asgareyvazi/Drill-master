@@ -56,7 +56,7 @@ Other mission numbers in M321–M360 have no separate deliverable in this branch
 | **D92** | **high** | The T&D engine integrated each drill-string entry as ONE element. One 3,048 m pipe entry through a build-and-turn well read slack-off +18.5 % and torque −19.6 %, and the answer depended on how the pipe was entered. Now ≤ 5 m segments (benchmark error ≤ 0.085 %). Saved legacy runs and M318 v1 cases recompute with the legacy method and are never relabelled. | `aff8344` |
 | A-1…A-9 | low–medium | Audit findings (register) | `bc8e15b`, `3293c3d` |
 
-**D51 (re-opened):** in the M324 evaluation on Linux / Python 3.13, the candidates hang intermittently inside pyqtgraph geometry code in `processEvents()` while the dashboard worker sits in one query. This is the first reproducible trigger of the D51 class. The paired stack dumps (run `45122895952`, read run by run) show the dashboard worker parked on the same line for 135 s, waiting for the GIL, while the main thread stays in pyqtgraph axis and label geometry (`AxisItem._updateLabel`, the recorded D51 frame): GIL starvation. An earlier "reload cycle" reading compared dumps from two different runs and is withdrawn. A GIL heartbeat (run `45138911996`) then printed nothing for 300 s while the main thread sat on one line holding the GIL, so the main thread is blocked inside a native call (a deadlock). The native lock and its holder are not identified, so the root cause is OPEN; the next evaluation takes gdb stacks and runs `mode=retain` on the candidates to separate "windows freed" from "PySide version". The hang has not been seen on Python 3.11 / 3.12 or on Windows, and the product ships on Python 3.12.
+**D51 (re-opened, then explained):** in the M324 evaluation on Linux / Python 3.13 the candidates hung intermittently with the recorded D51 frame (`AxisItem._updateLabel`). A GIL heartbeat (0 lines in 300 s) and native gdb stacks of every hung probe identified the deadlock M50 already fixed: cyclic GC on the dashboard worker thread destroyed a freed window's Qt objects. There `~QObject` held Qt's connection mutex and waited for the GIL, while the main thread held the GIL in Shiboken's `runDeletionInMainThread` and waited for that mutex. The probe builds `MainWindow` directly and had not installed `core.qt_gc`, which `app.py` installs. With the application's GC policy, run `45144294084` had **0 hangs in 32** candidate runs on Python 3.13, against **5 of 16** without it (p ≈ 0.003). So it is not a product or candidate defect and no longer blocks Python 3.13. The single M266 event is not proven to be the same and stays under the M309 monitor. An earlier "reload cycle" reading compared dumps from two different runs and is withdrawn (`m324_ci_evaluation.md` §3c).
 
 ## 4. Qualification labels
 
@@ -82,7 +82,7 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 1. **PySide6 pin (M325).**
    - Recommendation: 6.8.3, with 6.8.2.1 as the alternative.
    - On the shipped runtime (Windows, Python 3.12) both candidates pass the probe, the UI subset, the PyInstaller build and the launched frozen exe.
-   - Do not move to Python 3.13 until the D51-class hang is understood.
+   - Keep `core.qt_gc` installed on every path that builds windows: on the candidates closed windows are always freed (`m324_ci_evaluation.md` §3f).
 2. The prior items (P11 Kill Sheet R-2, the 60-minute CI limit and others) are unchanged.
 
 ## 6. Quality gates
@@ -104,6 +104,12 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 | CI Windows release validation, `534e4f3` (`45130003013`) | ✅ success |
 | CI Source release gate, `534e4f3` (`45130003098`) | ✅ success (3.11, 3.12, 3.13) |
 | CI PySide6 candidate evaluation, `534e4f3` | not triggered (documentation-only change); the last run is `45122895952` above |
+| CI PySide6 candidate evaluation, `246e7bf` (`45144294084`) | ✅ **all 10 jobs**. Python 3.13 with `core.qt_gc`: 0 / 32 candidate runs hung (6.8.3 0/16, 6.8.2.1 0/16), baseline 0/8; diagnostic control without it: 5 / 16 |
+| CI Source release gate, `246e7bf` (`45144294022`) | ✅ success (3.11, 3.12, 3.13) |
+| CI Windows release validation, `246e7bf` (`45144294116`) | ✅ success |
 | `067aa44` | CI table only |
 | `82d1fff` | corrected paired-dump reading (GIL starvation, not a reload cycle); probe `--heartbeat` and compact hang report; `tests/test_m324_hang_report.py` |
-| D51 native-stack commit | heartbeat result (§3d); `probe_loop --native-dump` (gdb) and `mode=retain` on 3.13 candidates; 7 tests in `test_m324_hang_report.py`. CI for it is in the delivery message |
+| `29620f4` | heartbeat result (§3d); `probe_loop --native-dump` (gdb) and `mode=retain` on 3.13 candidates |
+| `90192f5` | full native stacks of the two blocked threads; `mode=collect` leg |
+| `246e7bf` | root cause (§3e); probe `--qt-gc` as `app.py`; product-faithful 3.13 legs plus a diagnostic control; 7 tests in `test_m324_hang_report.py` |
+| this commit | §3f confirmation (run `45144294084`, all 10 jobs ✅); register D51 row; decision record; CI results |

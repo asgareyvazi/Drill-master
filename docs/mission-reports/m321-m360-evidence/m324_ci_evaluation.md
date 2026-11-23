@@ -17,7 +17,7 @@ Job logs cannot be read from this environment. Every result below comes from the
 | `45138911996` | `82d1fff` | + GIL heartbeat (`--heartbeat`) and a compact report so both dumps fit one annotation |
 | `45140757485` | `29620f4` | Python 3.13: native gdb stacks of a hung probe (`--native-dump`), 150 s timeout, and `mode=retain` on the candidates |
 | `45142542401` | `90192f5` | full native stacks of the two blocked threads; `mode=collect` instead of `retain` on the 3.13 candidates |
-| next | after `90192f5` | Python 3.13: the probe runs with `core.qt_gc` installed (`--qt-gc`), as `app.py` does; a control step without it is diagnostic only |
+| `45144294084` | `246e7bf` | Python 3.13: the probe runs with `core.qt_gc` installed (`--qt-gc`), as `app.py` does; a control step without it is diagnostic only. **All 10 jobs ✅** |
 
 ## 2. Results on `b18706d` (run `45024680781`)
 
@@ -182,10 +182,34 @@ The earlier observations fit this:
 
 **Why it was seen on Python 3.13 only** is not established. It may come from collection timing or thresholds; it is not needed for the conclusion.
 
-**Confirmation step:** the next evaluation runs the 3.13 legs with `--qt-gc` (product-faithful, 8 runs per mode) and keeps a control step without it (diagnostic only). The result is recorded in §3f.
+**Confirmation step:** run `45144294084` (§3f).
+
+## 3f. Confirmation on `246e7bf` (run `45144294084`): no hang with the application's GC policy
+
+All 10 jobs ✅: Windows ×3, Linux 3.11 / 3.12 ×4, and Linux 3.13 ×3.
+
+| Linux, Python 3.13 | Probe as the application runs (`--qt-gc`) | Control: same job, same probe, without `core.qt_gc` (diagnostic) |
+|---|---|---|
+| 6.8.3 | **0 / 16 HANG** (8 auto, 8 product); worker-thread collections 0 in every run | 1 / 8 HANG |
+| 6.8.2.1 | **0 / 16 HANG** (8 auto, 8 product); worker-thread collections 0 in every run | 4 / 8 HANG |
+| 6.8.1.1 baseline | 0 / 8 (product) | not run |
+
+- 0 of 32 against 5 of 16 on the same runners. If the GC policy made no difference, the chance that all 5 hangs fall in the 16 control runs is C(16,5) / C(48,5) ≈ 0.003 (Fisher's exact test, one-sided).
+- `worker_collections=0` is the `core.qt_gc` watchdog: no cyclic collection started off the GUI thread in any product-faithful run.
+- Product entry points: `run.py` starts `DrillMasterApp` (`app.py`), which installs `core.qt_gc` before any worker starts. The other `MainWindow(...)` callers are developer tools (screenshots, measurements, this probe).
+
+**Conclusion:**
+- The Python 3.13 hangs in this evaluation are the **M50 deadlock**, reproduced by a probe that lacked the application's GC policy.
+- They are **not a defect of PySide6 6.8.2.1 / 6.8.3 as the product runs them**, and they give no reason to stay off Python 3.13.
+- The single historical D51 event (M266, once in 300 CI runs, with an `AxisItem` frame) happened while the test session already followed the D53 rule. It is **not proven** to be the same event, so it stays under the M309 monitor.
+
+**New fact for M325:**
+- On 6.8.2.1 / 6.8.3, closed windows are freed **even in `mode=retain`** (`alive_at_end=0`, runs `45140757485` and `45142542401`), not only under the product release policy.
+- After an upgrade, every closed window therefore becomes cyclic garbage. **`core.qt_gc` is then a hard precondition.** Any code path that builds windows and starts workers must install it, as `app.py` does.
 
 ## 4. Effect on the recommendation (`m324_pyside_upgrade_decision.md` §7)
 
 - **On the shipped runtime (Windows, Python 3.12) both candidates pass everything**: probe, UI subset, PyInstaller build and the launched frozen exe (run `45115378469`). Linux 3.11 / 3.12 is also clean.
-- **Python 3.13: both candidates hang intermittently** (finding 6). This does not block a 3.12 product. It does block any move to Python 3.13 until the hung frame is known.
-- Neither candidate is safer on 3.13. The earlier preference for 6.8.2.1 came from a single run and is withdrawn. **The recommendation returns to 6.8.3**, the newer patch release of the same 6.8 line, with 6.8.2.1 as the alternative. This remains an OWNER DECISION, and M325 is not executed.
+- **Python 3.13: no hang when the probe runs as the application does** (§3f: 0 / 32 with `core.qt_gc`). The earlier 3.13 hangs (finding 6, §3a–§3e) are the M50 GIL / Qt-mutex deadlock, reproduced because the probe lacked the application's GC policy. They no longer block Python 3.13.
+- **Precondition added for M325:** on the candidates closed windows are always freed, so `core.qt_gc` (installed by `app.py`) must stay installed on every path that builds windows and starts workers.
+- Neither candidate differs in these results. The earlier preference for 6.8.2.1 came from a single run and is withdrawn. **The recommendation is 6.8.3**, the newer patch release of the same 6.8 line, with 6.8.2.1 as the alternative. This remains an OWNER DECISION, and M325 is not executed.
