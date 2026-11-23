@@ -428,8 +428,8 @@ MUTANTS = [
            "            if held is None or False and (rank[row[\"flag\"]], row.get(\"compression_lbf\", 0)) > \\\n", TD92,
            "the buckling row of an entry is its first segment, not its worst"),
     Mutant("TD-legacy-method-mislabelled", TD,
-           "            method = (cls.LEGACY_METHOD if max_segment_m is None else cls.METHOD if max_segment_m == MAX_SEGMENT_M\n",
-           "            method = (cls.METHOD if max_segment_m is None else cls.METHOD if max_segment_m == MAX_SEGMENT_M\n",
+           "                method = cls.LEGACY_METHOD\n",     # anchor updated in M367 (method selection rewritten)
+           "                method = cls.METHOD\n",
            TD92, "a whole-entry result is labelled with the segmented method"),
     Mutant("TDP-legacy-recalculated-segmented", TDP,
            "        args[\"max_segment_m\"] = None\n", "        pass\n", TD92,

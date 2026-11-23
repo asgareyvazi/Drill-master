@@ -184,12 +184,17 @@ def recalculate_from_snapshot(snapshot: Mapping[str, Any]):
     so a reloaded historical run is checked against the same code path that
     produced it.
     """
-    from core.engineering.engines.torque_drag import TorqueDragEngine
+    from core.engineering.engines.torque_drag import BUCKLING_V1, TorqueDragEngine
 
     args = snapshot_to_engine_args(snapshot)
-    if (snapshot or {}).get("method") == TorqueDragEngine.LEGACY_METHOD:
+    method = (snapshot or {}).get("method")
+    if method == TorqueDragEngine.LEGACY_METHOD:
         # D92: a run saved before segmented integration is recalculated the way it was produced
         args["max_segment_m"] = None
+        args["buckling_version"] = BUCKLING_V1
+    elif method == TorqueDragEngine.SEGMENTED_V1_METHOD:
+        # M367 / D93: a run saved before the vertical-aware buckling thresholds keeps its v1 buckling flags
+        args["buckling_version"] = BUCKLING_V1
     return TorqueDragEngine.calculate(**args)
 
 

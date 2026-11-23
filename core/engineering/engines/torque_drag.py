@@ -45,6 +45,8 @@ E_STEEL_PSI = 30.0e6
 # slack-off 18.5 % high and rotating torque 19.6 % low against a converged integration. 5 m keeps the M349 benchmark
 # error at or below 0.1 % (see docs/mission-reports/m321-m360-evidence/m349_benchmarks.md).
 MAX_SEGMENT_M = 5.0
+BUCKLING_V1 = "v1"   # Dawson-Paslay / Chen only (degenerates as sin I -> 0; D93)
+BUCKLING_V2 = "v2"   # larger of Dawson-Paslay / Chen and the vertical Lubinski / Wu-Juvkam-Wold loads (M367)
 
 
 def _shortest_rad(a_deg: float, b_deg: float) -> float:
@@ -53,7 +55,9 @@ def _shortest_rad(a_deg: float, b_deg: float) -> float:
 
 
 class TorqueDragEngine:
-    METHOD = "Johancsik soft-string (SPE 11380), segments <= 5 m — SCREENING"
+    METHOD = "Johancsik soft-string (SPE 11380), segments <= 5 m, vertical-aware buckling (D93) — SCREENING"
+    # D92 segmentation with the D93-defective buckling thresholds; runs saved under it replay with buckling v1.
+    SEGMENTED_V1_METHOD = "Johancsik soft-string (SPE 11380), segments <= 5 m — SCREENING"
     # Saved runs that name the legacy method are recalculated whole-component, exactly as they were produced.
     LEGACY_METHOD = "Johancsik soft-string (SPE 11380) — SCREENING"
     SCOPE = "PARTIAL"
@@ -364,13 +368,27 @@ class TorqueDragEngine:
         wellbore_id_in=None,
         *,
         max_segment_m: Optional[float] = MAX_SEGMENT_M,
+        buckling_version: Optional[str] = None,
     ) -> EngineeringResult:
-        """``max_segment_m=None`` is the legacy whole-component integration (replay of runs saved before D92 only)."""
+        """``max_segment_m=None`` is the legacy whole-component integration (replay of runs saved before D92 only).
+
+        ``buckling_version`` defaults to v2 (v1 for the legacy method); ``BUCKLING_V1`` reproduces the pre-D93 thresholds (replay of runs saved before M367)."""
         try:
             if max_segment_m is not None and not max_segment_m > 0:
                 raise EngineeringError("max_segment_m must be > 0 (or None for the legacy whole-component method)")
-            method = (cls.LEGACY_METHOD if max_segment_m is None else cls.METHOD if max_segment_m == MAX_SEGMENT_M
-                      else f"Johancsik soft-string (SPE 11380), segments <= {max_segment_m:g} m — SCREENING")
+            if buckling_version is None:              # default: v2, except the legacy method which only exists as v1
+                buckling_version = BUCKLING_V1 if max_segment_m is None else BUCKLING_V2
+            if buckling_version not in (BUCKLING_V1, BUCKLING_V2):
+                raise EngineeringError(f"unknown buckling_version {buckling_version!r}")
+            if max_segment_m is None and buckling_version != BUCKLING_V1:
+                raise EngineeringError("the legacy whole-component method exists only with buckling v1")
+            if max_segment_m is None:
+                method = cls.LEGACY_METHOD
+            elif max_segment_m == MAX_SEGMENT_M:
+                method = cls.METHOD if buckling_version == BUCKLING_V2 else cls.SEGMENTED_V1_METHOD
+            else:
+                method = (f"Johancsik soft-string (SPE 11380), segments <= {max_segment_m:g} m"
+                          f"{', vertical-aware buckling (D93)' if buckling_version == BUCKLING_V2 else ''} — SCREENING")
             ff, mud = cls._validate(survey, bha, mud_density_ppg, friction_factor)
             from ..core import TrajectoryEngine
 
@@ -395,7 +413,7 @@ class TorqueDragEngine:
             slide = cls._integrate(string, traj, ff, bf, mode="sliding", wob_lbf=wob,
                                    max_segment_m=max_segment_m)
 
-            buckling = cls._buckling_flags(string, slack["elements"], hole_id, bf, traj)
+            buckling = cls._buckling_flags(string, slack["elements"], hole_id, bf, traj, version=buckling_version)
             stretch = cls._axial_stretch(rot["elements"])
             twist = cls._twist(rot["elements"])
             np_md = cls._neutral_point_md(slack["elements"])
@@ -408,7 +426,9 @@ class TorqueDragEngine:
                 "Static analysis only — not stiff-string, contact, or dynamics",
             ]
             if buckling["any"]:
-                warnings.append("Dawson-Paslay screening: compression exceeds sinusoidal buckling load in one or more elements")
+                warnings.append("Buckling screening: compression exceeds the sinusoidal buckling load in one or more "
+                                "elements" + (" (Dawson-Paslay or, if larger, the vertical Lubinski / Wu-Juvkam-Wold "
+                                              "load)" if buckling_version == BUCKLING_V2 else " (Dawson-Paslay)"))
 
             values = {
                 "hookload_pickup": round(pickup["surface_klbf"], 2),
@@ -442,7 +462,8 @@ class TorqueDragEngine:
                     "Weight of each component is required (ppf) — not defaulted",
                     "Survey computed with Minimum Curvature",
                     "Dawson-Paslay / Chen helical are screening flags only",
-                ],
+                ] + (["Buckling v2 (M367): the larger of Dawson-Paslay / Chen and the vertical Lubinski 1.94 / "
+                      "Wu-Juvkam-Wold 5.55 (E I w²)^(1/3) loads"] if buckling_version == BUCKLING_V2 else []),
             }
             return ok(
                 values["hookload_pickup"],
@@ -595,16 +616,24 @@ class TorqueDragEngine:
         }
 
     @classmethod
-    def _buckling_flags(cls, string, slack_elements, hole_id, bf, traj) -> Dict:
+    def _buckling_flags(cls, string, slack_elements, hole_id, bf, traj, version: str = BUCKLING_V2) -> Dict:
         """Dawson-Paslay sinusoidal + Chen helical screening (does not change hookload).
 
         F_sin = 2 √(EI w sinI / rc)
         F_hel = 2√2 √(EI w sinI / rc)
+
+        v2 (M367 / D93): both thresholds tend to 0 as sin I → 0, so v1 flagged almost any compression in a vertical
+        hole as helical buckling. v2 takes the LARGER of the inclined-hole load and the vertical self-weight load —
+        Lubinski (1950) F_sin,v = 1.94 (E I w²)^(1/3) and Wu & Juvkam-Wold (1993) F_hel,v = 5.55 (E I w²)^(1/3) — and
+        reports which criterion governs. Screening only; no tool-joint, torque or end-condition effects.
         """
         details = []
         any_flag = False
         if hole_id is None:
-            return {"any": False, "details": [], "note": "wellbore_id_in not provided — buckling not checked"}
+            out = {"any": False, "details": [], "note": "wellbore_id_in not provided — buckling not checked"}
+            if version == BUCKLING_V2:
+                out["version"] = version
+            return out
         for el in slack_elements:
             od = el["od_in"]
             id_ = el["id_in"]
@@ -622,6 +651,13 @@ class TorqueDragEngine:
             root = math.sqrt(E_STEEL_PSI * ixx * max(w_per_in, 1e-12) * sin_i / rc)
             f_sin = 2.0 * root
             f_hel = 2.0 * math.sqrt(2.0) * root
+            criterion = "dawson_paslay"
+            if version == BUCKLING_V2:
+                cube = (E_STEEL_PSI * ixx * max(w_per_in, 1e-12) ** 2) ** (1.0 / 3.0)
+                f_sin_v, f_hel_v = 1.94 * cube, 5.55 * cube
+                if f_sin_v > f_sin:
+                    criterion = "vertical_lubinski"
+                f_sin, f_hel = max(f_sin, f_sin_v), max(f_hel, f_hel_v)
             flag = "ok"
             if f_comp > f_hel:
                 flag = "helical"
@@ -637,10 +673,14 @@ class TorqueDragEngine:
                     "f_sin_lbf": round(f_sin, 0),
                     "f_hel_lbf": round(f_hel, 0),
                     "flag": flag,
+                    **({"criterion": criterion} if version == BUCKLING_V2 else {}),
                     "_component_index": el.get("component_index", 0),
                 }
             )
-        return {"any": any_flag, "details": cls._worst_per_component(details)}
+        out = {"any": any_flag, "details": cls._worst_per_component(details)}
+        if version == BUCKLING_V2:
+            out["version"] = version              # v1 results keep their exact pre-M367 shape for replay
+        return out
 
     @staticmethod
     def _worst_per_component(details) -> List[Dict]:

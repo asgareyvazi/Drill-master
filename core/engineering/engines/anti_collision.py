@@ -43,6 +43,8 @@ class AntiCollisionEngine:
     OUTPUTS = {
         "separation_vs_md": "Interpolated centerline separation by common MD",
         "closest_approach": "Minimum separation on the common-MD scan",
+        "closest_approach_3d": "Geometric closest approach of the centre-line polylines, any MD pairing (M369 / D94)",
+        "minimum_separation_conservative": "Smaller of the common-MD minimum and the geometric closest approach",
         "clearance_vs_md": "Centerline separation minus supplied radii",
         "separation_factor": "Distance / combined supplied 3D 1-sigma RSS",
         "collision_scan": "Threshold scan when collision_threshold is supplied",
@@ -236,6 +238,61 @@ class AntiCollisionEngine:
             )))
         return min(candidates, key=lambda item: item[1]["distance"])[1]
 
+    @staticmethod
+    def _segment_closest(p0, p1, q0, q1) -> Tuple[float, float, float]:
+        """(distance, s, t) of the closest points p0 + s (p1 − p0) and q0 + t (q1 − q0), s, t in [0, 1].
+
+        Exact closest points of two 3D segments (clamped quadratic minimisation, Lumelsky 1985 form)."""
+        d1 = [b - a for a, b in zip(p0, p1)]
+        d2 = [b - a for a, b in zip(q0, q1)]
+        r = [a - b for a, b in zip(p0, q0)]
+        a = sum(x * x for x in d1)
+        e = sum(x * x for x in d2)
+        f = sum(x * y for x, y in zip(d2, r))
+        eps = 1e-18
+        if a <= eps and e <= eps:
+            s = t = 0.0
+        elif a <= eps:
+            s, t = 0.0, max(0.0, min(1.0, f / e))
+        else:
+            c = sum(x * y for x, y in zip(d1, r))
+            if e <= eps:
+                t, s = 0.0, max(0.0, min(1.0, -c / a))
+            else:
+                b = sum(x * y for x, y in zip(d1, d2))
+                denom = a * e - b * b
+                s = max(0.0, min(1.0, (b * f - c * e) / denom)) if denom > eps else 0.0
+                t = (b * s + f) / e
+                if t < 0.0:
+                    t, s = 0.0, max(0.0, min(1.0, -c / a))
+                elif t > 1.0:
+                    t, s = 1.0, max(0.0, min(1.0, (b - c) / a))
+        cp = [p0[i] + s * d1[i] - q0[i] - t * d2[i] for i in range(3)]
+        return math.sqrt(sum(x * x for x in cp)), s, t
+
+    @classmethod
+    def _closest_approach_3d(cls, reference: Sequence[Dict], offset: Sequence[Dict]) -> Dict[str, Any]:
+        """M369 / D94: the geometric closest approach of the two centre-line polylines (any MD pairing).
+
+        The common-MD scan pairs points at EQUAL measured depth; for wells whose MD-to-position mapping differs
+        it can overstate the closest centre-line approach. This scan pairs every reference segment with every
+        offset segment, so its distance is never larger than the common-MD minimum over the shared interval."""
+        def xyz(point):
+            return (point["north"], point["east"], point["tvd"])
+
+        best = None
+        for i in range(max(len(reference) - 1, 1)):
+            p0 = reference[i]
+            p1 = reference[i + 1] if len(reference) > 1 else p0
+            for j in range(max(len(offset) - 1, 1)):
+                q0 = offset[j]
+                q1 = offset[j + 1] if len(offset) > 1 else q0
+                dist, s, t = cls._segment_closest(xyz(p0), xyz(p1), xyz(q0), xyz(q1))
+                if best is None or dist < best[0]:
+                    best = (dist, p0["md"] + s * (p1["md"] - p0["md"]), q0["md"] + t * (q1["md"] - q0["md"]))
+        return {"distance": round(best[0], 6), "ref_md": round(best[1], 6), "offset_md": round(best[2], 6),
+                "method": "exact segment-to-segment minimum of the linear centre-line polylines (any MD pairing)"}
+
     @classmethod
     def screen_clearance(
         cls,
@@ -285,6 +342,7 @@ class AntiCollisionEngine:
                 rows.append(row)
 
             closest = cls._continuous_closest_approach(ref, off, grid)
+            closest_3d = cls._closest_approach_3d(ref, off)
             uncertainty_available = closest["combined_sigma"] is not None
             clearance_available = closest["clearance"] is not None
             warnings = [
@@ -294,6 +352,11 @@ class AntiCollisionEngine:
                 warnings.append("Positional uncertainty is incomplete; separation factor is not computed")
             if not clearance_available:
                 warnings.append("Wellbore radii were not supplied; centerline clearance is not computed")
+            if closest_3d["distance"] < closest["distance"] * (1 - 1e-6) - 1e-9:
+                warnings.append(
+                    f"D94: the geometric centre-line closest approach ({closest_3d['distance']:g} at reference MD "
+                    f"{closest_3d['ref_md']:g} / offset MD {closest_3d['offset_md']:g}) is SMALLER than the "
+                    f"common-MD minimum ({closest['distance']:g}); use the smaller value for screening")
 
             collision_scan = {
                 "performed": threshold is not None,
@@ -326,6 +389,8 @@ class AntiCollisionEngine:
                 "separation_vs_md": rows,
                 "distances": rows,
                 "closest_approach": closest,
+                "closest_approach_3d": closest_3d,                 # M369 / D94 (additive)
+                "minimum_separation_conservative": min(closest["distance"], closest_3d["distance"]),
                 "minimum_separation": closest["distance"],
                 "min_distance": closest["distance"],
                 "min_distance_md": closest["md"],
