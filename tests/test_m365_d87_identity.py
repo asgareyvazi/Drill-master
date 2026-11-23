@@ -199,3 +199,13 @@ def test_the_fingerprint_of_a_mark_is_immutable(world):  # noqa: F811
 def test_columns_are_additive_migrations():
     assert ("calculation_archive_marks", "source_fingerprint", "VARCHAR(80)") in ADDITIVE_COLUMNS
     assert ("calculation_source_links", "source_fingerprint", "VARCHAR(80)") in ADDITIVE_COLUMNS
+
+
+def test_null_time_refusal_still_applies_without_a_fingerprint_contract(world, monkeypatch):  # noqa: F811
+    """M304's refusal is replaced by content pinning ONLY where a contract exists; elsewhere it still refuses."""
+    db, dev, casing_id, _case_id = world
+    _sql(db, "UPDATE casing_calculations SET created_at = NULL WHERE id = :i", i=casing_id)
+    entry = _entry(db, dev, "casing_calculations", casing_id)
+    monkeypatch.delitem(ri.IDENTITY_COLUMNS, "casing_calculations")
+    with pytest.raises(wb.WorkbenchError, match="no creation time"):
+        wb.archive(db, entry, "SYN: cannot be pinned")

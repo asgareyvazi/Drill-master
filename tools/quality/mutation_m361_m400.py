@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Repeatable mutation run for M361-M400 (M389): M365 D87 identity pinning, M366 hydraulics workflow, M367 / D93
-vertical-aware buckling with replay pinning, and M369 / D94 geometric closest approach.
+"""Repeatable mutation run for M361-M400 (M389): M365 D87 identity pinning, M366 hydraulics workflow, M370 hole
+cleaning, M367 / D93 vertical-aware buckling with replay pinning, M369 / D94 geometric closest approach, M374 W12 KPI
+structural definitions and M377 CI run-state classification.
 
 Same engine and rules as ``tools/quality/mutation_m321_m360.py`` (``tools/quality/mutation_m46.py``): one realistic
 defect per mutant in a scratch copy, the listed tests must KILL it, an anchor that does not match exactly once is
@@ -30,10 +31,14 @@ TD = "core/engineering/engines/torque_drag.py"
 TDP = "core/engineering/torque_drag_persistence.py"
 TDS = "core/torque_drag_sensitivity.py"
 AC = "core/engineering/engines/anti_collision.py"
+AE = "core/analysis_evidence.py"
+CRS = "tools/quality/ci_run_states.py"
 
 THW = ["tests/test_m366_hydraulics_workflow.py"]
 TID = ["tests/test_m365_d87_identity.py", "tests/test_m303_m306_clone_contract_and_bulk.py"]
 TENG = ["tests/test_m367_m369_m396_engineering.py"]
+TKPI = ["tests/test_m374_w12_kpi_specs.py", "tests/test_m48_analysis_evidence.py"]
+TCRS = ["tests/test_m377_ci_run_states.py"]
 TTD = TENG + ["tests/test_m349_benchmarks_d92.py", "tests/test_m318_td_friction_sensitivity.py"]
 
 MUTANTS = [
@@ -59,6 +64,16 @@ MUTANTS = [
     Mutant("HW-budget-closure-ignored", HW,
            "    closes = total is not None and abs(component_sum - total) <= max(rounding, 1e-6)\n",
            "    closes = total is not None\n", THW, "a budget that does not sum to the SPP is reported as closing"),
+    # ------------------------------------------------------------------ M370 hole cleaning (CCI)
+    Mutant("HW-cci-inclination-gate-dropped", HW, "        if max_inc > CCI_MAX_INCLINATION_DEG:\n",
+           "        if False:\n", THW, "the vertical-hole CCI is reported for a 60° well"),
+    Mutant("HW-cci-fann-ignored", HW, "    if t600 and t300 and t600 > 0 and t300 > 0:\n", "    if False:\n", THW,
+           "entered Fann readings are ignored in favour of PV/YP"),
+    Mutant("HW-cci-uses-mean-not-lowest-av", HW,
+           "            \"hole_cleaning\": hole_cleaning(values, _min_av(result), getattr(engine.mud, \"mw_ppg\", None)),\n",
+           "            \"hole_cleaning\": hole_cleaning(values, max(v for _n, v in result.annular_velocities), "
+           "getattr(engine.mud, \"mw_ppg\", None)),\n", THW + TENG,
+           "the index uses the fastest annulus instead of the slowest"),
     # ------------------------------------------------------------------ M365 D87 identity pinning
     Mutant("ID-mark-fingerprint-ignored", WB,
            "        if stored_fp is not None and prints.get(key) != stored_fp:\n",
@@ -118,6 +133,27 @@ MUTANTS = [
     Mutant("AC-segment-clamp-dropped", AC,
            "                if t < 0.0:\n", "                if False:\n", TENG,
            "closest points outside the offset segment are accepted (distance too small)"),
+    # ------------------------------------------------------------------ M374 W12 KPI structural definitions
+    Mutant("KPI-spec-fields-not-shown", AE,
+           "    lines += [f\"{field.capitalize()}: {spec[field]}\" for field in KPI_SPEC_FIELDS if spec.get(field)]\n",
+           "    lines += []\n", TKPI, "the card tooltip drops window / scope / source / method / missing / counting"),
+    # ------------------------------------------------------------------ M377 CI run states
+    Mutant("CRS-timeout-annotation-ignored", CRS,
+           "    if conclusion in (\"cancelled\", \"failure\") and TIMEOUT_ANNOTATION in notes:\n",
+           "    if False:\n", TCRS, "a D88 timeout with stale job times is reported as an unexplained cancel"),
+    Mutant("CRS-cancel-is-green", CRS,
+           "        return {**out, \"state\": FAILURE, \"reason\": \"cancelled, neither superseded nor at the timeout "
+           "(not a pass)\"}\n",
+           "        return {**out, \"state\": SUCCESS, \"reason\": \"cancelled\"}\n", TCRS,
+           "an unexplained cancel counts as green"),
+    Mutant("CRS-other-workflow-supersedes", CRS,
+           "             if o.get(\"workflowName\") == run.get(\"workflowName\") and o.get(\"headBranch\") == "
+           "run.get(\"headBranch\")\n",
+           "             if True\n", TCRS, "a newer run of another workflow or branch marks a cancel SUPERSEDED"),
+    Mutant("CRS-best-job-wins", CRS,
+           "        state = max((j[\"state\"] for j in jobs), key=_RANK.__getitem__)\n",
+           "        state = min((j[\"state\"] for j in jobs), key=_RANK.__getitem__)\n", TCRS,
+           "one green leg makes the run green"),
 ]
 
 

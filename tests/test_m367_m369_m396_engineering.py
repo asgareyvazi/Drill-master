@@ -121,3 +121,16 @@ def test_m396_benchmarks_all_within_tolerance_and_table_unchanged():
                          capture_output=True, text=True, timeout=300)
     assert out.returncode == 0, out.stdout[-2000:] + out.stderr[-2000:]
     assert "0 outside tolerance" in out.stdout
+
+
+def test_d93_m318_sweep_versions_pin_their_buckling():
+    from core import torque_drag_sensitivity as tds
+    from core.survey_revisions import stations_sha256
+
+    run = {"survey": VERTICAL, "components": STRING, "mud_density_ppg": 10.0, "wob_klbf": 5.0, "wellbore_id_in": 8.5,
+           "survey_source": {"revision_id": 7, "revision": 1, "stations_sha256": stations_sha256(VERTICAL)}}
+    v2 = tds.sweep(run, [0.25], version=tds.SEGMENTED_VERSION)
+    v3 = tds.sweep(run, [0.25])
+    assert v2["engine_method"] == TorqueDragEngine.SEGMENTED_V1_METHOD and v2["rows"][0]["buckling"] is True
+    assert v3["engine_method"] == TorqueDragEngine.METHOD and v3["method_version"] == tds.METHOD_VERSION
+    assert v3["rows"][0]["buckling"] is False                                            # no D93 false flag

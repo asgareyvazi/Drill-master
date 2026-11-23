@@ -54,3 +54,20 @@ def test_an_editor_archives_and_restores_a_case_and_a_viewer_cannot(db_for):  # 
     wb.restore(editor, entry, "SYN: still needed")
     assert _count(path, "SELECT COUNT(*) FROM calculation_archive_marks") == 2
     assert wb.state(editor, entry) == wb.ACTIVE
+
+
+def test_m365_a_viewer_is_refused_before_the_record_is_read(db_for):  # noqa: F811
+    """The workbench refuses first, so a viewer cannot probe which ids exist (no 'does not exist' answer)."""
+    import dataclasses
+
+    open_as, path = db_for
+    editor = open_as("engineer")
+    case = cc.save_case(editor, calculator="SYN calculator", name="SYN authz probe", inputs={"a_ft": 1.0},
+                        results={"b_ft": 2.0}, well_id=IDS["well"])
+    entry = {(e.table, e.record_id): e for e in ch.load_history(editor, well_id=IDS["well"])}[
+        ("calculation_cases", case["id"])]
+    ghost = dataclasses.replace(entry, record_id=case["id"] + 1000)
+    with pytest.raises(AuthorizationError):
+        wb.archive(open_as("viewer"), ghost, "SYN: probing")
+    with pytest.raises(wb.WorkbenchError, match="does not exist"):
+        wb.archive(editor, ghost, "SYN: editor sees the real answer")
