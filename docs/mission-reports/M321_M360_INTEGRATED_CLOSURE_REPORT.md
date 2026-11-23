@@ -22,7 +22,7 @@ Evidence folder: `docs/mission-reports/m321-m360-evidence/`.
 | `2646543` | M327: 22 new mutants run, 3 survivors killed |
 | `56d3542` | M324 run 45115378469 evidence; hang instrumentation |
 | `6ace038` | engine inventory regenerated (D92 method name); double stack dump; M324 hang diagnosis; M329/M352 notes; this report |
-| this commit | complete M327 mutation run (121 mutants) recorded; paired-dump results (`m324_ci_evaluation.md` §3c); D51 register row; CI results |
+| `534e4f3` | complete M327 mutation run (121 mutants) recorded; paired-dump results (`m324_ci_evaluation.md` §3c); D51 register row; CI results |
 
 ## 2. Missions
 
@@ -56,7 +56,7 @@ Other mission numbers in M321–M360 have no separate deliverable in this branch
 | **D92** | **high** | The T&D engine integrated each drill-string entry as ONE element. One 3,048 m pipe entry through a build-and-turn well read slack-off +18.5 % and torque −19.6 %, and the answer depended on how the pipe was entered. Now ≤ 5 m segments (benchmark error ≤ 0.085 %). Saved legacy runs and M318 v1 cases recompute with the legacy method and are never relabelled. | `aff8344` |
 | A-1…A-9 | low–medium | Audit findings (register) | `bc8e15b`, `3293c3d` |
 
-**D51 (re-opened):** in the M324 evaluation on Linux / Python 3.13, the candidates hang intermittently inside pyqtgraph geometry code in `processEvents()` while the dashboard worker sits in one query. This is the first reproducible trigger of the D51 class. The paired stack dumps (run `45122895952`) show a livelock: the dashboard snapshot restarts in a cycle while the main thread never leaves pyqtgraph axis and label geometry (`AxisItem._updateLabel`, the recorded D51 frame). What starts each reload is not yet identified, so the root cause is OPEN. The hang has not been seen on Python 3.11 / 3.12 or on Windows, and the product ships on Python 3.12.
+**D51 (re-opened):** in the M324 evaluation on Linux / Python 3.13, the candidates hang intermittently inside pyqtgraph geometry code in `processEvents()` while the dashboard worker sits in one query. This is the first reproducible trigger of the D51 class. The paired stack dumps (run `45122895952`, read run by run) show the dashboard worker parked on the same line for 135 s, waiting for the GIL, while the main thread stays in pyqtgraph axis and label geometry (`AxisItem._updateLabel`, the recorded D51 frame): GIL starvation. An earlier "reload cycle" reading compared dumps from two different runs and is withdrawn. What keeps the main thread in layout code is not identified, so the root cause is OPEN. The hang has not been seen on Python 3.11 / 3.12 or on Windows, and the product ships on Python 3.12.
 
 ## 4. Qualification labels
 
@@ -104,4 +104,5 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 | CI Windows release validation, `534e4f3` (`45130003013`) | ✅ success |
 | CI Source release gate, `534e4f3` (`45130003098`) | ✅ success (3.11, 3.12, 3.13) |
 | CI PySide6 candidate evaluation, `534e4f3` | not triggered (documentation-only change); the last run is `45122895952` above |
-| Later commits | only this CI table changes |
+| `067aa44` | CI table only |
+| D51 follow-up commit | corrected paired-dump reading (GIL starvation, not a reload cycle); probe `--heartbeat` and compact hang report; `tests/test_m324_hang_report.py` (4 tests). CI for it is in the delivery message |

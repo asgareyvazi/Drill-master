@@ -14,6 +14,7 @@ Job logs cannot be read from this environment. Every result below comes from the
 | `45115378469` | `67ea1e2` | + probe HANG detection (timeout per run, annotated); the candidate leg rehearses the M325 lock edit in the runner checkout so the frozen smoke validates against the candidate |
 | `45117305817` | `56d3542` | + the probe prints its stage and dumps every thread's stack (`faulthandler`) 30 s before the timeout; 5 runs per mode on 3.13; a Linux 3.13 × 6.8.1.1 baseline leg (product mode) |
 | `45122895952` | `6ace038` | + the stacks are dumped twice (at 135 s and 270 s), so it shows whether each stuck thread still moves |
+| next | after `067aa44` | + GIL heartbeat (`--heartbeat`) and a compact report so both dumps fit one annotation |
 
 ## 2. Results on `b18706d` (run `45024680781`)
 
@@ -98,18 +99,27 @@ The main-thread frames are the D51 signature: an `AxisItem` layout frame in a ~1
 | 6.8.3 | 6 of 10 (3 of 5 auto, 3 of 5 product) |
 | 6.8.2.1 | 1 of 10 (product) |
 
-The paired dumps of the same hung run, 135 s apart, show:
+**Correction (made after `534e4f3`).** The first version of this section said the dashboard worker "moved" from line 368 back to line 365, and it called the hang a reload cycle. That was a **misreading**: GitHub cuts every annotation at 4,096 characters, and the two dumps compared there came from **two different runs**. Read run by run, the evidence is as follows.
 
-| Thread | Frames |
-|---|---|
-| main | Always inside pyqtgraph geometry code under one `processEvents()`: **`AxisItem._updateLabel`** (the recorded D51 frame), `AxisItem.boundingRect`, `LabelItem.resizeEvent`, `enum.__call__` |
-| dashboard worker | **Moving.** In one pair it went from `build_snapshot` line 368 (cost query) back to line 365 (drilling-parameter rows). The snapshot was therefore **started again**: the dashboard reloads in a cycle. It is not stuck in one query. |
+| Run (6.8.3) | Dumps visible | Dashboard worker, dump 1 → dump 2 (135 s apart) |
+|---|---|---|
+| product 4, product 2 | 1 (second cut off) | `build_snapshot:368` (SQLAlchemy-generated `<lambda>`) |
+| product 1 | 2 | `result.py:271 __init__` → **same line** |
+| auto 5 | 2 | `loading.py:956 _instance_processor` → **same line** |
+| auto 4 | 2 | `loading.py:956 _instance_processor` → **same line** |
+| auto 2 | 2 | `result.py:442 _row_getter` (memoised property entry) → **same line** |
 
-**Reading (updated):** a **livelock**. The dashboard reloads repeatedly. Each completed load refills the dashboard charts, and the pyqtgraph axis and label geometry is recomputed. The queued events never drain, so `processEvents()` never returns.
-- The trigger that starts the next reload is **not yet identified**. `HomeTab.load_data` re-runs only through the 5-minute timer, a filter change, the Refresh button or `_refresh_pending`.
-- It is seen on Python 3.13 only, with either candidate.
-- The 6.8.1.1 baseline did not hang in 5 runs (10 runs across the two evaluations). Under 6.8.1.1, windows 1 and 2 stay alive (`alive_at_end=3`); under both candidates they are released. Every hang is at window 3, after earlier windows were freed. This is an observation, not a proven cause.
-- Next step for the owner or the next block: log the caller of every `load_data` in the probe and stop the probe at the first repeated reload.
+- **Main thread:** only the first dump of each run is complete. It is always inside pyqtgraph geometry code under one `processEvents()`: `AxisItem._updateLabel` (the recorded D51 frame), `AxisItem.boundingRect`, `LabelItem.resizeEvent` or `enum.__call__`.
+- **Dashboard worker:** in all four complete pairs it is on **exactly the same line 135 s apart**. Those lines take no lock. They are a function entry and a `for` loop head, which are the points where CPython's evaluation loop gives up the GIL when another thread asks for it. On a small synthetic database these queries normally finish in milliseconds.
+
+**Reading (corrected):** the worker is **parked waiting for the GIL**, and the main thread keeps it the whole time while it runs pyqtgraph layout code inside one `processEvents()`. So it is **GIL starvation** of the worker, combined with a main thread that does not leave the layout code. It is not a reload cycle.
+- What keeps the main thread in layout code is **not identified**. It could be a pyqtgraph axis/label resize loop, or a native Qt call made from a Python override that keeps the GIL (ordinary Qt calls from Python slots do not release it; see [n1mm-scope-bridge #236](https://github.com/Reid-n0rc/n1mm-scope-bridge/issues/236)).
+- It is seen on Python 3.13 only, with either candidate. The 6.8.1.1 baseline did not hang in 10 runs across the two evaluations.
+- Under 6.8.1.1, windows 1 and 2 stay alive (`alive_at_end=3`); under both candidates they are released. Every hang is at window 3, after earlier windows were freed. This is an observation, not a proven cause.
+
+**Instrumentation added after `534e4f3`** (`d63_window_release_probe.py --heartbeat`, `probe_loop.compact_hang_report`, test `tests/test_m324_hang_report.py`):
+- **Heartbeat:** a pure-Python thread prints an `HB` line every `timeout/10` s with the top frames of every thread. It needs the GIL to print. If the `HB` lines **stop** when the hang starts, one thread held the GIL continuously, which confirms starvation. If they continue, the frames in them show whether the main thread still moves.
+- **Compact report:** each dump is reduced to role-labelled threads (main / dash-worker / maint / worker / hb) with their innermost frames, so both dumps and the heartbeats fit one annotation.
 
 ## 4. Effect on the recommendation (`m324_pyside_upgrade_decision.md` §7)
 

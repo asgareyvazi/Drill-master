@@ -43,9 +43,16 @@ def main(argv=None) -> int:
     parser.add_argument("--hang-dump", type=int, default=0,
                         help="M324: every N seconds dump every thread's Python stack to stderr (0 = off); two "
                              "dumps show whether a stuck thread still moves")
+    parser.add_argument("--heartbeat", type=float, default=0,
+                        help="M324/D51: every N seconds a pure-Python thread prints 'HB' with the top frames of "
+                             "every thread (0 = off). It needs the GIL to print, so missing HB lines during a hang "
+                             "mean one thread held the GIL the whole time; HB lines with changing frames mean the "
+                             "threads still move")
     args = parser.parse_args(argv)
     if args.hang_dump > 0:
         faulthandler.dump_traceback_later(args.hang_dump, repeat=True)
+    if args.heartbeat > 0:
+        start_heartbeat(args.heartbeat)
     work = Path(tempfile.mkdtemp(prefix="d63_probe_"))
     for key, value in {"DRILLMASTER_ENV": "test", "DRILLMASTER_DATA_DIR": str(work),
                        "DRILLMASTER_LOG_DIR": str(work / "logs"), "DRILLMASTER_BACKUP_DIR": str(work / "backups"),
@@ -122,6 +129,49 @@ def main(argv=None) -> int:
     print(f"mode={args.mode} windows={args.windows} alive_at_end={alive} "
           f"live_widgets={len(QApplication.allWidgets())} - no crash", flush=True)
     return 0
+
+
+def _frame_label(frame) -> str:
+    return f"{os.path.basename(frame.f_code.co_filename)}:{frame.f_lineno} {frame.f_code.co_name}"
+
+
+def heartbeat_line(count: int, elapsed: float, depth: int = 3) -> str:
+    """One HB line: the top ``depth`` frames of every other thread, main thread first."""
+    import threading
+    main_id = threading.main_thread().ident
+    me = threading.get_ident()
+    parts = []
+    for ident, frame in sorted(sys._current_frames().items(), key=lambda item: item[0] != main_id):
+        if ident == me:
+            continue
+        labels = []
+        while frame is not None and len(labels) < depth:
+            labels.append(_frame_label(frame))
+            frame = frame.f_back
+        parts.append(("main" if ident == main_id else f"t{ident % 10000:04d}") + "=" + " < ".join(labels))
+    return f"HB {count} t={elapsed:.0f}s " + " | ".join(parts)
+
+
+def start_heartbeat(interval: float):
+    """Daemon thread printing heartbeat_line every ``interval`` seconds to stderr (D51 GIL-starvation test).
+
+    Returns ``(thread, stop)``; ``stop.set()`` ends it. The wait is ``time.sleep`` (not ``stop.wait``) so each beat
+    must re-acquire the GIL exactly like ordinary Python code."""
+    import threading
+    started = time.monotonic()
+    stop = threading.Event()
+
+    def run():
+        count = 0
+        while not stop.is_set():
+            time.sleep(interval)
+            if stop.is_set():
+                break
+            count += 1
+            print(heartbeat_line(count, time.monotonic() - started), file=sys.stderr, flush=True)
+    thread = threading.Thread(target=run, name="d51-heartbeat", daemon=True)
+    thread.start()
+    return thread, stop
 
 
 if __name__ == "__main__":
