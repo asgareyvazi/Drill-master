@@ -264,3 +264,70 @@ def test_a_not_assessed_workflow_is_not_saved(w13):
     r = hw.evaluate(_fill(w13, confirm=False))
     with pytest.raises(ValueError, match="Nothing to store"):
         hw.save_case(w13.db, r, well_id=None)
+
+
+# ---- M370 hole cleaning (carrying capacity index) -----------------------------------------------------------
+def _hc_values(**over):
+    # PV/YP deliberately inconsistent with the Fann readings, so using the wrong source changes the index
+    base = {"well_type": "Vertical", "max_inc": 0.0, "t600": 55.0, "t300": 35.0, "pv": 18.0, "yp": 12.0}
+    base.update(over)
+    return base
+
+
+def test_m370_cci_closed_form_and_classes():
+    out = hw.hole_cleaning(_hc_values(), 100.0, 10.0)
+    n = 3.32 * math.log10(55 / 35)
+    assert out["cci"] == pytest.approx(511 ** (1 - n) * 35 * 100 * 10 / 400000)
+    assert out["status"].startswith("MARGINAL")
+    assert hw.hole_cleaning(_hc_values(), 200.0, 10.0)["status"].startswith("GOOD")
+    assert hw.hole_cleaning(_hc_values(), 40.0, 10.0)["status"].startswith("POOR")
+
+
+def test_m370_cci_pv_yp_fallback_only_when_fann_missing():
+    fann = hw.hole_cleaning(_hc_values(), 100.0, 10.0)
+    pvyp = hw.hole_cleaning(_hc_values(t600=0.0, t300=0.0, pv=20.0, yp=15.0), 100.0, 10.0)
+    assert fann["rheology_source"].startswith("Fann") and pvyp["rheology_source"].startswith("PV/YP")
+    assert pvyp["n"] == pytest.approx(3.32 * math.log10(55 / 35))
+
+
+@pytest.mark.parametrize("over,av,mw,status,why", [
+    ({"well_type": "Directional", "max_inc": 60.0}, 100.0, 10.0, "NOT APPLICABLE", "35"),
+    ({"well_type": "Directional", "max_inc": 0.0}, 100.0, 10.0, "NOT ASSESSED", "inclination not entered"),
+    ({"t600": 0.0, "t300": 0.0, "pv": 0.0}, 100.0, 10.0, "NOT ASSESSED", "rheology"),
+    ({}, None, 10.0, "NOT ASSESSED", "annular velocity"),
+    ({}, 100.0, None, "NOT ASSESSED", "density"),
+    ({"t600": 30.0, "t300": 35.0}, 100.0, 10.0, "NOT ASSESSED", "θ600"),
+])
+def test_m370_cci_never_guesses(over, av, mw, status, why):
+    out = hw.hole_cleaning(_hc_values(**over), av, mw)
+    assert out["status"] == status and out["cci"] is None and why in out["reason"]
+
+
+def test_m370_cci_near_vertical_directional_is_assessed():
+    assert hw.hole_cleaning(_hc_values(well_type="Directional", max_inc=30.0), 100.0, 10.0)["cci"] is not None
+
+
+def test_m370_workflow_uses_the_slowest_annulus_and_stores_the_index(w13, db):  # noqa: F811
+    r = hw.evaluate(_fill(w13))
+    base = r["base"]
+    hc = base["hole_cleaning"]
+    avs = [v for _n, v in hw._engine_run(r["snapshot"]["values"])[1].annular_velocities]
+    assert len(set(avs)) > 1                                        # casing and open hole differ
+    assert hc["av_ft_min"] == base["min_annular_velocity_ft_min"] == min(avs)
+    assert hc["mw_ppg"] == pytest.approx(MW_PPG)                     # P8 divisor through the engine
+    inputs, results = hw.case_payload(r)
+    assert results["base_cci"]["value"] == pytest.approx(hc["cci"])
+    assert any(line.startswith("Hole cleaning (CCI, SCREENING)") for line in hw.summary_lines(r))
+
+
+def test_budget_that_does_not_sum_to_the_engine_total_is_reported_inconsistent():
+    from types import SimpleNamespace
+
+    result = SimpleNamespace(surface_loss_psi=10.0, pipe_losses=[("DP in 8.5 hole", 100.0)], bit_loss_psi=500.0,
+                             annulus_losses=[("A1", 50.0)], total_loss_psi=700.0)          # 660 != 700
+    engine = SimpleNamespace(pipe_segments=[])
+    out = hw.pressure_budget(engine, result)
+    assert out["component_sum_psi"] == pytest.approx(660.0) and out["closes"] is False
+    assert "not consistent" in out["closure_note"]
+    result.total_loss_psi = 660.0
+    assert hw.pressure_budget(engine, result)["closes"] is True

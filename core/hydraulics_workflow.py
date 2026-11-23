@@ -19,7 +19,7 @@ Every run uses the same frozen page values (``values``) and stores their SHA-256
 
 Rules kept from the engine: ECD is reported only when the engine assessed it (complete annular geometry); a missing
 value stays ``None``; an un-entered pump limit (0 on the page) is NOT ENTERED, never a limit of 0 psi. Mud density
-enters in pcf and is converted with the P8 divisor 7.48052 inside the engine; every density output is ppg.
+enters in pcf and is converted with the P8 density divisor inside the engine; every density output is ppg.
 """
 from __future__ import annotations
 
@@ -234,6 +234,58 @@ def _min_av(result) -> Optional[float]:
     return min(values) if values else None
 
 
+# ---- M370 hole cleaning ------------------------------------------------------------------------------------
+CCI_MAX_INCLINATION_DEG = 35.0
+
+
+def hole_cleaning(values: Mapping[str, Any], min_av_ft_min: Optional[float], mw_ppg: Optional[float]) -> Dict[str, Any]:
+    """Carrying capacity index (Robinson and Morgan, 2004) — SCREENING, vertical / near-vertical hole only.
+
+    CCI = K · AV · MW / 400 000 with K = 511^(1 − n) · (PV + YP) (equivalent cP), n = 3.32 log10(θ600 / θ300),
+    AV the LOWEST annular velocity (ft/min), MW in ppg (the engine's MudProperties.mw_ppg, P8). CCI ≥ 1 GOOD, ≤ 0.5 POOR, between
+    MARGINAL. Above 35° inclination the index does not apply (cuttings beds); un-entered rheology is never guessed.
+    """
+    out: Dict[str, Any] = {"method": "Robinson-Morgan carrying capacity index (SCREENING)", "cci": None, "n": None,
+                           "k_equiv_cp": None, "status": "NOT ASSESSED", "reason": ""}
+    well_type = str(values.get("well_type") or "").strip()
+    max_inc = _num(values.get("max_inc"))
+    if well_type != "Vertical":
+        if max_inc is None or max_inc <= 0:
+            out["reason"] = "maximum inclination not entered for a non-vertical well"
+            return out
+        if max_inc > CCI_MAX_INCLINATION_DEG:
+            out.update(status="NOT APPLICABLE",
+                       reason=f"maximum inclination {max_inc:g}° > {CCI_MAX_INCLINATION_DEG:g}°: the CCI is a "
+                              f"vertical / near-vertical index; deviated hole cleaning is not modelled")
+            return out
+    t600, t300 = _num(values.get("t600")), _num(values.get("t300"))
+    pv, yp = _num(values.get("pv")), _num(values.get("yp"))
+    if t600 and t300 and t600 > 0 and t300 > 0:
+        source = "Fann 600/300 readings"
+    elif pv and pv > 0 and yp is not None and yp >= 0:
+        t600, t300, source = 2.0 * pv + yp, pv + yp, "PV/YP (θ600 = 2PV + YP, θ300 = PV + YP)"
+    else:
+        out["reason"] = "rheology not entered (Fann 600/300 or PV and YP)"
+        return out
+    if t600 <= t300:
+        out["reason"] = "θ600 must exceed θ300"
+        return out
+    mw_ppg = _num(mw_ppg)
+    if mw_ppg is None or mw_ppg <= 0:
+        out["reason"] = "mud density not entered"
+        return out
+    if min_av_ft_min is None or min_av_ft_min <= 0:
+        out["reason"] = "no annular velocity (incomplete annular geometry)"
+        return out
+    n = 3.32 * math.log10(t600 / t300)
+    k = 511.0 ** (1.0 - n) * t300                      # t300 = PV + YP for a Bingham fit
+    cci = k * min_av_ft_min * mw_ppg / 400000.0
+    status = "GOOD (CCI ≥ 1)" if cci >= 1.0 else "POOR (CCI ≤ 0.5)" if cci <= 0.5 else "MARGINAL (0.5 < CCI < 1)"
+    out.update(cci=cci, n=n, k_equiv_cp=k, status=status, rheology_source=source, av_ft_min=min_av_ft_min,
+               mw_ppg=mw_ppg, reason="lowest annular velocity used")
+    return out
+
+
 def _ecd_state(result) -> Tuple[Optional[float], str]:
     if result.ecd_at_bit_ppg is not None:
         return result.ecd_at_bit_ppg, "ASSESSED (complete annular geometry, P8 density divisor)"
@@ -264,6 +316,7 @@ def _point(values, *, flow_gpm=None, nozzles=None) -> Dict[str, Any]:
             "jet_velocity_fps": result.jet_velocity_fps, "impact_force_lbf": result.impact_force_lbs,
             "percent_bit_hp": result.percent_bit_hp, "ecd_at_bit_ppg": ecd, "ecd_at_shoe_ppg": result.ecd_at_shoe_ppg,
             "ecd_state": ecd_note, "min_annular_velocity_ft_min": _min_av(result),
+            "hole_cleaning": hole_cleaning(values, _min_av(result), getattr(engine.mud, "mw_ppg", None)),
             "critical_flow_gpm": result.critical_flow_rate_gpm, "regime_note": regime,
             "pump_status": _pump_summary(pumps), "pumps": pumps, "budget": budget,
             "nozzles": [list(n) for n in nozzles] if nozzles is not None else None,
@@ -344,6 +397,9 @@ def summary_lines(result: Mapping[str, Any]) -> List[str]:
     lines.append(f"Bit: TFA {show(base['tfa_in2'], 3, 'in²')}, ΔP {show(base['bit_loss_psi'], 0, 'psi')}, "
                  f"HSI {show(base['hsi'], 2, 'hp/in²')}, jet {show(base['jet_velocity_fps'], 0, 'ft/s')}, "
                  f"impact {show(base['impact_force_lbf'], 0, 'lbf')}")
+    hc = base.get("hole_cleaning") or {}
+    lines.append(f"Hole cleaning (CCI, SCREENING): {hc.get('status', 'NOT ASSESSED')}"
+                 + (f" — CCI {hc['cci']:.2f}" if hc.get("cci") is not None else f" — {hc.get('reason', '')}"))
     pva = result["plan_vs_actual"]
     lines.append(f"Plan vs actual: {pva['status']} — {pva['reason']}")
     if not base["budget"]["closes"]:
@@ -355,6 +411,7 @@ def summary_lines(result: Mapping[str, Any]) -> List[str]:
 _POINT_FIELDS = (("spp_psi", "psi"), ("bit_loss_psi", "psi"), ("annular_loss_psi", "psi"), ("tfa_in2", "in²"),
                  ("hsi", "hp/in²"), ("jet_velocity_fps", "ft/s"), ("impact_force_lbf", "lbf"),
                  ("percent_bit_hp", "%"), ("ecd_at_bit_ppg", "ppg"), ("min_annular_velocity_ft_min", "ft/min"))
+# M370: the carrying capacity index of the base point is stored with the case (None when not assessed)
 
 
 def case_payload(result: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -380,6 +437,9 @@ def case_payload(result: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, A
             results[f"budget_{row['group']}_psi"] = {"value": row["loss_psi"], "unit": "psi", "label": row["label"]}
         results["base_pump_status"] = {"value": base["pump_status"], "label": "pump limit summary"}
         results["base_ecd_state"] = {"value": base["ecd_state"], "label": "ECD state"}
+        hc = base.get("hole_cleaning") or {}
+        results["base_cci"] = {"value": hc.get("cci"), "unit": "", "label": "carrying capacity index (SCREENING)"}
+        results["base_hole_cleaning_status"] = {"value": hc.get("status"), "label": hc.get("reason") or ""}
         for point in result["flow_sweep"]:
             tag = f"flow_{point['flow_gpm']:g}"
             results[f"{tag}_status"] = {"value": point["status"], "label": point["reason"] or "OK"}

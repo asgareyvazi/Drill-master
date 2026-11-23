@@ -5,6 +5,7 @@ H2 annular loss, laminar Bingham annulus | 148.387 | 148.39 | 1.79e-05 | 2e-03 |
 H3 bit nozzle ΔP | 59.1918 | 59.1918 | 0.00e+00 | 1e-03 | PASS | ΔP = Q² MW / (10858 TFA²)
 H4 ECD at bit | 10.4349 | 10.435 | 1.06e-05 | 2e-04 | PASS | MW + APL / (0.052 TVD); MW = 74.8052 pcf / 7.48052
 H5 surface line (30 m standpipe, 4 in ID) | 1.81632 | 1.82 | 2.02e-03 | 3e-03 | PASS | laminar pipe form
+H7 carrying capacity index (near-vertical) | 0.334844 | 0.334844 | 0.00e+00 | 1e-09 | PASS | K = 511^(1-n) θ300; CCI = K AV MW / 400000
 H6 predicted SPP = sum of components | 320.678 | 320.7 | 6.93e-05 | 2e-03 | PASS | surface + string + annulus + bit
 S1 quarter circle TVD = R | 572.958 | 572.958 | 1.98e-16 | 1e-09 | PASS | exact for a circular arc
 S2 quarter circle north = R | 572.958 | 572.958 | 1.98e-16 | 1e-09 | PASS | exact
@@ -25,4 +26,4 @@ M1 MSE Teale | 159887 | 159887 | 2.13e-07 | 1e-03 | PASS | display rounding
 WC1 kill mud weight | 10.9615 | 10.9615 | 0.00e+00 | 1e-03 | PASS | TRAINING AID; display rounding
 WC2 ICP | 1300 | 1300 | 0.00e+00 | 1e-09 | PASS | SCR + SIDPP
 WC3 FCP | 876.923 | 876.923 | 1.30e-16 | 1e-03 | PASS | SCR × KMW / OMW
-TOTAL 25 cases, 0 outside tolerance
+TOTAL 26 cases, 0 outside tolerance

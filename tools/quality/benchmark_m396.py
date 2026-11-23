@@ -69,6 +69,8 @@ def hydraulics_cases() -> List[Case]:
     tfa = 3 * math.pi / 4 * (12 / 32) ** 2
     bit = q ** 2 * mw_ppg / (10858 * tfa ** 2)
     ecd = mw_ppg + ann / (0.052 * length_ft)
+    n_fann = 3.32 * math.log10(55.0 / 35.0)                                   # Robinson-Morgan CCI from Fann readings
+    cci = 511 ** (1 - n_fann) * 35.0 * round(v_ann * 60, 1) * mw_ppg / 400000  # engine reports AV to 0.1 ft/min
     regimes = {row["kind"]: row["regime"] for row in __import__("core.w13_hydraulics", fromlist=["x"]).component_rows(
         hw._engine_run(H_VALUES)[1]) if row["regime"]}
     note = f"regimes {regimes}"
@@ -77,6 +79,8 @@ def hydraulics_cases() -> List[Case]:
             ("H3 bit nozzle ΔP", bit, base["bit_loss_psi"], 1e-3, "ΔP = Q² MW / (10858 TFA²)"),
             ("H4 ECD at bit", ecd, base["ecd_at_bit_ppg"], 2e-4, "MW + APL / (0.052 TVD); MW = 74.8052 pcf / 7.48052"),
             ("H5 surface line (30 m standpipe, 4 in ID)", surface, base["surface_loss_psi"], 3e-3, "laminar pipe form"),
+            ("H7 carrying capacity index (near-vertical)", cci, base["hole_cleaning"]["cci"], 1e-9,
+             "K = 511^(1-n) θ300; CCI = K AV MW / 400000"),
             ("H6 predicted SPP = sum of components", surface + pipe + ann + bit, base["spp_psi"], 2e-3,
              "surface + string + annulus + bit")]
 
