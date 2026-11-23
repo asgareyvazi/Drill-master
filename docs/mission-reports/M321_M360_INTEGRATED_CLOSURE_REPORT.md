@@ -101,4 +101,7 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 | CI Windows release validation, `6ace038` (`45122896026`) | ✅ success |
 | CI Source release gate, `6ace038` (`45122895968`) | 3.11 ✅, 3.13 ✅ (full suite incl. `test_m75`); 3.12 stopped by GitHub's 60-minute job limit with no test failure annotated (the known CI-duration residual) |
 | CI PySide6 candidate evaluation, `6ace038` (`45122895952`) | Windows ×3 ✅, Linux 3.11/3.12 ×4 ✅, 3.13 × 6.8.1.1 baseline ✅; 3.13 × 6.8.3 ❌ (6/10 HANG), 3.13 × 6.8.2.1 ❌ (1/10 HANG). Expected: this is the D51 evidence, not a release gate |
-| CI on the final commit | reported in the delivery message (a documentation-only change after `6ace038`) |
+| CI Windows release validation, `534e4f3` (`45130003013`) | ✅ success |
+| CI Source release gate, `534e4f3` (`45130003098`) | ✅ success (3.11, 3.12, 3.13) |
+| CI PySide6 candidate evaluation, `534e4f3` | not triggered (documentation-only change); the last run is `45122895952` above |
+| Later commits | only this CI table changes |
