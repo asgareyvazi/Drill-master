@@ -113,3 +113,16 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 | `90192f5` | full native stacks of the two blocked threads; `mode=collect` leg |
 | `246e7bf` | root cause (§3e); probe `--qt-gc` as `app.py`; product-faithful 3.13 legs plus a diagnostic control; 7 tests in `test_m324_hang_report.py` |
 | this commit | §3f confirmation (run `45144294084`, all 10 jobs ✅); register D51 row; decision record; CI results |
+
+## Addendum (M364, 2026-11-23)
+
+* **Row M324, "A public 6.8.5 does not exist":** imprecise. There are no PyPI wheels for 6.8.4 / 6.8.5. An open-source
+  LGPL **source** release does exist: tags `v6.8.4-lts-lgpl` (2026-08-03) and `v6.8.5-lts-lgpl` (2026-10-17) in
+  `pyside/pyside-setup`. The correction and the build-from-source option are in
+  `m324_pyside_upgrade_decision.md` (addendum) and `m361-m400-evidence/m378_pyside_decision_record.md`.
+* **Row M327, "DONE":** the catalogue covers the M321–M360 modules. `core/calculation_clone_contract.py`, the M304
+  identity logic, was in no catalogue. M389 adds identity mutants.
+* **§2, phases without deliverable:** their titles were never committed. M363 maps the open engineering scope to
+  the M361–M400 phases (`m361-m400-evidence/m363_m321_m360_residual_audit.md`).
+* **CI on the docs-only SHA `3ca8b80`:** reported separately in `m361-m400-evidence/m361_live_baseline.md`. It is not
+  inherited from `246e7bf`.

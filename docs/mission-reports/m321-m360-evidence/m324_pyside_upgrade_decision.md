@@ -114,3 +114,20 @@ The obligations for the one-folder PyInstaller distribution are the same for eve
 ## 8. CI evaluation runs
 
 See `m324_ci_evaluation.md`. Summary (runs `45024680781` and `45115378469`): on the shipped runtime (Windows, Python 3.12) both candidates free three real MainWindows without a crash, pass the UI subset, build with PyInstaller and launch the frozen exe. Linux 3.11 / 3.12 is clean. **Resolved (§3e–§3f of `m324_ci_evaluation.md`):** the intermittent Python 3.13 hangs were the M50 GIL / Qt connection-mutex deadlock, reproduced because the probe did not install `core.qt_gc` as `app.py` does. With the application's GC policy, run `45144294084` had 0 hangs in 32 candidate runs, against 5 of 16 without it. **Precondition for M325:** on the candidates closed windows are always freed, so `core.qt_gc` must stay installed on every path that builds windows. Recommendation unchanged: **6.8.3** (alternative 6.8.2.1), an owner decision.
+
+## Addendum (M364, 2026-11-23) — correction of the 6.8.4 / 6.8.5 wording
+
+§1 says that no public 6.8.4 or 6.8.5 exists, and §7 says that "6.8.5 is commercial-only". Both statements are
+**imprecise** and are corrected here; the text above is kept as it was written.
+
+* **No PyPI wheels.** PyPI lists 6.8.0 … 6.8.3 (re-read 2026-11-23). That part of §1 stays true.
+* **An open-source source release exists.** The public `pyside/pyside-setup` repository carries signed release tags:
+  * `v6.8.4-lts-lgpl`: tag object `696890e1`, commit `fc6d063e`, tagged 2026-08-03, "Qt For Python Release 6.8.4";
+  * `v6.8.5-lts-lgpl`: tag object `c3115a21`, commit `b37cb18a`, tagged 2026-10-17, "Qt For Python Release 6.8.5".
+
+  These tags match the LGPL source tarball `pyside-setup-opensource-src-6.8.5`. What the open-source user lacks is
+  a **binary wheel**, not the source or the right to use it.
+* Using 6.8.5 therefore means building PySide6 / Shiboken6 from source against a Qt 6.8.5 open-source build. That is
+  a separate build-and-qualification effort, recorded in the M378 decision record
+  (`docs/mission-reports/m361-m400-evidence/m378_pyside_decision_record.md`). The pin stays `6.8.1.1` until the
+  owner decides.
