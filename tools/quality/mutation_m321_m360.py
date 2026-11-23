@@ -35,8 +35,11 @@ CR = "core/citation_record.py"
 QL = "core/qt_lifetime.py"
 HR = "core/history_replay.py"
 W3C = "tabs/w3c_section_data.py"
+TD = "core/engineering/engines/torque_drag.py"
+TDP = "core/engineering/torque_drag_persistence.py"
 
 T323 = "tests/test_m323_m328_residuals_and_replay.py"
+TD92 = ["tests/test_m349_benchmarks_d92.py", "tests/test_m318_td_friction_sensitivity.py"]
 TAD = ["tests/test_m311_architecture_diff.py", "tests/test_m329_architecture_diff_table_export.py", T323]
 WAP = "tabs/well_architecture_panel.py"
 THC = ["tests/test_m314_ddr_hydraulics_check.py"]
@@ -409,6 +412,34 @@ MUTANTS = [
            equivalent="save_check stores only COMPUTED checks, and evaluate() computes only when problems == [], so "
                       "every frozen snapshot that reaches replay has problems == []; the presence check one line "
                       "above (list type) is still enforced"),
+    # ------------------------------------------------------------------ M349 / D92 T&D integration resolution
+    Mutant("TD-segments-ignored", TD,
+           "        n = 1 if max_segment_m is None else max(1, math.ceil(el[\"length_m\"] / max_segment_m - 1e-9))\n",
+           "        n = 1\n", TD92, "D92 regression: each drill-string entry is one element again"),
+    Mutant("TD-segment-too-coarse", TD, "MAX_SEGMENT_M = 5.0\n", "MAX_SEGMENT_M = 50.0\n", TD92,
+           "integration segments of 50 m (benchmark error > 0.2 %)"),
+    Mutant("TD-last-segment-gap", TD,
+           "            yield {**el, \"md_bottom\": bottom, \"md_top\": el[\"md_top\"] if k == n - 1 else bottom - step, "
+           "\"length_m\": step}\n",
+           "            yield {**el, \"md_bottom\": bottom, \"md_top\": bottom - step, \"length_m\": step * 0.99}\n", TD92,
+           "segments lose 1 % of the string length"),
+    Mutant("TD-buckling-first-segment", TD,
+           "            if held is None or (rank[row[\"flag\"]], row.get(\"compression_lbf\", 0)) > \\\n",
+           "            if held is None or False and (rank[row[\"flag\"]], row.get(\"compression_lbf\", 0)) > \\\n", TD92,
+           "the buckling row of an entry is its first segment, not its worst"),
+    Mutant("TD-legacy-method-mislabelled", TD,
+           "            method = (cls.LEGACY_METHOD if max_segment_m is None else cls.METHOD if max_segment_m == MAX_SEGMENT_M\n",
+           "            method = (cls.METHOD if max_segment_m is None else cls.METHOD if max_segment_m == MAX_SEGMENT_M\n",
+           TD92, "a whole-entry result is labelled with the segmented method"),
+    Mutant("TDP-legacy-recalculated-segmented", TDP,
+           "        args[\"max_segment_m\"] = None\n", "        pass\n", TD92,
+           "a run saved before D92 is verified against the new integration (false DIFFERENT)"),
+    Mutant("TDS-v1-replayed-as-v2", TDS,
+           "    segment = None if version == LEGACY_VERSION else MAX_SEGMENT_M\n",
+           "    segment = MAX_SEGMENT_M\n", TD92, "an M318 v1 case is replayed with the v2 integration"),
+    Mutant("TDS-unknown-version-accepted", TDS,
+           "    if version not in SUPPORTED_VERSIONS:\n        raise SensitivityError(",
+           "    if False:\n        raise SensitivityError(", TD92, "a sweep runs under a version this build does not have"),
     # ------------------------------------------------------------------ M323 / D89 new-record NULLs
     Mutant("W3C-cement-placeholders-saved", W3C,
            "        self._loaded_cement_source = {key: None for key in self.CEMENT_NULL_FIELDS}\n",

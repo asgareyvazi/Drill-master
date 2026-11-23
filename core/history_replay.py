@@ -107,7 +107,7 @@ def _m314_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
     return "REPRODUCIBLE", "re-run from the frozen gathered DDR inputs (the daily report is not re-read)"
 
 
-def _m314_replay(db, inputs: Dict[str, Any]) -> Dict[str, Any]:
+def _m314_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
     from core import ddr_hydraulics_check as hc
 
     snapshot = _input(inputs, "snapshot")
@@ -141,7 +141,7 @@ def _m317_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
     return "REPRODUCIBLE", "re-run from the frozen recorded job and the SHA-256-checked architecture revision"
 
 
-def _m317_replay(db, inputs: Dict[str, Any]) -> Dict[str, Any]:
+def _m317_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
     from core import cement_job_reconciliation as cj
     from core import well_architecture as wa
 
@@ -170,7 +170,7 @@ def _m318_current() -> str:
 def _m318_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
     from core import torque_drag_sensitivity as tds
 
-    if version != tds.METHOD_VERSION:
+    if version not in tds.SUPPORTED_VERSIONS:
         return "NOT REPRODUCIBLE", f"T&D sensitivity version {version!r} is not available in this build"
     if not isinstance(_input(inputs, "run_snapshot"), dict):
         return "NOT REPRODUCIBLE", "the case was saved before M328 and holds no frozen run snapshot"
@@ -183,7 +183,7 @@ class SnapshotIntegrityError(ValueError):
     """A frozen snapshot fails its own SHA-256 check (reported as UNREADABLE)."""
 
 
-def _m318_replay(db, inputs: Dict[str, Any]) -> Dict[str, Any]:
+def _m318_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
     from core import survey_revisions as sr
     from core import torque_drag_sensitivity as tds
 
@@ -194,7 +194,7 @@ def _m318_replay(db, inputs: Dict[str, Any]) -> Dict[str, Any]:
         raise SnapshotIntegrityError("the frozen survey stations fail their SHA-256 check")
     if tds.components_sha256(snap.get("components") or []) != snap.get("components_sha256"):
         raise SnapshotIntegrityError("the frozen drill-string components fail their SHA-256 check")
-    result = tds.sweep(snap, _input(inputs, "friction_factors") or [])
+    result = tds.sweep(snap, _input(inputs, "friction_factors") or [], version=version)   # D92: as it was saved
     observations = {curve: _input(inputs, f"observed_{curve}") for curve in tds.CURVES}
     return tds.case_payload(result, observations)[1]
 
@@ -228,7 +228,7 @@ def verify(db, method: str, inputs: Dict[str, Any], results: Dict[str, Any], ver
     if not isinstance(results, dict) or not all(isinstance(v, dict) for v in results.values()):
         return _outcome("UNREADABLE", "the stored result is not a case payload; it is shown as saved", current)
     try:
-        fresh = replay(db, inputs)
+        fresh = replay(db, inputs, version)
     except KeyError as exc:                         # a KeyError is a LookupError: a malformed snapshot, not a miss
         return _outcome("UNREADABLE", f"the frozen snapshot lacks the field {exc}; nothing was recomputed", current)
     except LookupError as exc:

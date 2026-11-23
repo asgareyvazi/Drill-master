@@ -1,6 +1,6 @@
 # M323 — Defect register (residuals of M291–M320)
 
-Branch `arena/72010272-drill-master`. Fix commit for every row below: **`bc8e15b`** (parent `6754e14`).
+Branch `arena/72010272-drill-master`. Fix commit: **`bc8e15b`** (parent `6754e14`) for D89 and A-1…A-6; the other rows name their own commit.
 Source of findings: `m322_independent_audit.md`. All evidence uses SYNTHETIC data only.
 Product label unchanged: **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED**.
 
@@ -13,9 +13,12 @@ Product label unchanged: **UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEP
 | A-4b | `summary_lines` used truthiness (`if result["toc_difference_m"]`), which hid a 0 m difference. | low | `bc8e15b` | `test_summary_shows_a_zero_toc_difference_instead_of_hiding_it` | Summary prints "recorded TOC equals the architecture record" | — |
 | A-5 | M314, M317 and M318 cases had no History replay; History said "no re-run adapter". | medium | `bc8e15b` | `test_m328_*` (6 tests); `tests/test_m314_*`, `test_m317_*`, `test_m318_*` now assert REPRODUCIBLE → MATCH | `core/history_replay.py`; History tab detail lists the differing fields with unit and tolerance | Cases saved before `bc8e15b` have no snapshot and stay **NOT REPRODUCIBLE** (stated in the UI). M317 v1 cases are not replayed because of the method-version change. |
 | A-6 | M318 `save_case` stored no survey stations, string or SHA, and a missing pin was stored silently. | medium | `bc8e15b` | `test_m328_td_replay_checks_the_frozen_survey_and_string` | The snapshot holds the stations, components, `components_sha256` and the survey pin. Replay re-checks the station SHA-256 and the components SHA-256. `sweep` refuses an unpinned run. | The survey revision row itself is not re-read during replay; the frozen stations are the record. |
-| A-7 | NPT, Cost and Plan reports have no M320 D manifest. | — | open → M333 | — | — | **NOT IMPLEMENTED** until M333 |
-| A-8 | No navigation from a citation record to its passage. | — | open → M334 | — | — | **NOT IMPLEMENTED** until M334 |
-| A-9 | A Windows-only layout regression (narrower Linux fonts) reached CI. | — | open → M352 | — | — | Guarded only by the CI Windows job until the M352 pre-push large-font probe exists. |
+| A-7 | NPT, Cost and Plan reports had no M320 D manifest. | medium | `3293c3d` (M333) | `tests/test_m320d_report_sections.py` (manifest v2: NPT, Cost, Plan) | `core/report_sections.py`; `MANIFEST_VERSION` 2; every report kind now lists its sections as RENDERED / SUMMARISED / NOT_RECORDED / NOT_RENDERED with the reason | A manifest states what the report contains. It does not check the figures inside each section. |
+| A-8 | No navigation from a citation record to its passage. | medium | `3293c3d` (M334) | `tests/test_m334_citation_record_navigation.py` (6 tests) | `core/citation_record.navigation`; Knowledge Assistant "Verified record" row: EXACT opens the page with the quote highlighted, PAGE_CHANGED opens the page without a highlight, every other status is disabled with "Not openable: …" | Navigation opens what the verification found. It does not repair a changed or missing document. |
+| A-9 | A Windows-only layout regression (narrower Linux fonts) reached CI. | medium | `3293c3d` (M352) | `tests/test_m352_prepush_guard.py` (5 tests; replays the M320 E header-row regression, 1487 px, and asserts the guard reports it) | `tools/quality/prepush_guard_m352.py`, `tools/hooks/pre-push` (`git config core.hooksPath tools/hooks`), budgets in `docs/engineering/large_font_budget_m352.json` | A ratchet at 1.8× the Linux font. It detects widening; it does not prove the Windows width. Budgets compare only on the recorded font fingerprint, otherwise the guard prints NOT COMPARABLE. The hook is opt-in per clone. |
+| **D90** | `architecture_diff._binding_label` showed a changed reference binding as "unknown → unknown". | low | `1d391fd` (M329) | `tests/test_m329_architecture_diff_table_export.py` | The label names the reference set, version and item | — |
+| **D91** | `tools/quality/ux_startup_m115.py` printed non-ASCII JSON to a piped Windows stdout (ANSI code page) and raised `UnicodeEncodeError`. It failed three `test_m115` tests on every Windows PySide evaluation leg, including the 6.8.1.1 baseline. | low (test tool) | `b18706d` | `tests/test_m115_ux_startup.py` on Windows: PySide evaluation run `45024680781`, all three Windows legs pass the UI subset | The tool writes UTF-8 bytes through `sys.stdout.buffer` | Not a product defect: the release build does not ship the tool. |
+| **D92** (M349) | `TorqueDragEngine._integrate` integrated each drill-string entry as one element (mean inclination, whole-entry ΔI/Δφ). One 3,048 m pipe entry through a build-and-turn well read slack-off +18.5 % and torque −19.6 %, and the answer depended on how the pipe was entered. | **high** (affects every survey-based T&D result) | this commit (see the M360 closure report) | `tests/test_m349_benchmarks_d92.py` (9 tests); 8 mutants TD-*, TDP-*, TDS-v1-*, TDS-unknown-* | `m349_benchmarks.md`. Segments ≤ 5 m; benchmark error ≤ 0.085 %. Profiles keep one row per entry. | Runs saved with the old method name are recalculated with the old method, and M318 v1 cases replay as v1. They are never relabelled, so their numbers keep the old error. Soft-string, simple buoyancy and constant FF limits are unchanged. |
 
 ## Status-claim corrections (vocabulary)
 
@@ -28,7 +31,7 @@ The M291–M320 evidence files used "COMPLETE". The corrected statuses are below
 | M317 cement job reconciliation | COMPLETE | IMPLEMENTED — WORKSHEET (displacement is an upper-bound check only) |
 | M318 T&D friction sensitivity | COMPLETE | IMPLEMENTED — SCREENING (no calibrated friction factor) |
 
-None of these items is labelled QUALIFIED. That label needs the M327 mutation and M349 benchmark evidence.
+None of these items was labelled QUALIFIED in M323. That label needed the M327 mutation and M349 benchmark evidence; the resulting labels are recorded in the M360 closure report (`m360_closure.md`).
 
 ## Gates run on `bc8e15b` content (local, not CI)
 

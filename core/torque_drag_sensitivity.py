@@ -23,7 +23,10 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 CONTRACT = "td-friction-sensitivity-v1"
 METHOD_ID = "m318.td_friction_sensitivity"
-METHOD_VERSION = "M318 v1 (TorqueDragEngine.calculate per declared friction factor)"
+LEGACY_VERSION = "M318 v1 (TorqueDragEngine.calculate per declared friction factor)"
+METHOD_VERSION = "M318 v2 (TorqueDragEngine.calculate per declared friction factor, segments <= 5 m)"
+# D92: v1 integrated each drill-string component as one element. v1 cases replay with that method, never with v2.
+SUPPORTED_VERSIONS = (LEGACY_VERSION, METHOD_VERSION)
 LABEL = "SCREENING — FRICTION-FACTOR SENSITIVITY — NOT A CALIBRATED FRICTION FACTOR"
 MAX_FACTORS = 12
 CURVES = {"pickup": ("hookload_pickup", "klbf"), "slackoff": ("hookload_slackoff", "klbf"),
@@ -67,8 +70,12 @@ def normalize_factors(values: Iterable[Any]) -> List[float]:
     return factors
 
 
-def sweep(run: Optional[Mapping[str, Any]], factors: Iterable[Any]) -> Dict[str, Any]:
-    from core.engineering.engines.torque_drag import TorqueDragEngine
+def sweep(run: Optional[Mapping[str, Any]], factors: Iterable[Any], *, version: str = METHOD_VERSION) -> Dict[str, Any]:
+    from core.engineering.engines.torque_drag import MAX_SEGMENT_M, TorqueDragEngine
+
+    if version not in SUPPORTED_VERSIONS:
+        raise SensitivityError(f"T&D sensitivity version {version!r} is not available in this build.")
+    segment = None if version == LEGACY_VERSION else MAX_SEGMENT_M
 
     if not run or not run.get("survey") or not run.get("components"):
         raise SensitivityError("Run torque and drag on a pinned survey first; the sweep re-uses that run's inputs.")
@@ -80,7 +87,7 @@ def sweep(run: Optional[Mapping[str, Any]], factors: Iterable[Any]) -> Dict[str,
     for ff in declared:
         result = TorqueDragEngine.calculate(run["survey"], run["components"], mud_density_ppg=run["mud_density_ppg"],
                                             friction_factor=ff, wob_klbf=run.get("wob_klbf"),
-                                            wellbore_id_in=run.get("wellbore_id_in"))
+                                            wellbore_id_in=run.get("wellbore_id_in"), max_segment_m=segment)
         if not result.success:
             rows.append({"friction_factor": ff, "status": "FAILED", "reason": result.error,
                          **{name: None for name in CURVES}, "buckling": None})
@@ -89,8 +96,8 @@ def sweep(run: Optional[Mapping[str, Any]], factors: Iterable[Any]) -> Dict[str,
         rows.append({"friction_factor": ff, "status": "OK", "reason": "",
                      **{name: v.get(key) for name, (key, _unit) in CURVES.items()},
                      "buckling": bool(v.get("buckling", {}).get("any"))})
-    return {"contract": CONTRACT, "method": METHOD_ID, "method_version": METHOD_VERSION, "label": LABEL,
-            "engine_method": TorqueDragEngine.METHOD, "factors": declared, "rows": rows,
+    return {"contract": CONTRACT, "method": METHOD_ID, "method_version": version, "label": LABEL,
+            "engine_method": TorqueDragEngine.METHOD if segment else TorqueDragEngine.LEGACY_METHOD, "factors": declared, "rows": rows,
             "survey_source": dict(run.get("survey_source") or {}), "mud_density_ppg": run["mud_density_ppg"],
             # M328: the exact engine inputs of the sweep, frozen for replay (never re-read from W13 widgets)
             "run_snapshot": {"survey": [dict(st) for st in run["survey"]],
@@ -171,7 +178,7 @@ def save_case(db, result: Mapping[str, Any], observations: Mapping[str, Optional
         raise ValueError("The sweep carries no run snapshot; it cannot be stored reproducibly.")
     inputs, results = case_payload(result, observations)
     return cc.save_case(db, calculator="T&D friction sensitivity", name=f"FF sweep {result['factors']}",
-                        inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
+                        inputs=inputs, results=results, method=METHOD_ID, method_version=result.get("method_version", METHOD_VERSION),
                         well_id=well_id, user_id=user_id, note=f"{LABEL}; engine {result['engine_method']}")
 
 

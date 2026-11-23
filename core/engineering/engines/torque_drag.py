@@ -40,6 +40,11 @@ from ..result import (
 
 STEEL_PPG = 65.5
 E_STEEL_PSI = 30.0e6
+# D92 (M349): the soft-string equations are integrated over segments no longer than this. Before D92 every drill-string
+# component was ONE element, its inclination the average of its ends: a single 3,048 m pipe entry through a build read
+# slack-off 18.5 % high and rotating torque 19.6 % low against a converged integration. 5 m keeps the M349 benchmark
+# error at or below 0.1 % (see docs/mission-reports/m321-m360-evidence/m349_benchmarks.md).
+MAX_SEGMENT_M = 5.0
 
 
 def _shortest_rad(a_deg: float, b_deg: float) -> float:
@@ -48,7 +53,9 @@ def _shortest_rad(a_deg: float, b_deg: float) -> float:
 
 
 class TorqueDragEngine:
-    METHOD = "Johancsik soft-string (SPE 11380) — SCREENING"
+    METHOD = "Johancsik soft-string (SPE 11380), segments <= 5 m — SCREENING"
+    # Saved runs that name the legacy method are recalculated whole-component, exactly as they were produced.
+    LEGACY_METHOD = "Johancsik soft-string (SPE 11380) — SCREENING"
     SCOPE = "PARTIAL"
     REQUIRED_INPUTS = {
         "survey": "List of {md, inc, azi} — md in m, angles in deg",
@@ -355,8 +362,15 @@ class TorqueDragEngine:
         friction_factor,
         wob_klbf: float = 0.0,
         wellbore_id_in=None,
+        *,
+        max_segment_m: Optional[float] = MAX_SEGMENT_M,
     ) -> EngineeringResult:
+        """``max_segment_m=None`` is the legacy whole-component integration (replay of runs saved before D92 only)."""
         try:
+            if max_segment_m is not None and not max_segment_m > 0:
+                raise EngineeringError("max_segment_m must be > 0 (or None for the legacy whole-component method)")
+            method = (cls.LEGACY_METHOD if max_segment_m is None else cls.METHOD if max_segment_m == MAX_SEGMENT_M
+                      else f"Johancsik soft-string (SPE 11380), segments <= {max_segment_m:g} m — SCREENING")
             ff, mud = cls._validate(survey, bha, mud_density_ppg, friction_factor)
             from ..core import TrajectoryEngine
 
@@ -372,10 +386,14 @@ class TorqueDragEngine:
                 raise EngineeringError("wob_klbf cannot be negative")
             wob = (wob_klbf_value or 0.0) * 1000.0  # lbf
 
-            pickup = cls._integrate(string, traj, ff, bf, mode="pickup", wob_lbf=wob)
-            slack = cls._integrate(string, traj, ff, bf, mode="slackoff", wob_lbf=wob)
-            rot = cls._integrate(string, traj, ff, bf, mode="rotating", wob_lbf=wob)
-            slide = cls._integrate(string, traj, ff, bf, mode="sliding", wob_lbf=wob)
+            pickup = cls._integrate(string, traj, ff, bf, mode="pickup", wob_lbf=wob,
+                                    max_segment_m=max_segment_m)
+            slack = cls._integrate(string, traj, ff, bf, mode="slackoff", wob_lbf=wob,
+                                   max_segment_m=max_segment_m)
+            rot = cls._integrate(string, traj, ff, bf, mode="rotating", wob_lbf=wob,
+                                 max_segment_m=max_segment_m)
+            slide = cls._integrate(string, traj, ff, bf, mode="sliding", wob_lbf=wob,
+                                   max_segment_m=max_segment_m)
 
             buckling = cls._buckling_flags(string, slack["elements"], hole_id, bf, traj)
             stretch = cls._axial_stretch(rot["elements"])
@@ -415,7 +433,7 @@ class TorqueDragEngine:
                 "mud_density": mud,
                 "buoyancy_factor": round(bf, 4),
                 "buckling": buckling,
-                "method": cls.METHOD,
+                "method": method,
                 "scope": cls.SCOPE,
                 "warnings": warnings,
                 "assumptions": [
@@ -431,7 +449,7 @@ class TorqueDragEngine:
                 values=values,
                 unit="klbf",
                 formula="Fn=[(F Δφ sin I)²+(F ΔI + wb ΔL sin I)²]^0.5; F_top=F_bot+wb ΔL cos I ± μ Fn",
-                method=cls.METHOD,
+                method=method,
                 assumptions=values["assumptions"],
                 warnings=warnings,
                 scope=cls.SCOPE,
@@ -476,6 +494,7 @@ class TorqueDragEngine:
                     "weight_ppf": wt,
                     "od_in": od,
                     "id_in": id_,
+                    "component_index": i,
                 }
             )
             cursor = md_top
@@ -497,8 +516,20 @@ class TorqueDragEngine:
         return traj[-1].inc, traj[-1].azi
 
     @classmethod
-    def _integrate(cls, string, traj, ff, bf, mode: str, wob_lbf: float):
-        """Integrate from bit to surface. Force > 0 is tension."""
+    def _segments(cls, el, max_segment_m):
+        """One component split into equal segments of at most ``max_segment_m`` (bit side first)."""
+        n = 1 if max_segment_m is None else max(1, math.ceil(el["length_m"] / max_segment_m - 1e-9))
+        step = el["length_m"] / n
+        for k in range(n):
+            bottom = el["md_bottom"] - k * step
+            yield {**el, "md_bottom": bottom, "md_top": el["md_top"] if k == n - 1 else bottom - step, "length_m": step}
+
+    @classmethod
+    def _integrate(cls, string, traj, ff, bf, mode: str, wob_lbf: float, max_segment_m=MAX_SEGMENT_M):
+        """Integrate from bit to surface. Force > 0 is tension.
+
+        ``elements`` holds every integration segment; the profiles keep one row per component (its top).
+        """
         force = -wob_lbf  # compression at bit when WOB applied
         torque = 0.0
         buoyed = 0.0
@@ -507,64 +538,50 @@ class TorqueDragEngine:
         profile_sideforce = []
         elements = []
 
-        for el in string:
-            inc1, azi1 = cls._inc_azi_at(traj, el["md_bottom"])
-            inc2, azi2 = cls._inc_azi_at(traj, el["md_top"])
-            d_l_ft = el["length_m"] * 3.28084
-            w_air = el["weight_ppf"] * d_l_ft  # lbf
-            w_b = w_air * bf
-            buoyed += w_b
-            i_avg = math.radians((inc1 + inc2) / 2.0)
-            d_inc = math.radians(inc2 - inc1)
-            d_azi = _shortest_rad(azi1, azi2)
-            fn = math.sqrt((force * math.sin(i_avg) * d_azi) ** 2 + (force * d_inc + w_b * math.sin(i_avg)) ** 2)
-            axial_w = w_b * math.cos(i_avg)
-            f_bot = force
-            t_bot = torque
-            if mode == "pickup":
-                force = force + axial_w + ff * fn
-            elif mode == "slackoff":
-                force = force + axial_w - ff * fn
-            elif mode == "rotating":
-                force = force + axial_w
-                r_ft = (el["od_in"] / 2.0) / 12.0
-                torque = torque + ff * fn * r_ft
-            elif mode == "sliding":
-                force = force + axial_w + ff * fn  # sliding in, treat as pickup-like drag
-            else:
-                raise EngineeringError(f"Unknown T&D mode {mode}")
-
-            rec = {
-                **el,
-                "inc_avg_deg": (inc1 + inc2) / 2.0,
-                "force_bottom_lbf": f_bot,
-                "force_top_lbf": force,
-                "fn_lbf": fn,
-                "torque_bottom_ft_lbf": t_bot,
-                "torque_top_ft_lbf": torque,
-            }
-            elements.append(rec)
-            profile_force.append(
-                {
-                    "md": round(el["md_top"], 2),
-                    "tension_klbf": round(force / 1000.0, 3),
-                    "component": el["name"],
-                }
-            )
-            profile_torque.append(
-                {
-                    "md": round(el["md_top"], 2),
-                    "torque": round(torque, 2),
-                    "component": el["name"],
-                }
-            )
-            profile_sideforce.append(
-                {
-                    "md": round(el["md_top"], 2),
-                    "side_force_lbf": round(fn, 1),
-                    "component": el["name"],
-                }
-            )
+        for component in string:
+            side_total = 0.0
+            for el in cls._segments(component, max_segment_m):
+                inc1, azi1 = cls._inc_azi_at(traj, el["md_bottom"])
+                inc2, azi2 = cls._inc_azi_at(traj, el["md_top"])
+                d_l_ft = el["length_m"] * 3.28084
+                w_air = el["weight_ppf"] * d_l_ft  # lbf
+                w_b = w_air * bf
+                buoyed += w_b
+                i_avg = math.radians((inc1 + inc2) / 2.0)
+                d_inc = math.radians(inc2 - inc1)
+                d_azi = _shortest_rad(azi1, azi2)
+                fn = math.sqrt((force * math.sin(i_avg) * d_azi) ** 2 + (force * d_inc + w_b * math.sin(i_avg)) ** 2)
+                axial_w = w_b * math.cos(i_avg)
+                f_bot = force
+                t_bot = torque
+                if mode == "pickup":
+                    force = force + axial_w + ff * fn
+                elif mode == "slackoff":
+                    force = force + axial_w - ff * fn
+                elif mode == "rotating":
+                    force = force + axial_w
+                    r_ft = (el["od_in"] / 2.0) / 12.0
+                    torque = torque + ff * fn * r_ft
+                elif mode == "sliding":
+                    force = force + axial_w + ff * fn  # sliding in, treat as pickup-like drag
+                else:
+                    raise EngineeringError(f"Unknown T&D mode {mode}")
+                side_total += fn
+                elements.append({
+                    **el,
+                    "inc_avg_deg": (inc1 + inc2) / 2.0,
+                    "force_bottom_lbf": f_bot,
+                    "force_top_lbf": force,
+                    "fn_lbf": fn,
+                    "torque_bottom_ft_lbf": t_bot,
+                    "torque_top_ft_lbf": torque,
+                })
+            top = round(component["md_top"], 2)
+            profile_force.append({"md": top, "tension_klbf": round(force / 1000.0, 3), "component": component["name"]})
+            profile_torque.append({"md": top, "torque": round(torque, 2), "component": component["name"]})
+            # the side force of a component is the sum over its segments (one segment = the legacy value)
+            profile_sideforce.append({"md": top, "side_force_lbf": round(side_total, 1),
+                                      "component": component["name"]})
 
         return {
             "surface_klbf": force / 1000.0,
@@ -595,7 +612,8 @@ class TorqueDragEngine:
             inc = math.radians(el.get("inc_avg_deg") or 0.0)
             f_comp = -min(el["force_bottom_lbf"], el["force_top_lbf"])  # compression > 0
             if rc <= 0:
-                details.append({"component": el["name"], "flag": "no_clearance"})
+                details.append({"component": el["name"], "flag": "no_clearance",
+                                "_component_index": el.get("component_index", 0)})
                 any_flag = True
                 continue
             ixx = math.pi / 64.0 * (od**4 - id_**4)
@@ -619,9 +637,23 @@ class TorqueDragEngine:
                     "f_sin_lbf": round(f_sin, 0),
                     "f_hel_lbf": round(f_hel, 0),
                     "flag": flag,
+                    "_component_index": el.get("component_index", 0),
                 }
             )
-        return {"any": any_flag, "details": details}
+        return {"any": any_flag, "details": cls._worst_per_component(details)}
+
+    @staticmethod
+    def _worst_per_component(details) -> List[Dict]:
+        """One row per drill-string component: its most severe segment (D92; one segment = the legacy row)."""
+        rank = {"ok": 0, "sinusoidal": 1, "helical": 2, "no_clearance": 3}
+        worst: Dict[int, Dict] = {}
+        for row in details:
+            key = row.pop("_component_index")
+            held = worst.get(key)
+            if held is None or (rank[row["flag"]], row.get("compression_lbf", 0)) > \
+                    (rank[held["flag"]], held.get("compression_lbf", 0)):
+                worst[key] = row
+        return [worst[k] for k in sorted(worst)]
 
     @classmethod
     def _axial_stretch(cls, elements) -> float:

@@ -92,12 +92,19 @@ def test_navigation_refuses_results_of_another_record():
 
 def test_the_navigation_row_never_widens_the_panel(tmp_path, app, world):  # noqa: F811
     """A-9: the record row is narrower than the header row that sets the panel width (Windows M49 < 1300 px)."""
-    _tab, panel, _ids, _db = world
+    tab, panel, _ids, _db = world
+    tab.sections.setCurrentWidget(panel)
+    tab.show()                                   # unshown size hints are stale (M352): measure a shown panel
+    app.processEvents()
+    assert panel.isVisible()
     before = panel.minimumSizeHint().width()
     panel._show_record_targets([{"label": "1", "status": cr.EXACT, "reason": "", "openable": True,
                                  "file_name": "SYN " + "very long file name " * 6 + ".pdf", "page_no": 12,
                                  "document_id": 1, "start": 0, "end": 5, "text_version": "x"}])
+    app.processEvents()
+    assert panel.record_navigation.isVisible()
     header = panel.open_source_button.parentWidget().layout()
     assert panel.record_navigation.minimumSizeHint().width() <= panel.minimumSizeHint().width()
     assert panel.minimumSizeHint().width() == before
     assert header is not panel.record_navigation.layout()
+    tab.hide()

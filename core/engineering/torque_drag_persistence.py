@@ -187,6 +187,9 @@ def recalculate_from_snapshot(snapshot: Mapping[str, Any]):
     from core.engineering.engines.torque_drag import TorqueDragEngine
 
     args = snapshot_to_engine_args(snapshot)
+    if (snapshot or {}).get("method") == TorqueDragEngine.LEGACY_METHOD:
+        # D92: a run saved before segmented integration is recalculated the way it was produced
+        args["max_segment_m"] = None
     return TorqueDragEngine.calculate(**args)
 
 

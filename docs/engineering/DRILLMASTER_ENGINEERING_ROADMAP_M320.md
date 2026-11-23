@@ -15,16 +15,16 @@ No item here approves an owner decision (P1–P19) or adopts external code or da
 | R3 | Tab-internal lambdas that capture tabs | unchanged | per-tab holder count; no behaviour change |
 | R4 | D51 | NOT REPRODUCED. The M309 monitor found 0 watchdog events from 2026-11-18 to 2026-11-22 | keep `tools/quality/d51_ci_monitor.py` running for each push window; re-open on a second `AxisItem._updateLabel` frame |
 | R5 | D88: the 3.12 coverage leg runs close to 60 minutes | PARTIALLY RESOLVED; superseded runs are now classified separately by the monitor | a documented CI design decision (split coverage across jobs); never raise the limit silently |
-| R6 | Repo-wide AST guards run only in the full suite (the `registry()` regression in `d57f5b2`) | process fix: run the guard tests before each push | optional: a fast pre-push guard job in CI |
+| R6 | Repo-wide AST guards run only in the full suite (the `registry()` regression in `d57f5b2`) | ADDRESSED in M352: `tools/hooks/pre-push` runs the guard tests and the large-font probe for changed panels (opt-in per clone) | optional: a fast pre-push guard job in CI |
 
 ## 2. Engineering qualification
 
 | # | Item | Exit criterion |
 |---|---|---|
-| E1 | Mutation catalogue for the M291–M320 modules (`architecture_diff`, `ddr_hydraulics_check`, `cement_job_reconciliation`, `torque_drag_sensitivity`, `report_sections`, `citation_record`, `qt_lifetime` release policy) | a complete catalogue with every survivor justified; only then is any of them labelled QUALIFIED |
-| E2 | History re-run adapters (contracts) for the three M314/M317/M318 calculation kinds | Calculation History shows REPRODUCIBLE and passes MATCH/DIFFERENT tests; until then it says NOT REPRODUCIBLE |
-| E3 | Cement reconciliation for yield units other than `ft3/sk` | a declared unit table with tests; never a guessed unit |
-| E4 | Independent references for hydraulics, cement, T&D, MSE, bit performance and fishing (carried over) | a second permitted source per method |
+| E1 | Mutation catalogue for the M291–M320 modules (`architecture_diff`, `ddr_hydraulics_check`, `cement_job_reconciliation`, `torque_drag_sensitivity`, `report_sections`, `citation_record`, `qt_lifetime` release policy) | M327: catalogue of 121 mutants; run 2 survivors re-run 21/21 killed; status of the M333/M334/D92 additions in `m327_mutation_catalogue.md` |
+| E2 | History re-run adapters (contracts) for the three M314/M317/M318 calculation kinds | DONE in M328 (`core/history_replay.py`); M318 v1/v2 replay each with its own integration (D92) |
+| E3 | Cement reconciliation for yield units other than `ft3/sk` | DONE in M331 (yield-unit registry: ft3/sk, gal/sk, bbl/sk, L/sk) |
+| E4 | Independent references for hydraulics, cement, T&D, MSE, bit performance and fishing (carried over) | M349: hydraulics (Bourgoyne), cement (exact geometry) and T&D (closed form + converged integration) benchmarked, 44 cases; found D92. MSE, bit performance and fishing still open |
 | E5 | Kill Sheet R-2 (P11) | owner decision |
 
 ## 3. Product implementation
@@ -33,8 +33,8 @@ No item here approves an owner decision (P1–P19) or adopts external code or da
 |---|---|---|
 | P1 | Report section manifest for NPT, Cost and Plan reports | DONE in M333 (manifest v2); kept for history |
 | P2 | Render the EOWR NOT_RENDERED tables (bit and BHA reports, time logs, material requests, equipment logs), or keep them listed | the manifest already counts their rows |
-| P3 | Citation records: open a cited passage straight from a `.citations.json` file in the Documents tab | verification exists; navigation goes through the library |
-| P4 | Architecture diff: show it as a table and export it, not just the status line | core result is complete |
+| P3 | Citation records: open a cited passage straight from a `.citations.json` file in the Documents tab | PARTIAL: M334 opens a verified record's passages from the Knowledge Assistant; opening a `.citations.json` directly from the Documents tab is still open |
+| P4 | Architecture diff: show it as a table and export it, not just the status line | DONE in M329 (table + CSV export with both revision SHA-256s) |
 | P5 | M289 journey through the real MainWindow | blocked in practice until R1/R2 |
 | P6 | Mutation-only items from M261–M290 (M275, M276, M278, M279, M282, M283) | not re-implemented in M291–M320; still PARTIALLY RESOLVED |
 
