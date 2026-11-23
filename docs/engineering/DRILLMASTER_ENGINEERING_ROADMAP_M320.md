@@ -31,7 +31,7 @@ No item here approves an owner decision (P1–P19) or adopts external code or da
 
 | # | Item | Notes |
 |---|---|---|
-| P1 | Report section manifest for NPT, Cost and Plan reports | these reports currently state "not available for report kind …" |
+| P1 | Report section manifest for NPT, Cost and Plan reports | DONE in M333 (manifest v2); kept for history |
 | P2 | Render the EOWR NOT_RENDERED tables (bit and BHA reports, time logs, material requests, equipment logs), or keep them listed | the manifest already counts their rows |
 | P3 | Citation records: open a cited passage straight from a `.citations.json` file in the Documents tab | verification exists; navigation goes through the library |
 | P4 | Architecture diff: show it as a table and export it, not just the status line | core result is complete |

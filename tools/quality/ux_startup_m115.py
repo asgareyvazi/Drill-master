@@ -159,7 +159,7 @@ def main(argv=None) -> int:
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.json:
         Path(args.json).write_text(text, encoding="utf-8")
-    # D91 (M330): a piped stdout on Windows uses the ANSI code page; the Persian tab titles of the RTL run raised
+    # D91: a piped stdout on Windows uses the ANSI code page; the Persian tab titles of the RTL run raised
     # UnicodeEncodeError here after the JSON file was already written. Print UTF-8 regardless of the console.
     sys.stdout.buffer.write((text + "\n").encode("utf-8"))
     sys.stdout.flush()

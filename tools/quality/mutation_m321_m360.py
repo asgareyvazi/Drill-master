@@ -43,7 +43,8 @@ THC = ["tests/test_m314_ddr_hydraulics_check.py"]
 TCJ = ["tests/test_m317_cement_job_reconciliation.py", T323]
 TTDS = ["tests/test_m318_td_friction_sensitivity.py", T323]
 TRS = ["tests/test_m320d_report_sections.py"]
-TCR = ["tests/test_m320e_citation_record.py"]
+TCR = ["tests/test_m320e_citation_record.py", "tests/test_m334_citation_record_navigation.py"]
+KA = "tabs/knowledge_assistant.py"
 TQL = ["tests/test_m308_window_release_policy.py", "tests/test_m326_window_lifecycle.py"]
 THR = [T323, "tests/test_m314_ddr_hydraulics_check.py", "tests/test_m317_cement_job_reconciliation.py",
        "tests/test_m318_td_friction_sensitivity.py"]
@@ -257,8 +258,12 @@ MUTANTS = [
            "        return 1 if any(v not in (None, \"\", [], {}) for v in value.values()) else 0\n",
            "        return 1 if value else 0\n", TRS, "a dict of empty values counts as a recorded section"),
     Mutant("RS-missing-as-included", RS,
-           "    return _entry(title, INCLUDED if n else NOT_RECORDED, n,",
-           "    return _entry(title, INCLUDED, n,", TRS, "an empty section is reported INCLUDED"),
+           "    return _entry(title, INCLUDED if n else NOT_RECORDED, n, \"\" if n else (detail_empty",
+           "    return _entry(title, INCLUDED, n, \"\" if n else (detail_empty", TRS, "an empty section is reported INCLUDED"),
+    Mutant("RS-listed-empty-as-included", RS,
+           "    return _entry(title, INCLUDED if n else NOT_RECORDED, n, \"\" if n else detail_empty)",
+           "    return _entry(title, INCLUDED, n, \"\" if n else detail_empty)", TRS,
+           "M333: an empty NPT / cost / plan section is reported INCLUDED"),
     Mutant("RS-time-analysis-assumed", RS,
            "        _entry(\"Time analysis\", INCLUDED if total else NOT_RECORDED, None,",
            "        _entry(\"Time analysis\", INCLUDED, None,", TRS,
@@ -278,6 +283,48 @@ MUTANTS = [
     Mutant("RS-summarised-as-included", RS, "        _entry(\"7. Casing and cementing\", SUMMARISED,",
            "        _entry(\"7. Casing and cementing\", INCLUDED,", TRS,
            "a counts-only section is reported as fully included"),
+    # ------------------------------------------------------------------ M333 NPT / Cost / Plan manifests
+    Mutant("RS-npt-kind-unmapped", RS, "    builder = {\"npt\": npt_manifest, ", "    builder = {\"npt_\": npt_manifest, ",
+           TRS, "the NPT report silently loses its manifest again"),
+    Mutant("RS-npt-subcodes-not-summarised", RS, "SUMMARISED if sub > 15 else", "SUMMARISED if sub > 99 else", TRS,
+           "only the top 15 sub codes are shown but the manifest claims all are included"),
+    Mutant("RS-npt-window-cost-reason", RS,
+           "    elif windowed:\n        cost = _entry(\"NPT cost (allocated)\", NOT_RECORDED,",
+           "    elif False:\n        cost = _entry(\"NPT cost (allocated)\", NOT_RECORDED,", TRS,
+           "a date-windowed NPT report does not say why no cost was allocated"),
+    Mutant("RS-known-zero-as-unknown", RS,
+           "    return _entry(title, INCLUDED if value is not None else NOT_RECORDED, None,",
+           "    return _entry(title, INCLUDED if value else NOT_RECORDED, None,", TRS,
+           "a computed figure of 0 is reported as not recorded"),
+    Mutant("RS-aggregation-counted-as-one", RS,
+           "    return len(value) if isinstance(value, (dict, list, tuple)) else _count(value)\n",
+           "    return _count(value)\n", TRS, "an aggregation of N groups is reported as 1 row"),
+    Mutant("RS-plan-versions-claimed-rendered", RS,
+           "        _entry(\"Other plan versions\", NOT_RENDERED if others else INCLUDED,",
+           "        _entry(\"Other plan versions\", INCLUDED,", TRS,
+           "inactive plan versions are collected but the manifest claims they are rendered"),
+    Mutant("RS-cost-projection-unknown-as-included", RS,
+           "        _known(\"Projection (rate × days)\", data.get(\"projected_total_cost\"), no_rate),\n",
+           "        _entry(\"Projection (rate × days)\", INCLUDED, None, \"\"),\n", TRS,
+           "a cost report without rates claims a projection"),
+    # ------------------------------------------------------------------ M334 citation record navigation
+    Mutant("CR-nav-mismatch-opens", CR, "OPENABLE = (EXACT, PAGE_CHANGED)\n",
+           "OPENABLE = (EXACT, PAGE_CHANGED, SPAN_MISMATCH)\n", TCR,
+           "a span that does not hold the quote is opened as if it were the cited passage"),
+    Mutant("CR-nav-changed-refused", CR, "OPENABLE = (EXACT, PAGE_CHANGED)\n", "OPENABLE = (EXACT,)\n", TCR,
+           "a changed page cannot be opened although the viewer would state the change"),
+    Mutant("CR-nav-misaligned-accepted", CR, "    if len(citations) != len(results):\n", "    if False:\n", TCR,
+           "results of another record are paired with this record's citations"),
+    Mutant("CR-nav-wrong-span", CR, "start=int(entry[\"start\"]), end=int(entry[\"end\"])",
+           "start=int(entry[\"start\"]), end=int(entry[\"end\"]) + 1", TCR,
+           "the opened span is not the recorded span"),
+    Mutant("KA-nav-guard-dropped", KA, "        if not target[\"openable\"]:\n            self.citation_status.setText(",
+           "        if False:\n            self.citation_status.setText(", TCR,
+           "the open action bypasses the openable check"),
+    Mutant("KA-nav-stale-targets", KA, "            self.citation_status.setText(f\"Not verified: {exc}\")\n"
+           "            self._show_record_targets([])\n",
+           "            self.citation_status.setText(f\"Not verified: {exc}\")\n", TCR,
+           "an unreadable file leaves the previous record's passages openable"),
     # ------------------------------------------------------------------ M320 E citation record
     Mutant("CR-page-hash-unchecked", CR, "            if _sha(text) != entry[\"text_version\"]:\n",
            "            if False:\n", TCR, "a re-reviewed page is not reported PAGE_CHANGED"),

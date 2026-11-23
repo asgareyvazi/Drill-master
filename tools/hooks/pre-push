@@ -1,0 +1,6 @@
+#!/bin/sh
+# M352: fast pre-push guard (repo-wide AST guards + large-font layout ratchet for changed panels).
+# Install once:  git config core.hooksPath tools/hooks     Skip in an emergency:  git push --no-verify
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" DRILLMASTER_ENV="${DRILLMASTER_ENV:-test}"
+export PYTHONPATH=".:tests${PYTHONPATH:+:$PYTHONPATH}"
+exec "${PYTHON:-python}" tools/quality/prepush_guard_m352.py --changed

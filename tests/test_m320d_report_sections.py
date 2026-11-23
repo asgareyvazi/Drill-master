@@ -7,7 +7,7 @@ is named as NOT_RENDERED with its row count.
 from __future__ import annotations
 
 import csv
-from datetime import date, time
+from datetime import date, datetime, time
 
 import pytest
 
@@ -105,13 +105,108 @@ def test_manifest_reaches_every_format(env, tmp_path, fmt):  # noqa: F811
         assert ["# section manifest", rs.MANIFEST_VERSION] in rows
 
 
-def test_kinds_without_a_manifest_say_so(env, tmp_path):  # noqa: F811
+def test_kinds_without_a_manifest_say_so():
+    assert rs.manifest("memo", {"anything": 1}) is None
+    assert rs.manifest("npt", None) is None
+    assert "not available for report kind 'memo'" in rs.rows(None, "memo")[0][1]
+    assert all(rs.manifest(kind, {}) is not None for kind in rs.MANIFEST_KINDS)
+
+
+# ---- M333 (A-7): NPT, Cost and Plan reports -------------------------------------------------------------------
+def _log(session, report_id, start, end, hours, npt, code="SYN-NPT", sub=""):
+    session.add(TimeLog24H(report_id=report_id, time_from=time(start), time_to=time(end), duration=hours,
+                           is_npt=npt, main_code=code, sub_code=sub, activity_description="SYN"))
+
+
+def test_npt_report_lists_every_section_and_states_an_unknown_cost(env, tmp_path):  # noqa: F811
     manager, ids = env
+    with manager.session_scope() as s:
+        _log(s, ids["report"], 0, 6, 6.0, True)
+        _log(s, ids["report"], 6, 12, 6.0, False, code="SYN-DRL")
     engine = engines.NPTReportEngine(manager)
     assert engine.generate(ids["well"], str(tmp_path / "npt.html"), "html")
-    assert engine.last_provenance["sections"] is None
+    sections = _sections(engine.last_provenance)
+    assert sections["NPT share of logged time"]["status"] == rs.INCLUDED
+    assert sections["NPT by main code"] == {"section": "NPT by main code", "status": rs.INCLUDED, "rows": 1,
+                                            "detail": ""}
+    assert sections["NPT event details"]["rows"] == 1
+    assert sections["NPT cost (allocated)"]["status"] == rs.NOT_RECORDED              # no cost lines seeded
+    assert "not a zero cost" in sections["NPT cost (allocated)"]["detail"]
     row = [v for k, v in rp.rows(engine.last_provenance) if k == "section manifest"][0]
-    assert "not available for report kind 'npt'" in row
+    assert row == rs.MANIFEST_VERSION
+
+
+def test_npt_manifest_window_many_sub_codes_and_no_time():
+    many = {f"SYN {i}": 1.0 for i in range(20)}
+    data = {"from_date": "2026-01-01", "to_date": "End", "total_hours": 24.0, "npt_pct": 10.0,
+            "by_main_code": {"SYN": 20.0}, "by_sub_code": many, "by_contractor": {}, "by_phase": {},
+            "by_date": {}, "entries": [], "npt_cost": None}
+    by = {e["section"]: e for e in rs.npt_manifest(data)}
+    assert by["NPT by sub code"]["status"] == rs.SUMMARISED and "top 15 of 20" in by["NPT by sub code"]["detail"]
+    assert "date window" in by["NPT cost (allocated)"]["detail"]
+    assert by["NPT event details"]["detail"] == "no NPT time logs in this scope"
+    empty = {e["section"]: e for e in rs.npt_manifest({"total_hours": None, "npt_pct": None})}
+    assert empty["NPT share of logged time"]["status"] == rs.NOT_RECORDED
+    assert "not 0 %" in empty["NPT share of logged time"]["detail"]
+    assert empty["NPT by phase"]["detail"] == "no time logged in this scope"
+
+
+def test_cost_report_without_rates_states_projections_not_computed(env, tmp_path):  # noqa: F811
+    from core.database import CostRecord
+
+    manager, ids = env
+    with manager.session_scope() as s:
+        s.add(CostRecord(well_id=ids["well"], category="SYN rig", currency="USD", planned_cost=1000.0,
+                         actual_cost=1200.0))
+    engine = engines.CostReportEngine(manager)
+    assert engine.generate(ids["well"], str(tmp_path / "cost.html"), "html")
+    sections = _sections(engine.last_provenance)
+    assert sections["Total actual cost"]["status"] == rs.INCLUDED
+    assert sections["Source cost lines (unaggregated)"]["rows"] == 1
+    assert sections["Projection (rate × days)"]["status"] == rs.NOT_RECORDED
+    assert "projections are not computed" in sections["Cumulative cost vs depth"]["detail"]
+    with_rates = engines.CostReportEngine(manager)
+    assert with_rates.generate(ids["well"], str(tmp_path / "cost2.html"), "html", daily_rate=100.0,
+                               spread_rate=50.0, projection_currency="USD")
+    projected = _sections(with_rates.last_provenance)
+    assert projected["Projection (rate × days)"]["status"] == rs.INCLUDED
+    assert projected["Cumulative cost vs depth"]["status"] == rs.INCLUDED
+
+
+def test_cost_manifest_without_cost_lines_is_not_a_zero():
+    by = {e["section"]: e for e in rs.cost_manifest({"total_cost": None, "currency_status": "no cost lines",
+                                                     "categories": {}, "records": []})}
+    assert by["Total actual cost"]["status"] == rs.NOT_RECORDED and "not a zero cost" in by["Total actual cost"]["detail"]
+    assert by["Cost by category"]["detail"] == "no cost records: not a reported zero"
+
+
+def test_plan_report_names_the_active_plan_and_unrendered_versions(env, tmp_path):  # noqa: F811
+    from core.database import PlannedActivity, WellPlan
+
+    manager, ids = env
+    with manager.session_scope() as s:
+        for plan in s.query(WellPlan).filter_by(well_id=ids["well"]).all():
+            plan.is_active = True
+            plan.plan_version = 2
+            s.add(PlannedActivity(well_id=ids["well"], plan_id=plan.id, activity_name="SYN drill",
+                                  planned_start=datetime(2026, 1, 2, 0, 0), planned_end=datetime(2026, 1, 2, 12, 0),
+                                  planned_duration_hours=12.0, planned_depth_to=900.0, phase_code="SYN-1"))
+        s.add(WellPlan(well_id=ids["well"], plan_name="SYN old plan", is_active=False))
+    engine = engines.PlanReportEngine(manager)
+    assert engine.generate(ids["well"], str(tmp_path / "plan.html"), "html")
+    sections = _sections(engine.last_provenance)
+    assert sections["Plan information"]["detail"] == "active plan SYN plan v2"
+    assert sections["Activity schedule"]["rows"] == 1 and sections["Hours by phase"]["rows"] == 1
+    assert sections["Planned totals (days / hours)"]["status"] == rs.INCLUDED
+    assert sections["Other plan versions"]["status"] == rs.NOT_RENDERED and sections["Other plan versions"]["rows"] == 1
+
+
+def test_plan_manifest_with_an_unknown_duration_is_not_partial():
+    by = {e["section"]: e for e in rs.plan_manifest({"plan": None, "total_hrs": None, "all_plans": [],
+                                                     "activities": [], "by_phase": {}})}
+    assert by["Plan information"]["status"] == rs.NOT_RECORDED
+    assert "unknown, not partial" in by["Planned totals (days / hours)"]["detail"]
+    assert by["Other plan versions"]["status"] == rs.INCLUDED and by["Other plan versions"]["rows"] == 0
 
 
 def test_a_record_of_only_empty_fields_is_not_recorded():

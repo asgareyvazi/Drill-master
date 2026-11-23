@@ -103,6 +103,33 @@ def verify_record(db, record: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
+OPENABLE = (EXACT, PAGE_CHANGED)
+
+
+def navigation(record: Dict[str, Any], results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """M334 (A-8): one navigation target per citation of a verified record (same order as ``verify_record``).
+
+    * EXACT – the page opens with the recorded span highlighted (the quote is proven to be there);
+    * PAGE_CHANGED – the page opens, but the viewer refuses to highlight and states the change (the span would
+      point into other text);
+    * SPAN_MISMATCH, PAGE_MISSING, DOCUMENT_MISSING, UNREADABLE – nothing opens: there is no page whose text holds
+      the quote, and opening some other place would look like evidence.
+    """
+    citations = record.get("citations") or []
+    if len(citations) != len(results):
+        raise CitationRecordError("The verification results do not belong to this record.")
+    out: List[Dict[str, Any]] = []
+    for entry, result in zip(citations, results):
+        target = {"label": result.get("label"), "status": result["status"], "reason": result.get("reason", ""),
+                  "openable": result["status"] in OPENABLE, "file_name": result.get("file_name"),
+                  "page_no": result.get("page_no")}
+        if target["openable"]:
+            target.update(document_id=int(entry["document_id"]), page_no=int(entry["page_no"]),
+                          start=int(entry["start"]), end=int(entry["end"]), text_version=entry["text_version"])
+        out.append(target)
+    return out
+
+
 def to_markdown(record: Dict[str, Any]) -> str:
     lines = [f"# Answer with citations ({record['record_version']})", "",
              f"- Question: {record['question']}", f"- Mode: {record['mode']}",

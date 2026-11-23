@@ -1,0 +1,24 @@
+baseline exit=0 141 passed, 14 warnings in 197.78s (0:03:17)
+AD-identical-ignores-changes KILLED    two revisions that differ only in changed fields are reported identical
+HC-hsi-band-dropped      KILLED    the documented ±5 % display band is not applied (rounded recorded HSI reported as DIFFERS)
+HC-hsi-one-sided         KILLED    a recorded HSI far below the recomputed value is accepted
+HC-tfa-band-widened      KILLED    a recorded TFA 5 % off the nozzle TFA is accepted
+HC-two-dp-rows-first     KILLED    with two drilling-parameter rows the first one's values are shown as the inputs
+HC-zero-flow-accepted    KILLED    a recorded 0 (bit size, TFA, flow, HSI) is used as a value
+HC-problems-ignored      KILLED    the check computes although the inputs are ambiguous
+HC-pump-output-unnamed   KILLED    missing pump output is not named among the missing inputs
+CJ-unit-validated-late   KILLED    an unregistered yield unit is accepted (and stored) whenever sacks or yield is missing
+CJ-displacement-band-dropped KILLED    the documented 2 % allowance on the capacity to the shoe is not applied
+CJ-inverted-interval-accepted KILLED    a zero-length interval (BOC = TOC) gives a 0 bbl gauge annulus instead of being refused
+TDS-nonmonotonic-located KILLED    an observation is located on a non-monotonic curve
+TDS-single-factor-located KILLED    an observation is 'located' with a single modelled factor
+TDS-zero-observation-missing KILLED    an observed 0 is treated as 'no observation entered'
+RS-empty-dict-counted    KILLED    a dict of empty values counts as a recorded section
+CR-foreign-page-accepted KILLED    a page id of another document is accepted
+QL-lenient-version       KILLED    '6.8.x'-like versions are parsed by stripping non-digits
+HR-one-sided-fields-ignored KILLED    a result field present on one side only is not reported
+HR-text-not-compared     KILLED    a changed status / label (e.g. EXCEEDS_CAPACITY -> WITHIN_UPPER_BOUND) replays as MATCH
+HR-m318-legacy-replayed  KILLED    a pre-M328 T&D case is claimed REPRODUCIBLE
+HR-m314-legacy-replayed  KILLED    a pre-M328 hydraulics case is claimed REPRODUCIBLE
+
+mutants=21 killed=21 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=False seconds=57831

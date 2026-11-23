@@ -1,6 +1,7 @@
 """M320-D (M287): section manifest of a report — no section is omitted silently.
 
-Every section that a DDR or EOWR template knows about is listed with one status:
+Every section that a DDR, EOWR, NPT, Cost or Plan template knows about (M333 added the last three) is listed with
+one status:
 
 * ``INCLUDED``       – rendered with its rows (the row count is given);
 * ``NOT_RECORDED``   – rendered as an explicit "Not recorded" statement (never as a zero or a blank heading);
@@ -16,10 +17,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-MANIFEST_VERSION = "M320-D report section manifest v1"
+MANIFEST_VERSION = "M320-D report section manifest v2"          # v2 (M333): + npt, cost, plan
 INCLUDED, NOT_RECORDED, SUMMARISED, QUERY_FAILED, NOT_RENDERED = (
     "INCLUDED", "NOT_RECORDED", "SUMMARISED", "QUERY_FAILED", "NOT_RENDERED")
-MANIFEST_KINDS = ("ddr", "eowr")
+MANIFEST_KINDS = ("ddr", "eowr", "npt", "cost", "plan")
 
 
 def _count(value: Any) -> int:
@@ -90,6 +91,86 @@ def eowr_manifest(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     return entries
 
 
+def _size(value: Any) -> int:
+    """Rows of an aggregation (one per group / line); a scalar counts like ``_count``."""
+    return len(value) if isinstance(value, (dict, list, tuple)) else _count(value)
+
+
+def _listed(title: str, value: Any, detail_empty: str) -> Dict[str, Any]:
+    n = _size(value)
+    return _entry(title, INCLUDED if n else NOT_RECORDED, n, "" if n else detail_empty)
+
+
+def _known(title: str, value: Any, detail_unknown: str) -> Dict[str, Any]:
+    """A computed figure: INCLUDED when known; NOT_RECORDED with the reason when it is unknown (never shown as 0)."""
+    return _entry(title, INCLUDED if value is not None else NOT_RECORDED, None,
+                  "" if value is not None else detail_unknown)
+
+
+def npt_manifest(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """M333 (A-7): the NPT report template (``NPTReportEngine._build_html``)."""
+    windowed = data.get("from_date") not in (None, "Start") or data.get("to_date") not in (None, "End")
+    sub = _size(data.get("by_sub_code"))
+    no_npt = "no NPT time logs in this scope" if data.get("total_hours") else "no time logged in this scope"
+    if data.get("npt_cost") is not None:
+        cost = _entry("NPT cost (allocated)", INCLUDED, None, "")
+    elif windowed:
+        cost = _entry("NPT cost (allocated)", NOT_RECORDED, None,
+                      "not allocated for a date window: whole-well cost lines have no date attribution")
+    else:
+        cost = _entry("NPT cost (allocated)", NOT_RECORDED, None,
+                      "needs recorded actual cost in one currency and logged time; not a zero cost")
+    return [
+        _entry("Header and period", INCLUDED, 1),
+        _known("NPT share of logged time", data.get("npt_pct"),
+               "no time logged: the NPT share is unknown, not 0 %"),
+        _listed("NPT by main code", data.get("by_main_code"), no_npt),
+        _entry("NPT by sub code", SUMMARISED if sub > 15 else (INCLUDED if sub else NOT_RECORDED), sub,
+               f"top 15 of {sub} sub codes shown" if sub > 15 else ("" if sub else no_npt)),
+        _listed("NPT by contractor", data.get("by_contractor"), no_npt),
+        _listed("NPT by phase", data.get("by_phase"), no_npt),
+        _listed("NPT daily trend", data.get("by_date"), no_npt),
+        _listed("NPT event details", data.get("entries"), no_npt),
+        cost,
+    ]
+
+
+def cost_manifest(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """M333 (A-7): the Cost report template (``CostReportEngine._build_html``)."""
+    no_rate = "no rig day rate, spread rate and projection currency declared: projections are not computed"
+    return [
+        _entry("Header", INCLUDED, 1),
+        _known("Total actual cost", data.get("total_cost"),
+               f"no complete actual cost total ({data.get('currency_status') or 'no cost lines'}); not a zero cost"),
+        _known("Cost per metre / foot", data.get("cost_per_meter"),
+               "needs a known actual total and a recorded depth"),
+        _known("Projection (rate × days)", data.get("projected_total_cost"), no_rate),
+        _known("NPT / productive cost (projection)", data.get("npt_cost"),
+               no_rate if data.get("total_daily_cost") is None else "no time logged: NPT days unknown"),
+        _listed("Cost by category", data.get("categories"), "no cost records: not a reported zero"),
+        _listed("Source cost lines (unaggregated)", data.get("records"), "no cost records: not a reported zero"),
+        _listed("Cumulative cost vs depth", data.get("cumulative"), no_rate),
+    ]
+
+
+def plan_manifest(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """M333 (A-7): the Plan report template (``PlanReportEngine._build_html``); only the active plan is rendered."""
+    plan = data.get("plan")
+    name = f"{getattr(plan, 'plan_name', '') or '?'} v{getattr(plan, 'plan_version', '') or '?'}" if plan else ""
+    others = max(_size(data.get("all_plans")) - 1, 0)
+    return [
+        _entry("Plan information", INCLUDED if plan is not None else NOT_RECORDED, 1 if plan is not None else 0,
+               f"active plan {name}" if plan is not None else "no active plan"),
+        _known("Planned totals (days / hours)", data.get("total_hrs"),
+               "at least one activity has no planned duration: the total is unknown, not partial"),
+        _known("Planned final depth", data.get("max_depth"), "no activity has a planned depth"),
+        _listed("Hours by phase", data.get("by_phase"), "no planned activities"),
+        _listed("Activity schedule", data.get("activities"), "no planned activities"),
+        _entry("Other plan versions", NOT_RENDERED if others else INCLUDED, others,
+               f"{others} inactive plan version(s) collected but not rendered" if others else "no other versions"),
+    ]
+
+
 def manifest(kind: str, data: Any) -> Optional[List[Dict[str, Any]]]:
     if not isinstance(data, dict):
         return None
@@ -97,7 +178,8 @@ def manifest(kind: str, data: Any) -> Optional[List[Dict[str, Any]]]:
         return ddr_manifest(data)
     if kind == "eowr":
         return eowr_manifest(data)
-    return None
+    builder = {"npt": npt_manifest, "cost": cost_manifest, "plan": plan_manifest}.get(kind)
+    return builder(data) if builder else None
 
 
 def rows(entries: Optional[List[Dict[str, Any]]], kind: str) -> List[List[str]]:

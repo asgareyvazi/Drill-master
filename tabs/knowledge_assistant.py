@@ -568,6 +568,26 @@ class KnowledgeAssistantPanel(QWidget):
         citation_row.addWidget(self.export_citations_button)
         citation_row.addWidget(self.verify_citations_button)
         evidence_layout.addLayout(citation_row)
+        # M334 (A-8): open a passage cited by a verified record. Own row, hidden until a record was verified; the
+        # combo adjusts to a short minimum so it never widens the panel (A-9 / M49 Windows width).
+        self.record_navigation = QWidget()
+        self.record_navigation.setObjectName("knowledgeRecordNavigation")
+        navigation_row = QHBoxLayout(self.record_navigation)
+        navigation_row.setContentsMargins(0, 0, 0, 0)
+        self.record_citation_combo = QComboBox()
+        self.record_citation_combo.setObjectName("knowledgeRecordCitations")
+        self.record_citation_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.record_citation_combo.setMinimumContentsLength(12)
+        self.record_citation_combo.currentIndexChanged.connect(lambda _i: self._record_target_changed())
+        self.open_record_citation_button = QPushButton("Open cited passage")
+        self.open_record_citation_button.setObjectName("knowledgeOpenRecordCitation")
+        self.open_record_citation_button.clicked.connect(lambda _c=False: self.open_record_citation())
+        navigation_row.addWidget(QLabel("Verified record:"))
+        navigation_row.addWidget(self.record_citation_combo, 1)
+        navigation_row.addWidget(self.open_record_citation_button)
+        self.record_navigation.setVisible(False)
+        self.record_targets: list = []
+        evidence_layout.addWidget(self.record_navigation)
         self.evidence_table = QTableWidget(0, 7)
         self.evidence_table.setHorizontalHeaderLabels(("Source", "Document", "Page", "Review", "Match",
                                                        "Found by", "Passage"))
@@ -1255,13 +1275,49 @@ class KnowledgeAssistantPanel(QWidget):
             if not path:
                 return None
         try:
-            results = cr.verify_record(self.db_manager, cr.load(path))
+            record = cr.load(path)
+            results = cr.verify_record(self.db_manager, record)
         except cr.CitationRecordError as exc:
             self.citation_status.setText(f"Not verified: {exc}")
+            self._show_record_targets([])
             return None
         details = "; ".join(f"[{r['label']}] {r['status']} – {r['reason']}" for r in results)
         self.citation_status.setText(f"{cr.summary(results)}. {details}")
+        self._show_record_targets(cr.navigation(record, results))
         return results
+
+    def _show_record_targets(self, targets: list) -> None:
+        """M334: list the verified record's citations (with their status) for navigation."""
+        self.record_targets = list(targets)
+        self.record_citation_combo.blockSignals(True)
+        self.record_citation_combo.clear()
+        for t in self.record_targets:
+            page = f" p.{t['page_no']}" if t.get("page_no") is not None else ""
+            self.record_citation_combo.addItem(f"[{t['label']}] {t['status']} – {t.get('file_name') or '?'}{page}")
+        self.record_citation_combo.blockSignals(False)
+        self.record_navigation.setVisible(bool(self.record_targets))
+        self._record_target_changed()
+
+    def _record_target_changed(self) -> None:
+        index = self.record_citation_combo.currentIndex()
+        target = self.record_targets[index] if 0 <= index < len(self.record_targets) else None
+        self.open_record_citation_button.setEnabled(bool(target and target["openable"]))
+        self.open_record_citation_button.setToolTip(
+            "" if target is None else ("Opens the page; the span is highlighted only if the page is unchanged."
+                                       if target["openable"] else f"Not openable: {target['reason']}"))
+
+    def open_record_citation(self, index: Optional[int] = None) -> bool:
+        """M334: open one citation of the verified record in the library viewer (EXACT / PAGE_CHANGED only)."""
+        index = self.record_citation_combo.currentIndex() if index is None else index
+        if not 0 <= index < len(self.record_targets):
+            return False
+        target = self.record_targets[index]
+        if not target["openable"]:
+            self.citation_status.setText(f"[{target['label']}] not opened – {target['status']}: {target['reason']}")
+            return False
+        self.open_evidence_requested.emit(target["document_id"], target["page_no"], target["start"], target["end"],
+                                          target["text_version"])
+        return True
 
     def _verify_citations_clicked(self, _checked=False):
         self.verify_citation_file()

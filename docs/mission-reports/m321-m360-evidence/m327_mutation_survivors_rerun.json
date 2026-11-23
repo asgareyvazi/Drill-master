@@ -1,0 +1,321 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m308_window_release_policy.py",
+      "tests/test_m311_architecture_diff.py",
+      "tests/test_m314_ddr_hydraulics_check.py",
+      "tests/test_m317_cement_job_reconciliation.py",
+      "tests/test_m318_td_friction_sensitivity.py",
+      "tests/test_m320d_report_sections.py",
+      "tests/test_m320e_citation_record.py",
+      "tests/test_m323_m328_residuals_and_replay.py",
+      "tests/test_m326_window_lifecycle.py",
+      "tests/test_m329_architecture_diff_table_export.py"
+    ],
+    "exit": 0,
+    "summary": "141 passed, 14 warnings in 197.78s (0:03:17)"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "AD-identical-ignores-changes",
+      "path": "core/architecture_diff.py",
+      "note": "two revisions that differ only in changed fields are reported identical",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 9.04s"
+    },
+    {
+      "id": "HC-hsi-band-dropped",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "the documented ±5 % display band is not applied (rounded recorded HSI reported as DIFFERS)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 15.39s"
+    },
+    {
+      "id": "HC-hsi-one-sided",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a recorded HSI far below the recomputed value is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 15.22s"
+    },
+    {
+      "id": "HC-tfa-band-widened",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a recorded TFA 5 % off the nozzle TFA is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 16.35s"
+    },
+    {
+      "id": "HC-two-dp-rows-first",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "with two drilling-parameter rows the first one's values are shown as the inputs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 17.19s"
+    },
+    {
+      "id": "HC-zero-flow-accepted",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a recorded 0 (bit size, TFA, flow, HSI) is used as a value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 18.79s"
+    },
+    {
+      "id": "HC-problems-ignored",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "the check computes although the inputs are ambiguous",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 20.09s"
+    },
+    {
+      "id": "HC-pump-output-unnamed",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "missing pump output is not named among the missing inputs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 24.29s"
+    },
+    {
+      "id": "CJ-unit-validated-late",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "an unregistered yield unit is accepted (and stored) whenever sacks or yield is missing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 16.94s"
+    },
+    {
+      "id": "CJ-displacement-band-dropped",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "the documented 2 % allowance on the capacity to the shoe is not applied",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 17.96s"
+    },
+    {
+      "id": "CJ-inverted-interval-accepted",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "a zero-length interval (BOC = TOC) gives a 0 bbl gauge annulus instead of being refused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 20.75s"
+    },
+    {
+      "id": "TDS-nonmonotonic-located",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an observation is located on a non-monotonic curve",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 4.15s"
+    },
+    {
+      "id": "TDS-single-factor-located",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an observation is 'located' with a single modelled factor",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 4.22s"
+    },
+    {
+      "id": "TDS-zero-observation-missing",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an observed 0 is treated as 'no observation entered'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 4.15s"
+    },
+    {
+      "id": "RS-empty-dict-counted",
+      "path": "core/report_sections.py",
+      "note": "a dict of empty values counts as a recorded section",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 8.04s"
+    },
+    {
+      "id": "CR-foreign-page-accepted",
+      "path": "core/citation_record.py",
+      "note": "a page id of another document is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.04s"
+    },
+    {
+      "id": "QL-lenient-version",
+      "path": "core/qt_lifetime.py",
+      "note": "'6.8.x'-like versions are parsed by stripping non-digits",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m308_window_release_policy.py",
+        "tests/test_m326_window_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 2.24s"
+    },
+    {
+      "id": "HR-one-sided-fields-ignored",
+      "path": "core/history_replay.py",
+      "note": "a result field present on one side only is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 23.30s"
+    },
+    {
+      "id": "HR-text-not-compared",
+      "path": "core/history_replay.py",
+      "note": "a changed status / label (e.g. EXCEEDS_CAPACITY -> WITHIN_UPPER_BOUND) replays as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 23.38s"
+    },
+    {
+      "id": "HR-m318-legacy-replayed",
+      "path": "core/history_replay.py",
+      "note": "a pre-M328 T&D case is claimed REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 23.47s"
+    },
+    {
+      "id": "HR-m314-legacy-replayed",
+      "path": "core/history_replay.py",
+      "note": "a pre-M328 hydraulics case is claimed REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 23.50s"
+    }
+  ],
+  "killed": [
+    "AD-identical-ignores-changes",
+    "HC-hsi-band-dropped",
+    "HC-hsi-one-sided",
+    "HC-tfa-band-widened",
+    "HC-two-dp-rows-first",
+    "HC-zero-flow-accepted",
+    "HC-problems-ignored",
+    "HC-pump-output-unnamed",
+    "CJ-unit-validated-late",
+    "CJ-displacement-band-dropped",
+    "CJ-inverted-interval-accepted",
+    "TDS-nonmonotonic-located",
+    "TDS-single-factor-located",
+    "TDS-zero-observation-missing",
+    "RS-empty-dict-counted",
+    "CR-foreign-page-accepted",
+    "QL-lenient-version",
+    "HR-one-sided-fields-ignored",
+    "HR-text-not-compared",
+    "HR-m318-legacy-replayed",
+    "HR-m314-legacy-replayed"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

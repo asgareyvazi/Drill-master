@@ -1,0 +1,30 @@
+{
+  "version": "M352 pre-push guard v1",
+  "scale": 1.8,
+  "font_fingerprint": "Sans Serif|16.2pt|641px",
+  "panels": {
+    "knowledge_assistant": {
+      "budget_px": 1275,
+      "absolute_px": 1300,
+      "sources": [
+        "tabs/knowledge_assistant.py",
+        "tabs/documents_tab.py"
+      ]
+    },
+    "well_architecture_panel": {
+      "budget_px": 1333,
+      "absolute_px": null,
+      "sources": [
+        "tabs/well_architecture_panel.py",
+        "tabs/w3b_wellbore_schematic_tab.py"
+      ]
+    },
+    "calculation_history": {
+      "budget_px": 2076,
+      "absolute_px": null,
+      "sources": [
+        "tabs/calculation_history_tab.py"
+      ]
+    }
+  }
+}
