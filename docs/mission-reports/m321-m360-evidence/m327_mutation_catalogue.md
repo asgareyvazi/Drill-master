@@ -59,4 +59,4 @@ Run 2 reports `seconds=57831`. That figure is a sandbox clock jump, not the run 
 
 ## Effect on the labels
 
-This catalogue, together with the M349 benchmarks, meets roadmap exit criterion E1. The resulting labels are recorded in `m360_closure.md`.
+This catalogue, together with the M349 benchmarks, meets roadmap exit criterion E1. The resulting labels are recorded in `docs/mission-reports/M321_M360_INTEGRATED_CLOSURE_REPORT.md` §4.

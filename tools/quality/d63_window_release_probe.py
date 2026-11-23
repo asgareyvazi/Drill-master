@@ -41,10 +41,11 @@ def main(argv=None) -> int:
     parser.add_argument("--mode", choices=("auto", "collect", "retain", "product"), default="auto",
                         help="product (M308): no runtime patch; the product's window_release_policy decides")
     parser.add_argument("--hang-dump", type=int, default=0,
-                        help="M324: after N seconds dump every thread's Python stack to stderr and exit (0 = off)")
+                        help="M324: every N seconds dump every thread's Python stack to stderr (0 = off); two "
+                             "dumps show whether a stuck thread still moves")
     args = parser.parse_args(argv)
     if args.hang_dump > 0:
-        faulthandler.dump_traceback_later(args.hang_dump, exit=True)
+        faulthandler.dump_traceback_later(args.hang_dump, repeat=True)
     work = Path(tempfile.mkdtemp(prefix="d63_probe_"))
     for key, value in {"DRILLMASTER_ENV": "test", "DRILLMASTER_DATA_DIR": str(work),
                        "DRILLMASTER_LOG_DIR": str(work / "logs"), "DRILLMASTER_BACKUP_DIR": str(work / "backups"),

@@ -1,0 +1,100 @@
+# M321–M360: integrated closure report (M360)
+
+**Branch:** `arena/72010272-drill-master`. Start `6754e14` (M291–M320 delivery).
+**Status: PARTIAL — UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.**
+All test and benchmark data is SYNTHETIC. `requirements-lock.txt` still pins **PySide6 6.8.1.1**. The upgrade is an open owner decision.
+
+Evidence folder: `docs/mission-reports/m321-m360-evidence/`.
+
+## 1. Commits
+
+| Commit | Content |
+|---|---|
+| `bc8e15b` | M321 baseline, M322 audit, M323 residual repairs, M328 History replay, M331 yield-unit registry |
+| `b7d16db` | M323 defect register and status-vocabulary corrections |
+| `e70ae78`, `55b7340` | M324 PySide6 decision package and isolated CI evaluation workflow |
+| `0aa0be7` | M326 real-MainWindow lifecycle tests (D74 retain policy); M327 catalogue |
+| `1d391fd` | M329 architecture-diff table and export; D90 |
+| `b18706d` | M327 survivor-kill tests (21); D91; M324 diagnostics; M328 evidence |
+| `3293c3d` | M333 report manifests (A-7); M334 citation-record navigation (A-8); M352 pre-push guard (A-9) |
+| `67ea1e2` | M324 CI evaluation evidence; probe hang detection; rehearsed M325 lock edit (runner only) |
+| `aff8344` | **M349 benchmarks; D92 T&D integration fix** |
+| `2646543` | M327: 22 new mutants run, 3 survivors killed |
+| `56d3542` | M324 run 45115378469 evidence; hang instrumentation |
+| this commit | engine inventory regenerated (D92 method name); double stack dump; M324 hang diagnosis; M329/M352 notes; this report |
+
+## 2. Missions
+
+| Mission | Result | Status | Evidence |
+|---|---|---|---|
+| M321 | Live baseline and non-destructive recovery after the 9th sandbox reset; local tree proven identical to `6754e14` | DONE | `m321_live_baseline.md` |
+| M322 | Independent audit of M291–M320: A-1…A-9 | DONE | `m322_independent_audit.md` |
+| M323 | Residual repairs D89, A-1, A-3, A-4, A-4b, A-5, A-6; defect register; corrected status vocabulary | DONE | `m323_defect_register.md` |
+| M324 | PySide6 6.8.1.1 vs 6.8.2.1 vs 6.8.3. A public 6.8.5 does not exist. Isolated CI evaluation; fix proven in source (`PySideSignalInstanceShared`) | DONE, **decision with owner** | `m324_pyside_upgrade_decision.md`, `m324_ci_evaluation.md` |
+| M325 | Raise the pin | **NOT EXECUTED: needs owner approval** | — |
+| M326 | D63 / D74 lifecycle with real MainWindows | D63 BLOCKED BY OWNER DECISION; D74 PARTIALLY QUALIFIED | `m326_d63_d74_lifecycle.md` |
+| M327 | Mutation catalogue, 121 mutants; 119/119 non-equivalent killed, 2 equivalent | DONE (assembled from partial runs, §4) | `m327_mutation_catalogue.md` |
+| M328 | History replay for M314 / M317 / M318 cases | DONE | `m328_history_replay.md` |
+| M329 | Architecture diff as a table and a CSV export with both revision SHA-256s; D90 | DONE | `m329_m352_evidence.md` |
+| M331 | Cement yield-unit registry (ft3/sk, gal/sk, bbl/sk, L/sk) | DONE | `m323_defect_register.md`, tests |
+| M333 | Section manifests for NPT, Cost and Plan reports (A-7) | DONE | register row A-7 |
+| M334 | Navigation from a verified citation record to its passage (A-8) | DONE | register row A-8 |
+| M349 | Independent engineering benchmarks: 44 cases, 0 outside tolerance; **found D92** | DONE | `m349_benchmarks.md` |
+| M352 | Large-font pre-push guard (A-9, roadmap R6) | DONE (ratchet; opt-in hook) | `m329_m352_evidence.md` |
+| M360 | This report | DONE | — |
+
+Other mission numbers in M321–M360 have no separate deliverable in this branch, and none of them is claimed as done.
+
+## 3. Defects found and fixed in this block
+
+| ID | Severity | Summary | Fix |
+|---|---|---|---|
+| D89 | high | New Cement / Casing forms saved widget placeholders (yield 1.18, TOC 0, …) as recorded data | `bc8e15b` |
+| D90 | low | A changed reference binding was shown as "unknown → unknown" | `1d391fd` |
+| D91 | low (test tool) | Windows ANSI stdout made `ux_startup_m115.py` raise `UnicodeEncodeError` | `b18706d` |
+| **D92** | **high** | The T&D engine integrated each drill-string entry as ONE element. One 3,048 m pipe entry through a build-and-turn well read slack-off +18.5 % and torque −19.6 %, and the answer depended on how the pipe was entered. Now ≤ 5 m segments (benchmark error ≤ 0.085 %). Saved legacy runs and M318 v1 cases recompute with the legacy method and are never relabelled. | `aff8344` |
+| A-1…A-9 | low–medium | Audit findings (register) | `bc8e15b`, `3293c3d` |
+
+**D51 (re-opened):** in the M324 evaluation on Linux / Python 3.13, the candidates hang intermittently inside pyqtgraph geometry code in `processEvents()` while the dashboard worker sits in one query. This is the first reproducible trigger of the D51 class. Its root cause is OPEN, and the next evaluation run collects two stack dumps per hang. The hang has not been seen on Python 3.11 / 3.12 or on Windows, and the product ships on Python 3.12.
+
+## 4. Qualification labels
+
+The label QUALIFIED requires the M327 mutation evidence and, where a numeric result exists, the M349 benchmarks.
+
+| Capability | Label | Basis |
+|---|---|---|
+| M311 / M329 architecture comparison | **QUALIFIED ON SYNTHETIC DATA** | behaviour tests; all AD-* mutants killed; a numeric benchmark does not apply |
+| M314 DDR bit-hydraulics check | **SCREENING — QUALIFIED ON SYNTHETIC DATA** | 15 benchmark cases (Bourgoyne); HC-* mutants killed; replay |
+| M317 cement reconciliation | **WORKSHEET — QUALIFIED ON SYNTHETIC DATA** | 5 benchmark cases (exact geometry); CJ-* mutants killed; displacement remains an upper-bound check |
+| M318 T&D sensitivity (v2) | **SCREENING — QUALIFIED ON SYNTHETIC DATA** | 24 benchmark cases after D92; TD-* and TDS-* mutants killed; soft-string limits unchanged |
+| M320 D / M333 report manifests | IMPLEMENTED — QUALIFIED ON SYNTHETIC DATA | RS-* mutants killed |
+| M320 E / M334 citation records | IMPLEMENTED — QUALIFIED ON SYNTHETIC DATA | CR-* and KA-* mutants killed |
+| M352 guard | IMPLEMENTED | a ratchet: detects widening on Linux fonts; it does not prove the Windows width |
+| D63 / D74 | BLOCKED BY OWNER DECISION / PARTIALLY QUALIFIED | M324 / M326 |
+
+**Limits of these labels:**
+- "Qualified on synthetic data" is not field acceptance.
+- The mutation result is assembled from one complete run (99 mutants on `1d391fd`) and three `--only` runs on later trees. A single complete 121-mutant run on one SHA has not been made.
+
+## 5. Owner decisions still open
+
+1. **PySide6 pin (M325).**
+   - Recommendation: 6.8.3, with 6.8.2.1 as the alternative.
+   - On the shipped runtime (Windows, Python 3.12) both candidates pass the probe, the UI subset, the PyInstaller build and the launched frozen exe.
+   - Do not move to Python 3.13 until the D51-class hang is understood.
+2. The prior items (P11 Kill Sheet R-2, the 60-minute CI limit and others) are unchanged.
+
+## 6. Quality gates
+
+| Gate | Result |
+|---|---|
+| Full suite, local, Python 3.11.2, offscreen, `aff8344` tree | 5,954 tests: 5,949 passed, 4 skipped (opt-in), **1 failed** (`test_m75_engine_inventory`: `ENGINE_INVENTORY.md` was stale after the D92 method rename). Fixed in this commit by `engine_inventory.py --write`; the m75, m112, m137, release-boundary and registry tests now pass (43 tests). |
+| Tests added after that run | `test_m320d` (+1) and `test_m349` (+1): 26 pass. `test_m334`: 6 pass. |
+| ruff (`core dialogs tabs tests` and the new tools) | clean |
+| Exception scan | silent-unexplained 83 / ceiling 83 (not raised) |
+| Privacy check | 1,808 files, 0 findings |
+| `dependency_audit` / `constant_inventory` / `engine_inventory` | regenerated with `--write`; `--check` passes |
+| M349 benchmark `--check` | 44 / 44 within tolerance |
+| CI Windows release validation, `56d3542` | ✅ success |
+| CI Source release gate, `56d3542` | expected ❌ on `test_m75_engine_inventory` (same stale document); fixed in this commit |
+| CI on this commit | not yet recorded here; it is polled after the push and reported in the delivery message |

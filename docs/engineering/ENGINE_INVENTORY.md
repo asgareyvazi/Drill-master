@@ -16,7 +16,7 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 | `FishingEngine` (fishing.py) | Legacy free-point/stretch chart approximations — SCREENING | SCREENING | 5 |
 | `MSEEngine` (mse.py) | Teale (1965) Mechanical Specific Energy | - | 9 |
 | `MudVolumeEngine` (mud_volume.py) | Mass/volume balance; no hidden defaults | - | 9 |
-| `TorqueDragEngine` (torque_drag.py) | Johancsik soft-string (SPE 11380) — SCREENING | SCREENING | 14 |
+| `TorqueDragEngine` (torque_drag.py) | Johancsik soft-string (SPE 11380), segments <= 5 m — SCREENING | SCREENING | 15 |
 | `WellControlEngine` (well_control.py) | IWCF / IADC well-control manuals; Bourgoyne et al. | - | 15 |
 
 ## Hydraulics functions (`core/hydraulics_engine.py`)

@@ -12,7 +12,8 @@ Job logs cannot be read from this environment. Every result below comes from the
 | `45019907032` | `55b7340` | + 6.8.1.1 **baseline** leg on Windows, failures annotated per test, PyInstaller step always attempted |
 | `45024680781` | `b18706d` | + D91 fix (m115 tool stdout), per-run probe annotations, PyInstaller / smoke log tails annotated |
 | `45115378469` | `67ea1e2` | + probe HANG detection (timeout per run, annotated); the candidate leg rehearses the M325 lock edit in the runner checkout so the frozen smoke validates against the candidate |
-| next | after `2646543` | + the probe prints its stage and dumps every thread's stack (`faulthandler`) 30 s before the timeout; 5 runs per mode on 3.13; a Linux 3.13 × 6.8.1.1 baseline leg (product mode) |
+| `45117305817` | `56d3542` | + the probe prints its stage and dumps every thread's stack (`faulthandler`) 30 s before the timeout; 5 runs per mode on 3.13; a Linux 3.13 × 6.8.1.1 baseline leg (product mode) |
+| next | after `56d3542` | + the stacks are dumped twice (at half and at full time before the timeout), so it shows whether each stuck thread still moves |
 
 ## 2. Results on `b18706d` (run `45024680781`)
 
@@ -50,6 +51,39 @@ Job logs cannot be read from this environment. Every result below comes from the
    - 6.8.3 hung on `b18706d` (the step failed without per-run output) and passed 6/6 here. 6.8.2.1 passed 6/6 on `b18706d` and hung 3/6 here. The hang is intermittent and not tied to one candidate.
    - It has never occurred on Python 3.11 or 3.12: 0 in 36 runs per candidate across the three runs, plus all Windows py3.12 legs.
    - **The product does not ship on Python 3.13**; the Windows build uses 3.12. The hung frame is not yet identified. The next run dumps every thread's stack and prints the stage. A 6.8.1.1 baseline on 3.13 (windows retained) shows whether the hang needs a released window.
+
+## 3b. Results on `56d3542` (run `45117305817`): the hung frame
+
+**Unchanged:**
+- All three Windows legs are green: probe, UI subset, PyInstaller and frozen exe.
+- Linux 3.11 / 3.12 are green.
+
+**New baseline:** Linux 3.13 × **6.8.1.1** (product mode, windows retained) passed **5/5**, and its UI subset and PyInstaller build passed.
+
+**Linux 3.13 hangs:**
+
+| Candidate | Hung runs | Where it stopped |
+|---|---|---|
+| 6.8.2.1 | 1 of 10 (auto run 3) | after "window 3: constructed" |
+| 6.8.3 | 2 of 10 (auto runs 1 and 3) | after "window 3: constructed" |
+
+So the process stops in the `show()` / `pump()` phase of the third window. The thread dumps (`faulthandler`, 270 s) were the same in all three hangs:
+
+| Thread | Frames |
+|---|---|
+| main | `pump` → `QApplication.processEvents()` → **pyqtgraph geometry code**: `AxisItem.boundingRect`, `LabelItem.resizeEvent` and `enum.__call__` in the three dumps. `processEvents()` never returned. |
+| worker (`ReadOnlyQueryWorker`) | `HomeTab._snapshot_job` → `operations_dashboard.build_snapshot` (line 368) → SQLAlchemy statement compilation. It was in the same query in all three dumps. |
+| db maintenance | idle in `Event.wait` |
+
+**Reading.** This is a livelock, not a crash and not a lock wait:
+- The main thread keeps executing pyqtgraph layout code inside one `processEvents()` call.
+- The dashboard worker has not finished one snapshot query after minutes.
+
+The main-thread frames are the D51 signature: an `AxisItem` layout frame in a ~10-minute block, seen once in 300 CI runs and never reproduced since. That makes this the first reproducible trigger of the D51 class. **The data does not yet show** whether the worker is starved or re-started in a loop, or whether a released window's objects take part. 6.8.1.1 never releases windows and did not hang in 5 runs, but 5 runs cannot exclude a 10–20 % rate. The next run dumps twice to answer this.
+
+**What it means for the decision:**
+- The shipped runtime is Windows on Python 3.12, where no hang has been seen in any run (Windows and Linux 3.11 / 3.12 together: 0 hangs in 108 candidate probe runs across the last three evaluation runs).
+- **D51 is re-opened as REPRODUCED ON PYTHON 3.13 (Linux CI, candidates, auto and product policy).** Root cause: OPEN.
 
 ## 4. Effect on the recommendation (`m324_pyside_upgrade_decision.md` §7)
 
