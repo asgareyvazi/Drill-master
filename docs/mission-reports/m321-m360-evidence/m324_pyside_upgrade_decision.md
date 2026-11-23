@@ -2,13 +2,11 @@
 
 **Decision owner:** product owner. **Status: BLOCKED BY OWNER DECISION.** This package does not change the pin. `requirements-lock.txt` keeps PySide6 / Essentials / Addons / shiboken6 at **6.8.1.1**. `requirements.txt` and `pyproject.toml` keep `>=6.6,<7`. The mission brief does not count as licence or dependency approval. M325 (the pin change) runs only with explicit owner approval.
 
-Dates: sources were read on 2026-10-13 (session date). The sandbox system clock runs ahead (2026-11-22), so timestamps inside generated artifacts (database `created_at`, file mtimes) show that date; they are not the reading date.
-
 Every candidate below was evaluated in an **isolated environment**: `pip install --no-deps --target /tmp/ps<version>` locally, and a throw-away CI runner overlay (`.github/workflows/pyside-candidate-evaluation.yml`). The product environment was never modified.
 
 ## 1. Candidate set: the requested 6.8.5 target does not exist publicly
 
-PyPI JSON API, read 2026-10-13. The open-source 6.8.x releases on PyPI are 6.8.0, 6.8.0.1, 6.8.0.2, 6.8.1, 6.8.1.1, 6.8.2, 6.8.2.1 and **6.8.3**. **There is no public 6.8.4 or 6.8.5 wheel.** Later 6.8 LTS patch releases are distributed only to commercial Qt licensees. A "6.8.5 target" therefore cannot be met under the LGPL distribution the product uses. The newest public 6.8 LTS release, **6.8.3**, replaces it in this comparison.
+PyPI JSON API, read 2026-11-22. The open-source 6.8.x releases on PyPI are 6.8.0, 6.8.0.1, 6.8.0.2, 6.8.1, 6.8.1.1, 6.8.2, 6.8.2.1 and **6.8.3**. **There is no public 6.8.4 or 6.8.5 wheel.** Later 6.8 LTS patch releases are distributed only to commercial Qt licensees. A "6.8.5 target" therefore cannot be met under the LGPL distribution the product uses. The newest public 6.8 LTS release, **6.8.3**, replaces it in this comparison.
 
 Newer public lines exist (6.9.0–6.9.3, 6.10.0–6.10.3). They are outside this decision because they are a minor-version jump with a new Qt base, and they are noted only for the record. 6.10 raises the Linux floor to manylinux_2_34 (glibc ≥ 2.34).
 
@@ -30,7 +28,7 @@ The four distributions (PySide6 meta, PySide6-Essentials, PySide6-Addons, shibok
 ## 2. Is the fix present? (source evidence, not changelog)
 
 - Upstream fix: pyside-setup commit `e226b5827c110d16c9d3b3f1b8d62b1c3a6e8605`, "libpyside/PySideSignal: Reduce number of weakref handlers for sender tracking". Task numbers PYSIDE-2201 and PYSIDE-79; committed 2024-12-16; marked `Pick-to: 6.8`.
-- Source check at each release tag, using `sources/pyside6/libpyside/pysidesignal_p.h` (code.qt.io, read 2026-10-13):
+- Source check at each release tag, using `sources/pyside6/libpyside/pysidesignal_p.h` (code.qt.io, read 2026-11-22):
   - **v6.8.1.1:** `PySideSignalInstancePrivate` holds a raw `PyObject *source`. There is no shared/deleted tracking struct.
   - **v6.8.2** and **v6.8.3:** these add `struct PySideSignalInstanceShared { PyObject *source; bool deleted; }` behind a `std::shared_ptr`. This is the structure the fix introduces.
 - The 6.8.2 changelog does **not** list PYSIDE-2201. The evidence is the source tree at the tags, not the release notes.
@@ -115,4 +113,4 @@ The obligations for the one-folder PyInstaller distribution are the same for eve
 
 ## 8. CI evaluation runs
 
-See `m324_ci_evaluation.md`. Summary (run `45024680781` on `b18706d`): both candidates freed three real MainWindows without a crash on Windows and on Linux 3.11/3.12, and the UI subset passes on Windows. **Open:** Linux 3.13 × 6.8.3 (the probe step failed without per-run output; hang detection was added), and the frozen exe has not yet been launched on a candidate (the smoke stops at the lock-pinned licence check, which is M325 work). Until these close, **6.8.2.1 is the safer candidate**; it is the only one that passed every completed leg.
+See `m324_ci_evaluation.md`. Summary (runs `45024680781` and `45115378469`): on the shipped runtime (Windows, Python 3.12) both candidates free three real MainWindows without a crash, pass the UI subset, build with PyInstaller and launch the frozen exe. Linux 3.11 / 3.12 is clean. **Open:** on Python 3.13 both candidates hang intermittently after two windows were released (not a crash; not the shipped runtime). The next run dumps the thread stacks. Recommendation unchanged: **6.8.3** (alternative 6.8.2.1), an owner decision.

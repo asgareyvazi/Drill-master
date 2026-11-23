@@ -29,13 +29,17 @@ def main(argv=None) -> int:
             started = time.monotonic()
             try:
                 proc = subprocess.run([sys.executable, str(ROOT / "tools/quality/d63_window_release_probe.py"),
-                                       "--windows", "3", "--mode", mode], capture_output=True, text=True,
+                                       "--windows", "3", "--mode", mode,
+                                       # dump every thread's stack before the hard timeout so a hang names its frame
+                                       "--hang-dump", str(max(args.timeout - 30, 10))], capture_output=True, text=True,
                                       timeout=args.timeout)
             except subprocess.TimeoutExpired as exc:          # a hang is a finding, never an unannotated failure
                 out = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
                 err = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
                 proc = subprocess.CompletedProcess(exc.cmd, "HANG", out, err + f"\n(no exit after {args.timeout} s)")
             elapsed = time.monotonic() - started
+            if proc.returncode != 0 and "Timeout (" in (proc.stderr or ""):
+                proc.returncode = "HANG (stacks dumped)"
             last = (proc.stdout.strip().splitlines() or [""])[-1]
             line = f"PySide6 {PySide6.__version__} {sys.platform} py{sys.version_info[0]}.{sys.version_info[1]} " \
                    f"mode={mode} run={run} rc={proc.returncode} {elapsed:.0f}s {last}"
@@ -43,7 +47,7 @@ def main(argv=None) -> int:
             results.append(line)
             if proc.returncode != 0:
                 failures += 1
-                tail = (proc.stderr or proc.stdout or "")[-1500:]
+                tail = (proc.stderr or proc.stdout or "")[-(12000 if "HANG" in str(proc.returncode) else 1500):]
                 if os.environ.get("GITHUB_ACTIONS"):          # job logs are not readable; annotations are
                     print(f"::error title=D63 probe {mode} run {run} rc={proc.returncode}::"
                           f"{_escape(line)}%0A{_escape(tail)}", flush=True)

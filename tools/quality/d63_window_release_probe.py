@@ -22,6 +22,7 @@ anonymous-memory function pointer, beneath recursive ``SbkDeallocWrapper`` frame
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import gc
 import os
 import sys
@@ -39,7 +40,11 @@ def main(argv=None) -> int:
     parser.add_argument("--windows", type=int, default=3)
     parser.add_argument("--mode", choices=("auto", "collect", "retain", "product"), default="auto",
                         help="product (M308): no runtime patch; the product's window_release_policy decides")
+    parser.add_argument("--hang-dump", type=int, default=0,
+                        help="M324: after N seconds dump every thread's Python stack to stderr and exit (0 = off)")
     args = parser.parse_args(argv)
+    if args.hang_dump > 0:
+        faulthandler.dump_traceback_later(args.hang_dump, exit=True)
     work = Path(tempfile.mkdtemp(prefix="d63_probe_"))
     for key, value in {"DRILLMASTER_ENV": "test", "DRILLMASTER_DATA_DIR": str(work),
                        "DRILLMASTER_LOG_DIR": str(work / "logs"), "DRILLMASTER_BACKUP_DIR": str(work / "backups"),
@@ -75,24 +80,32 @@ def main(argv=None) -> int:
             app.processEvents()
             time.sleep(0.01)
 
+    def stage(index, text):                       # M324: where a run stops when it hangs
+        print(f"window {index + 1}: {text}", flush=True)
+
     def one_window(index):
+        stage(index, "building")
         db = make_file_database(work / f"w{index}.db")
         user = session_user(db.authenticate_user("admin", "Synthetic-Admin-1!"))
         permissions.set_user(user)
         db.enforce_authorization(permissions)
         from main_window import MainWindow
         win = MainWindow(db_manager=db, user=user, startup_result=None)
+        stage(index, "constructed")
         win.show()
         pump(0.5)
         end = time.monotonic() + 10
         while win._hierarchy_worker is not None and time.monotonic() < end:
             pump(0.05)
+        stage(index, f"shown (hierarchy worker {'running' if win._hierarchy_worker is not None else 'done'})")
         SelectionManager().clear()
         win._close_confirmed = True
         win.close()
         pump(0.2)
+        stage(index, "closed")
         QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
         db.engine.dispose()
+        stage(index, "deferred deletes sent, database disposed")
         return weakref.ref(win)
 
     refs = []
@@ -102,6 +115,7 @@ def main(argv=None) -> int:
               flush=True)
         if args.mode == "collect":
             gc.collect()
+    stage(args.windows - 1, "final gc.collect()")
     gc.collect()
     alive = sum(ref() is not None for ref in refs)
     print(f"mode={args.mode} windows={args.windows} alive_at_end={alive} "

@@ -23,6 +23,11 @@ jobs:
       matrix:
         python: ['3.11', '3.12', '3.13']
         pyside: ['6.8.2.1', '6.8.3']
+        include:
+          # baseline: does the Python 3.13 hang (run 45115378469) also happen on the shipped pin, where windows are
+          # retained (product mode only - auto mode on 6.8.1.1 is the known D63 crash)?
+          - python: '3.13'
+            pyside: '6.8.1.1'
     env:
       QT_QPA_PLATFORM: offscreen
       DRILLMASTER_AI_IMPORT: '0'
@@ -43,7 +48,13 @@ jobs:
           python -m pip install --no-deps "PySide6==${{ matrix.pyside }}" "PySide6-Essentials==${{ matrix.pyside }}" "PySide6-Addons==${{ matrix.pyside }}" "shiboken6==${{ matrix.pyside }}"
           python -c "import PySide6, shiboken6, sys; print('python', sys.version.split()[0], 'PySide6', PySide6.__version__, 'shiboken6', shiboken6.__version__)"
       - name: D63 window-release probe (auto and product policy)
-        run: python tools/quality/pyside_eval/probe_loop.py --runs 3
+        run: |
+          runs=3; if [ "${{ matrix.python }}" = "3.13" ]; then runs=5; fi
+          if [ "${{ matrix.pyside }}" = "6.8.1.1" ]; then
+            python tools/quality/pyside_eval/probe_loop.py --runs "$runs" --modes product
+          else
+            python tools/quality/pyside_eval/probe_loop.py --runs "$runs"
+          fi
       - name: UI regression subset (322 tests locally on 6.8.1.1 / 6.8.2.1 / 6.8.3)
         run: python -m pytest -p no:cacheprovider -q $(cat tools/quality/pyside_eval/ui_tests.txt)
       - name: PyInstaller freeze smoke (product Qt modules)
