@@ -48,6 +48,10 @@ def main(argv=None) -> int:
                              "every thread (0 = off). It needs the GIL to print, so missing HB lines during a hang "
                              "mean one thread held the GIL the whole time; HB lines with changing frames mean the "
                              "threads still move")
+    parser.add_argument("--qt-gc", action="store_true",
+                        help="install core.qt_gc as app.py does (M50: cyclic GC only on the GUI thread). Without "
+                             "it a collection can start on a worker thread and destroy freed windows' Qt objects "
+                             "there - the M50 GIL / Qt connection-mutex deadlock (D51 evaluation, M324 §3e)")
     args = parser.parse_args(argv)
     if args.hang_dump > 0:
         faulthandler.dump_traceback_later(args.hang_dump, repeat=True)
@@ -63,6 +67,10 @@ def main(argv=None) -> int:
     from PySide6.QtWidgets import QApplication
 
     app = QApplication.instance() or QApplication([])
+    collector = None
+    if args.qt_gc:
+        from core import qt_gc
+        collector = qt_gc.install(app)
     QSettings.setPath(QSettings.NativeFormat, QSettings.UserScope, str(work / "settings"))
     from core.permissions import permissions, session_user
     from core.qt_lifetime import WeakWindowAttribute
@@ -126,8 +134,12 @@ def main(argv=None) -> int:
     stage(args.windows - 1, "final gc.collect()")
     gc.collect()
     alive = sum(ref() is not None for ref in refs)
+    gc_text = ""
+    if collector is not None:
+        stats = collector.stats()
+        gc_text = f" qt_gc=on worker_collections={stats['worker_collections']} automatic={stats['automatic_enabled']}"
     print(f"mode={args.mode} windows={args.windows} alive_at_end={alive} "
-          f"live_widgets={len(QApplication.allWidgets())} - no crash", flush=True)
+          f"live_widgets={len(QApplication.allWidgets())}{gc_text} - no crash", flush=True)
     return 0
 
 

@@ -21,6 +21,10 @@ def main(argv=None) -> int:
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--modes", default="auto,product")
     parser.add_argument("--timeout", type=int, default=300, help="seconds per probe run before it counts as a HANG")
+    parser.add_argument("--qt-gc", action="store_true",
+                        help="probe with core.qt_gc installed, as the application runs (M50)")
+    parser.add_argument("--diagnostic", action="store_true",
+                        help="control leg: failures are annotated as warnings and do not fail the step")
     parser.add_argument("--native-dump", action="store_true",
                         help="D51: on a HANG attach gdb to the stuck probe and keep every thread's native stack "
                              "before it is killed (needs gdb and ptrace permission)")
@@ -37,14 +41,14 @@ def main(argv=None) -> int:
                        # dump every thread's stack before the hard timeout so a hang names its frame
                        "--hang-dump", str(max((args.timeout - 30) // 2, 5)),
                        # D51: a pure-Python heartbeat; it stops printing if one thread holds the GIL
-                       "--heartbeat", str(max(args.timeout // 10, 2))]
+                       "--heartbeat", str(max(args.timeout // 10, 2))] + (["--qt-gc"] if args.qt_gc else [])
             proc, native = run_probe(command, args.timeout, args.native_dump)
             elapsed = time.monotonic() - started
             if proc.returncode == "HANG" and "Timeout (" in (proc.stderr or ""):
                 proc.returncode = "HANG (stacks dumped)"
             last = (proc.stdout.strip().splitlines() or [""])[-1]
             line = f"PySide6 {PySide6.__version__} {sys.platform} py{sys.version_info[0]}.{sys.version_info[1]} " \
-                   f"mode={mode} run={run} rc={proc.returncode} {elapsed:.0f}s {last}"
+                   f"mode={mode}{'+qt_gc' if args.qt_gc else ''} run={run} rc={proc.returncode} {elapsed:.0f}s {last}"
             print(line, flush=True)
             results.append(line)
             if proc.returncode != 0:
@@ -54,7 +58,8 @@ def main(argv=None) -> int:
                 else:
                     tail = (proc.stderr or proc.stdout or "")[-1500:]
                 if os.environ.get("GITHUB_ACTIONS"):          # job logs are not readable; annotations are
-                    print(f"::error title=D63 probe {mode} run {run} rc={proc.returncode}::"
+                    level, label = ("warning", "diagnostic") if args.diagnostic else ("error", "probe")
+                    print(f"::{level} title=D63 {label} {mode} run {run} rc={proc.returncode}::"
                           f"{_escape(line)}%0A{_escape(tail)}", flush=True)
                     if native:                                # separate quota: warnings, 4096 characters each
                         print(f"::warning title=D63 native stacks {mode} run {run}::{_escape(native)}", flush=True)
@@ -62,8 +67,10 @@ def main(argv=None) -> int:
                     print(native, flush=True)
     print(f"probe failures: {failures}")
     if os.environ.get("GITHUB_ACTIONS"):
-        print(f"::notice title=D63 probe summary ({failures} failed)::{_escape(chr(10).join(results))}", flush=True)
-    return 1 if failures else 0
+        label = "diagnostic" if args.diagnostic else "probe"
+        print(f"::notice title=D63 {label} summary ({failures} failed)::{_escape(chr(10).join(results))}",
+              flush=True)
+    return 1 if failures and not args.diagnostic else 0
 
 
 def run_probe(command, timeout: int, native_dump: bool):

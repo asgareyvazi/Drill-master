@@ -15,7 +15,9 @@ Job logs cannot be read from this environment. Every result below comes from the
 | `45117305817` | `56d3542` | + the probe prints its stage and dumps every thread's stack (`faulthandler`) 30 s before the timeout; 5 runs per mode on 3.13; a Linux 3.13 × 6.8.1.1 baseline leg (product mode) |
 | `45122895952` | `6ace038` | + the stacks are dumped twice (at 135 s and 270 s), so it shows whether each stuck thread still moves |
 | `45138911996` | `82d1fff` | + GIL heartbeat (`--heartbeat`) and a compact report so both dumps fit one annotation |
-| next | after `82d1fff` | Python 3.13: native gdb stacks of a hung probe (`--native-dump`), 150 s timeout, and `mode=retain` on the candidates |
+| `45140757485` | `29620f4` | Python 3.13: native gdb stacks of a hung probe (`--native-dump`), 150 s timeout, and `mode=retain` on the candidates |
+| `45142542401` | `90192f5` | full native stacks of the two blocked threads; `mode=collect` instead of `retain` on the 3.13 candidates |
+| next | after `90192f5` | Python 3.13: the probe runs with `core.qt_gc` installed (`--qt-gc`), as `app.py` does; a control step without it is diagnostic only |
 
 ## 2. Results on `b18706d` (run `45024680781`)
 
@@ -150,6 +152,37 @@ The main-thread frames are the D51 signature: an `AxisItem` layout frame in a ~1
 - Shiboken's `BindingManager` (the wrapper map and its `std::recursive_mutex`) is the same in 6.8.1.1 and 6.8.3 (source compared at the `v6.8.1.1` and `v6.8.3` tags).
 - The one difference the probe exercises is that **only the candidate legs free windows 1 and 2**. The 6.8.1.1 product policy keeps them.
 - So the hang may be triggered by freeing windows under Python 3.13, not by the candidate itself. The next run separates the two: `mode=retain` on the candidates keeps windows as 6.8.1.1 does. It also takes native gdb stacks (`thread apply all bt`) of every hung probe before killing it, to name the lock and its holder.
+
+## 3e. Root cause (runs `45140757485` and `45142542401`): the M50 deadlock, reproduced because the probe lacked `core.qt_gc`
+
+**Native stacks** (gdb `thread apply all bt`, taken from every hung probe before it was killed; 6 hangs in run `45140757485`, 3 in `45142542401`; the two blocked threads were identical in all of them):
+
+| Thread | Native stack (innermost first, abridged) | Holds | Waits for |
+|---|---|---|---|
+| T1 main | `QBasicMutex::lockInternal < QObject::~QObject < QAction::~QAction < QObjectPrivate::deleteChildren < QWidget::~QWidget < QMenu::~QMenu < … < Shiboken::BindingManager::runDeletionInMainThread < _make_pending_calls < _Py_HandlePending < _PyEval_EvalFrameDefault < … QGraphicsLayoutItem::effectiveSizeHint / QGraphicsScene::itemsBoundingRect < … QCoreApplicationPrivate::sendPostedEvents < QEventDispatcherGlib::processEvents` | the GIL | Qt's signal-slot (connection) mutex |
+| T2 `ReadOnlyQueryWorker` | `take_gil < PyEval_RestoreThread < PyGILState_Ensure < Shiboken::GilState < Sbk_GetPyOverride < QObject::~QObject (< QMenu::~QMenu < QWidget::~QWidget) < subtype_dealloc < dict_dealloc < … < delete_garbage < gc_collect_main < _Py_RunGC < _Py_HandlePending < _PyEval_EvalFrameDefault` | Qt's connection mutex (inside `~QObject`) | the GIL |
+
+**Mechanism:** a lock-order inversion between the GIL and Qt's connection mutex.
+1. Python's cyclic collector ran **on the dashboard worker thread** (`_Py_RunGC` from the evaluation loop's pending-work check). The garbage was the cycles of a **freed window**.
+2. On that thread Shiboken destroyed Qt objects of the window (`subtype_dealloc → ~QObject`). It also queued the plain widgets for deletion on the main thread (`delete_in_main_thread` → `Py_AddPendingCall`, source `basewrapper.cpp` at `v6.8.3`).
+3. `~QObject` on the worker took Qt's connection mutex, then called into Python (`Sbk_GetPyOverride`), so it waits for the GIL.
+4. The main thread holds the GIL, runs the queued deletion (`runDeletionInMainThread`), and its `~QObject` waits for the same mutex.
+
+The earlier observations fit this:
+- The main thread "stuck in pyqtgraph geometry" is the Python frame active when the pending call ran.
+- The worker "parked on a function entry or loop head" is exactly where the evaluation loop runs pending GC.
+- 0 heartbeats: the GIL is never released.
+- Hangs only where windows are freed: on 6.8.2.1 / 6.8.3 windows are freed even in `mode=retain` (`alive_at_end=0`); 6.8.1.1 keeps them.
+- `mode=collect` (garbage collected on the main thread right after each free): **0 of 8** hangs, against **3 of 16** for auto / product in the same run.
+
+**This is the deadlock M50 already found and fixed.**
+- `core/qt_gc.py` (M50) describes the same two native stacks. `app.py` installs it before any worker starts: automatic collection is off, and a GUI-thread `QTimer` collects. The test session follows the same rule (D53, `tests/conftest.py`).
+- **The D63 probe builds `MainWindow` directly and never installed `core.qt_gc`.** Every probe run was therefore made without the application's GC policy, and the 3.13 hangs reproduce a defect class the product already guards against.
+- The same failure, with the same two stacks, is reported in other PySide applications. Their fix is the same: collect only on the GUI thread ([longhorn-baja-racing/dashboard #152](https://github.com/longhorn-baja-racing/dashboard/pull/152), [LoRAIro #1492](https://github.com/NEXTAltair/LoRAIro/issues/1492)).
+
+**Why it was seen on Python 3.13 only** is not established. It may come from collection timing or thresholds; it is not needed for the conclusion.
+
+**Confirmation step:** the next evaluation runs the 3.13 legs with `--qt-gc` (product-faithful, 8 runs per mode) and keeps a control step without it (diagnostic only). The result is recorded in §3f.
 
 ## 4. Effect on the recommendation (`m324_pyside_upgrade_decision.md` §7)
 
