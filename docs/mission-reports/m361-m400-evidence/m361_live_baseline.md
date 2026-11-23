@@ -51,4 +51,20 @@ finished.
 
 ### 3c. Final state of the `3ca8b80` runs
 
-(filled in when the runs complete; see the integrated report §CI for the final table)
+Classified with `tools/quality/ci_run_states.py --github <run> --timeout-minutes 60` (M377), which reads the
+Actions jobs API and the check-run annotations. Read at 11:13–11:20 UTC, 2026-11-23.
+
+| Run | Workflow | Job | Started → completed (check-run API) | State | Evidence |
+|---|---|---|---|---|---|
+| `45153601358` | Source | source (3.11) | 10:10:15 → 10:52:57 | SUCCESS | conclusion success |
+| `45153601358` | Source | source (3.13) | 10:10:15 → 11:06:19 | SUCCESS | conclusion success |
+| `45153601358` | Source | source (3.12) | 10:10:15 → 11:10:30 | **TIMEOUT** | annotation "The job has exceeded the maximum execution time of 1h0m0s" |
+| `45153601362` | Windows release gate | windows-release | → 10:46:01 | SUCCESS | conclusion success |
+
+**`3ca8b80` is NOT green.** The Source run is TIMEOUT: the 3.12 coverage leg hit the 60-minute job limit (D88
+recurrence). This is not counted as a pass, not called a cancellation by a push (no push happened while it ran), and
+the timeout was **not** raised (that needs an explicit decision). 3.11 and 3.13 passed; Windows passed.
+
+Tooling finding: `gh run view --json jobs`, read at 11:13, reported `completedAt` 10:52:57 for all three legs, while
+the check-run API shows 11:06:19 and 11:10:30. Job durations are therefore taken from the jobs / check-run API, and the
+classifier treats the timeout annotation as decisive.
