@@ -13,7 +13,7 @@ Job logs cannot be read from this environment. Every result below comes from the
 | `45024680781` | `b18706d` | + D91 fix (m115 tool stdout), per-run probe annotations, PyInstaller / smoke log tails annotated |
 | `45115378469` | `67ea1e2` | + probe HANG detection (timeout per run, annotated); the candidate leg rehearses the M325 lock edit in the runner checkout so the frozen smoke validates against the candidate |
 | `45117305817` | `56d3542` | + the probe prints its stage and dumps every thread's stack (`faulthandler`) 30 s before the timeout; 5 runs per mode on 3.13; a Linux 3.13 × 6.8.1.1 baseline leg (product mode) |
-| next | after `56d3542` | + the stacks are dumped twice (at half and at full time before the timeout), so it shows whether each stuck thread still moves |
+| `45122895952` | `6ace038` | + the stacks are dumped twice (at 135 s and 270 s), so it shows whether each stuck thread still moves |
 
 ## 2. Results on `b18706d` (run `45024680781`)
 
@@ -84,6 +84,32 @@ The main-thread frames are the D51 signature: an `AxisItem` layout frame in a ~1
 **What it means for the decision:**
 - The shipped runtime is Windows on Python 3.12, where no hang has been seen in any run (Windows and Linux 3.11 / 3.12 together: 0 hangs in 108 candidate probe runs across the last three evaluation runs).
 - **D51 is re-opened as REPRODUCED ON PYTHON 3.13 (Linux CI, candidates, auto and product policy).** Root cause: OPEN.
+
+## 3c. Results on `6ace038` (run `45122895952`): two dumps per hang
+
+**Unchanged:**
+- Windows (all three legs) and Linux 3.11 / 3.12 are green.
+- The Linux 3.13 × 6.8.1.1 baseline (product mode) passed 5/5 again.
+
+**Linux 3.13 hangs:**
+
+| Candidate | Hung runs |
+|---|---|
+| 6.8.3 | 6 of 10 (3 of 5 auto, 3 of 5 product) |
+| 6.8.2.1 | 1 of 10 (product) |
+
+The paired dumps of the same hung run, 135 s apart, show:
+
+| Thread | Frames |
+|---|---|
+| main | Always inside pyqtgraph geometry code under one `processEvents()`: **`AxisItem._updateLabel`** (the recorded D51 frame), `AxisItem.boundingRect`, `LabelItem.resizeEvent`, `enum.__call__` |
+| dashboard worker | **Moving.** In one pair it went from `build_snapshot` line 368 (cost query) back to line 365 (drilling-parameter rows). The snapshot was therefore **started again**: the dashboard reloads in a cycle. It is not stuck in one query. |
+
+**Reading (updated):** a **livelock**. The dashboard reloads repeatedly. Each completed load refills the dashboard charts, and the pyqtgraph axis and label geometry is recomputed. The queued events never drain, so `processEvents()` never returns.
+- The trigger that starts the next reload is **not yet identified**. `HomeTab.load_data` re-runs only through the 5-minute timer, a filter change, the Refresh button or `_refresh_pending`.
+- It is seen on Python 3.13 only, with either candidate.
+- The 6.8.1.1 baseline did not hang in 5 runs (10 runs across the two evaluations). Under 6.8.1.1, windows 1 and 2 stay alive (`alive_at_end=3`); under both candidates they are released. Every hang is at window 3, after earlier windows were freed. This is an observation, not a proven cause.
+- Next step for the owner or the next block: log the caller of every `load_data` in the probe and stop the probe at the first repeated reload.
 
 ## 4. Effect on the recommendation (`m324_pyside_upgrade_decision.md` §7)
 

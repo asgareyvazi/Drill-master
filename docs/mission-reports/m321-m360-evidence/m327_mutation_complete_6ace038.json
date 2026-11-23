@@ -1,0 +1,1737 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_cement_report_null_roundtrip.py",
+      "tests/test_m308_window_release_policy.py",
+      "tests/test_m311_architecture_diff.py",
+      "tests/test_m314_ddr_hydraulics_check.py",
+      "tests/test_m317_cement_job_reconciliation.py",
+      "tests/test_m318_td_friction_sensitivity.py",
+      "tests/test_m320d_report_sections.py",
+      "tests/test_m320e_citation_record.py",
+      "tests/test_m323_m328_residuals_and_replay.py",
+      "tests/test_m326_window_lifecycle.py",
+      "tests/test_m329_architecture_diff_table_export.py",
+      "tests/test_m334_citation_record_navigation.py",
+      "tests/test_m349_benchmarks_d92.py"
+    ],
+    "exit": 0,
+    "summary": "167 passed, 14 warnings in 147.02s (0:02:27)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "AD-unknown-equals-zero",
+      "path": "core/architecture_diff.py",
+      "note": "a field that went from 0 to unknown (or back) is not reported as a change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 8.99s"
+    },
+    {
+      "id": "AD-binding-ignored",
+      "path": "core/architecture_diff.py",
+      "note": "a changed tubular-library binding is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 9.21s"
+    },
+    {
+      "id": "AD-duplicates-unstated",
+      "path": "core/architecture_diff.py",
+      "note": "two components with the same identity are matched silently (no ambiguity note)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.82s"
+    },
+    {
+      "id": "AD-added-as-removed",
+      "path": "core/architecture_diff.py",
+      "note": "an added component is reported as removed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.83s"
+    },
+    {
+      "id": "AD-geometry-not-affecting",
+      "path": "core/architecture_diff.py",
+      "note": "a string whose depth / OD / ID changed is not listed as invalidating pinned worksheets",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 error in 0.19s"
+    },
+    {
+      "id": "AD-identical-ignores-changes",
+      "path": "core/architecture_diff.py",
+      "note": "two revisions that differ only in changed fields are reported identical",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 9.07s"
+    },
+    {
+      "id": "AD-cross-well-allowed",
+      "path": "core/architecture_diff.py",
+      "note": "revisions of two different wells are compared",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.34s"
+    },
+    {
+      "id": "AD-order-not-normalised",
+      "path": "core/architecture_diff.py",
+      "note": "selecting the newer revision first reverses ADDED / REMOVED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.24s"
+    },
+    {
+      "id": "AD-casing-runs-not-listed",
+      "path": "core/architecture_diff.py",
+      "note": "A-1 regression: casing-design runs pinned to the older revision are not listed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 9.93s"
+    },
+    {
+      "id": "AD-pinned-to-newer",
+      "path": "core/architecture_diff.py",
+      "note": "the pinned-work list names cases of the newer revision instead of the superseded one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 2.19s"
+    },
+    {
+      "id": "AD-unknown-shown-as-zero",
+      "path": "core/architecture_diff.py",
+      "note": "an unknown value is displayed as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.78s"
+    },
+    {
+      "id": "AD-dup-no-exact-first",
+      "path": "core/architecture_diff.py",
+      "note": "reordered same-named components are reported as two spurious changes",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 4.56s"
+    },
+    {
+      "id": "AD-dup-remainder-not-flagged",
+      "path": "core/architecture_diff.py",
+      "note": "a stored-order match of duplicates is not flagged ambiguous",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 4.61s"
+    },
+    {
+      "id": "AD-occurrence-off-by-one",
+      "path": "core/architecture_diff.py",
+      "note": "the older occurrence number names the wrong duplicate",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 4.37s"
+    },
+    {
+      "id": "AD-table-always-unchanged",
+      "path": "core/architecture_diff.py",
+      "note": "the table lists unchanged components unless asked",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 4.60s"
+    },
+    {
+      "id": "AD-export-unknown-as-zero",
+      "path": "core/architecture_diff.py",
+      "note": "an unknown value is exported as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 5.48s"
+    },
+    {
+      "id": "AD-export-formula-live",
+      "path": "core/architecture_diff.py",
+      "note": "a component name starting with '=' is exported as a live spreadsheet formula",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 5.59s"
+    },
+    {
+      "id": "AD-export-sha-wrong",
+      "path": "core/architecture_diff.py",
+      "note": "the export does not carry the revision SHA-256 (cannot be tied to the frozen revision)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 5.39s"
+    },
+    {
+      "id": "AD-export-ignores-unchanged-option",
+      "path": "core/architecture_diff.py",
+      "note": "the export omits unchanged components although the user asked for them",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 6.53s"
+    },
+    {
+      "id": "AD-binding-label-top-level",
+      "path": "core/architecture_diff.py",
+      "note": "D90 regression: the binding label reads the top level and shows every library change as unknown",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 8.91s"
+    },
+    {
+      "id": "AD-panel-comparison-outlives-refresh",
+      "path": "tabs/well_architecture_panel.py",
+      "note": "a comparison of the previous well stays shown / exportable after refresh",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m311_architecture_diff.py",
+        "tests/test_m329_architecture_diff_table_export.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 8.80s"
+    },
+    {
+      "id": "HC-hsi-band-dropped",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "the documented ±5 % display band is not applied (rounded recorded HSI reported as DIFFERS)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 15.57s"
+    },
+    {
+      "id": "HC-hsi-one-sided",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a recorded HSI far below the recomputed value is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 15.23s"
+    },
+    {
+      "id": "HC-tfa-band-widened",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a recorded TFA 5 % off the nozzle TFA is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 16.40s"
+    },
+    {
+      "id": "HC-tfa-prefers-nozzles",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "the nozzle TFA is used while the basis says 'recorded TFA'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.98s"
+    },
+    {
+      "id": "HC-conflicting-mud-picks-first",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "two different mud weights: the lowest is chosen silently",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.35s"
+    },
+    {
+      "id": "HC-missing-mud-as-zero",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "an unrecorded mud weight becomes 0 ppg instead of missing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.12s"
+    },
+    {
+      "id": "HC-two-dp-rows-first",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "with two drilling-parameter rows the first one's values are shown as the inputs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 17.60s"
+    },
+    {
+      "id": "HC-nozzle-count-defaulted",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a nozzle row without a count is read as one nozzle",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 5.27s"
+    },
+    {
+      "id": "HC-zero-flow-accepted",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a recorded 0 (bit size, TFA, flow, HSI) is used as a value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 18.84s"
+    },
+    {
+      "id": "HC-no-hsi-differs",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "a report without a recorded HSI is reported as disagreeing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 10.01s"
+    },
+    {
+      "id": "HC-problems-ignored",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "the check computes although the inputs are ambiguous",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 19.66s"
+    },
+    {
+      "id": "HC-pump-output-unnamed",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "missing pump output is not named among the missing inputs",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 24.29s"
+    },
+    {
+      "id": "HC-snapshot-not-frozen",
+      "path": "core/ddr_hydraulics_check.py",
+      "note": "M328: the gathered inputs are not frozen, so the case cannot be replayed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 12.58s"
+    },
+    {
+      "id": "CJ-yield-unit-assumed",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "an undeclared yield unit is assumed to be ft³/sk",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.36s"
+    },
+    {
+      "id": "CJ-gal-factor-wrong",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "gal/sk converted with a wrong gallons-per-barrel factor",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 24 passed in 27.62s"
+    },
+    {
+      "id": "CJ-litre-factor-rounded",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "litres per barrel rounded (0.008 % volume error)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed in 30.59s"
+    },
+    {
+      "id": "CJ-unit-validated-late",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "an unregistered yield unit is accepted (and stored) whenever sacks or yield is missing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 17.78s"
+    },
+    {
+      "id": "CJ-zero-sacks-computed",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "A-4 regression: a recorded 0 sacks yields a pumped volume of 0 bbl",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 24.36s"
+    },
+    {
+      "id": "CJ-zero-flag-dropped",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "the recorded job no longer says which fields were recorded as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 24.43s"
+    },
+    {
+      "id": "CJ-displacement-band-dropped",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "the documented 2 % allowance on the capacity to the shoe is not applied",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 17.99s"
+    },
+    {
+      "id": "CJ-claims-consistent",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "A-3 regression: an upper-bound check is reported as consistency",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.12s"
+    },
+    {
+      "id": "CJ-liner-checked",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "a liner's displacement is compared with the liner capacity (the running string is not modelled)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 10.55s"
+    },
+    {
+      "id": "CJ-inverted-interval-accepted",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "a zero-length interval (BOC = TOC) gives a 0 bbl gauge annulus instead of being refused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 21.09s"
+    },
+    {
+      "id": "CJ-surface-toc-missing",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "a recorded TOC of 0 m (cement to surface) is treated as not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 8.35s"
+    },
+    {
+      "id": "CJ-excess-sign",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "the implied excess has the wrong sign",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.07s"
+    },
+    {
+      "id": "CJ-toc-difference-sign",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "the TOC difference has the wrong sign",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.14s"
+    },
+    {
+      "id": "CJ-job-not-frozen",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "M328: the recorded job is not frozen with the case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 13.63s"
+    },
+    {
+      "id": "CJ-zero-difference-hidden",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "a zero TOC difference disappears from the summary",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 27.17s"
+    },
+    {
+      "id": "CJ-cross-well",
+      "path": "core/cement_job_reconciliation.py",
+      "note": "a cement job is reconciled with another well's architecture",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 12.03s"
+    },
+    {
+      "id": "TDS-comma-decimal-accepted",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "D86 class: '0,25' would be read as 0.25 if the comma gate were removed (gate kept, belt-and-braces)",
+      "equivalent": "the comma gate two lines above raises for every text containing ',', so the replace is unreachable; the gate itself is mutated by TDS-comma-gate-dropped",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "41 passed in 26.47s"
+    },
+    {
+      "id": "TDS-comma-gate-dropped",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "commas are no longer refused with the D86 explanation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 1.17s"
+    },
+    {
+      "id": "TDS-range-widened",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "a friction factor above 1 is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 1.05s"
+    },
+    {
+      "id": "TDS-max-factors",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "the per-sweep limit is not enforced",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 1.13s"
+    },
+    {
+      "id": "TDS-interpolates",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "a friction factor is interpolated (a calibration claim)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.01s"
+    },
+    {
+      "id": "TDS-nonmonotonic-located",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an observation is located on a non-monotonic curve",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 4.21s"
+    },
+    {
+      "id": "TDS-single-factor-located",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an observation is 'located' with a single modelled factor",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 4.44s"
+    },
+    {
+      "id": "TDS-outside-not-flagged",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an observation outside the modelled range is not flagged BELOW / ABOVE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.08s"
+    },
+    {
+      "id": "TDS-below-above-swapped",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "BELOW_RANGE and ABOVE_RANGE swapped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.18s"
+    },
+    {
+      "id": "TDS-failed-factor-dropped",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an engine refusal for one factor disappears from the table",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 1.11s"
+    },
+    {
+      "id": "TDS-unpinned-allowed",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "A-6 regression: a sweep on an unpinned survey is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 36 passed in 25.07s"
+    },
+    {
+      "id": "TDS-snapshot-not-stored",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "M328: the run snapshot is not stored with the case",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 2.41s"
+    },
+    {
+      "id": "TDS-components-hash-blind",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "the string hash ignores the components, so a changed string replays as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 36 passed in 25.14s"
+    },
+    {
+      "id": "TDS-zero-observation-missing",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an observed 0 is treated as 'no observation entered'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m318_td_friction_sensitivity.py",
+        "tests/test_m323_m328_residuals_and_replay.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 4.34s"
+    },
+    {
+      "id": "RS-empty-dict-counted",
+      "path": "core/report_sections.py",
+      "note": "a dict of empty values counts as a recorded section",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 9.98s"
+    },
+    {
+      "id": "RS-missing-as-included",
+      "path": "core/report_sections.py",
+      "note": "an empty section is reported INCLUDED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.16s"
+    },
+    {
+      "id": "RS-listed-empty-as-included",
+      "path": "core/report_sections.py",
+      "note": "M333: an empty NPT / cost / plan section is reported INCLUDED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 10.36s"
+    },
+    {
+      "id": "RS-time-analysis-assumed",
+      "path": "core/report_sections.py",
+      "note": "no logged time is reported as an included time analysis (100 % productive)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.09s"
+    },
+    {
+      "id": "RS-cost-failure-as-empty",
+      "path": "core/report_sections.py",
+      "note": "a cost query that returned nothing (None) is reported as 'no cost records'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 4.14s"
+    },
+    {
+      "id": "RS-not-rendered-hidden",
+      "path": "core/report_sections.py",
+      "note": "collected-but-not-rendered EOWR data is reported as included",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.05s"
+    },
+    {
+      "id": "RS-unknown-kind-as-ddr",
+      "path": "core/report_sections.py",
+      "note": "an NPT / cost / plan report gets a DDR manifest it does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 7.33s"
+    },
+    {
+      "id": "RS-version-dropped",
+      "path": "core/report_sections.py",
+      "note": "the manifest version row is not written into the report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.13s"
+    },
+    {
+      "id": "RS-summarised-as-included",
+      "path": "core/report_sections.py",
+      "note": "a counts-only section is reported as fully included",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 4.20s"
+    },
+    {
+      "id": "RS-npt-kind-unmapped",
+      "path": "core/report_sections.py",
+      "note": "the NPT report silently loses its manifest again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 7.51s"
+    },
+    {
+      "id": "RS-npt-subcodes-not-summarised",
+      "path": "core/report_sections.py",
+      "note": "only the top 15 sub codes are shown but the manifest claims all are included",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 8.48s"
+    },
+    {
+      "id": "RS-npt-window-cost-reason",
+      "path": "core/report_sections.py",
+      "note": "a date-windowed NPT report does not say why no cost was allocated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 8.23s"
+    },
+    {
+      "id": "RS-known-zero-as-unknown",
+      "path": "core/report_sections.py",
+      "note": "a computed figure of 0 is reported as not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 10.10s"
+    },
+    {
+      "id": "RS-aggregation-counted-as-one",
+      "path": "core/report_sections.py",
+      "note": "an aggregation of N groups is reported as 1 row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 8.31s"
+    },
+    {
+      "id": "RS-plan-versions-claimed-rendered",
+      "path": "core/report_sections.py",
+      "note": "inactive plan versions are collected but the manifest claims they are rendered",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 9.90s"
+    },
+    {
+      "id": "RS-cost-projection-unknown-as-included",
+      "path": "core/report_sections.py",
+      "note": "a cost report without rates claims a projection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 9.24s"
+    },
+    {
+      "id": "CR-nav-mismatch-opens",
+      "path": "core/citation_record.py",
+      "note": "a span that does not hold the quote is opened as if it were the cited passage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.80s"
+    },
+    {
+      "id": "CR-nav-changed-refused",
+      "path": "core/citation_record.py",
+      "note": "a changed page cannot be opened although the viewer would state the change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.72s"
+    },
+    {
+      "id": "CR-nav-misaligned-accepted",
+      "path": "core/citation_record.py",
+      "note": "results of another record are paired with this record's citations",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 2.90s"
+    },
+    {
+      "id": "CR-nav-wrong-span",
+      "path": "core/citation_record.py",
+      "note": "the opened span is not the recorded span",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.35s"
+    },
+    {
+      "id": "KA-nav-guard-dropped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the open action bypasses the openable check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 2.72s"
+    },
+    {
+      "id": "KA-nav-stale-targets",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an unreadable file leaves the previous record's passages openable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 2.88s"
+    },
+    {
+      "id": "CR-page-hash-unchecked",
+      "path": "core/citation_record.py",
+      "note": "a re-reviewed page is not reported PAGE_CHANGED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 1.17s"
+    },
+    {
+      "id": "CR-span-unchecked",
+      "path": "core/citation_record.py",
+      "note": "a span that no longer holds the quote is reported EXACT",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.37s"
+    },
+    {
+      "id": "CR-foreign-page-accepted",
+      "path": "core/citation_record.py",
+      "note": "a page id of another document is accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.16s"
+    },
+    {
+      "id": "CR-document-unchecked",
+      "path": "core/citation_record.py",
+      "note": "a deleted document is reported as a missing page",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.34s"
+    },
+    {
+      "id": "CR-quote-not-required",
+      "path": "core/citation_record.py",
+      "note": "an entry without its quote is checked instead of reported UNREADABLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.63s"
+    },
+    {
+      "id": "CR-version-unchecked",
+      "path": "core/citation_record.py",
+      "note": "verify_record accepts any JSON dict as a citation record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 1.65s"
+    },
+    {
+      "id": "CR-load-version-unchecked",
+      "path": "core/citation_record.py",
+      "note": "loading a file accepts any JSON dict as a citation record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 1.60s"
+    },
+    {
+      "id": "CR-semantic-label-dropped",
+      "path": "core/citation_record.py",
+      "note": "the 'Not semantically verified' label is not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.01s"
+    },
+    {
+      "id": "CR-uncited-recorded",
+      "path": "core/citation_record.py",
+      "note": "retrieved-but-uncited passages are recorded as citations",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.11s"
+    },
+    {
+      "id": "QL-threshold-6.8.1",
+      "path": "core/qt_lifetime.py",
+      "note": "closed windows are freed on the crashing PySide6 6.8.1.x",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m308_window_release_policy.py",
+        "tests/test_m326_window_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.11s"
+    },
+    {
+      "id": "QL-operator-override-ignored",
+      "path": "core/qt_lifetime.py",
+      "note": "DRILLMASTER_RETAIN_CLOSED_WINDOWS=1 is ignored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m308_window_release_policy.py",
+        "tests/test_m326_window_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.15s"
+    },
+    {
+      "id": "QL-unknown-version-released",
+      "path": "core/qt_lifetime.py",
+      "note": "an unrecognised PySide6 version frees windows (unsafe default)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m308_window_release_policy.py",
+        "tests/test_m326_window_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.13s"
+    },
+    {
+      "id": "QL-lenient-version",
+      "path": "core/qt_lifetime.py",
+      "note": "'6.8.x'-like versions are parsed by stripping non-digits",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m308_window_release_policy.py",
+        "tests/test_m326_window_lifecycle.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed, 14 warnings in 2.17s"
+    },
+    {
+      "id": "HR-tolerance-widened",
+      "path": "core/history_replay.py",
+      "note": "a 0.01 bbl change replays as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 18.47s"
+    },
+    {
+      "id": "HR-one-sided-fields-ignored",
+      "path": "core/history_replay.py",
+      "note": "a result field present on one side only is not reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 21 passed in 22.94s"
+    },
+    {
+      "id": "HR-text-not-compared",
+      "path": "core/history_replay.py",
+      "note": "a changed status / label (e.g. EXCEEDS_CAPACITY -> WITHIN_UPPER_BOUND) replays as MATCH",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 23.31s"
+    },
+    {
+      "id": "HR-keyerror-as-not-found",
+      "path": "core/history_replay.py",
+      "note": "a malformed snapshot is reported NOT_REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 21.23s"
+    },
+    {
+      "id": "HR-survey-hash-unchecked",
+      "path": "core/history_replay.py",
+      "note": "edited frozen survey stations are replayed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 22.69s"
+    },
+    {
+      "id": "HR-architecture-pin-unchecked",
+      "path": "core/history_replay.py",
+      "note": "a cement case is replayed against an architecture revision with another SHA-256",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 21.24s"
+    },
+    {
+      "id": "HR-m317-version-unchecked",
+      "path": "core/history_replay.py",
+      "note": "a case of a retired M317 method version is replayed with the current method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 20.38s"
+    },
+    {
+      "id": "HR-m318-legacy-replayed",
+      "path": "core/history_replay.py",
+      "note": "a pre-M328 T&D case is claimed REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 23.49s"
+    },
+    {
+      "id": "HR-m314-legacy-replayed",
+      "path": "core/history_replay.py",
+      "note": "a pre-M328 hydraulics case is claimed REPRODUCIBLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 23.72s"
+    },
+    {
+      "id": "HR-rerun-link-type",
+      "path": "core/history_replay.py",
+      "note": "a replay is linked as a recalculation with another method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 23.97s"
+    },
+    {
+      "id": "HR-m314-problems-dropped",
+      "path": "core/history_replay.py",
+      "note": "frozen gathering problems are not replayed",
+      "equivalent": "save_check stores only COMPUTED checks, and evaluate() computes only when problems == [], so every frozen snapshot that reaches replay has problems == []; the presence check one line above (list type) is still enforced",
+      "tests": [
+        "tests/test_m323_m328_residuals_and_replay.py",
+        "tests/test_m314_ddr_hydraulics_check.py",
+        "tests/test_m317_cement_job_reconciliation.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "82 passed in 69.96s (0:01:09)"
+    },
+    {
+      "id": "TD-segments-ignored",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "D92 regression: each drill-string entry is one element again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.53s"
+    },
+    {
+      "id": "TD-segment-too-coarse",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "integration segments of 50 m (benchmark error > 0.2 %)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.55s"
+    },
+    {
+      "id": "TD-last-segment-gap",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "segments lose 1 % of the string length",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.48s"
+    },
+    {
+      "id": "TD-buckling-first-segment",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "the buckling row of an entry is its first segment, not its worst",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.46s"
+    },
+    {
+      "id": "TD-legacy-method-mislabelled",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "a whole-entry result is labelled with the segmented method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 2.36s"
+    },
+    {
+      "id": "TDP-legacy-recalculated-segmented",
+      "path": "core/engineering/torque_drag_persistence.py",
+      "note": "a run saved before D92 is verified against the new integration (false DIFFERENT)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.95s"
+    },
+    {
+      "id": "TDS-v1-replayed-as-v2",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an M318 v1 case is replayed with the v2 integration",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.46s"
+    },
+    {
+      "id": "TDS-unknown-version-accepted",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "a sweep runs under a version this build does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.44s"
+    },
+    {
+      "id": "W3C-cement-placeholders-saved",
+      "path": "tabs/w3c_section_data.py",
+      "note": "D89 regression: a new cement report stores yield 1.18 / TOC 0 placeholders as data",
+      "equivalent": "",
+      "tests": [
+        "tests/test_cement_report_null_roundtrip.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.38s"
+    },
+    {
+      "id": "W3C-casing-placeholders-saved",
+      "path": "tabs/w3c_section_data.py",
+      "note": "D89 regression: a new casing report stores 0 psi / 0 lbf placeholders as data",
+      "equivalent": "",
+      "tests": [
+        "tests/test_cement_report_null_roundtrip.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.41s"
+    },
+    {
+      "id": "W3C-new-record-banner",
+      "path": "tabs/w3c_section_data.py",
+      "note": "a new cement report is labelled as database NULLs instead of NOT RECORDED YET",
+      "equivalent": "",
+      "tests": [
+        "tests/test_cement_report_null_roundtrip.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.47s"
+    }
+  ],
+  "killed": [
+    "AD-unknown-equals-zero",
+    "AD-binding-ignored",
+    "AD-duplicates-unstated",
+    "AD-added-as-removed",
+    "AD-geometry-not-affecting",
+    "AD-identical-ignores-changes",
+    "AD-cross-well-allowed",
+    "AD-order-not-normalised",
+    "AD-casing-runs-not-listed",
+    "AD-pinned-to-newer",
+    "AD-unknown-shown-as-zero",
+    "AD-dup-no-exact-first",
+    "AD-dup-remainder-not-flagged",
+    "AD-occurrence-off-by-one",
+    "AD-table-always-unchanged",
+    "AD-export-unknown-as-zero",
+    "AD-export-formula-live",
+    "AD-export-sha-wrong",
+    "AD-export-ignores-unchanged-option",
+    "AD-binding-label-top-level",
+    "AD-panel-comparison-outlives-refresh",
+    "HC-hsi-band-dropped",
+    "HC-hsi-one-sided",
+    "HC-tfa-band-widened",
+    "HC-tfa-prefers-nozzles",
+    "HC-conflicting-mud-picks-first",
+    "HC-missing-mud-as-zero",
+    "HC-two-dp-rows-first",
+    "HC-nozzle-count-defaulted",
+    "HC-zero-flow-accepted",
+    "HC-no-hsi-differs",
+    "HC-problems-ignored",
+    "HC-pump-output-unnamed",
+    "HC-snapshot-not-frozen",
+    "CJ-yield-unit-assumed",
+    "CJ-gal-factor-wrong",
+    "CJ-litre-factor-rounded",
+    "CJ-unit-validated-late",
+    "CJ-zero-sacks-computed",
+    "CJ-zero-flag-dropped",
+    "CJ-displacement-band-dropped",
+    "CJ-claims-consistent",
+    "CJ-liner-checked",
+    "CJ-inverted-interval-accepted",
+    "CJ-surface-toc-missing",
+    "CJ-excess-sign",
+    "CJ-toc-difference-sign",
+    "CJ-job-not-frozen",
+    "CJ-zero-difference-hidden",
+    "CJ-cross-well",
+    "TDS-comma-gate-dropped",
+    "TDS-range-widened",
+    "TDS-max-factors",
+    "TDS-interpolates",
+    "TDS-nonmonotonic-located",
+    "TDS-single-factor-located",
+    "TDS-outside-not-flagged",
+    "TDS-below-above-swapped",
+    "TDS-failed-factor-dropped",
+    "TDS-unpinned-allowed",
+    "TDS-snapshot-not-stored",
+    "TDS-components-hash-blind",
+    "TDS-zero-observation-missing",
+    "RS-empty-dict-counted",
+    "RS-missing-as-included",
+    "RS-listed-empty-as-included",
+    "RS-time-analysis-assumed",
+    "RS-cost-failure-as-empty",
+    "RS-not-rendered-hidden",
+    "RS-unknown-kind-as-ddr",
+    "RS-version-dropped",
+    "RS-summarised-as-included",
+    "RS-npt-kind-unmapped",
+    "RS-npt-subcodes-not-summarised",
+    "RS-npt-window-cost-reason",
+    "RS-known-zero-as-unknown",
+    "RS-aggregation-counted-as-one",
+    "RS-plan-versions-claimed-rendered",
+    "RS-cost-projection-unknown-as-included",
+    "CR-nav-mismatch-opens",
+    "CR-nav-changed-refused",
+    "CR-nav-misaligned-accepted",
+    "CR-nav-wrong-span",
+    "KA-nav-guard-dropped",
+    "KA-nav-stale-targets",
+    "CR-page-hash-unchecked",
+    "CR-span-unchecked",
+    "CR-foreign-page-accepted",
+    "CR-document-unchecked",
+    "CR-quote-not-required",
+    "CR-version-unchecked",
+    "CR-load-version-unchecked",
+    "CR-semantic-label-dropped",
+    "CR-uncited-recorded",
+    "QL-threshold-6.8.1",
+    "QL-operator-override-ignored",
+    "QL-unknown-version-released",
+    "QL-lenient-version",
+    "HR-tolerance-widened",
+    "HR-one-sided-fields-ignored",
+    "HR-text-not-compared",
+    "HR-keyerror-as-not-found",
+    "HR-survey-hash-unchecked",
+    "HR-architecture-pin-unchecked",
+    "HR-m317-version-unchecked",
+    "HR-m318-legacy-replayed",
+    "HR-m314-legacy-replayed",
+    "HR-rerun-link-type",
+    "TD-segments-ignored",
+    "TD-segment-too-coarse",
+    "TD-last-segment-gap",
+    "TD-buckling-first-segment",
+    "TD-legacy-method-mislabelled",
+    "TDP-legacy-recalculated-segmented",
+    "TDS-v1-replayed-as-v2",
+    "TDS-unknown-version-accepted",
+    "W3C-cement-placeholders-saved",
+    "W3C-casing-placeholders-saved",
+    "W3C-new-record-banner"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [
+    "TDS-comma-decimal-accepted",
+    "HR-m314-problems-dropped"
+  ],
+  "invalid": []
+}

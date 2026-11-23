@@ -6,7 +6,7 @@ The mission text uses two spellings for the evidence directory, `m321_m360_evide
 The evidence lives in `docs/mission-reports/m321-m360-evidence/`, following the existing `m291-m320-evidence`
 convention.
 
-## State found at the start (2026-10-13 sandbox clock)
+## State found at the start (start of M321)
 
 The sandbox had been reset for the **ninth** time.
 

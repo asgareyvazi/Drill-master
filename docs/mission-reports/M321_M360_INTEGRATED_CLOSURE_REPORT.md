@@ -21,7 +21,8 @@ Evidence folder: `docs/mission-reports/m321-m360-evidence/`.
 | `aff8344` | **M349 benchmarks; D92 T&D integration fix** |
 | `2646543` | M327: 22 new mutants run, 3 survivors killed |
 | `56d3542` | M324 run 45115378469 evidence; hang instrumentation |
-| this commit | engine inventory regenerated (D92 method name); double stack dump; M324 hang diagnosis; M329/M352 notes; this report |
+| `6ace038` | engine inventory regenerated (D92 method name); double stack dump; M324 hang diagnosis; M329/M352 notes; this report |
+| this commit | complete M327 mutation run (121 mutants) recorded; paired-dump results (`m324_ci_evaluation.md` §3c); D51 register row; CI results |
 
 ## 2. Missions
 
@@ -33,7 +34,7 @@ Evidence folder: `docs/mission-reports/m321-m360-evidence/`.
 | M324 | PySide6 6.8.1.1 vs 6.8.2.1 vs 6.8.3. A public 6.8.5 does not exist. Isolated CI evaluation; fix proven in source (`PySideSignalInstanceShared`) | DONE, **decision with owner** | `m324_pyside_upgrade_decision.md`, `m324_ci_evaluation.md` |
 | M325 | Raise the pin | **NOT EXECUTED: needs owner approval** | — |
 | M326 | D63 / D74 lifecycle with real MainWindows | D63 BLOCKED BY OWNER DECISION; D74 PARTIALLY QUALIFIED | `m326_d63_d74_lifecycle.md` |
-| M327 | Mutation catalogue, 121 mutants; 119/119 non-equivalent killed, 2 equivalent | DONE (assembled from partial runs, §4) | `m327_mutation_catalogue.md` |
+| M327 | Mutation catalogue, 121 mutants. One complete run on `6ace038`: 119 killed, 0 survived, 2 declared equivalent, 0 invalid | DONE | `m327_mutation_catalogue.md` |
 | M328 | History replay for M314 / M317 / M318 cases | DONE | `m328_history_replay.md` |
 | M329 | Architecture diff as a table and a CSV export with both revision SHA-256s; D90 | DONE | `m329_m352_evidence.md` |
 | M331 | Cement yield-unit registry (ft3/sk, gal/sk, bbl/sk, L/sk) | DONE | `m323_defect_register.md`, tests |
@@ -55,7 +56,7 @@ Other mission numbers in M321–M360 have no separate deliverable in this branch
 | **D92** | **high** | The T&D engine integrated each drill-string entry as ONE element. One 3,048 m pipe entry through a build-and-turn well read slack-off +18.5 % and torque −19.6 %, and the answer depended on how the pipe was entered. Now ≤ 5 m segments (benchmark error ≤ 0.085 %). Saved legacy runs and M318 v1 cases recompute with the legacy method and are never relabelled. | `aff8344` |
 | A-1…A-9 | low–medium | Audit findings (register) | `bc8e15b`, `3293c3d` |
 
-**D51 (re-opened):** in the M324 evaluation on Linux / Python 3.13, the candidates hang intermittently inside pyqtgraph geometry code in `processEvents()` while the dashboard worker sits in one query. This is the first reproducible trigger of the D51 class. Its root cause is OPEN, and the next evaluation run collects two stack dumps per hang. The hang has not been seen on Python 3.11 / 3.12 or on Windows, and the product ships on Python 3.12.
+**D51 (re-opened):** in the M324 evaluation on Linux / Python 3.13, the candidates hang intermittently inside pyqtgraph geometry code in `processEvents()` while the dashboard worker sits in one query. This is the first reproducible trigger of the D51 class. The paired stack dumps (run `45122895952`) show a livelock: the dashboard snapshot restarts in a cycle while the main thread never leaves pyqtgraph axis and label geometry (`AxisItem._updateLabel`, the recorded D51 frame). What starts each reload is not yet identified, so the root cause is OPEN. The hang has not been seen on Python 3.11 / 3.12 or on Windows, and the product ships on Python 3.12.
 
 ## 4. Qualification labels
 
@@ -74,7 +75,7 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 
 **Limits of these labels:**
 - "Qualified on synthetic data" is not field acceptance.
-- The mutation result is assembled from one complete run (99 mutants on `1d391fd`) and three `--only` runs on later trees. A single complete 121-mutant run on one SHA has not been made.
+- The mutation result comes from one complete run of all 121 mutants on `6ace038` (`complete=True`). It shows that the tests detect these specific seeded defects; it is not a proof of correctness.
 
 ## 5. Owner decisions still open
 
@@ -88,7 +89,7 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 
 | Gate | Result |
 |---|---|
-| Full suite, local, Python 3.11.2, offscreen, `aff8344` tree | 5,954 tests: 5,949 passed, 4 skipped (opt-in), **1 failed** (`test_m75_engine_inventory`: `ENGINE_INVENTORY.md` was stale after the D92 method rename). Fixed in this commit by `engine_inventory.py --write`; the m75, m112, m137, release-boundary and registry tests now pass (43 tests). |
+| Full suite, local, Python 3.11.2, offscreen, `aff8344` tree | 5,954 tests: 5,949 passed, 4 skipped (opt-in), **1 failed** (`test_m75_engine_inventory`: `ENGINE_INVENTORY.md` was stale after the D92 method rename). Fixed in `6ace038` by `engine_inventory.py --write`; the m75, m112, m137, release-boundary and registry tests now pass (43 tests). |
 | Tests added after that run | `test_m320d` (+1) and `test_m349` (+1): 26 pass. `test_m334`: 6 pass. |
 | ruff (`core dialogs tabs tests` and the new tools) | clean |
 | Exception scan | silent-unexplained 83 / ceiling 83 (not raised) |
@@ -96,5 +97,8 @@ The label QUALIFIED requires the M327 mutation evidence and, where a numeric res
 | `dependency_audit` / `constant_inventory` / `engine_inventory` | regenerated with `--write`; `--check` passes |
 | M349 benchmark `--check` | 44 / 44 within tolerance |
 | CI Windows release validation, `56d3542` | ✅ success |
-| CI Source release gate, `56d3542` | expected ❌ on `test_m75_engine_inventory` (same stale document); fixed in this commit |
-| CI on this commit | not yet recorded here; it is polled after the push and reported in the delivery message |
+| CI Source release gate, `56d3542` | cancelled by the push of `6ace038` |
+| CI Windows release validation, `6ace038` (`45122896026`) | ✅ success |
+| CI Source release gate, `6ace038` (`45122895968`) | 3.11 ✅, 3.13 ✅ (full suite incl. `test_m75`); 3.12 stopped by GitHub's 60-minute job limit with no test failure annotated (the known CI-duration residual) |
+| CI PySide6 candidate evaluation, `6ace038` (`45122895952`) | Windows ×3 ✅, Linux 3.11/3.12 ×4 ✅, 3.13 × 6.8.1.1 baseline ✅; 3.13 × 6.8.3 ❌ (6/10 HANG), 3.13 × 6.8.2.1 ❌ (1/10 HANG). Expected: this is the D51 evidence, not a release gate |
+| CI on the final commit | reported in the delivery message (a documentation-only change after `6ace038`) |

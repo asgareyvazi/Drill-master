@@ -34,19 +34,20 @@ All data is SYNTHETIC. The label is unchanged: **UNSIGNED — NOT RELEASE-APPROV
 | 2 | survivors of run 1 after the new tests (`b18706d`) | `b18706d` + tests | 21 | **21** | 0 | 0 | 0 | `m327_mutation_survivors_rerun.{json,txt}` |
 | 3 | 14 new M333 / M334 mutants and 8 D92 mutants | `aff8344` | 22 | 19 | 3 | 0 | 0 | `m327_mutation_new_mutants_aff8344.{json,txt}` |
 | 4 | survivors of run 3 after the new tests | `aff8344` + tests | 3 | **3** | 0 | 0 | 0 | `m327_mutation_survivors_rerun2.{json,txt}` |
+| **5** | **complete catalogue, one run** | **`6ace038`** | **121** | **119** | **0** | **2** | **0** | `m327_mutation_complete_6ace038.{json,txt}` (`complete=True`, baseline 167 tests green, 1,330 s) |
 
 An earlier run (`3ee54b97`) was invalid because the tree changed during it. It is not used.
 
 Run 2 reports `seconds=57831`. That figure is a sandbox clock jump, not the run time.
 
-**Result over the whole catalogue:**
-- All 119 non-equivalent mutants have been killed.
-- 2 mutants are declared EQUIVALENT, with their reasons in the catalogue:
+**Result (run 5, one complete run of all 121 mutants on `6ace038`):**
+- 119 killed and 0 non-equivalent survivors.
+- 2 mutants are declared EQUIVALENT, with their reasons in the catalogue; both are still executed and reported:
   - `TDS-comma-decimal-accepted`
   - `HR-m314-problems-dropped`: `save_check` stores only COMPUTED checks, and `evaluate` computes only when there are no problems, so no frozen snapshot can carry problems.
 - 0 mutants are invalid.
 
-**Limitation:** this result is assembled from one complete run and three `--only` runs on successive trees. No single complete run of all 121 mutants on one SHA has been made. Each `--only` run ran its full baseline (all listed tests green) before mutating.
+Runs 2–4 are the intermediate `--only` runs that closed the gaps. Run 5 supersedes them as the evidence of record.
 
 ## What the survivors exposed (tests added, not code weakened)
 
