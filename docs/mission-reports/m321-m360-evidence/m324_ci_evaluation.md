@@ -14,7 +14,8 @@ Job logs cannot be read from this environment. Every result below comes from the
 | `45115378469` | `67ea1e2` | + probe HANG detection (timeout per run, annotated); the candidate leg rehearses the M325 lock edit in the runner checkout so the frozen smoke validates against the candidate |
 | `45117305817` | `56d3542` | + the probe prints its stage and dumps every thread's stack (`faulthandler`) 30 s before the timeout; 5 runs per mode on 3.13; a Linux 3.13 × 6.8.1.1 baseline leg (product mode) |
 | `45122895952` | `6ace038` | + the stacks are dumped twice (at 135 s and 270 s), so it shows whether each stuck thread still moves |
-| next | after `067aa44` | + GIL heartbeat (`--heartbeat`) and a compact report so both dumps fit one annotation |
+| `45138911996` | `82d1fff` | + GIL heartbeat (`--heartbeat`) and a compact report so both dumps fit one annotation |
+| next | after `82d1fff` | Python 3.13: native gdb stacks of a hung probe (`--native-dump`), 150 s timeout, and `mode=retain` on the candidates |
 
 ## 2. Results on `b18706d` (run `45024680781`)
 
@@ -120,6 +121,35 @@ The main-thread frames are the D51 signature: an `AxisItem` layout frame in a ~1
 **Instrumentation added after `534e4f3`** (`d63_window_release_probe.py --heartbeat`, `probe_loop.compact_hang_report`, test `tests/test_m324_hang_report.py`):
 - **Heartbeat:** a pure-Python thread prints an `HB` line every `timeout/10` s with the top frames of every thread. It needs the GIL to print. If the `HB` lines **stop** when the hang starts, one thread held the GIL continuously, which confirms starvation. If they continue, the frames in them show whether the main thread still moves.
 - **Compact report:** each dump is reduced to role-labelled threads (main / dash-worker / maint / worker / hb) with their innermost frames, so both dumps and the heartbeats fit one annotation.
+
+## 3d. Results on `82d1fff` (run `45138911996`): GIL heartbeat — starvation confirmed, main thread blocked in native code
+
+**Unchanged:**
+- Windows ×3 and Linux 3.11 / 3.12 ×4 are green.
+- The Linux 3.13 × 6.8.1.1 baseline passed 5/5. Across the three evaluations that is 15 runs and 0 hangs; windows are retained there.
+
+**Linux 3.13 hangs:** 6.8.3: 1 of 10 (auto run 4). 6.8.2.1: 1 of 10 (auto run 3). Both are at window 3, after windows 1 and 2 were freed.
+
+| Signal | 6.8.3 auto 4 | 6.8.2.1 auto 3 |
+|---|---|---|
+| Heartbeat lines in 300 s (one due every 30 s) | **0** | **0** |
+| Heartbeat thread | `d63_window_release_probe.py:167` (`time.sleep`) in both dumps: it woke up and is waiting for the GIL | same |
+| Main thread, dump 1 → dump 2 (135 s apart) | `AxisItem.py:350 _updateLabel < updateAutoSIPrefix < setRange < linkedViewChanged`, **identical** | `GraphicsWidget.py:40 _resetCachedProperties` called straight from `processEvents()`, **identical** |
+| Dashboard worker | `<string>:1 <lambda> < selectable.py:2407 _generate_columns_plus_names` (SQLAlchemy), identical | same frame, identical |
+
+**What this proves:**
+1. **One thread held the GIL for the whole hang.** A pure-Python thread that only sleeps could not print once in 290 s.
+2. **That thread is the main thread, and it is not executing Python.** A thread running bytecode hands the GIL over within 5 ms (the switch interval) and moves on between dumps. Here the main thread is on the same line for 135 s while holding the GIL, so it is **blocked inside a native call** made from that line:
+   - `AxisItem.py:350` is `self.label.setHtml(self.labelString())`, a Qt call through Shiboken.
+   - `GraphicsWidget.py:40` sets cached attributes to `None`, which deallocates the previous Qt value wrappers through Shiboken.
+3. **It is a deadlock, not a livelock.** The worker and heartbeat threads wait for the GIL; the main thread waits inside native code, presumably for a lock, and keeps the GIL.
+
+**Not proven:** which native lock, and which thread holds it. Faulthandler shows only Python threads. Qt's native threads and threads blocked in `PyGILState_Ensure` are invisible to it.
+
+**Version vs. window release:**
+- Shiboken's `BindingManager` (the wrapper map and its `std::recursive_mutex`) is the same in 6.8.1.1 and 6.8.3 (source compared at the `v6.8.1.1` and `v6.8.3` tags).
+- The one difference the probe exercises is that **only the candidate legs free windows 1 and 2**. The 6.8.1.1 product policy keeps them.
+- So the hang may be triggered by freeing windows under Python 3.13, not by the candidate itself. The next run separates the two: `mode=retain` on the candidates keeps windows as 6.8.1.1 does. It also takes native gdb stacks (`thread apply all bt`) of every hung probe before killing it, to name the lock and its holder.
 
 ## 4. Effect on the recommendation (`m324_pyside_upgrade_decision.md` §7)
 

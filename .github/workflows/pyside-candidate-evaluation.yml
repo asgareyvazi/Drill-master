@@ -17,7 +17,7 @@ concurrency:
 jobs:
   linux:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +42,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgl1 libegl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+      - name: gdb for native stacks of a hung probe (D51, Python 3.13 only)
+        if: matrix.python == '3.13'
+        run: |
+          sudo apt-get install -y gdb
+          sudo sysctl -w kernel.yama.ptrace_scope=0
       - name: Locked runtime, then the candidate overlay
         run: |
           python -m pip install -r requirements-lock.txt pytest==9.1.1
@@ -49,12 +54,15 @@ jobs:
           python -c "import PySide6, shiboken6, sys; print('python', sys.version.split()[0], 'PySide6', PySide6.__version__, 'shiboken6', shiboken6.__version__)"
       - name: D63 window-release probe (auto and product policy)
         run: |
-          runs=3; if [ "${{ matrix.python }}" = "3.13" ]; then runs=5; fi
-          if [ "${{ matrix.pyside }}" = "6.8.1.1" ]; then
-            python tools/quality/pyside_eval/probe_loop.py --runs "$runs" --modes product
+          # D51 (Python 3.13): shorter hang timeout, native gdb stacks of a hung probe, and the candidates also run
+          # mode=retain (windows kept, as under 6.8.1.1) to separate "windows freed" from "PySide version".
+          if [ "${{ matrix.python }}" = "3.13" ]; then
+            extra="--runs 4 --timeout 150 --native-dump"; modes="auto,product,retain"
           else
-            python tools/quality/pyside_eval/probe_loop.py --runs "$runs"
+            extra="--runs 3"; modes="auto,product"
           fi
+          if [ "${{ matrix.pyside }}" = "6.8.1.1" ]; then modes="product"; fi
+          python tools/quality/pyside_eval/probe_loop.py $extra --modes "$modes"
       - name: UI regression subset (322 tests locally on 6.8.1.1 / 6.8.2.1 / 6.8.3)
         run: python -m pytest -p no:cacheprovider -q $(cat tools/quality/pyside_eval/ui_tests.txt)
       - name: PyInstaller freeze smoke (product Qt modules)

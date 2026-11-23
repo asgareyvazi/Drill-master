@@ -93,3 +93,50 @@ def test_heartbeat_thread_prints(capsys):
         thread.join(5)
     assert not thread.is_alive()
     assert "HB 1 " in seen, f"no heartbeat line printed ({sys.version.split()[0]})"
+
+
+GDB_SAMPLE = """\
+[New LWP 4243]
+Thread 4 (Thread 0x7f5f1ffff6c0 (LWP 4244) "QXcbEventQueue"):
+#0  0x00007f5f2a51b4cd in __GI___poll (fds=0x1, nfds=1, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+#1  0x00007f5f28a0c1e2 in QEventDispatcherUNIX::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /x/libQt6Core.so.6
+Thread 3 (Thread 0x7f5f03fff6c0 (LWP 4242) "python"):
+#0  0x00007f5f2a49a117 in __futex_abstimed_wait_common64 (private=0, cancel=true) at ./nptl/futex-internal.c:57
+#1  __futex_abstimed_wait_common (cancel=true, private=0) at ./nptl/futex-internal.c:87
+#2  0x00007f5f2a7c2a10 in take_gil (tstate=0x55d0) at Python/ceval_gil.c:331
+#3  0x00007f5f2a7c3001 in PyEval_RestoreThread () from /opt/hostedtoolcache/Python/3.13.18/x64/lib/libpython3.13.so.1.0
+Thread 1 (Thread 0x7f5f2b1e8740 (LWP 4200) "python"):
+#0  0x00007f5f2a49e0a2 in __lll_lock_wait (futex=futex@entry=0x55d1, private=0) at ./nptl/lowlevellock.c:49
+#1  0x00007f5f2a4a5a41 in pthread_mutex_lock@@GLIBC_2.2.5 () from /lib/x86_64-linux-gnu/libc.so.6
+#2  0x00007f5f28b1d2c3 in QMutex::lock() () from /x/libQt6Core.so.6
+#3  0x00007f5f29c4f111 in QGraphicsTextItem::setHtml(QString const&) () from /x/libQt6Widgets.so.6
+"""
+
+
+def test_gdb_report_puts_the_main_thread_and_blocked_threads_first():
+    report = probe_loop.compact_gdb_report(GDB_SAMPLE)
+    lines = report.splitlines()
+    assert lines[0] == "native stacks: 3 thread(s)"
+    assert lines[1] == ("T1 python: __lll_lock_wait < pthread_mutex_lock@@GLIBC_2.2.5 < QMutex::lock < "
+                        "QGraphicsTextItem::setHtml")
+    assert lines[2].startswith("T3 python: __futex_abstimed_wait_common64 < __futex_abstimed_wait_common < take_gil")
+    assert lines[3].startswith("T4 QXcbEventQueue: __GI___poll < QEventDispatcherUNIX::processEvents")
+
+
+def test_gdb_report_fits_one_annotation():
+    many = "\n".join(
+        f'Thread {n} (Thread 0x7f{n:04x} (LWP {5000 + n}) "worker"):\n' + "\n".join(
+            f"#{k}  0x00007f in some_long_native_function_name_number_{k}_padding (a=1) at x.c:{k}"
+            for k in range(30)) for n in range(1, 40))
+    report = probe_loop.compact_gdb_report(many)
+    assert len(report) <= 3900
+    assert report.startswith("native stacks: 39 thread(s)\nT1 worker: ")
+
+
+def test_hung_probe_is_killed_and_reported(tmp_path):
+    script = tmp_path / "sleepy.py"
+    script.write_text("import time\ntime.sleep(60)\n")
+    started = time.monotonic()
+    proc, native = probe_loop.run_probe([sys.executable, str(script)], timeout=1, native_dump=False)
+    assert proc.returncode == "HANG" and "(no exit after 1 s)" in proc.stderr
+    assert native == "" and time.monotonic() - started < 30
