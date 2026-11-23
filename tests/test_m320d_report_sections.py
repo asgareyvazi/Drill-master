@@ -214,3 +214,23 @@ def test_a_record_of_only_empty_fields_is_not_recorded():
     by = {e["section"]: e for e in entry}
     assert by["Drilling parameters"]["status"] == rs.NOT_RECORDED and by["Drilling parameters"]["rows"] == 0
     assert by["Mud properties"]["status"] == rs.INCLUDED and by["Mud properties"]["rows"] == 1
+
+
+def test_a_known_zero_is_included_and_an_empty_list_is_not_recorded():
+    """M327 survivors: a computed 0 is a figure (0 % NPT, 0 cost per metre); an empty list is never INCLUDED."""
+    npt = {e["section"]: e for e in rs.npt_manifest({"total_hours": 24.0, "npt_pct": 0.0, "by_main_code": {},
+                                                     "by_sub_code": {}, "by_contractor": {}, "by_phase": {},
+                                                     "by_date": {}, "entries": [], "npt_cost": None})}
+    assert npt["NPT share of logged time"]["status"] == rs.INCLUDED and npt["NPT share of logged time"]["detail"] == ""
+    for title in ("NPT by main code", "NPT by contractor", "NPT by phase", "NPT daily trend", "NPT event details"):
+        assert npt[title]["status"] == rs.NOT_RECORDED and npt[title]["rows"] == 0, title
+    cost = {e["section"]: e for e in rs.cost_manifest({"total_cost": 0.0, "cost_per_meter": 0.0,
+                                                      "currency_status": "USD", "categories": {}, "records": []})}
+    assert cost["Total actual cost"]["status"] == rs.INCLUDED
+    assert cost["Cost per metre / foot"]["status"] == rs.INCLUDED
+    assert cost["Cost by category"]["status"] == rs.NOT_RECORDED
+    assert cost["Source cost lines (unaggregated)"]["status"] == rs.NOT_RECORDED
+    plan = {e["section"]: e for e in rs.plan_manifest({"plan": None, "total_hrs": 0.0, "max_depth": 0.0,
+                                                      "all_plans": [], "activities": [], "by_phase": {}})}
+    assert plan["Planned final depth"]["status"] == rs.INCLUDED
+    assert plan["Activity schedule"]["status"] == rs.NOT_RECORDED and plan["Hours by phase"]["status"] == rs.NOT_RECORDED

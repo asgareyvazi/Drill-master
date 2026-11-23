@@ -1,0 +1,6 @@
+baseline exit=0 43 passed in 17.23s
+RS-listed-empty-as-included KILLED    M333: an empty NPT / cost / plan section is reported INCLUDED
+RS-known-zero-as-unknown KILLED    a computed figure of 0 is reported as not recorded
+TD-buckling-first-segment KILLED    the buckling row of an entry is its first segment, not its worst
+
+mutants=3 killed=3 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=False seconds=44

@@ -1,0 +1,323 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m318_td_friction_sensitivity.py",
+      "tests/test_m320d_report_sections.py",
+      "tests/test_m320e_citation_record.py",
+      "tests/test_m334_citation_record_navigation.py",
+      "tests/test_m349_benchmarks_d92.py"
+    ],
+    "exit": 0,
+    "summary": "55 passed in 18.51s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "RS-listed-empty-as-included",
+      "path": "core/report_sections.py",
+      "note": "M333: an empty NPT / cost / plan section is reported INCLUDED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "15 passed in 10.76s"
+    },
+    {
+      "id": "RS-npt-kind-unmapped",
+      "path": "core/report_sections.py",
+      "note": "the NPT report silently loses its manifest again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 7.72s"
+    },
+    {
+      "id": "RS-npt-subcodes-not-summarised",
+      "path": "core/report_sections.py",
+      "note": "only the top 15 sub codes are shown but the manifest claims all are included",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 8.93s"
+    },
+    {
+      "id": "RS-npt-window-cost-reason",
+      "path": "core/report_sections.py",
+      "note": "a date-windowed NPT report does not say why no cost was allocated",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 8.53s"
+    },
+    {
+      "id": "RS-known-zero-as-unknown",
+      "path": "core/report_sections.py",
+      "note": "a computed figure of 0 is reported as not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "15 passed in 11.78s"
+    },
+    {
+      "id": "RS-aggregation-counted-as-one",
+      "path": "core/report_sections.py",
+      "note": "an aggregation of N groups is reported as 1 row",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 8.70s"
+    },
+    {
+      "id": "RS-plan-versions-claimed-rendered",
+      "path": "core/report_sections.py",
+      "note": "inactive plan versions are collected but the manifest claims they are rendered",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 10.50s"
+    },
+    {
+      "id": "RS-cost-projection-unknown-as-included",
+      "path": "core/report_sections.py",
+      "note": "a cost report without rates claims a projection",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 9.63s"
+    },
+    {
+      "id": "CR-nav-mismatch-opens",
+      "path": "core/citation_record.py",
+      "note": "a span that does not hold the quote is opened as if it were the cited passage",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 3.36s"
+    },
+    {
+      "id": "CR-nav-changed-refused",
+      "path": "core/citation_record.py",
+      "note": "a changed page cannot be opened although the viewer would state the change",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 3.28s"
+    },
+    {
+      "id": "CR-nav-misaligned-accepted",
+      "path": "core/citation_record.py",
+      "note": "results of another record are paired with this record's citations",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 3.56s"
+    },
+    {
+      "id": "CR-nav-wrong-span",
+      "path": "core/citation_record.py",
+      "note": "the opened span is not the recorded span",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.88s"
+    },
+    {
+      "id": "KA-nav-guard-dropped",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the open action bypasses the openable check",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 3.12s"
+    },
+    {
+      "id": "KA-nav-stale-targets",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "an unreadable file leaves the previous record's passages openable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320e_citation_record.py",
+        "tests/test_m334_citation_record_navigation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 3.34s"
+    },
+    {
+      "id": "TD-segments-ignored",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "D92 regression: each drill-string entry is one element again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.64s"
+    },
+    {
+      "id": "TD-segment-too-coarse",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "integration segments of 50 m (benchmark error > 0.2 %)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.59s"
+    },
+    {
+      "id": "TD-last-segment-gap",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "segments lose 1 % of the string length",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.74s"
+    },
+    {
+      "id": "TD-buckling-first-segment",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "the buckling row of an entry is its first segment, not its worst",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "SURVIVED",
+      "exit": 0,
+      "summary": "26 passed in 6.48s"
+    },
+    {
+      "id": "TD-legacy-method-mislabelled",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "a whole-entry result is labelled with the segmented method",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 2.66s"
+    },
+    {
+      "id": "TDP-legacy-recalculated-segmented",
+      "path": "core/engineering/torque_drag_persistence.py",
+      "note": "a run saved before D92 is verified against the new integration (false DIFFERENT)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.51s"
+    },
+    {
+      "id": "TDS-v1-replayed-as-v2",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an M318 v1 case is replayed with the v2 integration",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 3.02s"
+    },
+    {
+      "id": "TDS-unknown-version-accepted",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "a sweep runs under a version this build does not have",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 2.64s"
+    }
+  ],
+  "killed": [
+    "RS-npt-kind-unmapped",
+    "RS-npt-subcodes-not-summarised",
+    "RS-npt-window-cost-reason",
+    "RS-aggregation-counted-as-one",
+    "RS-plan-versions-claimed-rendered",
+    "RS-cost-projection-unknown-as-included",
+    "CR-nav-mismatch-opens",
+    "CR-nav-changed-refused",
+    "CR-nav-misaligned-accepted",
+    "CR-nav-wrong-span",
+    "KA-nav-guard-dropped",
+    "KA-nav-stale-targets",
+    "TD-segments-ignored",
+    "TD-segment-too-coarse",
+    "TD-last-segment-gap",
+    "TD-legacy-method-mislabelled",
+    "TDP-legacy-recalculated-segmented",
+    "TDS-v1-replayed-as-v2",
+    "TDS-unknown-version-accepted"
+  ],
+  "survived_non_equivalent": [
+    "RS-listed-empty-as-included",
+    "RS-known-zero-as-unknown",
+    "TD-buckling-first-segment"
+  ],
+  "declared_equivalent": [],
+  "invalid": []
+}

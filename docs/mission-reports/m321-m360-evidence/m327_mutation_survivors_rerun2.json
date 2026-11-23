@@ -1,0 +1,60 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m318_td_friction_sensitivity.py",
+      "tests/test_m320d_report_sections.py",
+      "tests/test_m349_benchmarks_d92.py"
+    ],
+    "exit": 0,
+    "summary": "43 passed in 17.23s"
+  },
+  "complete": false,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "RS-listed-empty-as-included",
+      "path": "core/report_sections.py",
+      "note": "M333: an empty NPT / cost / plan section is reported INCLUDED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 10.43s"
+    },
+    {
+      "id": "RS-known-zero-as-unknown",
+      "path": "core/report_sections.py",
+      "note": "a computed figure of 0 is reported as not recorded",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m320d_report_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 10.26s"
+    },
+    {
+      "id": "TD-buckling-first-segment",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "the buckling row of an entry is its first segment, not its worst",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 2.60s"
+    }
+  ],
+  "killed": [
+    "RS-listed-empty-as-included",
+    "RS-known-zero-as-unknown",
+    "TD-buckling-first-segment"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

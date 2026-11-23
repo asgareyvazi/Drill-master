@@ -1,0 +1,26 @@
+baseline exit=0 55 passed in 18.51s
+RS-listed-empty-as-included SURVIVED  M333: an empty NPT / cost / plan section is reported INCLUDED
+RS-npt-kind-unmapped     KILLED    the NPT report silently loses its manifest again
+RS-npt-subcodes-not-summarised KILLED    only the top 15 sub codes are shown but the manifest claims all are included
+RS-npt-window-cost-reason KILLED    a date-windowed NPT report does not say why no cost was allocated
+RS-known-zero-as-unknown SURVIVED  a computed figure of 0 is reported as not recorded
+RS-aggregation-counted-as-one KILLED    an aggregation of N groups is reported as 1 row
+RS-plan-versions-claimed-rendered KILLED    inactive plan versions are collected but the manifest claims they are rendered
+RS-cost-projection-unknown-as-included KILLED    a cost report without rates claims a projection
+CR-nav-mismatch-opens    KILLED    a span that does not hold the quote is opened as if it were the cited passage
+CR-nav-changed-refused   KILLED    a changed page cannot be opened although the viewer would state the change
+CR-nav-misaligned-accepted KILLED    results of another record are paired with this record's citations
+CR-nav-wrong-span        KILLED    the opened span is not the recorded span
+KA-nav-guard-dropped     KILLED    the open action bypasses the openable check
+KA-nav-stale-targets     KILLED    an unreadable file leaves the previous record's passages openable
+TD-segments-ignored      KILLED    D92 regression: each drill-string entry is one element again
+TD-segment-too-coarse    KILLED    integration segments of 50 m (benchmark error > 0.2 %)
+TD-last-segment-gap      KILLED    segments lose 1 % of the string length
+TD-buckling-first-segment SURVIVED  the buckling row of an entry is its first segment, not its worst
+TD-legacy-method-mislabelled KILLED    a whole-entry result is labelled with the segmented method
+TDP-legacy-recalculated-segmented KILLED    a run saved before D92 is verified against the new integration (false DIFFERENT)
+TDS-v1-replayed-as-v2    KILLED    an M318 v1 case is replayed with the v2 integration
+TDS-unknown-version-accepted KILLED    a sweep runs under a version this build does not have
+
+mutants=22 killed=19 survived_non_equivalent=3 declared_equivalent=0 invalid=0 complete=False seconds=160
+EXIT=1

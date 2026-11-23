@@ -121,3 +121,19 @@ def test_m318_v1_case_replays_with_v1_and_v2_is_the_default():
     # the same v1 numbers claimed as v2 are a difference, never a silent match
     outcome = hr.verify(None, tds.METHOD_ID, inputs, results, tds.METHOD_VERSION)
     assert outcome["status"] == "DIFFERENT"
+
+
+def test_buckling_row_of_an_entry_is_its_worst_segment():
+    """Slack-off through a horizontal well without WOB: compression is zero at the bit and peaks at the heel, so the
+    worst segment of one long entry is not its first. The entry row must equal the worst of the same segments typed
+    in as separate entries."""
+    survey = [{"md": 0, "inc": 0, "azi": 0}, {"md": 600, "inc": 0, "azi": 0}, {"md": 1500, "inc": 90, "azi": 0},
+              {"md": 3000, "inc": 90, "azi": 0}]
+    one = [{"name": "DP", "od": 5.0, "id": 4.276, "length": 3000.0, "weight": 19.5}]
+    pieces = [{"name": "DP", "od": 5.0, "id": 4.276, "length": 5.0, "weight": 19.5}] * 600
+    single = TorqueDragEngine.calculate(survey, one, 10.0, 0.4, wellbore_id_in=8.5).values["buckling"]["details"]
+    many = TorqueDragEngine.calculate(survey, pieces, 10.0, 0.4, wellbore_id_in=8.5).values["buckling"]["details"]
+    worst = max(many, key=lambda d: d["compression_lbf"])
+    assert worst is not many[0] and worst["compression_lbf"] > many[0]["compression_lbf"]
+    assert len(single) == 1 and single[0]["compression_lbf"] == worst["compression_lbf"]
+    assert single[0]["md_top_m"] == worst["md_top_m"]
