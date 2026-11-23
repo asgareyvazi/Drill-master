@@ -157,9 +157,63 @@ KPI_DEFINITIONS = {
 }
 
 
+# M374: the structural definition of every W12 Analysis KPI, in the same seven-field form as the M285 dashboard
+# (definition and unit above; window, scope, source, method, missing behaviour, counting rule here). Restated from
+# the definitions and the W12 queries (``_scope_reports_query`` / ``_scope_params_query``) — not new semantics.
+KPI_SPEC_FIELDS = ("window", "scope", "source", "method", "missing", "counting")
+_W12_SCOPE = ("selected well; when a wellbore is selected, only reports of that wellbore (reports with an unknown "
+              "wellbore excluded)")
+_ALL = "all reports of the scope (no date filter)"
+_PARAMS = "DrillingParameters rows attributed to the scope through their DailyReport"
+_TIME = "TimeLog24H rows of the scope's reports"
+KPI_SPECS = {
+    "current_depth": dict(window=_ALL, scope=_W12_SCOPE, source="DailyReport.depth_2400",
+                          method="maximum", missing="reports without a depth skipped; No data when none has one",
+                          counting="not additive"),
+    "rig_days": dict(window=_ALL, scope=_W12_SCOPE, source="DailyReport.report_date",
+                     method="count of distinct dates", missing="0 days when no report exists",
+                     counting="each calendar date once, however many reports share it"),
+    "avg_rop": dict(window=_ALL, scope=_W12_SCOPE, source=_PARAMS + ", avg_rop",
+                    method="arithmetic mean of valid rows", missing="missing / NaN / infinite / negative excluded; "
+                    "a recorded 0.0 counts", counting="each parameter row once"),
+    "best_rop": dict(window=_ALL, scope=_W12_SCOPE, source=_PARAMS + ", avg_rop", method="maximum of valid rows",
+                     missing="No data when no valid row exists", counting="not additive"),
+    "weighted_rop": dict(window=_ALL, scope=_W12_SCOPE, source=_PARAMS + ", footage and on-bottom hours",
+                         method="Σ footage / Σ on-bottom hours (BitPerformanceEngine.weighted_rop)",
+                         missing="rows without a complete valid pair excluded", counting="each row's pair once"),
+    "avg_wob": dict(window=_ALL, scope=_W12_SCOPE, source=_PARAMS + ", wob_min / wob_max",
+                    method="mean of per-row midpoints", missing="rows lacking or holding an invalid bound excluded",
+                    counting="each parameter row once"),
+    "avg_rpm": dict(window=_ALL, scope=_W12_SCOPE, source=_PARAMS + ", rpm_min / rpm_max",
+                    method="mean of per-row midpoints", missing="rows lacking a bound excluded",
+                    counting="each parameter row once"),
+    "avg_torque": dict(window=_ALL, scope=_W12_SCOPE, source=_PARAMS + ", torque_min / torque_max",
+                       method="mean of per-row midpoints", missing="rows lacking a bound excluded",
+                       counting="each parameter row once"),
+    "total_npt": dict(window=_ALL, scope=_W12_SCOPE, source=_TIME + ", duration, is_npt",
+                      method="sum of NPT durations", missing="unknown when an NPT row has no valid duration or a "
+                      "row is unclassified", counting="each 24-h time-log row once; morning-report rows not added"),
+    "npt_percent": dict(window=_ALL, scope=_W12_SCOPE, source=_TIME, method="NPT hours / recorded hours × 100 "
+                        "(operational_time.summarize_time_logs)", missing="unknown when NPT hours are unknown",
+                        counting="numerator and denominator from the same rows"),
+    "productive_percent": dict(window=_ALL, scope=_W12_SCOPE, source=_TIME, method="100 − NPT %",
+                               missing="unknown when NPT % is unknown", counting="same rows as NPT %"),
+    "npt_daily_avg": dict(window=_ALL, scope=_W12_SCOPE, source=_TIME + " and DailyReport.report_date",
+                          method="total NPT hours / distinct report dates", missing="unknown when total NPT is "
+                          "unknown or there is no report date", counting="each date once in the denominator"),
+    "daily_progress": dict(window="last report and the previous report of the same wellbore on the previous date",
+                           scope=_W12_SCOPE, source="DailyReport.depth_2400 (canonical service)",
+                           method="difference of the two depths", missing="No data unless both reports exist, "
+                           "share one wellbore and are on consecutive dates", counting="one interval"),
+}
+
+
 def kpi_tooltip(key: str) -> str:
     title, unit, definition = KPI_DEFINITIONS[key]
-    return f"{title} [{unit}]\n{definition}"
+    spec = KPI_SPECS.get(key) or {}
+    lines = [f"{title} [{unit}]", definition]
+    lines += [f"{field.capitalize()}: {spec[field]}" for field in KPI_SPEC_FIELDS if spec.get(field)]
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
