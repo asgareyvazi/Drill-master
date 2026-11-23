@@ -2065,6 +2065,7 @@ class CalculationSourceLink(Base):
     recalc_method_version = Column(String(100))
     verification_status = Column(String(40), nullable=False)
     method_changed = Column(Boolean, nullable=False, default=False)
+    source_fingerprint = Column(String(80), nullable=True)  # M365 (D87): record_identity content fingerprint
     created_at = Column(DateTime, default=_now_utc, nullable=False)
 
 
@@ -2086,6 +2087,7 @@ class CalculationArchiveMark(Base):
     source_table = Column(String(100), nullable=False)
     source_id = Column(Integer, nullable=False)
     source_created_at = Column(DateTime, nullable=True)    # the source row's created_at when it was marked
+    source_fingerprint = Column(String(80), nullable=True)  # M365 (D87): record_identity content fingerprint
     well_id = Column(Integer, ForeignKey("wells.id", ondelete="CASCADE"))
     action = Column(String(10), nullable=False)            # ARCHIVE | RESTORE
     reason = Column(Text, nullable=False)
@@ -2124,6 +2126,9 @@ def report_reference_action(model) -> str:
 
 
 ADDITIVE_COLUMNS = (
+    # M365 (D87): content fingerprint of the source row (pre-M365 marks and links stay NULL = timestamp rule).
+    ("calculation_archive_marks", "source_fingerprint", "VARCHAR(80)"),
+    ("calculation_source_links", "source_fingerprint", "VARCHAR(80)"),
     # M173: decision history of a queued DDR review item (legacy rows stay NULL = no recorded history).
     ("import_review_items", "decision_history_json", "TEXT"),
     ("survey_revisions", "results_sha256", "VARCHAR(64)"),

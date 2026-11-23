@@ -60,3 +60,24 @@ statement "A clone is a copy … not a rerun". A SOURCE_REPLACED or missing sour
 
 `tests/test_m303_m306_clone_contract_and_bulk.py` (7 parametrized refusals + 10 other tests = 17) with M286, M286
 authorization and M67: 33 passed, 0 failed / errors / skipped (local, `/tmp/m306.xml`).
+
+---
+
+## Addendum (M365, 2026-11-23) — D87 behaviour change
+
+This addendum corrects the record; the text above is left as written.
+
+* **M304's NULL-time refusal is replaced by content pinning** for every table that has a fingerprint contract in
+  `core/record_identity.py` (`IDENTITY_COLUMNS`). A record with `created_at = NULL` in such a table **can now be
+  archived**: the archive mark stores `source_fingerprint = "D87fp1:<sha256>"` and later matches only a row with the
+  same id **and** the same fingerprint. Tables without a fingerprint contract keep the M304 refusal.
+* Archive marks and clone links written from M365 on carry the fingerprint; the `_v2` storage guards freeze it.
+  Marks and links written before M365 have no fingerprint and keep the timestamp-only rule (`TIMESTAMP_ONLY`).
+* Clone provenance: fingerprint DIFFERENT → `SOURCE_REPLACED`; MATCH → `VERIFIED` unless the source row was created
+  after the link (`born > linked` → `SOURCE_REPLACED`); no fingerprint → the M303 timestamp rule. A fingerprint
+  MATCH alone never means VERIFIED.
+* Writing an archive mark now goes through `authorize_change(…, "calculation_archive_marks", "insert")`.
+* Residual: a row that reuses an id with identical identity content **and** an identical creation timestamp is
+  indistinguishable from the original. This is stated, not hidden.
+* Evidence: `tests/test_m365_d87_identity.py` (13), updated `tests/test_m303_m306_clone_contract_and_bulk.py`,
+  mutants `ID-*` in `tools/quality/mutation_m361_m400.py`.

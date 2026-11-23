@@ -108,16 +108,23 @@ def test_a_reused_source_id_is_detected_not_trusted(world):  # noqa: F811
     assert ccc.side_by_side(db, clone["id"])["status"] == "SOURCE_NOT_COMPARABLE (SOURCE_REPLACED)"
 
 
-def test_a_source_without_creation_time_is_identity_weak_and_cannot_be_archived(world):  # noqa: F811
+def test_a_source_without_creation_time_is_content_pinned_since_m365(world):  # noqa: F811
+    """M304 refused this archive and reported the clone IDENTITY_WEAK. M365 (D87) pins both by content
+    fingerprint, so a NULL created_at no longer leaves identity open (see test_m365_d87_identity.py)."""
     db, dev, casing_id, _case_id = world
     clone = wb.clone(db, _entry(db, dev, "casing_calculations", casing_id))
     _null_created_at(db, "casing_calculations", casing_id)
-    assert ccc.clone_provenance(db, clone["id"])["identity"] == ccc.IDENTITY_WEAK
+    prov = ccc.clone_provenance(db, clone["id"])
+    assert (prov["identity"], prov["identity_basis"]) == (ccc.VERIFIED, "CONTENT_PINNED")
     entry = _entry(db, dev, "casing_calculations", casing_id)
     marks = _count(db, CalculationArchiveMark)
-    with pytest.raises(wb.WorkbenchError, match="no creation time"):
-        wb.archive(db, entry, "SYN: superseded")
-    assert _count(db, CalculationArchiveMark) == marks
+    assert wb.archive(db, entry, "SYN: superseded")["identity"] == "CONTENT_PINNED"
+    assert _count(db, CalculationArchiveMark) == marks + 1 and wb.state(db, entry) == wb.ARCHIVED
+
+
+def _delete(db, table, record_id):
+    with db.session_scope() as session:
+        session.execute(text(f"DELETE FROM {table} WHERE id = :i"), {"i": record_id})
 
 
 # ---- M305 -----------------------------------------------------------------------------------------------------
@@ -130,7 +137,7 @@ def test_bulk_preview_writes_nothing_and_classifies_every_row(world):  # noqa: F
     db, dev, casing_id, _case_id = world
     first, second, third = _three(db, dev, casing_id)
     wb.archive(db, first, "SYN: earlier")
-    _null_created_at(db, "casing_calculations", third.record_id)
+    _delete(db, "casing_calculations", third.record_id)          # M365: NULL created_at is no longer a refusal
     marks, audits = _count(db, CalculationArchiveMark), _count(db, AuditLog)
     preview = wb.bulk_preview(db, [first, second, third, second], wb.ARCHIVE)
     assert [(r["key"], r["plan"]) for r in preview["rows"]] == [
@@ -143,7 +150,7 @@ def test_bulk_preview_writes_nothing_and_classifies_every_row(world):  # noqa: F
 def test_bulk_apply_is_per_row_with_audit_and_explicit_partial(world):  # noqa: F811
     db, dev, casing_id, _case_id = world
     first, second, third = _three(db, dev, casing_id)
-    _null_created_at(db, "casing_calculations", third.record_id)
+    _delete(db, "casing_calculations", third.record_id)          # M365: NULL created_at is no longer a refusal
     with pytest.raises(wb.WorkbenchError, match="reason is required"):
         wb.bulk_apply(db, [first, second], wb.ARCHIVE, "  ")
     result = wb.bulk_apply(db, [first, second, third], wb.ARCHIVE, "SYN: superseded")

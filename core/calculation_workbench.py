@@ -28,24 +28,32 @@ def archived_ids(session, tables: Optional[Iterable[str]] = None) -> Dict[str, S
     """``{table: {record ids}}`` of the records whose LATEST mark is ARCHIVE (inside the caller's session).
 
     A mark counts only while its source row exists with the ``created_at`` it had when it was marked: SQLite can
-    reuse the id of a deleted row, and a new record must not inherit the old record's archive state.
+    reuse the id of a deleted row, and a new record must not inherit the old record's archive state. M365 (D87):
+    a mark that carries a content fingerprint also needs the row's current fingerprint to be equal, which closes
+    the equal-timestamp and NULL-timestamp cases. Pre-M365 marks (no fingerprint) keep the timestamp rule.
     """
     from core.database import CalculationArchiveMark as Mark
 
-    query = (session.query(Mark.source_table, Mark.source_id, Mark.source_created_at, Mark.action)
-             .order_by(Mark.id.asc()))
+    query = (session.query(Mark.source_table, Mark.source_id, Mark.source_created_at, Mark.action,
+                           Mark.source_fingerprint).order_by(Mark.id.asc()))
     if tables is not None:
         query = query.filter(Mark.source_table.in_(list(tables)))
     marks = query.all()
     born: Dict[Tuple[str, int], Any] = {}
+    prints: Dict[Tuple[str, int], Optional[str]] = {}
     for table in {m.source_table for m in marks}:
         ids = {m.source_id for m in marks if m.source_table == table}
-        born.update({(table, record_id): created for record_id, created in _created_at(session, table, ids)})
+        for record_id, created, fp in _identity(session, table, ids):
+            born[(table, record_id)] = created
+            prints[(table, record_id)] = fp
     latest: Dict[Tuple[str, int], str] = {}
-    for table, record_id, snapshot, action in marks:
+    for table, record_id, snapshot, action, stored_fp in marks:
         key = (table, record_id)
-        if key in born and born[key] == snapshot:      # the same row that was marked (not a reused id)
-            latest[key] = action                       # ordered by id: the last mark wins
+        if key not in born or born[key] != snapshot:     # deleted, or a reused id with another timestamp
+            continue
+        if stored_fp is not None and prints.get(key) != stored_fp:
+            continue                                     # M365: same id and timestamp, different record
+        latest[key] = action                             # ordered by id: the last mark wins
     out: Dict[str, Set[int]] = {}
     for (table, record_id), action in latest.items():
         if action == ARCHIVE:
@@ -53,17 +61,32 @@ def archived_ids(session, tables: Optional[Iterable[str]] = None) -> Dict[str, S
     return out
 
 
-def _created_at(session, table: str, ids) -> List[Tuple[int, Any]]:
-    """``(id, created_at)`` of the existing rows of ``table`` among ``ids`` (None when it has no created_at)."""
+def _identity(session, table: str, ids) -> List[Tuple[int, Any, Optional[str]]]:
+    """``(id, created_at, fingerprint)`` of the existing rows of ``table`` among ``ids``."""
+    from core import record_identity
     from core.database import Base
 
     model = {mapper.class_.__tablename__: mapper.class_ for mapper in Base.registry.mappers}.get(table)
     if model is None:
         return []
-    created = getattr(model, "created_at", None)
-    if created is None:
-        return [(row_id, None) for (row_id,) in session.query(model.id).filter(model.id.in_(list(ids)))]
-    return [(row_id, stamp) for row_id, stamp in session.query(model.id, created).filter(model.id.in_(list(ids)))]
+    rows = session.query(model).filter(model.id.in_(list(ids))).all()
+    return [(row.id, getattr(row, "created_at", None), record_identity.fingerprint(table, row)) for row in rows]
+
+
+def _created_at(session, table: str, ids) -> List[Tuple[int, Any]]:
+    """``(id, created_at)`` of the existing rows of ``table`` among ``ids`` (None when it has no created_at)."""
+    return [(record_id, created) for record_id, created, _fp in _identity(session, table, ids)]
+
+
+def identity_basis(table: str, source) -> Optional[str]:
+    """How a new mark would pin ``source``: CONTENT_PINNED, TIMESTAMP_ONLY, or None when it cannot be pinned."""
+    from core import record_identity
+
+    if record_identity.fingerprint(table, source) is not None:
+        return record_identity.CONTENT_PINNED
+    if hasattr(type(source), "created_at") and getattr(source, "created_at", None) is None:
+        return None
+    return record_identity.TIMESTAMP_ONLY
 
 
 def state(db, entry) -> str:
@@ -85,21 +108,28 @@ def history_of(db, entry) -> list:
 
 
 def _mark(db, entry, action: str, reason: str, *, user_id: Optional[int]) -> Dict[str, Any]:
+    from core import record_identity
     from core.calculation_cases import _source_row
     from core.database import CalculationArchiveMark as Mark
 
     reason = str(reason or "").strip()
     if not reason:
         raise WorkbenchError(f"A reason is required to {action.lower()} a calculation record.")
+    auth = getattr(db, "_authorization", None)        # M365: refuse before reading (the data layer also refuses)
+    if auth is not None:
+        from core.authorization import authorize_change
+
+        authorize_change(auth, "calculation_archive_marks", "insert")     # raises AuthorizationError
     with db.session_scope() as session:
         source = _source_row(session, entry.table, entry.record_id)
         if source is None:
             raise WorkbenchError(f"{entry.table}:{entry.record_id} does not exist.")
         current = ARCHIVED if entry.record_id in archived_ids(session, [entry.table]).get(entry.table, set()) \
             else ACTIVE
-        if action == ARCHIVE and hasattr(type(source), "created_at") and getattr(source, "created_at") is None:
-            # M304 (D87 review): a mark is pinned to the row by its created_at; without one a later record that
-            # reuses the id would inherit the archive state, so the mark is refused instead of being weak.
+        if action == ARCHIVE and identity_basis(entry.table, source) is None:
+            # M304 (D87 review): without a creation time and without a content fingerprint contract a later record
+            # that reuses the id would inherit the archive state, so the mark is refused instead of being weak.
+            # M365: a table with a fingerprint contract is pinned by content, so a NULL created_at is allowed.
             raise WorkbenchError(f"{entry.table}:{entry.record_id} has no creation time, so its identity cannot "
                                  f"be pinned against id reuse; archiving it is refused.")
         if action == ARCHIVE and current == ARCHIVED:
@@ -108,13 +138,15 @@ def _mark(db, entry, action: str, reason: str, *, user_id: Optional[int]) -> Dic
             raise WorkbenchError(f"{entry.table}:{entry.record_id} is not archived.")
         row = Mark(source_table=entry.table, source_id=entry.record_id,
                    source_created_at=getattr(source, "created_at", None), well_id=getattr(source, "well_id", None),
+                   source_fingerprint=record_identity.fingerprint(entry.table, source),
                    action=action, reason=reason, created_by=user_id)
         session.add(row)
         session.flush()
         db._add_mandatory_audit(session, f"CALCULATION_{action}", entry.table, entry.record_id,
                                 entry.name, f"{action.lower()} {entry.table}:{entry.record_id}: {reason}")
         return {"id": row.id, "action": action, "state": ARCHIVED if action == ARCHIVE else ACTIVE,
-                "source_table": entry.table, "source_id": entry.record_id, "reason": reason}
+                "source_table": entry.table, "source_id": entry.record_id, "reason": reason,
+                "identity": identity_basis(entry.table, source)}
 
 
 def archive(db, entry, reason: str, *, user_id: Optional[int] = None) -> Dict[str, Any]:
@@ -200,10 +232,10 @@ def bulk_preview(db, entries: Iterable[Any], action: str) -> Dict[str, Any]:
                 row.update(plan=REFUSE, reason="the record no longer exists")
             elif (action == ARCHIVE and current == ARCHIVED) or (action == RESTORE and current == ACTIVE):
                 row.update(plan=SKIP, reason=f"already {current.lower()}")
-            elif action == ARCHIVE and hasattr(type(source), "created_at") and source.created_at is None:
+            elif action == ARCHIVE and identity_basis(entry.table, source) is None:
                 row.update(plan=REFUSE, reason="no creation time: identity cannot be pinned against id reuse")
             else:
-                row.update(plan=WILL, reason="")
+                row.update(plan=WILL, reason="", identity=identity_basis(entry.table, source))
             rows.append(row)
     seen: Set[str] = set()
     for row in rows:                                   # the same record twice in one batch is marked once

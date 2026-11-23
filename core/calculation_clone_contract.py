@@ -14,7 +14,9 @@ M304 — provenance. ``clone_provenance`` reads a clone's ``clone_of`` link and 
 method and version that were copied, and states that the clone was **not recalculated and never approved**. The
 link has no ``source_created_at``, so identity is checked by time: a source row created after the link was written
 is a different record that reused the id (``SOURCE_REPLACED``); a source without a creation time can only be
-``IDENTITY_WEAK``. Nothing here writes.
+``IDENTITY_WEAK``. M365 (D87): a link written from M365 on carries the source's content fingerprint
+(``core.record_identity``); it decides VERIFIED / SOURCE_REPLACED even for equal or NULL timestamps. Older links
+keep the time rule (``identity_basis`` TIMESTAMP_ONLY). Nothing here writes.
 """
 from __future__ import annotations
 
@@ -153,13 +155,34 @@ def clone_provenance(db, case_id: int) -> Dict[str, Any]:
                source_method_version=link["source_method_version"],
                method_kept=(case["method_version"] == link["source_method_version"]),
                verification_status=link["verification_status"], linked_at=link["created_at"])
+    from core import record_identity
+
     with db.session_scope() as session:
         source = _source_row(session, link["source_table"], link["source_id"])
         if source is None:
             out.update(identity=SOURCE_MISSING, reason="the source record no longer exists; the clone keeps its copy")
             return out
         born = _naive(_as_time(getattr(source, "created_at", None)))
+        pinned = record_identity.compare(link["source_table"], link.get("source_fingerprint"), source)
+    out["identity_basis"] = (record_identity.CONTENT_PINNED if pinned in (record_identity.MATCH,
+                                                                           record_identity.DIFFERENT)
+                             else record_identity.TIMESTAMP_ONLY)
     linked = _naive(_as_time(link["created_at"]))
+    if pinned == record_identity.DIFFERENT:            # M365 (D87): the content fingerprint is decisive when it differs
+        out.update(identity=SOURCE_REPLACED,
+                   reason=f"{out['source_key']} no longer has the content fingerprint recorded with the link: the id "
+                          f"now belongs to a different record (or its frozen content changed), which is not the "
+                          f"clone's source")
+        return out
+    if pinned == record_identity.MATCH:                # equal content: the time rule still catches a newer row
+        if born is not None and linked is not None and born > linked:
+            out.update(identity=SOURCE_REPLACED,
+                       reason=f"{out['source_key']} has identical content but was created after the clone was "
+                              f"linked: it is a different record that reused the id")
+        else:
+            out.update(identity=VERIFIED, reason="the source record has the content fingerprint recorded with the "
+                                                 "link (same record)")
+        return out
     if born is None or linked is None:
         out.update(identity=IDENTITY_WEAK,
                    reason="the source or the link has no creation time, so a reused id cannot be ruled out")

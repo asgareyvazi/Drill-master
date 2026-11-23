@@ -80,6 +80,7 @@ def _source_row(session, table: str, record_id: int):
 
 
 def _add_source_link(session, case_row, link: Dict[str, Any]) -> None:
+    from core import record_identity
     from core.database import CalculationSourceLink
 
     link_type = link.get("link_type", "recalculation_of")
@@ -103,6 +104,7 @@ def _add_source_link(session, case_row, link: Dict[str, Any]) -> None:
         source_method=link.get("source_method"), source_method_version=link.get("source_method_version"),
         recalc_method=link.get("recalc_method"), recalc_method_version=link.get("recalc_method_version"),
         verification_status=str(link["verification_status"]), method_changed=bool(link.get("method_changed")),
+        source_fingerprint=record_identity.fingerprint(table, source),      # M365 (D87): content identity pin
     ))
     session.flush()
 
@@ -114,6 +116,7 @@ def _link_dto(row) -> Dict[str, Any]:
             "source_method_version": row.source_method_version, "recalc_method": row.recalc_method,
             "recalc_method_version": row.recalc_method_version,
             "verification_status": row.verification_status, "method_changed": bool(row.method_changed),
+            "source_fingerprint": row.source_fingerprint,
             "created_at": row.created_at.isoformat() if row.created_at else None}
 
 

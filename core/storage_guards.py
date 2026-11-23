@@ -58,6 +58,9 @@ TUBULAR_GUARD_VERSION = 1
 #: REPLACE it. UPDATE and INSERT-over-an-existing-id are refused for every writer. Deleting a report still deletes
 #: its revisions (``delete_daily_report`` removes the children first, so no BEFORE DELETE guard is added).
 REPORT_REVISION_GUARD_VERSION = 1
+#: M365 (D87): the archive-mark and lineage-link guards also freeze ``source_fingerprint``.
+ARCHIVE_MARK_GUARD_VERSION = 2
+LINK_GUARD_VERSION = 2
 _REPORT_REVISION_FROZEN = ("id", "report_id", "revision_no", "status", "snapshot", "created_at", "comment")
 _TUBULAR_SET_FROZEN = ("id", "name", "version", "status", "content_fingerprint", "notes", "created_at",
                        "published_at")
@@ -95,7 +98,7 @@ _CASE_FROZEN = ("id", "well_id", "calculator", "name", "method", "method_version
                 "results", "note", "created_at")
 _LINK_FROZEN = ("id", "case_id", "source_table", "source_id", "source_well_id", "source_method",
                 "source_method_version", "recalc_method", "recalc_method_version",
-                "verification_status", "method_changed", "link_type", "created_at")
+                "verification_status", "method_changed", "link_type", "created_at", "source_fingerprint")
 #: M123 (D6): an audited MSE lineage repair. ``report_id`` may only be cleared (the D33 report-delete unlink, which
 #: runs while the report row still exists) and ``wellbore_id`` only by the FK ``SET NULL`` of a deleted wellbore;
 #: ``value_label`` keeps the repaired value readable afterwards.
@@ -149,7 +152,7 @@ def trigger_statements() -> dict[str, str]:
     ])
     archive_mark_change = " OR ".join([          # M286
         _frozen(("id", "source_table", "source_id", "source_created_at", "well_id", "action", "reason",
-                 "created_at")),
+                 "created_at", "source_fingerprint")),
         _nullable_reference("created_by", "users"),
     ])
     value_state_change = " OR ".join([            # M272
@@ -189,8 +192,8 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_well_architecture_immutable_v{v} BEFORE UPDATE ON well_architecture_revisions "
             f"WHEN {architecture_change} BEGIN SELECT RAISE(ABORT, "
             "'well_architecture_revisions: a saved architecture revision is immutable'); END"),
-        f"trg_calculation_source_link_immutable_v{v}": (
-            f"CREATE TRIGGER trg_calculation_source_link_immutable_v{v} BEFORE UPDATE ON calculation_source_links "
+        f"trg_calculation_source_link_immutable_v{LINK_GUARD_VERSION}": (
+            f"CREATE TRIGGER trg_calculation_source_link_immutable_v{LINK_GUARD_VERSION} BEFORE UPDATE ON calculation_source_links "
             f"WHEN {link_change} BEGIN SELECT RAISE(ABORT, "
             "'calculation_source_links: a lineage record is immutable'); END"),
         f"trg_mse_lineage_repair_immutable_v{v}": (
@@ -201,8 +204,8 @@ def trigger_statements() -> dict[str, str]:
             f"CREATE TRIGGER trg_npt_event_decision_immutable_v{v} BEFORE UPDATE ON npt_event_decisions "
             f"WHEN {_frozen(_NPT_DECISION_FROZEN)} BEGIN SELECT RAISE(ABORT, "
             "'npt_event_decisions: an audited decision is immutable'); END"),
-        f"trg_calculation_archive_mark_immutable_v{v}": (
-            f"CREATE TRIGGER trg_calculation_archive_mark_immutable_v{v} BEFORE UPDATE ON calculation_archive_marks "
+        f"trg_calculation_archive_mark_immutable_v{ARCHIVE_MARK_GUARD_VERSION}": (
+            f"CREATE TRIGGER trg_calculation_archive_mark_immutable_v{ARCHIVE_MARK_GUARD_VERSION} BEFORE UPDATE ON calculation_archive_marks "
             f"WHEN {archive_mark_change} BEGIN SELECT RAISE(ABORT, "
             "'calculation_archive_marks: an archive mark is immutable'); END"),
         f"trg_ddr_value_state_immutable_v{v}": (
