@@ -55,9 +55,10 @@ jobs:
       - name: D63 window-release probe (auto and product policy)
         run: |
           # D51 (Python 3.13): shorter hang timeout, native gdb stacks of a hung probe, and the candidates also run
-          # mode=retain (windows kept, as under 6.8.1.1) to separate "windows freed" from "PySide version".
+          # mode=collect (gc.collect() on the MAIN thread right after each window is freed) - diagnostic only: does
+          # the hang need freed-window wrappers to be collected later on a worker thread?
           if [ "${{ matrix.python }}" = "3.13" ]; then
-            extra="--runs 4 --timeout 150 --native-dump"; modes="auto,product,retain"
+            extra="--runs 4 --timeout 150 --native-dump"; modes="auto,product,collect"
           else
             extra="--runs 3"; modes="auto,product"
           fi

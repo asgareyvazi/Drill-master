@@ -90,7 +90,7 @@ def native_stacks(pid: int) -> str:
         return "native stacks: gdb not installed"
     try:
         result = subprocess.run([gdb, "-p", str(pid), "-batch", "-nx", "-ex", "set pagination off",
-                                 "-ex", "thread apply all bt 30"], capture_output=True, text=True, timeout=120)
+                                 "-ex", "thread apply all bt 80"], capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
         return "native stacks: gdb did not finish in 120 s"
     text = result.stdout + "\n" + result.stderr
@@ -105,11 +105,16 @@ BLOCKING = re.compile(r"mutex|futex|take_gil|RestoreThread|GILState_Ensure|Acqui
                       re.IGNORECASE)
 
 
-def compact_gdb_report(text: str, frames: int = 12, limit: int = 3900) -> str:
+LIBC_WAIT = re.compile(r"^(__futex|__GI___futex|do_futex_wait|__new_sem_wait|___sem_clockwait|__pthread_cond|"
+                       r"___pthread_cond|PyCOND_TIMEDWAIT|_PySemaphore_|syscall$)")
+
+
+def compact_gdb_report(text: str, frames: int = 12, limit: int = 3900, deep: int = 2) -> str:
     """One line per thread: ``T<n> <name>: f0 < f1 < ...`` (innermost first, arguments dropped).
 
-    Thread 1 (the main thread) and threads with a blocking frame (mutex, futex, GIL) come first; idle threads are
-    cut to fewer frames first when the text is too long."""
+    Thread 1 (the main thread) and threads with a blocking frame (mutex, futex, GIL) come first. The first ``deep``
+    threads keep all their frames apart from the libc wait wrappers (they are the two ends of a lock cycle); the
+    others are cut to fewer frames first when the text is too long."""
     threads = []
     current = None
     for line in text.splitlines():
@@ -134,11 +139,13 @@ def compact_gdb_report(text: str, frames: int = 12, limit: int = 3900) -> str:
         return (item["n"] != 1, not blocking, item["n"])
 
     threads.sort(key=rank)
+    for item in threads[:deep]:
+        item["frames"] = [f for f in item["frames"] if not LIBC_WAIT.search(f)] or item["frames"]
     depth = frames
     while True:
         lines = [f"native stacks: {len(threads)} thread(s)"]
         for index, item in enumerate(threads):
-            keep = frames if index < 4 else depth
+            keep = len(item["frames"]) if index < deep else (frames if index < 4 else depth)
             lines.append(f"T{item['n']} {item['name']}: " + " < ".join(item["frames"][:keep]))
         report = "\n".join(lines)
         if len(report) <= limit or depth <= 2:

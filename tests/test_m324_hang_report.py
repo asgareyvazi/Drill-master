@@ -119,7 +119,7 @@ def test_gdb_report_puts_the_main_thread_and_blocked_threads_first():
     assert lines[0] == "native stacks: 3 thread(s)"
     assert lines[1] == ("T1 python: __lll_lock_wait < pthread_mutex_lock@@GLIBC_2.2.5 < QMutex::lock < "
                         "QGraphicsTextItem::setHtml")
-    assert lines[2].startswith("T3 python: __futex_abstimed_wait_common64 < __futex_abstimed_wait_common < take_gil")
+    assert lines[2] == "T3 python: take_gil < PyEval_RestoreThread"          # libc wait wrappers dropped
     assert lines[3].startswith("T4 QXcbEventQueue: __GI___poll < QEventDispatcherUNIX::processEvents")
 
 
