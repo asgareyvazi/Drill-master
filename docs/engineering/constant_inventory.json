@@ -214,12 +214,13 @@
       "core/engineering/engines/cement.py": 2,
       "core/engineering/engines/mud_volume.py": 1,
       "core/hydraulics_engine.py": 1,
+      "core/hydraulics_workflow.py": 1,
       "core/unit_manager.py": 1,
       "core/w13_hydraulics.py": 1,
       "core/well_volumes.py": 1,
       "dialogs/engineering_dialogs.py": 1
      },
-     "uses": 9,
+     "uses": 10,
      "value": 42.0
     }
    }

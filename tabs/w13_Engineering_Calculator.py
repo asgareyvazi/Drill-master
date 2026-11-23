@@ -1073,6 +1073,7 @@ class EngineeringCalculatorTab(DrillTabBase):
         for text, icon, slot, color in [
             ("🔄 Calculate", "", "_hy_run_calc", "#27ae60"),
             ("📉 Surge/Swab", "", "_hy_surge_dialog", "#9b59b6"),
+            ("📊 Budget & Sensitivity", "", "_hy_workflow_dialog", "#16a085"),
             ("📤 Export", "", "_hy_export", "#3498db"),
             ("🖨️ Print", "", "_hy_print", "#e67e22"),
         ]:
@@ -1877,6 +1878,23 @@ class EngineeringCalculatorTab(DrillTabBase):
         except Exception as e:
             logger.error(f"ECD chart: {e}")
             show_status("ECD chart unavailable")
+
+    # ========== M366 Budget & Sensitivity ==========
+    def hy_workflow_dialog(self):
+        """Open the M366 workflow on a frozen copy of the page values (None when inputs are not confirmed)."""
+        from dialogs.hydraulics_workflow_dialog import HydraulicsWorkflowDialog
+
+        if not self.hy_confirm_defaults.isChecked():
+            self.hy_warn.setText("Not assessed: confirm the displayed hydraulics inputs before the budget and "
+                                 "sensitivity workflow.")
+            return None
+        return HydraulicsWorkflowDialog(self._hy_values(), db=getattr(self, "db", None),
+                                        well_id=getattr(self, "current_well_id", None), parent=self)
+
+    def _hy_workflow_dialog(self, _checked=False):
+        dialog = self.hy_workflow_dialog()
+        if dialog is not None:
+            dialog.exec()
 
     # ========== Surge/Swab Dialog ==========
 

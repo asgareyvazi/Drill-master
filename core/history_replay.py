@@ -28,6 +28,7 @@ REPLAY_VERSION = "M328 v1"
 FIELD_TOLERANCES: Dict[str, float] = {
     "gpm": 1e-6, "psi": 0.01, "hp": 0.01, "hp/in²": 0.001, "ft/s": 0.01, "lbf": 0.1, "bbl": 0.001, "%": 0.01,
     "m": 0.001, "klbf": 0.001, "ft·lbf": 0.1, "": 1e-9,
+    "ppg": 1e-4, "in²": 1e-6, "ft/min": 0.01,                       # M366
 }
 
 
@@ -49,6 +50,10 @@ def _unit_of(method: str, key: str) -> str:
             if key.endswith(f"_{curve}"):
                 return "ft·lbf" if unit in ("ft-lbf", "ft·lbf", "ft-lb") else unit
         return ""
+    if method == "m366.hydraulics_workflow":
+        from core.hydraulics_workflow import unit_of
+
+        return unit_of(key)
     return ""
 
 
@@ -199,10 +204,37 @@ def _m318_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
     return tds.case_payload(result, observations)[1]
 
 
+# ---- M366 ---------------------------------------------------------------------------------------------------
+def _m366_current() -> str:
+    from core import hydraulics_workflow as hw
+
+    return f"{hw.METHOD_ID} {hw.METHOD_VERSION}"
+
+
+def _m366_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import hydraulics_workflow as hw
+
+    if version != hw.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"hydraulics workflow version {version!r} is not available in this build"
+    if not isinstance(_input(inputs, "snapshot"), dict):
+        return "NOT REPRODUCIBLE", "the case holds no frozen hydraulics snapshot"
+    return "REPRODUCIBLE", "re-run from the frozen W13 hydraulics inputs after their SHA-256 check"
+
+
+def _m366_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
+    from core import hydraulics_workflow as hw
+
+    try:
+        return hw.replay_results(inputs)
+    except hw.IntegrityError as exc:
+        raise SnapshotIntegrityError(str(exc)) from exc
+
+
 ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
     "m314.ddr_bit_hydraulics_check": (_m314_reproducible, _m314_replay, _m314_current),
     "m317.cement_job_reconciliation": (_m317_reproducible, _m317_replay, _m317_current),
     "m318.td_friction_sensitivity": (_m318_reproducible, _m318_replay, _m318_current),
+    "m366.hydraulics_workflow": (_m366_reproducible, _m366_replay, _m366_current),
 }
 
 
