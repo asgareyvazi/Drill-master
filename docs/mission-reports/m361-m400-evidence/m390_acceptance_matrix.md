@@ -36,12 +36,12 @@ commit that contains it).
 | M386 security | lock vulnerability audit; findings resolved without touching owner-gated pins | `vuln_audit_m386.py`, `m386_vuln_audit_{before,after}.json`, `test_m386_vuln_audit` | PASS |
 | M387 shared well context | dialogs freeze their well; cases attributed; cleared selection → no well | `test_m387_shared_well_context` | PASS |
 | M388 units and constants | every replay unit has a tolerance; inventories current; P8 untouched | `test_m388_units_contract`, `constant_inventory --check` | PASS |
-| M389 mutation | full catalogue on a committed SHA, classified | `m389_run*.txt` | see report §1 |
+| M389 mutation | full catalogue on a committed SHA, classified | `m389_run*.txt` | PASS — run 3 on `41ea53e`: 53 / 53 KILLED, 0 SURVIVED, 0 EQUIVALENT, 0 INVALID, complete |
 | M391 catalogue | 48 domains, strict labels, planned section | `DRILLMASTER_COMPLETE_ENGINEERING_CAPABILITY_CATALOGUE_M400.md` | PASS |
 | M392 doc sections | six documents | M241, PRODUCT_CAPABILITY_MATRIX, ENGINE_INVENTORY (generated section), METHODS_AND_LIMITATIONS, register, M196 | PASS |
 | M393 planned capabilities | listed as NOT IMPLEMENTED | catalogue §"PLANNED…" | PASS |
 | M394 roadmap | – | `DRILLMASTER_ENGINEERING_ROADMAP_M400.md` | PASS |
 | M395 E2E | MainWindow journey + per-workflow W13 UI tests | M375, M387, M371/M372/M373 W13 tests | PASS |
 | M396 benchmarks | independent of the production engine | `m396_benchmarks.txt` (31 cases) | PASS |
-| M397 final CI | 3.11 / 3.12 / 3.13 + Windows on the exact final SHA | report §1 | see report §1 |
+| M397 final CI | 3.11 / 3.12 / 3.13 + Windows on the exact final SHA | report §1 | PASS on `ed68380` (Source `45345379551` 3.11 / 3.12 / 3.13 SUCCESS, Windows `45345379462` SUCCESS); the report SHA's own CI is in the hand-over |
 | Real DDR, Windows desktop, field acceptance | – | P17 | NOT RUN |

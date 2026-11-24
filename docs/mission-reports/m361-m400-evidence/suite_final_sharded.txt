@@ -1,0 +1,10 @@
+SHA=ed683806e782d713568cf236f695107e61845ebc
+shard 1 (tests/test_acceptance_report.py .. tests/test_ddr_regression.py, 56 files): exit 0; no summary line; 257 s
+shard 2 (tests/test_ddr_save_atomicity.py .. tests/test_kill_sheet_casing_id_gate.py, 56 files): exit 0; no summary line; 95 s
+shard 3 (tests/test_kpi_parity.py .. tests/test_m181_m183_tubular_import.py, 56 files): exit 0; no summary line; 701 s
+shard 4 (tests/test_m184_m189_reference_integration.py .. tests/test_m329_architecture_diff_table_export.py, 56 files): exit 0; no summary line; 751 s
+shard 5 (tests/test_m334_citation_record_navigation.py .. tests/test_m52_worker_engine.py, 56 files): exit 0; no summary line; 434 s
+shard 6 (tests/test_m53_dashboard.py .. tests/test_multi_company_template.py, 56 files): exit 0; no summary line; 378 s
+shard 7 (tests/test_nonfinite_import_boundaries.py .. tests/test_single_source_guard.py, 56 files): exit 0; no summary line; 160 s
+shard 8 (tests/test_sqlite_connection_reliability.py .. tests/test_windows_release_gate_contract.py, 52 files): exit 0; no summary line; 141 s
+EXIT=0
