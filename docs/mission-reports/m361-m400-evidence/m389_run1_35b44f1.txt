@@ -1,0 +1,153 @@
+SHA=35b44f1e4bb7001b8667a7761a990c5ca4b00fa1
+baseline exit=0 96 passed in 50.55s
+HW-budget-misclassified  KILLED    BHA losses are booked as drill-pipe losses in the pressure budget
+HW-pump-limit-zero-is-limit KILLED    an un-entered pump limit (0 on the page) is treated as a 0 psi limit
+HW-no-tolerance-classified KILLED    plan vs actual is classified without a declared tolerance
+HW-replay-sha-skipped    KILLED    a tampered frozen snapshot is replayed instead of UNREADABLE
+HW-sweep-flow-not-proportional KILLED    every pump is charged the whole sensitivity flow
+HW-budget-closure-ignored SURVIVED  a budget that does not sum to the SPP is reported as closing
+ID-mark-fingerprint-ignored KILLED    an equal-timestamp replacement row inherits the archive mark
+ID-mark-fingerprint-not-stored KILLED    new archive marks are timestamp-only again
+ID-link-fingerprint-not-stored KILLED    new clone links are timestamp-only again
+ID-match-ignores-born-after-link KILLED    an identical-content row created after the link is VERIFIED as the clone source
+ID-different-not-decisive KILLED    a changed source with the same timestamp is VERIFIED
+ID-null-time-refusal-removed SURVIVED  a NULL-time row of a table without a fingerprint contract can be archived
+ID-compare-always-match  KILLED    fingerprint comparison never reports DIFFERENT
+ID-mark-authorization-skipped SURVIVED  a user without the right writes archive marks
+TD-vertical-load-dropped KILLED    D93 regression: vertical collars under small WOB flagged helical
+TD-vertical-coefficient-wrong KILLED    Lubinski coefficient 1.94 replaced by 1.0
+TD-v2-default-is-v1      KILLED    new runs keep the defective buckling thresholds
+TDP-v1-run-replayed-with-v2 KILLED    a run saved before M367 is verified against buckling v2 (false DIFFERENT)
+TDS-v2-case-replayed-with-v3 SURVIVED  an M318 v2 sweep is replayed with buckling v2
+TD-criterion-mislabelled KILLED    the governing buckling criterion is reported inverted
+AC-3d-warning-dropped    KILLED    a smaller geometric approach is not warned
+AC-conservative-uses-common-md KILLED    the conservative separation ignores the geometric closest approach
+AC-segment-clamp-dropped KILLED    closest points outside the offset segment are accepted (distance too small)
+
+mutants=23 killed=19 survived_non_equivalent=4 declared_equivalent=0 invalid=0 complete=True seconds=270
+EXIT_A=1
+baseline exit=0 167 passed, 14 warnings in 191.53s (0:03:11)
+AD-unknown-equals-zero   KILLED    a field that went from 0 to unknown (or back) is not reported as a change
+AD-binding-ignored       KILLED    a changed tubular-library binding is not reported
+AD-duplicates-unstated   KILLED    two components with the same identity are matched silently (no ambiguity note)
+AD-added-as-removed      KILLED    an added component is reported as removed
+AD-geometry-not-affecting KILLED    a string whose depth / OD / ID changed is not listed as invalidating pinned worksheets
+AD-identical-ignores-changes KILLED    two revisions that differ only in changed fields are reported identical
+AD-cross-well-allowed    KILLED    revisions of two different wells are compared
+AD-order-not-normalised  KILLED    selecting the newer revision first reverses ADDED / REMOVED
+AD-casing-runs-not-listed KILLED    A-1 regression: casing-design runs pinned to the older revision are not listed
+AD-pinned-to-newer       KILLED    the pinned-work list names cases of the newer revision instead of the superseded one
+AD-unknown-shown-as-zero KILLED    an unknown value is displayed as 0
+AD-dup-no-exact-first    KILLED    reordered same-named components are reported as two spurious changes
+AD-dup-remainder-not-flagged KILLED    a stored-order match of duplicates is not flagged ambiguous
+AD-occurrence-off-by-one KILLED    the older occurrence number names the wrong duplicate
+AD-table-always-unchanged KILLED    the table lists unchanged components unless asked
+AD-export-unknown-as-zero KILLED    an unknown value is exported as 0
+AD-export-formula-live   KILLED    a component name starting with '=' is exported as a live spreadsheet formula
+AD-export-sha-wrong      KILLED    the export does not carry the revision SHA-256 (cannot be tied to the frozen revision)
+AD-export-ignores-unchanged-option KILLED    the export omits unchanged components although the user asked for them
+AD-binding-label-top-level KILLED    D90 regression: the binding label reads the top level and shows every library change as unknown
+AD-panel-comparison-outlives-refresh KILLED    a comparison of the previous well stays shown / exportable after refresh
+HC-hsi-band-dropped      KILLED    the documented ±5 % display band is not applied (rounded recorded HSI reported as DIFFERS)
+HC-hsi-one-sided         KILLED    a recorded HSI far below the recomputed value is accepted
+HC-tfa-band-widened      KILLED    a recorded TFA 5 % off the nozzle TFA is accepted
+HC-tfa-prefers-nozzles   KILLED    the nozzle TFA is used while the basis says 'recorded TFA'
+HC-conflicting-mud-picks-first KILLED    two different mud weights: the lowest is chosen silently
+HC-missing-mud-as-zero   KILLED    an unrecorded mud weight becomes 0 ppg instead of missing
+HC-two-dp-rows-first     KILLED    with two drilling-parameter rows the first one's values are shown as the inputs
+HC-nozzle-count-defaulted KILLED    a nozzle row without a count is read as one nozzle
+HC-zero-flow-accepted    KILLED    a recorded 0 (bit size, TFA, flow, HSI) is used as a value
+HC-no-hsi-differs        KILLED    a report without a recorded HSI is reported as disagreeing
+HC-problems-ignored      KILLED    the check computes although the inputs are ambiguous
+HC-pump-output-unnamed   KILLED    missing pump output is not named among the missing inputs
+HC-snapshot-not-frozen   KILLED    M328: the gathered inputs are not frozen, so the case cannot be replayed
+CJ-yield-unit-assumed    KILLED    an undeclared yield unit is assumed to be ft³/sk
+CJ-gal-factor-wrong      KILLED    gal/sk converted with a wrong gallons-per-barrel factor
+CJ-litre-factor-rounded  KILLED    litres per barrel rounded (0.008 % volume error)
+CJ-unit-validated-late   KILLED    an unregistered yield unit is accepted (and stored) whenever sacks or yield is missing
+CJ-zero-sacks-computed   KILLED    A-4 regression: a recorded 0 sacks yields a pumped volume of 0 bbl
+CJ-zero-flag-dropped     KILLED    the recorded job no longer says which fields were recorded as 0
+CJ-displacement-band-dropped KILLED    the documented 2 % allowance on the capacity to the shoe is not applied
+CJ-claims-consistent     KILLED    A-3 regression: an upper-bound check is reported as consistency
+CJ-liner-checked         KILLED    a liner's displacement is compared with the liner capacity (the running string is not modelled)
+CJ-inverted-interval-accepted KILLED    a zero-length interval (BOC = TOC) gives a 0 bbl gauge annulus instead of being refused
+CJ-surface-toc-missing   KILLED    a recorded TOC of 0 m (cement to surface) is treated as not recorded
+CJ-excess-sign           KILLED    the implied excess has the wrong sign
+CJ-toc-difference-sign   KILLED    the TOC difference has the wrong sign
+CJ-job-not-frozen        KILLED    M328: the recorded job is not frozen with the case
+CJ-zero-difference-hidden KILLED    a zero TOC difference disappears from the summary
+CJ-cross-well            KILLED    a cement job is reconciled with another well's architecture
+TDS-comma-decimal-accepted SURVIVED (declared equivalent)  D86 class: '0,25' would be read as 0.25 if the comma gate were removed (gate kept, belt-and-braces)
+TDS-comma-gate-dropped   KILLED    commas are no longer refused with the D86 explanation
+TDS-range-widened        KILLED    a friction factor above 1 is accepted
+TDS-max-factors          KILLED    the per-sweep limit is not enforced
+TDS-interpolates         KILLED    a friction factor is interpolated (a calibration claim)
+TDS-nonmonotonic-located KILLED    an observation is located on a non-monotonic curve
+TDS-single-factor-located KILLED    an observation is 'located' with a single modelled factor
+TDS-outside-not-flagged  KILLED    an observation outside the modelled range is not flagged BELOW / ABOVE
+TDS-below-above-swapped  KILLED    BELOW_RANGE and ABOVE_RANGE swapped
+TDS-failed-factor-dropped KILLED    an engine refusal for one factor disappears from the table
+TDS-unpinned-allowed     KILLED    A-6 regression: a sweep on an unpinned survey is accepted
+TDS-snapshot-not-stored  KILLED    M328: the run snapshot is not stored with the case
+TDS-components-hash-blind KILLED    the string hash ignores the components, so a changed string replays as MATCH
+TDS-zero-observation-missing KILLED    an observed 0 is treated as 'no observation entered'
+RS-empty-dict-counted    KILLED    a dict of empty values counts as a recorded section
+RS-missing-as-included   KILLED    an empty section is reported INCLUDED
+RS-listed-empty-as-included KILLED    M333: an empty NPT / cost / plan section is reported INCLUDED
+RS-time-analysis-assumed KILLED    no logged time is reported as an included time analysis (100 % productive)
+RS-cost-failure-as-empty KILLED    a cost query that returned nothing (None) is reported as 'no cost records'
+RS-not-rendered-hidden   KILLED    collected-but-not-rendered EOWR data is reported as included
+RS-unknown-kind-as-ddr   KILLED    an NPT / cost / plan report gets a DDR manifest it does not have
+RS-version-dropped       KILLED    the manifest version row is not written into the report
+RS-summarised-as-included KILLED    a counts-only section is reported as fully included
+RS-npt-kind-unmapped     KILLED    the NPT report silently loses its manifest again
+RS-npt-subcodes-not-summarised KILLED    only the top 15 sub codes are shown but the manifest claims all are included
+RS-npt-window-cost-reason KILLED    a date-windowed NPT report does not say why no cost was allocated
+RS-known-zero-as-unknown KILLED    a computed figure of 0 is reported as not recorded
+RS-aggregation-counted-as-one KILLED    an aggregation of N groups is reported as 1 row
+RS-plan-versions-claimed-rendered KILLED    inactive plan versions are collected but the manifest claims they are rendered
+RS-cost-projection-unknown-as-included KILLED    a cost report without rates claims a projection
+CR-nav-mismatch-opens    KILLED    a span that does not hold the quote is opened as if it were the cited passage
+CR-nav-changed-refused   KILLED    a changed page cannot be opened although the viewer would state the change
+CR-nav-misaligned-accepted KILLED    results of another record are paired with this record's citations
+CR-nav-wrong-span        KILLED    the opened span is not the recorded span
+KA-nav-guard-dropped     KILLED    the open action bypasses the openable check
+KA-nav-stale-targets     KILLED    an unreadable file leaves the previous record's passages openable
+CR-page-hash-unchecked   KILLED    a re-reviewed page is not reported PAGE_CHANGED
+CR-span-unchecked        KILLED    a span that no longer holds the quote is reported EXACT
+CR-foreign-page-accepted KILLED    a page id of another document is accepted
+CR-document-unchecked    KILLED    a deleted document is reported as a missing page
+CR-quote-not-required    KILLED    an entry without its quote is checked instead of reported UNREADABLE
+CR-version-unchecked     KILLED    verify_record accepts any JSON dict as a citation record
+CR-load-version-unchecked KILLED    loading a file accepts any JSON dict as a citation record
+CR-semantic-label-dropped KILLED    the 'Not semantically verified' label is not recorded
+CR-uncited-recorded      KILLED    retrieved-but-uncited passages are recorded as citations
+QL-threshold-6.8.1       KILLED    closed windows are freed on the crashing PySide6 6.8.1.x
+QL-operator-override-ignored KILLED    DRILLMASTER_RETAIN_CLOSED_WINDOWS=1 is ignored
+QL-unknown-version-released KILLED    an unrecognised PySide6 version frees windows (unsafe default)
+QL-lenient-version       KILLED    '6.8.x'-like versions are parsed by stripping non-digits
+HR-tolerance-widened     KILLED    a 0.01 bbl change replays as MATCH
+HR-one-sided-fields-ignored KILLED    a result field present on one side only is not reported
+HR-text-not-compared     KILLED    a changed status / label (e.g. EXCEEDS_CAPACITY -> WITHIN_UPPER_BOUND) replays as MATCH
+HR-keyerror-as-not-found KILLED    a malformed snapshot is reported NOT_REPRODUCIBLE
+HR-survey-hash-unchecked KILLED    edited frozen survey stations are replayed
+HR-architecture-pin-unchecked KILLED    a cement case is replayed against an architecture revision with another SHA-256
+HR-m317-version-unchecked KILLED    a case of a retired M317 method version is replayed with the current method
+HR-m318-legacy-replayed  KILLED    a pre-M328 T&D case is claimed REPRODUCIBLE
+HR-m314-legacy-replayed  KILLED    a pre-M328 hydraulics case is claimed REPRODUCIBLE
+HR-rerun-link-type       KILLED    a replay is linked as a recalculation with another method
+HR-m314-problems-dropped SURVIVED (declared equivalent)  frozen gathering problems are not replayed
+TD-segments-ignored      KILLED    D92 regression: each drill-string entry is one element again
+TD-segment-too-coarse    KILLED    integration segments of 50 m (benchmark error > 0.2 %)
+TD-last-segment-gap      KILLED    segments lose 1 % of the string length
+TD-buckling-first-segment KILLED    the buckling row of an entry is its first segment, not its worst
+TD-legacy-method-mislabelled KILLED    a whole-entry result is labelled with the segmented method
+TDP-legacy-recalculated-segmented KILLED    a run saved before D92 is verified against the new integration (false DIFFERENT)
+TDS-v1-replayed-as-v2    KILLED    an M318 v1 case is replayed with the v2 integration
+TDS-unknown-version-accepted KILLED    a sweep runs under a version this build does not have
+W3C-cement-placeholders-saved KILLED    D89 regression: a new cement report stores yield 1.18 / TOC 0 placeholders as data
+W3C-casing-placeholders-saved KILLED    D89 regression: a new casing report stores 0 psi / 0 lbf placeholders as data
+W3C-new-record-banner    KILLED    a new cement report is labelled as database NULLs instead of NOT RECORDED YET
+
+mutants=121 killed=119 survived_non_equivalent=0 declared_equivalent=2 invalid=0 complete=True seconds=67473
+EXIT_B=0
