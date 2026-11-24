@@ -246,3 +246,37 @@ directional. Documented deviation for owner review: 7.48 vs 7.48052 (gal/ft³ ro
 - History tables (plan, survey and architecture revisions, calculation cases, lineage links) reject UPDATE, a
   replacing INSERT and a direct DELETE at storage level. They leave only with their well's cascade. Well-less
   calculation cases cannot be deleted.
+
+## M361–M400 methods (M392)
+
+Every method below stores a calculation case with the declared inputs, their SHA-256 and the method version, and
+replays from Calculation History (MATCH / DIFFERENT / NOT_REPRODUCIBLE / UNREADABLE). A missing input is NOT
+ASSESSED, never 0. Help → Method catalogue now lists **62** methods (the M106 count of 54 plus 8 calculation-case
+services); every entry stays "NOT APPROVED — OWNER REVIEW REQUIRED".
+
+- **Hydraulics workflow (M366, SCREENING).** W13 circulating-system engine: losses per group, bit ΔP, TFA, HHP, HSI,
+  jet velocity, impact force, annular velocity; ECD only when the annular geometry is complete; pump-limit check
+  only against an entered limit; flow-rate and nozzle sensitivities; plan vs actual only with a declared tolerance.
+  Refused until the displayed inputs are confirmed. Surface losses NOT ASSESSED without surface geometry. P8 kept.
+- **Hole cleaning (M370, SCREENING).** CCI = K·AV·MW/400 000 with K = 511^(1−n)·θ300, n = 3.32·log10(θ600/θ300);
+  ≥ 1 GOOD, ≤ 0.5 POOR; NOT APPLICABLE above 35°.
+- **Survey plan vs actual (M368, SCREENING).** The plan's stored stations are interpolated by minimum curvature;
+  right / high / distance per actual station; targets HIT / MISS against their declared radius. Centreline only;
+  a datum or azimuth-reference mismatch is refused, never converted (P10).
+- **Anti-collision (M369, SCREENING).** `closest_approach_3d` gives the geometric minimum next to the equal-MD
+  pairing; no uncertainty, no separation factor (P19).
+- **Torque and drag (M367, SCREENING).** Johancsik soft string, segments ≤ 5 m, D93 v2 buckling onset; benchmarks
+  in `tools/quality/benchmark_m396.py` are independent closed forms.
+- **Casing axial loads and wear (M371, SCREENING).** A_s = π/4 (OD² − ID²); σb = E·OD/2·DLS·π/180/1200;
+  ΔF_T = −E·α·ΔT·A_s; ΔF_B = 2ν(A_i ΔP_i − A_o ΔP_o) (both ends fixed); σ = F/A_s + σb; worn wall
+  t(1 − wear/100) into `CasingEngine` burst and collapse (0.875 wall tolerance still applied). E, α, ν declared; a
+  partial sum is not a total. Pipe body only: no triaxial envelope, connection rating or casing buckling (P12, P18).
+- **Drill-off test (M372, SCREENING).** Dupriest & Koederitz (SPE 92194): steps sorted by WOB; slope dROP/dWOB per
+  interval; founder = lower step of the first interval below `fraction` × the first interval's slope (fraction and
+  RPM tolerance are declared and stored); MSE per step through `MSEEngine` (Teale, 120π); drilling efficiency =
+  CCS/MSE only with a declared CCS. Refused when RPM varies beyond the tolerance or ROP does not rise at first.
+- **Volumetric method (M373, TRAINING AID — P11).** G = ρ[pcf]/144 psi/ft (exact; no gallon divisor),
+  H = G/C psi/bbl, ΔV = Pw·C/G; cycle k holds SICP + Ps + k·Pw; migration = (ΔP/Δt)/G. The table stops at the first
+  cycle above a declared casing limit. Single bubble, constant capacity, no gas law, no lubricate-and-bleed.
+- **Replay tolerances (M388).** Absolute, per unit, repeatability only: adds `in` 1e-6, `ft/h` 0.01,
+  `psi/bbl` 1e-4; every unit an M361–M400 adapter reports is listed (tested).

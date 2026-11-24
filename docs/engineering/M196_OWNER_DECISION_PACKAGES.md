@@ -303,3 +303,29 @@ The nine fields of every package are:
 7. **Engineering view:** (a) until a benchmark set and the table licence are confirmed.
 8. **Until decided:** SCREENING – NO ISCWSA UNCERTAINTY – NO SEPARATION FACTOR – NOT APPROVED.
 9. **Owner must provide:** the decision, the model-table licence position and the benchmark wells.
+
+## M400 status (M385 / M398)
+
+**No decision P1–P19 is recorded as approved.** `core/method_catalogue.OWNER_APPROVALS` is still empty; the
+62-entry method catalogue shows "NOT APPROVED — OWNER REVIEW REQUIRED" on every row. What M361–M400 changed in the
+evidence for each package:
+
+| Package | State | M361–M400 evidence / consequence |
+|---|---|---|
+| P1 PyMuPDF | OPEN | unchanged (1.24.14; M386: no published advisory) |
+| P2 PySide6 | OPEN — **recommendation updated** | `m378_pyside_decision_record.md`: 6.8.3 recommended, 6.8.2.1 alternative; "6.8.5 commercial-only" wording corrected (LGPL 6.8.4/6.8.5 LTS source tags exist, no wheels). Pin stays 6.8.1.1; a change moves all four packages and runs the M378 checklist |
+| P3 pwptemp / torque_drag | OPEN | M379 re-audit unchanged; T&D stays own Johancsik code; stiff string NOT IMPLEMENTED |
+| P4 MinerU, P5 OCR, P6 qtribbon, P7 AI | OPEN | unchanged |
+| P8 density divisor | OPEN — current behaviour kept | M373 avoids the question: its gradient is pcf/144 (exact), no gallon conversion |
+| P9 currency | OPEN | unchanged |
+| P10 datum / CRS | OPEN | M368 refuses a datum or azimuth-reference mismatch instead of converting |
+| P11 kill sheet | OPEN | M373 volumetric method added as **TRAINING AID** under P11; no operational claim |
+| P12 method approvals | OPEN | +8 catalogue entries (M314–M373 services), all NOT APPROVED |
+| P13–P15 security | OPEN | encryption at rest NOT PROVIDED (M375 step); M386 lock vulnerability audit added |
+| P16 signing | OPEN | product label stays UNSIGNED |
+| P17 Windows / field acceptance | OPEN | NOT RUN |
+| P18 tubular data | OPEN | M371 takes OD / ID / yield as declared or page values; no rating table shipped |
+| P19 ISCWSA | OPEN | M369 closest approach is centreline geometry; never called a separation factor |
+
+Dependency change made without an owner gate: **pillow 12.3.0 → 13.0.0** (M386; 58 published advisories fixed in
+13.0.0; same MIT-CMU licence; not a Qt package, so P2 does not apply). It is listed here so the owner can reverse it.

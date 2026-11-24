@@ -949,3 +949,15 @@ The register stays the single source of truth; **all 50 classifications are unch
     Colebrook friction, FORGE pressure comparisons). Apache-2.0. INSPIRE ONLY, now a **candidate for a clean-room
     method port** (roadmap R-HYD-2). Not implemented and no code taken in M361–M400.
 - P3 (pwptemp, torque_drag, LGPL) remains an owner decision; DrillMaster's T&D stays its own Johancsik code.
+
+### M380–M384 method adaptation outcome (M400)
+
+- **REUSE ALGORITHM rows:** #2 welleng — optional adapter only, ISCWSA stays **BLOCKED BY OWNER DECISION** (P19);
+  #31 cement-calc — already adopted as the **M52 balanced-plug** method (`CementEngine.balanced_plug`,
+  `tests/test_m52_balanced_plug.py`). The M379 row text "cement worksheet (M109)" is corrected by an addendum in
+  `m379_oss_reaudit.md`; the classification is unchanged.
+- **New M361–M400 methods are own code from textbook sources** (Lubinski / Bourgoyne casing loads, Dupriest &
+  Koederitz drill-off, IWCF / IADC volumetric method); no repository code, test vectors or datasets were used.
+- **BoreTHM (#41, Apache-2.0):** clean-room port of the Herschel-Bulkley slot / Colebrook method is roadmap
+  **R-HYD-2** (`DRILLMASTER_ENGINEERING_ROADMAP_M400.md` E1); NOT IMPLEMENTED.
+- **OWNER REVIEW rows** (#15 pwptemp, #18 torque_drag, LGPL-3.0): unchanged, P3.

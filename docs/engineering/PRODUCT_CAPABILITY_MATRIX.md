@@ -1387,3 +1387,32 @@ so nothing new below is labelled "QUALIFIED".
 | Clone contract for all 11 history adapters, clone provenance, bulk archive / restore, clone vs source (M303–M306) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/calculation_clone_contract.py`, `tests/test_m303_m306_*`; D87 equal-timestamp case open |
 | Closed-window release policy gated on PySide6 ≥ 6.8.2 (D63/D74, M307–M308) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/qt_lifetime.py`, `tests/test_m308_window_release_policy.py` (16); the lock stays at 6.8.1.1, so windows are still retained on the shipped pin — **OWNER DECISION REQUIRED** |
 | D51 CI monitor (M309) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/d51_ci_monitor.py`, `tests/test_m309_d51_monitor.py` (11) |
+
+# M361–M400 additions
+
+Report: `docs/mission-reports/M361_M400_INTEGRATED_ENGINEERING_COMPLETION_REPORT.md`. Evidence:
+`docs/mission-reports/m361-m400-evidence/`. All synthetic (offscreen Qt on Linux, GitHub-hosted runners).
+**PARTIAL — UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.** Full state table:
+`docs/engineering/DRILLMASTER_COMPLETE_ENGINEERING_CAPABILITY_CATALOGUE_M400.md`.
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| Hydraulics workflow: pressure budget, pump limits, sensitivities, plan vs actual; W13 "Budget & sensitivity…" (M366) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/hydraulics_workflow.py`, `tests/test_m366_hydraulics_workflow.py`; HW-* mutants; surface losses NOT ASSESSED without surface geometry |
+| Hole cleaning CCI (M370) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | in the M366 summary lines only; NOT APPLICABLE above 35° |
+| D87 clone identity (M365) | IMPLEMENTED AND QUALIFIED — SYNTHETIC | `core/record_identity.py`, `tests/test_m365_d87_identity.py`; ID-* mutants |
+| T&D benchmarks, buckling D93, revision pinning (M367) and centreline anti-collision closest approach (M369) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `tests/test_m367_m369_m396_engineering.py`; soft string only; no ISCWSA SF (P19) |
+| Survey plan vs actual, targets; 3D view "Plan vs actual…" (M368) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/survey_plan_deviation.py`, `tests/test_m368_survey_plan_deviation.py`; SPD-* mutants |
+| Casing axial loads and wear; W13 casing "Axial loads & wear…" (M371) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/casing_axial_loads.py`, `tests/test_m371_casing_axial_loads.py`; CAL-* mutants; pipe body only |
+| Drill-off test founder and step MSE; W13 bit page "Drill-off test (founder)…" (M372) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/mse_drilloff.py`, `tests/test_m372_mse_drilloff.py`; MDO-* mutants |
+| Volumetric method and gas migration; W13 well control "Volumetric method (TRAINING AID)…" (M373) | IMPLEMENTED — PARTIALLY QUALIFIED (TRAINING AID, P11) | `core/well_control_volumetric.py`, `tests/test_m373_volumetric_method.py`; WCV-* mutants |
+| W12 KPI specs (M374) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/analysis_evidence.py`, `tests/test_m374_w12_kpi_specs.py` |
+| Real MainWindow 35-step journey (M375) | IMPLEMENTED — PARTIALLY QUALIFIED | `tests/test_m375_main_window_journey.py`; synthetic data |
+| Dialog Qt lifecycle (M376) | IMPLEMENTED — PARTIALLY QUALIFIED | `tests/test_m376_qt_lifecycle.py`; PySide pin unchanged (owner) |
+| CI run states SUCCESS / SUPERSEDED / TIMEOUT / FAILURE / IN_PROGRESS (M377) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/ci_run_states.py`; CRS-* mutants |
+| PySide decision record (M378) | DOCUMENTED ONLY | `m378_pyside_decision_record.md`; BLOCKED BY OWNER DECISION |
+| OSS re-audit of all 50 repositories (M379) | DOCUMENTED ONLY | `m379_oss_reaudit.md` (+ addendum on row 31); nothing adopted |
+| Lock vulnerability audit; pillow 13.0.0 (M386) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/vuln_audit_m386.py`, `tests/test_m386_vuln_audit.py` |
+| Shared well context across the W13 workflows (M387) | IMPLEMENTED AND QUALIFIED — SYNTHETIC | `tests/test_m387_shared_well_context.py` |
+| Replay unit tolerances (M388) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/history_replay.py`, `tests/test_m388_units_contract.py` |
+| Method catalogue: 8 calculation-case services added (62 entries, 0 approved) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/method_catalogue.py` `_case_services` |
+| Engine inventory: workflow-services section (generated) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/engine_inventory.py` |

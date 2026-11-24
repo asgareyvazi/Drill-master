@@ -74,3 +74,13 @@ was adopted, and no dependency was added.**
 Method / files per repository: unchanged from the register's "Details" section (each entry lists language,
 file count, dependencies, tests and the reason for its classification); only repositories with new commits were
 re-read above. Status: **PASS** (all 50 checked, 0 NOT CHECKED).
+
+## Addendum (M364 rule: the row above is kept, the correction is here)
+
+Row 31 says the cement-calc method is "already reflected in cement worksheet (M109)". That is **wrong in its
+attribution**: the cement-calc method reference is the **balanced-plug** method behind `CementEngine.balanced_plug`
+(`core/engineering/engines/cement.py`), added in **M52** (commit `77d0ab4`), tested against hand references in
+`tests/test_m52_balanced_plug.py`, and recorded in `THIRD_PARTY_NOTICES.md` ("cement-calc (method reference")).
+M109 is the cement-worksheet contract with its re-run adapter (`tests/test_m109_cement_worksheet.py`:
+annular capacity (D² − d²)/1029.4, no inferred yield or sacks), which does not use the balanced-plug method. The classification (REUSE ALGORITHM, MIT,
+no code copied) is unchanged.

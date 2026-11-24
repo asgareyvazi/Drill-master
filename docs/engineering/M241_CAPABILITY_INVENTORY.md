@@ -170,3 +170,27 @@ This section only changes the areas M291–M320 touched; every other M290 row is
 
 Mutation reach: no M291–M320 module is in a mutation catalogue. That is the qualification gap, and it is stated
 here rather than closed by assumption.
+
+## M400 update (M361–M400)
+
+The full 48-domain state table is now `DRILLMASTER_COMPLETE_ENGINEERING_CAPABILITY_CATALOGUE_M400.md`; it supersedes
+the M290 table above for **state** (both are kept). Areas M361–M400 changed:
+
+| Area | Change | State |
+|---|---|---|
+| Hydraulics | pressure budget, pump limits, flow / nozzle sensitivities, plan vs actual, ECD only with complete annular geometry (M366); CCI (M370) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Surveys | plan vs actual centreline deviation, targets HIT/MISS, revision hashes, replay (M368) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Anti-collision | geometric closest approach next to the equal-MD pairing (M369); never an ISCWSA SF | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING); ISCWSA BLOCKED BY OWNER DECISION (P19) |
+| Casing | axial-load components (bending, thermal, ballooning), fibre stress, worn-wall burst / collapse (M371) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| MSE / bit | drill-off test founder point, step MSE, drilling efficiency (M372) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Well control | volumetric method bleed schedule and gas-migration rate (M373) | IMPLEMENTED — PARTIALLY QUALIFIED (TRAINING AID, P11) |
+| Calculation workbench | D87 clone identity: `D87fp1` fingerprint, VERIFIED / SOURCE_REPLACED / TIMESTAMP_ONLY (M365) | IMPLEMENTED AND QUALIFIED — SYNTHETIC |
+| W12 KPIs | structured KPI specs and tooltips (M374) | IMPLEMENTED — PARTIALLY QUALIFIED |
+| Qt lifecycle | M366/M368/M371 dialogs parented and destroyed with their page (M376); pin unchanged | IMPLEMENTED — PARTIALLY QUALIFIED; pin BLOCKED BY OWNER DECISION |
+| Shared well context | dialogs freeze the well they open for; cases attributed to it (M387) | IMPLEMENTED AND QUALIFIED — SYNTHETIC |
+| Units | every replay unit has a declared tolerance (M388) | IMPLEMENTED — PARTIALLY QUALIFIED |
+| Security | lock vulnerability audit; pillow 12.3.0 → 13.0.0 (M386) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) |
+| Help → Method catalogue | +8 calculation-case services (M314, M317, M318, M366, M368, M371, M372, M373): 62 entries, 0 approved | IMPLEMENTED — PARTIALLY QUALIFIED |
+
+Mutation reach: every M361–M400 service module is in `tools/quality/mutation_m361_m400.py` (53 mutants; results in
+`docs/mission-reports/m361-m400-evidence/`). Mutation results are not proof of correctness.
