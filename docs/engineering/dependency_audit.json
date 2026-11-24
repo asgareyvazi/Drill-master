@@ -133,7 +133,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 79,
+    "evidence_tests": 80,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -185,6 +185,7 @@
      "test_m329_architecture_diff_table_export.py",
      "test_m365_d87_identity.py",
      "test_m366_hydraulics_workflow.py",
+     "test_m375_main_window_journey.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
      "test_m49_knowledge_ui.py",
@@ -580,7 +581,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 31,
     "licence": "own code (product licence)",
     "method_id": "survey.azimuth_transform",
     "status": "IMPLEMENTED",
@@ -603,6 +604,8 @@
      "test_m323_m328_residuals_and_replay.py",
      "test_m349_benchmarks_d92.py",
      "test_m367_m369_m396_engineering.py",
+     "test_m368_survey_plan_deviation.py",
+     "test_m375_main_window_journey.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -618,7 +621,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 31,
     "licence": "own code (product licence)",
     "method_id": "survey.datum_transform",
     "status": "IMPLEMENTED",
@@ -641,6 +644,8 @@
      "test_m323_m328_residuals_and_replay.py",
      "test_m349_benchmarks_d92.py",
      "test_m367_m369_m396_engineering.py",
+     "test_m368_survey_plan_deviation.py",
+     "test_m375_main_window_journey.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -656,7 +661,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 29,
+    "evidence_tests": 31,
     "licence": "own code (product licence)",
     "method_id": "survey.revision",
     "status": "IMPLEMENTED",
@@ -679,6 +684,8 @@
      "test_m323_m328_residuals_and_replay.py",
      "test_m349_benchmarks_d92.py",
      "test_m367_m369_m396_engineering.py",
+     "test_m368_survey_plan_deviation.py",
+     "test_m375_main_window_journey.py",
      "test_m52_trajectory_compare_ui.py",
      "test_m72_survey_ui.py",
      "test_m72_surveys_solver.py",
@@ -694,7 +701,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 25,
+    "evidence_tests": 26,
     "licence": "own code (product licence)",
     "method_id": "engine.torque_drag",
     "status": "IMPLEMENTED",
@@ -713,6 +720,7 @@
      "test_m323_m328_residuals_and_replay.py",
      "test_m349_benchmarks_d92.py",
      "test_m367_m369_m396_engineering.py",
+     "test_m375_main_window_journey.py",
      "test_m76_engineering_labels.py",
      "test_m90_engine_qualification.py",
      "test_mse_cross_process.py",
@@ -1925,6 +1933,14 @@
    "guarded": false,
    "lines": [
     13
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/survey_plan_deviation_dialog.py",
+   "guarded": false,
+   "lines": [
+    16
    ],
    "module": "PySide6"
   },

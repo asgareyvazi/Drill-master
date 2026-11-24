@@ -13,8 +13,8 @@ import logging
 from typing import Callable, Optional
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (QComboBox, QGridLayout, QHeaderView, QLabel, QTableWidget, QTableWidgetItem,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QPushButton, QTableWidget,
+                               QTableWidgetItem, QVBoxLayout, QWidget)
 
 from core import trajectory_layers as tl
 from core.context_jobs import CANCELLED, ERROR, STALE, ContextJobRunner, check_cancel
@@ -86,6 +86,16 @@ class TrajectoryLayersPanel(QWidget):
         self.status_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         self.status_table.setMaximumHeight(150)
         layout.addWidget(self.status_table)
+        actions = QHBoxLayout()
+        self.deviation_btn = QPushButton("Plan vs actual…")
+        self.deviation_btn.setObjectName("layers_plan_deviation_btn")
+        self.deviation_btn.setToolTip("M368: centreline deviation of the base survey revision from the chosen plan "
+                                      "(SCREENING; needs a survey revision as the base and a plan)")
+        self.deviation_btn.clicked.connect(self._deviation_clicked)
+        actions.addWidget(self.deviation_btn)
+        actions.addStretch()
+        layout.addLayout(actions)
+        self.deviation_dialog = None
         self._fill_combos()
 
     # -- scope ------------------------------------------------------------------------------------------------
@@ -123,6 +133,33 @@ class TrajectoryLayersPanel(QWidget):
         fill(self.compare_combo, ("None", None), self.catalogue["surveys"])
         fill(self.plan_combo, ("None", None), self.catalogue["plans"])
         fill(self.architecture_combo, ("None", None), self.catalogue["architectures"])
+        self._update_deviation_button()
+
+    # -- M368 plan vs actual ----------------------------------------------------------------------------------
+    def _deviation_ids(self):
+        choice = self.choices()
+        base, plan = choice["base"], choice["plan"]
+        if self.db_manager is None or not self.well_id or base in (WORKING, NO_SURVEY, None) or plan is None:
+            return None
+        return base, plan
+
+    def _update_deviation_button(self) -> None:
+        self.deviation_btn.setEnabled(self._deviation_ids() is not None)
+
+    def plan_deviation_dialog(self):
+        """The M368 dialog for the chosen base survey revision and plan (None when either is not chosen)."""
+        from dialogs.survey_plan_deviation_dialog import SurveyPlanDeviationDialog
+
+        ids = self._deviation_ids()
+        if ids is None:
+            return None
+        return SurveyPlanDeviationDialog(self.db_manager, ids[0], ids[1], well_id=self.well_id, parent=self)
+
+    def _deviation_clicked(self, _checked=False):
+        dialog = self.plan_deviation_dialog()
+        if dialog is not None:
+            self.deviation_dialog = dialog
+            dialog.open()
 
     def choices(self) -> dict:
         return {"base": self.base_combo.currentData(), "compare": self.compare_combo.currentData(),
@@ -140,6 +177,7 @@ class TrajectoryLayersPanel(QWidget):
 
     def _choices_changed(self, *_args) -> Optional[int]:
         choice = self.choices()
+        self._update_deviation_button()
         if self.well_id is None or self.db_manager is None or choice["base"] == WORKING:
             self.jobs.invalidate()
             self._show_working()

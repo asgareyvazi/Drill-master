@@ -54,6 +54,10 @@ def _unit_of(method: str, key: str) -> str:
         from core.hydraulics_workflow import unit_of
 
         return unit_of(key)
+    if method == "m368.survey_plan_deviation":
+        from core.survey_plan_deviation import unit_of as m368_unit_of
+
+        return m368_unit_of(key)
     return ""
 
 
@@ -230,11 +234,38 @@ def _m366_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
         raise SnapshotIntegrityError(str(exc)) from exc
 
 
+# ---- M368 ---------------------------------------------------------------------------------------------------
+def _m368_current() -> str:
+    from core import survey_plan_deviation as spd
+
+    return f"{spd.METHOD_ID} {spd.METHOD_VERSION}"
+
+
+def _m368_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import survey_plan_deviation as spd
+
+    if version != spd.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"survey-vs-plan deviation version {version!r} is not available in this build"
+    if not isinstance(_input(inputs, "snapshot"), dict):
+        return "NOT REPRODUCIBLE", "the case holds no frozen survey/plan snapshot"
+    return "REPRODUCIBLE", "re-run from the frozen survey and plan stations after their SHA-256 check"
+
+
+def _m368_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
+    from core import survey_plan_deviation as spd
+
+    try:
+        return spd.replay_results(inputs)
+    except spd.IntegrityError as exc:
+        raise SnapshotIntegrityError(str(exc)) from exc
+
+
 ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
     "m314.ddr_bit_hydraulics_check": (_m314_reproducible, _m314_replay, _m314_current),
     "m317.cement_job_reconciliation": (_m317_reproducible, _m317_replay, _m317_current),
     "m318.td_friction_sensitivity": (_m318_reproducible, _m318_replay, _m318_current),
     "m366.hydraulics_workflow": (_m366_reproducible, _m366_replay, _m366_current),
+    "m368.survey_plan_deviation": (_m368_reproducible, _m368_replay, _m368_current),
 }
 
 

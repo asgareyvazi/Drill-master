@@ -33,12 +33,14 @@ TDS = "core/torque_drag_sensitivity.py"
 AC = "core/engineering/engines/anti_collision.py"
 AE = "core/analysis_evidence.py"
 CRS = "tools/quality/ci_run_states.py"
+SPD = "core/survey_plan_deviation.py"
 
 THW = ["tests/test_m366_hydraulics_workflow.py"]
 TID = ["tests/test_m365_d87_identity.py", "tests/test_m303_m306_clone_contract_and_bulk.py"]
 TENG = ["tests/test_m367_m369_m396_engineering.py"]
 TKPI = ["tests/test_m374_w12_kpi_specs.py", "tests/test_m48_analysis_evidence.py"]
 TCRS = ["tests/test_m377_ci_run_states.py"]
+TSPD = ["tests/test_m368_survey_plan_deviation.py"]
 TTD = TENG + ["tests/test_m349_benchmarks_d92.py", "tests/test_m318_td_friction_sensitivity.py"]
 
 MUTANTS = [
@@ -154,6 +156,27 @@ MUTANTS = [
            "        state = max((j[\"state\"] for j in jobs), key=_RANK.__getitem__)\n",
            "        state = min((j[\"state\"] for j in jobs), key=_RANK.__getitem__)\n", TCRS,
            "one green leg makes the run green"),
+    # ------------------------------------------------------------------ M368 survey vs plan deviation
+    Mutant("SPD-right-sign-flipped", SPD,
+           "        right = _norm(_cross((0.0, 0.0, 1.0), tangent))\n",
+           "        right = _norm(_cross(tangent, (0.0, 0.0, 1.0)))\n", TSPD, "left and right are swapped"),
+    Mutant("SPD-reference-not-compared", SPD,
+           "        if str(survey.get(key) or \"\").strip().lower() != str(refs[key] or \"\").strip().lower():\n",
+           "        if False:\n", TSPD, "a survey in another datum / azimuth reference is compared with the plan"),
+    Mutant("SPD-frame-prefix-skipped", SPD,
+           "    problem = _same_prefix(_positions(pinned), actual, tie_md)\n",
+           "    problem = None\n", TSPD, "a survey in another frame above the tie-in is compared"),
+    Mutant("SPD-tolerance-defaulted", SPD,
+           "    if tolerance_m is None:\n        row[\"status\"] = NO_TOLERANCE\n",
+           "    if tolerance_m is None:\n        row[\"status\"] = WITHIN\n", TSPD,
+           "no declared tolerance is reported WITHIN"),
+    Mutant("SPD-replay-hash-unchecked", SPD,
+           "    if snapshot_sha256(snap) != (inputs.get(\"snapshot_sha256\") or {}).get(\"value\"):\n",
+           "    if False:\n", TSPD, "a tampered frozen snapshot is replayed"),
+    Mutant("SPD-not-reached-as-miss", SPD,
+           "    if near[\"md\"] >= actual[-1][\"md\"] - MD_TOLERANCE_M and coords[2] > actual[-1][\"tvd\"] + "
+           "POSITION_TOLERANCE_M:\n",
+           "    if False:\n", TSPD, "a target below the drilled depth is reported HIT / MISS"),
 ]
 
 
