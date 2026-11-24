@@ -1,35 +1,35 @@
 # M412 independent benchmarks (expected values never from the production code; input class SYNTHETIC)
 id | expected | actual | rel. error | tolerance | result | note
-R1 Newtonian laminar = plane Poiseuille 12 mu V L / H^2 | 106.127 | 106.127 | 1.34e-16 | 1e-09 | PASS | exact
-R2 power-law slot tau_w = K((2n+1)V/(n h))^n | 266.694 | 266.694 | 0.00e+00 | 1e-09 | PASS | exact closed form
-R3 Bingham slot (Buckingham form, bisection) | 202.514 | 202.514 | 0.00e+00 | 1e-08 | PASS | bisection 200 halvings
-R4 HB slot laminar by Simpson quadrature of the velocity profile | 354.79 | 354.79 | 6.33e-12 | 2e-05 | PASS | quadrature 4000 panels; 2e-5 covers its error
+R1 Newtonian laminar = plane Poiseuille 12 mu V L / H^2 | 106.127 | 106.127 | <1e-09 | 1e-09 | PASS | exact
+R2 power-law slot tau_w = K((2n+1)V/(n h))^n | 266.694 | 266.694 | <1e-09 | 1e-09 | PASS | exact closed form
+R3 Bingham slot (Buckingham form, bisection) | 202.514 | 202.514 | <1e-09 | 1e-08 | PASS | bisection 200 halvings
+R4 HB slot laminar by Simpson quadrature of the velocity profile | 354.79 | 354.79 | <1e-09 | 2e-05 | PASS | quadrature 4000 panels; 2e-5 covers its error
 R5 slot vs EXACT concentric annulus, Newtonian, kappa 0.6 | 137.311 | 137.902 | 4.31e-03 | 1e-02 | PASS | slot idealisation error ~0.4 % at kappa 0.6 (stated <= 2.5 %)
-R6 turbulent Newtonian, Colebrook (bisection here), Fanning = Darcy/4 | 265.991 | 265.991 | 9.81e-14 | 1e-08 | PASS | exact
-R7 transitional Newtonian, linear blend 2100-3000 | 30.0914 | 30.0914 | 5.63e-14 | 1e-08 | PASS | Re 2526; band per Founargiotakis et al. 2008 at n' 1
+R6 turbulent Newtonian, Colebrook (bisection here), Fanning = Darcy/4 | 265.991 | 265.991 | <1e-09 | 1e-08 | PASS | exact
+R7 transitional Newtonian, linear blend 2100-3000 | 30.0914 | 30.0914 | <1e-09 | 1e-08 | PASS | Re 2526; band per Founargiotakis et al. 2008 at n' 1
 R8 Colebrook smooth Re 1e5 vs Moody chart 0.0180 | 0.018 | 0.0179898 | 5.68e-04 | 3e-03 | PASS | chart read to 3 sf (bisection here 0.017990)
-SS1 closed-end surge = Couette-Poiseuille slot (K_c 0.5 exact, Newtonian laminar) | 15.8455 | 15.8455 | 8.97e-16 | 1e-09 | PASS | two sections, moving inner wall
-SS2 surge EMW = MW + dP / ((12/231) TVD) | 10.0305 | 10.0305 | 0.00e+00 | 1e-12 | PASS | 1 lb/gal over 12 in on 231 in3
-DF1 fitted breakpoint of an exact hinge | 22.5 | 22.5 | 3.16e-16 | 1e-06 | PASS | break between tested WOB 20 and 25
-DF2 fitted upper slope of an exact hinge | 0.4 | 0.4 | 4.72e-15 | 1e-06 | PASS | ft/h per klbf
-D94-1 AC2 skew geometry, 3D closest approach (perpendicular offset) | 20 | 20 | 0.00e+00 | 1e-09 | PASS | exact geometry; AC2 tests the equal-MD value instead
-D94-2 non-planar skew wells, |(q0-p0).(d1 x d2)| / |d1 x d2| | 51.2148 | 51.2148 | 5.24e-10 | 1e-06 | PASS | cross-product line distance; interior closest points (6-dp engine rounding)
+SS1 closed-end surge = Couette-Poiseuille slot (K_c 0.5 exact, Newtonian laminar) | 15.8455 | 15.8455 | <1e-09 | 1e-09 | PASS | two sections, moving inner wall
+SS2 surge EMW = MW + dP / ((12/231) TVD) | 10.0305 | 10.0305 | <1e-12 | 1e-12 | PASS | 1 lb/gal over 12 in on 231 in3
+DF1 fitted breakpoint of an exact hinge | 22.5 | 22.5 | <1e-09 | 1e-06 | PASS | break between tested WOB 20 and 25
+DF2 fitted upper slope of an exact hinge | 0.4 | 0.4 | <1e-09 | 1e-06 | PASS | ft/h per klbf
+D94-1 AC2 skew geometry, 3D closest approach (perpendicular offset) | 20 | 20 | <1e-09 | 1e-09 | PASS | exact geometry; AC2 tests the equal-MD value instead
+D94-2 non-planar skew wells, |(q0-p0).(d1 x d2)| / |d1 x d2| | 51.2148 | 51.2148 | <1e-09 | 1e-06 | PASS | cross-product line distance; interior closest points (6-dp engine rounding)
 F1 plain-end weight vs steel 490 lb/ft3 | 17.9483 | 17.93 | 1.02e-03 | 2e-03 | PASS | engine constant 2.67 vs 2.6725 (rounded) + 2-dp display
 F2 free point vs Hooke L = E A dL / (12 P), exact body area | 7911.89 | 7918.4 | 8.22e-04 | 2e-03 | PASS | A ~ W/3.4 vs 490/144 = 3.4028 (0.08 %)
 F3 self-weight stretch in air = gamma L^2 / 2E | 67.9896 | 67.99 | 5.73e-06 | 1e-03 | PASS | first principles, 65.44 ppg steel, 231 in3/gal; 2-dp display
 F4 stretch in 12 ppg mud, published form L^2 (65.44 - 1.44 MW) / 9.625e7 | 50.0364 | 50.04 | 7.27e-05 | 1e-03 | PASS | textbook form (Poisson factor 1.44 not derived here)
-F5 jar up force = W BF + overpull | 213400 | 213400 | 0.00e+00 | 1e-06 | PASS | arithmetic; 0-dp display
-B1 bit revolutions = mean RPM x h x 60 / 1000 | 144 | 144 | 0.00e+00 | 1e-12 | PASS | k.rev
-B2 cost per foot, Bourgoyne full cycle (B + R(t_r + t_t)) / F | 70 | 70 | 0.00e+00 | 1e-04 | PASS | 2-dp display; currency unlabelled (P9)
+F5 jar up force = W BF + overpull | 213400 | 213400 | <1e-09 | 1e-06 | PASS | arithmetic; 0-dp display
+B1 bit revolutions = mean RPM x h x 60 / 1000 | 144 | 144 | <1e-12 | 1e-12 | PASS | k.rev
+B2 cost per foot, Bourgoyne full cycle (B + R(t_r + t_t)) / F | 70 | 70 | <1e-09 | 1e-04 | PASS | 2-dp display; currency unlabelled (P9)
 B3 d-exponent, Jorden & Shirley | 1.63893 | 1.6389 | 1.71e-05 | 1e-04 | PASS | 4-dp display
 B4 dc = d x normal / actual MW (normal 9.0 declared) | 1.34092 | 1.3409 | 1.36e-05 | 1e-04 | PASS | 4-dp display
-B5 footage-weighted ROP over valid pairs only | 25 | 25 | 0.00e+00 | 1e-09 | PASS | explicit zero footage is a pair; a missing depth_out row is not
-Z1 zero flow is a value: 0 psi friction | 0 | 0 | 0.00e+00 | 0e+00 | PASS | NO FLOW, not missing
-Z2 zero flow: yield onset 4 tau0 L / Dh reported separately | 76.1905 | 76.1905 | 0.00e+00 | 1e-12 | PASS | exact
-Z3 zero trip speed: 0 psi surge | 0 | 0 | 0.00e+00 | 0e+00 | PASS | explicit zero
-U1 psi/ft per ppg = 12/231 | 0.0519481 | 0.0519481 | 1.34e-16 | 1e-12 | PASS | exact definition
-U2 Pa per psi = 4.4482216152605 N / (0.0254 m)^2 | 6894.76 | 6894.76 | 0.00e+00 | 1e-15 | PASS | exact
-U3 Pa per lbf/100 ft2 | 0.478803 | 0.478803 | 1.16e-16 | 1e-12 | PASS | exact
+B5 footage-weighted ROP over valid pairs only | 25 | 25 | <1e-09 | 1e-09 | PASS | explicit zero footage is a pair; a missing depth_out row is not
+Z1 zero flow is a value: 0 psi friction | 0 | 0 | 0 | 0e+00 | PASS | NO FLOW, not missing
+Z2 zero flow: yield onset 4 tau0 L / Dh reported separately | 76.1905 | 76.1905 | <1e-12 | 1e-12 | PASS | exact
+Z3 zero trip speed: 0 psi surge | 0 | 0 | 0 | 0e+00 | PASS | explicit zero
+U1 psi/ft per ppg = 12/231 | 0.0519481 | 0.0519481 | <1e-12 | 1e-12 | PASS | exact definition
+U2 Pa per psi = 4.4482216152605 N / (0.0254 m)^2 | 6894.76 | 6894.76 | <1e-15 | 1e-15 | PASS | exact
+U3 Pa per lbf/100 ft2 | 0.478803 | 0.478803 | <1e-12 | 1e-12 | PASS | exact
 TOTAL 30 benchmark cases, 0 outside tolerance
 
 # status checks (refusals; not counted as benchmarks)

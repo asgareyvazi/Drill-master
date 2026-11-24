@@ -64,6 +64,11 @@ def report(data: dict, tests: dict, top: int) -> str:
     lines += ["", f"## Top {top} tests", "", "| # | Test | Seconds |", "|---|---|---|"]
     for i, (nodeid, sec) in enumerate(sorted(tests.items(), key=lambda kv: -kv[1])[:top], 1):
         lines.append(f"| {i} | `{nodeid}` | {sec:.1f} |")
+    ranked = sorted(files.values(), reverse=True)
+    lines += ["", f"Concentration: the 10 slowest files carry {100 * sum(ranked[:10]) / total:.1f} % of the test time; "
+              f"{sum(1 for v in ranked if v > 30)} files take more than 30 s. "
+              + ("No single file dominates, so a file-level split balances well." if ranked[0] < 0.1 * total
+                 else "One file dominates; a file-level split cannot balance below its share.")]
     lines += ["", "## Balance of a file-level split (longest processing time first)", "",
               "| Groups | Group seconds | Largest / ideal |", "|---|---|---|"]
     for groups in (2, 3):

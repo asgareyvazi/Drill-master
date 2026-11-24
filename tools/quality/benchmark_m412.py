@@ -55,6 +55,17 @@ def _rel(expected: float, actual: float) -> float:
     return abs(actual) if expected == 0 else abs(actual - expected) / abs(expected)
 
 
+def _err_text(err: float, tol: float) -> str:
+    """Relative error as stored in the table. Very small errors are floating-point noise whose digits differ between
+    Python / libm builds (the CI 3.12 leg's table drifted from the 3.11 one), so below min(1e-9, tolerance) the table
+    shows that bound instead of the digits (an exact 0 included, since another build may give 1e-16). The PASS / FAIL
+    decision always uses the exact value."""
+    if tol == 0:            # an exact-zero case: any error at all is a FAIL, so the digits are shown
+        return "0" if err == 0 else f"{err:.2e}"
+    bound = min(1e-9, tol)
+    return f"<{bound:.0e}" if err < bound else f"{err:.2e}"
+
+
 def _bisect(f, lo, hi, it=200):
     for _ in range(it):
         mid = 0.5 * (lo + hi)
@@ -318,7 +329,7 @@ def run() -> Tuple[List[str], int]:
                 ok = err <= tol
             failures += 0 if ok else 1
             lines.append(f"{case_id} | {expected:.6g} | {actual if actual is None else format(actual, '.6g')} | "
-                         f"{err:.2e} | {tol:.0e} | {'PASS' if ok else 'FAIL'} | {note}")
+                         f"{_err_text(err, tol)} | {tol:.0e} | {'PASS' if ok else 'FAIL'} | {note}")
     lines.append(f"TOTAL {cases} benchmark cases, {failures} outside tolerance")
     lines.append("")
     lines.append("# status checks (refusals; not counted as benchmarks)")
