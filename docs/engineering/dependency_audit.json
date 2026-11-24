@@ -133,7 +133,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 80,
+    "evidence_tests": 81,
     "licence": "own code (product licence)",
     "method_id": "engine.casing",
     "status": "IMPLEMENTED",
@@ -185,6 +185,7 @@
      "test_m329_architecture_diff_table_export.py",
      "test_m365_d87_identity.py",
      "test_m366_hydraulics_workflow.py",
+     "test_m371_casing_axial_loads.py",
      "test_m375_main_window_journey.py",
      "test_m49_knowledge_answer.py",
      "test_m49_knowledge_retrieval.py",
@@ -1056,7 +1057,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 38,
+    "evidence_tests": 39,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.anti-collision",
     "status": "NOT SUPPORTED",
@@ -1080,6 +1081,7 @@
      "test_m157_m160_tubular_reference.py",
      "test_m184_m189_reference_integration.py",
      "test_m366_hydraulics_workflow.py",
+     "test_m371_casing_axial_loads.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1103,7 +1105,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 38,
+    "evidence_tests": 39,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.multi-survey",
     "status": "NOT SUPPORTED",
@@ -1127,6 +1129,7 @@
      "test_m157_m160_tubular_reference.py",
      "test_m184_m189_reference_integration.py",
      "test_m366_hydraulics_workflow.py",
+     "test_m371_casing_axial_loads.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1150,7 +1153,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 38,
+    "evidence_tests": 39,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.dp_database",
     "status": "NOT SUPPORTED",
@@ -1174,6 +1177,7 @@
      "test_m157_m160_tubular_reference.py",
      "test_m184_m189_reference_integration.py",
      "test_m366_hydraulics_workflow.py",
+     "test_m371_casing_axial_loads.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1197,7 +1201,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 38,
+    "evidence_tests": 39,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.well_control.kill_sheet",
     "status": "NOT SUPPORTED",
@@ -1221,6 +1225,7 @@
      "test_m157_m160_tubular_reference.py",
      "test_m184_m189_reference_integration.py",
      "test_m366_hydraulics_workflow.py",
+     "test_m371_casing_axial_loads.py",
      "test_m52_balanced_plug.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
@@ -1683,6 +1688,14 @@
    "lines": [
     9,
     82
+   ],
+   "module": "PySide6"
+  },
+  {
+   "file": "dialogs/casing_axial_loads_dialog.py",
+   "guarded": false,
+   "lines": [
+    15
    ],
    "module": "PySide6"
   },

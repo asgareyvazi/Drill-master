@@ -34,6 +34,7 @@ AC = "core/engineering/engines/anti_collision.py"
 AE = "core/analysis_evidence.py"
 CRS = "tools/quality/ci_run_states.py"
 SPD = "core/survey_plan_deviation.py"
+CAL = "core/casing_axial_loads.py"
 
 THW = ["tests/test_m366_hydraulics_workflow.py"]
 TID = ["tests/test_m365_d87_identity.py", "tests/test_m303_m306_clone_contract_and_bulk.py"]
@@ -41,6 +42,7 @@ TENG = ["tests/test_m367_m369_m396_engineering.py"]
 TKPI = ["tests/test_m374_w12_kpi_specs.py", "tests/test_m48_analysis_evidence.py"]
 TCRS = ["tests/test_m377_ci_run_states.py"]
 TSPD = ["tests/test_m368_survey_plan_deviation.py"]
+TCAL = ["tests/test_m371_casing_axial_loads.py"]
 TTD = TENG + ["tests/test_m349_benchmarks_d92.py", "tests/test_m318_td_friction_sensitivity.py"]
 
 MUTANTS = [
@@ -177,6 +179,24 @@ MUTANTS = [
            "    if near[\"md\"] >= actual[-1][\"md\"] - MD_TOLERANCE_M and coords[2] > actual[-1][\"tvd\"] + "
            "POSITION_TOLERANCE_M:\n",
            "    if False:\n", TSPD, "a target below the drilled depth is reported HIT / MISS"),
+    # ------------------------------------------------------------------ M371 casing axial loads and wear
+    Mutant("CAL-thermal-sign-flipped", CAL,
+           "            COMPUTED, -v[\"youngs_modulus_psi\"] * v[\"expansion_per_degf\"]",
+           "            COMPUTED, v[\"youngs_modulus_psi\"] * v[\"expansion_per_degf\"]", TCAL,
+           "heating increases tension"),
+    Mutant("CAL-ballooning-areas-swapped", CAL,
+           "(a_in * v[\"delta_internal_psi\"] - a_out * v[\"delta_external_psi\"])",
+           "(a_out * v[\"delta_internal_psi\"] - a_in * v[\"delta_external_psi\"])", TCAL,
+           "ballooning uses the wrong areas"),
+    Mutant("CAL-partial-sum-as-total", CAL,
+           "    elif any(c[\"status\"] != COMPUTED for c in axial_parts + [comps[\"bending\"]]):\n",
+           "    elif False:\n", TCAL, "a total is reported with a component not assessed"),
+    Mutant("CAL-wear-ignored", CAL,
+           "        wall = (od - idd) / 2.0 * (1.0 - v[\"wear_percent\"] / 100.0)\n",
+           "        wall = (od - idd) / 2.0\n", TCAL, "the ratings ignore the declared wear"),
+    Mutant("CAL-bending-diameter-not-halved", CAL,
+           "        sigma_b = v[\"youngs_modulus_psi\"] * od / 2.0 * kappa\n",
+           "        sigma_b = v[\"youngs_modulus_psi\"] * od * kappa\n", TCAL, "bending stress doubled"),
 ]
 
 

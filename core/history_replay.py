@@ -58,6 +58,10 @@ def _unit_of(method: str, key: str) -> str:
         from core.survey_plan_deviation import unit_of as m368_unit_of
 
         return m368_unit_of(key)
+    if method == "m371.casing_axial_loads":
+        from core.casing_axial_loads import unit_of as m371_unit_of
+
+        return m371_unit_of(key)
     return ""
 
 
@@ -260,12 +264,39 @@ def _m368_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
         raise SnapshotIntegrityError(str(exc)) from exc
 
 
+# ---- M371 ---------------------------------------------------------------------------------------------------
+def _m371_current() -> str:
+    from core import casing_axial_loads as cal
+
+    return f"{cal.METHOD_ID} {cal.METHOD_VERSION}"
+
+
+def _m371_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import casing_axial_loads as cal
+
+    if version != cal.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"casing axial-load version {version!r} is not available in this build"
+    if not isinstance(inputs.get("inputs_sha256"), dict):
+        return "NOT REPRODUCIBLE", "the case holds no inputs SHA-256"
+    return "REPRODUCIBLE", "re-run from the stored declared inputs after their SHA-256 check"
+
+
+def _m371_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
+    from core import casing_axial_loads as cal
+
+    try:
+        return cal.replay_results(inputs)
+    except cal.IntegrityError as exc:
+        raise SnapshotIntegrityError(str(exc)) from exc
+
+
 ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
     "m314.ddr_bit_hydraulics_check": (_m314_reproducible, _m314_replay, _m314_current),
     "m317.cement_job_reconciliation": (_m317_reproducible, _m317_replay, _m317_current),
     "m318.td_friction_sensitivity": (_m318_reproducible, _m318_replay, _m318_current),
     "m366.hydraulics_workflow": (_m366_reproducible, _m366_replay, _m366_current),
     "m368.survey_plan_deviation": (_m368_reproducible, _m368_replay, _m368_current),
+    "m371.casing_axial_loads": (_m371_reproducible, _m371_replay, _m371_current),
 }
 
 

@@ -4057,6 +4057,13 @@ class EngineeringCalculatorTab(DrillTabBase):
         calc_csg.clicked.connect(self._csg_calc_strength)
         csg_form.addRow(calc_csg)
 
+        self.csg_axial_loads_btn = QPushButton("📐 Axial loads & wear…")
+        self.csg_axial_loads_btn.setObjectName("csg_axial_loads_btn")
+        self.csg_axial_loads_btn.setToolTip("M371: bending, temperature and ballooning load components and "
+                                            "wear-reduced pipe-body ratings (SCREENING; declared inputs only)")
+        self.csg_axial_loads_btn.clicked.connect(self._csg_axial_loads_dialog)
+        csg_form.addRow(self.csg_axial_loads_btn)
+
         save_csg = QPushButton("💾 Save Calculation")
         save_csg.setToolTip(
             "Persist this casing-strength run as a reproducible historical "
@@ -4387,6 +4394,19 @@ class EngineeringCalculatorTab(DrillTabBase):
                                     "legacy_preset": data.get("legacy_preset")}
                 self.csg_source_label.setText(f"Source: built-in preset table — {vp.PRESET_LABEL} (not manufacturer "
                                               "data, not a catalog); yield strength entered by the user.")
+
+    # ========== M371 axial loads & wear ==========
+    def csg_axial_loads_dialog(self):
+        """The M371 dialog on a frozen copy of OD / ID / yield / axial tension from this page (0 = not entered)."""
+        from dialogs.casing_axial_loads_dialog import CasingAxialLoadsDialog
+
+        page = {"od_in": self.csg_od.value() or None, "id_in": self.csg_id_calc.value() or None,
+                "yield_psi": self.csg_yield.value() or None, "base_axial_load_lbf": self.csg_axial.value() or None}
+        return CasingAxialLoadsDialog(page, db=getattr(self, "db", None),
+                                      well_id=getattr(self, "current_well_id", None), parent=self)
+
+    def _csg_axial_loads_dialog(self, _checked=False):
+        self.csg_axial_loads_dialog().exec()
 
     def _csg_calc_strength(self):
         from core.engineering.engines.casing import CasingEngine
