@@ -933,3 +933,19 @@ Fields: upstream SHA (default-branch HEAD at review), licence evidence, language
 * **Classification: INSPIRE ONLY**
 * Use in Drill-master: C#/Vue drilling forms and safety system; no licence file. Form ideas only.
 * Copied code / modified files: none
+
+## M400 update (M361–M400 re-audit, M379)
+
+The register stays the single source of truth; **all 50 classifications are unchanged** and nothing was adopted.
+
+- **Method:** `tools/quality/oss_reaudit_m193.py` (read-only, GitHub REST API), 2026-11-23.
+- **Evidence:** `docs/mission-reports/m361-m400-evidence/oss_reaudit_m379.json` and `m379_oss_reaudit.md`
+  (all 50 rows: current head, licence, state, classification, target).
+- **Result:** 46 UNCHANGED, 3 NEW COMMITS, 1 ARCHIVED (#48, REJECT), 0 licence changes, 0 gone.
+- The three M193 "NOT RE-REVIEWED" repositories were re-read at their new heads:
+  - #11 mud-engineer-pro `e1c25144be`: one advertising-SDK build commit; no licence. INSPIRE ONLY.
+  - #33 wellbrief `8dd3b8d8ca`: README / social-preview images only. INSPIRE ONLY.
+  - #41 BoreTHM `8fdf5fa79b`: 185 commits of annulus hydraulics (Herschel-Bulkley slot model, Erge transition band,
+    Colebrook friction, FORGE pressure comparisons). Apache-2.0. INSPIRE ONLY, now a **candidate for a clean-room
+    method port** (roadmap R-HYD-2). Not implemented and no code taken in M361–M400.
+- P3 (pwptemp, torque_drag, LGPL) remains an owner decision; DrillMaster's T&D stays its own Johancsik code.
