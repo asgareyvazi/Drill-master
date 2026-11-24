@@ -1,6 +1,6 @@
 {
   "contract": "vuln-audit-m386-v1",
-  "lock": "requirements-lock.txt",
+  "lock": "requirements-lock-before-m386.txt",
   "rows": [
     {
       "advisories": [],
@@ -490,7 +490,7 @@
             "13.0.0"
           ],
           "id": "GHSA-5x8w-8jj5-q52h",
-          "summary": "### Credits\n\n**Researcher**: Alex Bouffard (mixbo@pebwalker.com)\n\n### Summary\n\nA heap buffer overflow in Pillow's FlashPix (FPX) JPEG-tile decoder lets an attacker achieve arbitrary code execution by ",
+          "summary": "### Credits\n\n**Researcher**: Alex Bouffard ([e-mail redacted])\n\n### Summary\n\nA heap buffer overflow in Pillow's FlashPix (FPX) JPEG-tile decoder lets an attacker achieve arbitrary code execution by ",
           "withdrawn": null
         },
         {

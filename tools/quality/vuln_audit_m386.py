@@ -23,6 +23,7 @@ from typing import Callable, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = "vuln-audit-m386-v1"
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 PIN = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s;#]+)")
 CLEAN, VULNERABLE, NOT_CHECKED = "NO PUBLISHED ADVISORY", "ADVISORY PUBLISHED", "NOT CHECKED"
 
@@ -59,8 +60,9 @@ def audit(pins: List[Dict[str, str]], fetch: Callable[[str, str], Dict] = fetch_
             continue
         for v in vulns:
             row["advisories"].append({"id": v.get("id"), "aliases": v.get("aliases") or [],
-                                      "fixed_in": v.get("fixed_in") or [], "summary": (v.get("summary") or
-                                                                                       v.get("details") or "")[:200],
+                                      "fixed_in": v.get("fixed_in") or [],
+                                      "summary": EMAIL.sub("[e-mail redacted]",
+                                                           (v.get("summary") or v.get("details") or "")[:200]),
                                       "withdrawn": v.get("withdrawn")})
         live = [a for a in row["advisories"] if not a["withdrawn"]]
         row.update(state=VULNERABLE if live else CLEAN,

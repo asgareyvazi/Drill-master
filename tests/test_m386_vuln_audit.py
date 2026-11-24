@@ -55,3 +55,9 @@ def test_the_committed_evidence_matches_the_lock():
     pins = va.parse_lock((ROOT / "requirements-lock.txt").read_text(encoding="utf-8"))
     assert [(r["name"], r["version"]) for r in evidence["rows"]] == [(p["name"], p["version"]) for p in pins]
     assert evidence["summary"] == {va.CLEAN: len(pins)}
+
+
+def test_e_mail_addresses_in_advisory_text_are_redacted():
+    advisory = {"id": "GHSA-y", "summary": "Credits: A Researcher (someone@example.org) found it", "withdrawn": None}
+    row = va.audit([{"name": "alpha", "version": "1.0"}], _fetch({"alpha": {"vulnerabilities": [advisory]}}))[0]
+    assert "@" not in row["advisories"][0]["summary"] and "[e-mail redacted]" in row["advisories"][0]["summary"]
