@@ -3260,10 +3260,10 @@
   {
    "class": "permissive",
    "distribution": "pillow",
-   "installed": "12.3.0",
+   "installed": "13.0.0",
    "licence": "MIT-CMU",
    "owner_gate": "",
-   "pinned": "12.3.0"
+   "pinned": "13.0.0"
   },
   {
    "class": "strong copyleft (AGPL)",

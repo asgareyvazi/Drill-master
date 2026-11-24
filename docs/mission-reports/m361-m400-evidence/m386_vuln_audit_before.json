@@ -1,0 +1,848 @@
+{
+  "contract": "vuln-audit-m386-v1",
+  "lock": "requirements-lock.txt",
+  "rows": [
+    {
+      "advisories": [],
+      "name": "bcrypt",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "4.2.1"
+    },
+    {
+      "advisories": [],
+      "name": "contourpy",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.3.3"
+    },
+    {
+      "advisories": [],
+      "name": "cycler",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "0.12.1"
+    },
+    {
+      "advisories": [],
+      "name": "et_xmlfile",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.0.0"
+    },
+    {
+      "advisories": [],
+      "name": "fonttools",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "4.64.0"
+    },
+    {
+      "advisories": [],
+      "name": "greenlet",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.5.5"
+    },
+    {
+      "advisories": [],
+      "name": "kiwisolver",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.5.1"
+    },
+    {
+      "advisories": [],
+      "name": "matplotlib",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.9.3"
+    },
+    {
+      "advisories": [],
+      "name": "numpy",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.1.3"
+    },
+    {
+      "advisories": [],
+      "name": "openpyxl",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.1.5"
+    },
+    {
+      "advisories": [],
+      "name": "packaging",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "26.3"
+    },
+    {
+      "advisories": [],
+      "name": "pandas",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.2.3"
+    },
+    {
+      "advisories": [
+        {
+          "aliases": [
+            "CVE-2026-112895"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-p4wg-p73j-c528",
+          "summary": "### Summary\nWhen an application appends to an existing PDF with `Image.save(..., format=\"PDF\", append=True)`, Pillow parses that file with `PdfParser`. Two recursive parsers have no effective bound. `",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112400"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-65qm-jvmh-6pqg",
+          "summary": "```\n============================================================================\nGIF seek keeps rejected size after DecompressionBombError, allowing DoS\nLocation: src/PIL/GifImagePlugin.py:293  in Gif",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112397"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-58r4-6rv3-gfh8",
+          "summary": "### Summary\nA PPM or PGM file can declare a width of 0, which Pillow accepts, producing an image of size `(0, N)`. Passing that image to `ImageMorph.MorphOp.apply()` makes the native morphology code i",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112896"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-pchr-8j38-3x4p",
+          "summary": "## Summary\n\nA small attacker-supplied TIFF can be opened and loaded normally, then reach an out-of-bounds read when an application saves it back to TIFF with retained metadata. The fixed reproducer is",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112897"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-q45j-58j2-45rg",
+          "summary": "```\n============================================================================\nTiffDecode returns uninitialized memory as pixels for short JPEG strips\nLocation: src/libImaging/TiffDecode.c:554  in _",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112395"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-462x-pgg6-55fp",
+          "summary": "### Summary\n\nPillow's libImaging `_decodeTile` decoder, used to decode tiled TIFF images, allocates a per-tile buffer using `realloc(state->buffer, TIFFTileSize(tiff))`. After each `TIFFReadTile` it t",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112404"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-c6hw-5grf-ff96",
+          "summary": "```\n============================================================================\nOOB read in TiffDecode.c tile and RGBA paths leaks heap memory into pixels\nLocation: src/libImaging/TiffDecode.c:483  i",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112899"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-vx6w-vv9f-6gvg",
+          "summary": "```\n============================================================================\nEPS load(scale) lets Ghostscript render past the decompression bomb limit\nLocation: src/PIL/EpsImagePlugin.py:92  in Gh",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112402"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-7mwm-ghpf-9vrm",
+          "summary": "```\n============================================================================\nDouble free in ImagingScaleAffine on calloc failure via Image.transform\nLocation: src/libImaging/Geometry.c:866  in Ima",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112900"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-w889-685w-c8fh",
+          "summary": "### Summary\n`PIL.EpsImagePlugin.Ghostscript()` builds the Ghostscript command line using the input file path (`fp.name`) **without sanitization**, placing it at `-f <infile>`. A filename beginning wit",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112893"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-j4m9-6w36-pw47",
+          "summary": "### Summary\nWhen text is drawn with a non-zero stroke width, Pillow creates a FreeType stroker and then loads each glyph. If `FT_Load_Glyph` fails for a glyph, the cleanup path calls `FT_Done_Glyph` o",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112392"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-27h8-gf7j-v5hc",
+          "summary": "```\n============================================================================\nNULL dereference in ImagingExpand via rank filters on zero-size images\nLocation: src/libImaging/Filter.c:79  in Imaging",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112891"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-fc9g-5qg7-mf45",
+          "summary": "On Pillow 12.3.0 and upstream `main` (`ad277e2761b489681e71b51e91367d46b0ceabb9`), a GIF with a long comment makes `_get_global_header()` copy portions of the comment repeatedly when saving, including",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112405"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-cp9v-662q-vvx9",
+          "summary": "### Summary\n`Image.merge()` checks the mode of every input band except band 0. If band 0 is a single-band `I` or `F` image, the native merge routine reads a pixel pointer that is NULL for those modes ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112390"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-22hg-r758-rrw9",
+          "summary": "```\n============================================================================\nInfinite loop in MIC n_frames when the embedded TIFF has 3+ IFDs\nLocation: src/PIL/MicImagePlugin.py:86  in MicImageFil",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112401"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-74r2-7ff9-mjj2",
+          "summary": "```\n============================================================================\nQuadratic GIF comment concatenation allows DoS in Image.open()\nLocation: src/PIL/GifImagePlugin.py:266  in GifImageFile",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112901"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-xgh8-jp6q-p5x8",
+          "summary": "```\n============================================================================\nReDoS in XbmImagePlugin: 512-byte file stalls Image.open() for minutes\nLocation: src/PIL/XbmImagePlugin.py:58  in XbmIm",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112391"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-254f-3936-288h",
+          "summary": "### Summary\n`PdfParser`'s `get_value()` can recurse without any limit and crash with an uncaught `RecursionError`. It is reachable through `Image.save(im, fp=<pdf>, format=\"PDF\", append=True)` when th",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112894"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-jg86-v3jv-hrpm",
+          "summary": "```\n============================================================================\nQuadratic-time DoS in PDF save_all (PdfParser.next_object_id)\nLocation: src/PIL/PdfParser.py:629  in next_object_id()\nC",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112406"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-f2g6-542v-9j58",
+          "summary": "```\n============================================================================\nInfinite loop in PdfParser.rewrite_pages on page tree Parent cycle\nLocation: src/PIL/PdfParser.py:505  in PdfParser.rew",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112399"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-5xm2-6676-qcp9",
+          "summary": "```\n============================================================================\nAPNG background disposal allocates full canvas before decompression bomb check\nLocation: src/PIL/PngImagePlugin.py:1000",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112892"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-gg2r-wvfm-q9rx",
+          "summary": "### Summary\nThe MSP RLE decoder expands run-length data into an in-memory buffer with no cap tied to the declared image size. A small file that passes the pixel-count check can force hundreds of megab",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112393"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-332p-7hrc-92wf",
+          "summary": "```\n============================================================================\nHeap buffer overflow in _tiffWriteProc when saving TIFF to BytesIO\nLocation: src/libImaging/TiffDecode.c:94  in _tiffWr",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112396"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-4rr5-89j8-mwwm",
+          "summary": "### Summary\nSaving an image as TIFF to an in-memory buffer can trigger a heap use-after-free if libtiff rejects a tag at encode time. When `TIFFWriteScanline` fails, the encoder frees its output buffe",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96638"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-24rc-8hj2-v98c",
+          "summary": "## Summary\nBmpRleDecoder can be forced to allocate gigabytes of memory from a kilobyte-sized crafted BMP file via unbounded growth in the delta escape and absolute mode branches.\n\n## Affected versions",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96641"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-4rm8-3hmm-39fg",
+          "summary": "### Summary\nAffected Object and Source\n\nPackage: Pillow 12.3.0\nSource: PyPI sdist pillow-12.3.0.tar.gz\nSHA-256: 3b8182a766685eaa002637e28b4ec8d6b18819a0c71f579bf0dbaa5830297cce\nSink: src/_imaging.c:28",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96640"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-mrfp-p49p-3hf2",
+          "summary": "### Summary\nPillow's documented PDF append path can spend disproportionate CPU time on a compact malformed PDF page tree.\n\nAn attacker who can supply an existing PDF to an application that appends an ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96642"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-3j72-p6qg-6xp7",
+          "summary": "### Summary\n`TarIO.__init__` does not check that a tar header's size field is positive. A crafted header with a negative size makes it seek backward onto itself. This causes an infinite loop that uses",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96639"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-v9pv-5gc8-w2m6",
+          "summary": "### Summary\nPillow multi-frame image loaders can retain native `ImagingCore` storage allocated for one frame while changing the Python-side image `mode` and decoder tiles for a later frame.\n\nIf frame ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96643"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-g4qv-2jxx-769h",
+          "summary": "### Summary\n  A PNG file with a large eXIf chunk full of repeated 6-byte markers makes Pillow's EXIF parser take seconds of CPU instead of milliseconds. The cost grows with the square of the chunk siz",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96637"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-g842-9rc4-69pw",
+          "summary": "## Summary\nSpiderImagePlugin's seek() bypasses the decompression bomb check, allowing a tiny (<1KB) crafted SPIDER stack file to trigger a multi-gigabyte allocation on im.load().\n\n## Affected versions",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96644"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-9v9v-9qvf-h2hj",
+          "summary": "### Summary\nOn Windows builds, Pillow stores EMF and WMF image dimensions without a range check and passes them to the native `drawwmf` handler. That code sizes its allocation from dimensions truncate",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96778"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-g7cr-3p24-7wf7",
+          "summary": "```\n============================================================================\nHeap buffer overflow writing JPEG comment after ICC profile fills buffer\nLocation: src/libImaging/JpegEncode.c:330  in ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96636"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-p8hx-v2p6-rp84",
+          "summary": "### Summary\nPillow's decompression-bomb protection (`Image._decompression_bomb_check`, gated by `Image.MAX_IMAGE_PIXELS`) is enforced only on the **first frame**, inside `Image.open()`. For multi-fram",
+          "withdrawn": null
+        },
+        {
+          "aliases": [],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-78g4-xqwv-q3g8",
+          "summary": "### Summary\n\nEvery Pillow wheel from 11.1.0 onward bundles a libopenjp2 containing a heap-buffer-overflow **write** that is fixed upstream on master but has never appeared in an OpenJPEG release. See ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-114501"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-654x-cwwv-5j9c",
+          "summary": "### Summary\n\nWhen [`PILLOW_ALIGNMENT`](https://pillow.readthedocs.io/en/stable/reference/block_allocator.html#memory-pools) is set above 1, exporting an image to Arrow returns uninitialized heap memor",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112398"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-5x8w-8jj5-q52h",
+          "summary": "### Credits\n\n**Researcher**: Alex Bouffard (mixbo@pebwalker.com)\n\n### Summary\n\nA heap buffer overflow in Pillow's FlashPix (FPX) JPEG-tile decoder lets an attacker achieve arbitrary code execution by ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112394",
+            "GHSA-4558-3h8r-v8xp"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4327",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow's P;2L and P;4L raw decoders can read past the end of an input buffer. ImagingRawDecode calculates a packed-pixel row size, while the unpack",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112396",
+            "GHSA-4rr5-89j8-mwwm"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4328",
+          "summary": "Pillow is a Python imaging library. From 11.3.0 until 13.0.0, Pillow has a heap use-after-free when libtiff rejects a tag while encoding TIFF data to an in-memory buffer. When an application saves att",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112392",
+            "GHSA-27h8-gf7j-v5hc"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4326",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow's rank-based filters can dereference invalid image storage for a zero-size image. ImagingExpand() allocates a non-empty output and then faul",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96639",
+            "GHSA-v9pv-5gc8-w2m6"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4339",
+          "summary": "Pillow is a Python imaging library. From 11.0.0 until 13.0.0, multi-frame loaders can retain an ImagingCore allocation created for a narrow frame mode while a later frame of the same dimensions change",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96641",
+            "GHSA-4rm8-3hmm-39fg"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4340",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, PILfont text-width accumulation in src/_imaging.c checks positive glyph advances against INT_MAX but does not check negative advances against INT_M",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96644",
+            "GHSA-9v9v-9qvf-h2hj"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4343",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0 on Windows, src/PIL/WmfImagePlugin.py passes unchecked 32-bit WMF or EMF dimensions to the native drawwmf handler in src/display.c. The handler size",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112896",
+            "GHSA-pchr-8j38-3x4p"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4334",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow's TIFF encoder can read beyond a ColorMap buffer when retained TIFF metadata has a plane size inconsistent with BitsPerSample. A small TIFF ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96636",
+            "GHSA-p8hx-v2p6-rp84"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4337",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, MpoImageFile.seek() and DcxImageFile.seek() reparse later MPO or DCX frames and replace self._size without rerunning Image._decompression_bomb_chec",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96642",
+            "GHSA-3j72-p6qg-6xp7"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4341",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, the TarIO initializer in src/PIL/TarIO.py accepts a negative octal member size and computes a backward seek that returns to the same 512-byte heade",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112398",
+            "GHSA-5x8w-8jj5-q52h"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4330",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow's FlashPix JPEG-tile decoder can write decoded scanlines beyond the allocated tile buffer. FlashPix (FPX) JPEG decoding selects raw mode LA ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96637",
+            "GHSA-g842-9rc4-69pw"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4338",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, SpiderImageFile.seek() in src/PIL/SpiderImagePlugin.py reparses a later SPIDER stack frame and replaces self._size without rerunning Image._decompr",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112901",
+            "GHSA-xgh8-jp6q-p5x8"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4335",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow's XBM header parser is vulnerable to regular-expression denial of service. In XbmImageFile._open, when an application calls Image.open() on ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-114501",
+            "GHSA-654x-cwwv-5j9c"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4336",
+          "summary": "Pillow is a Python imaging library. From 11.2.1 until 13.0.0, Arrow export assumes that an image's rows are tightly contiguous and exports from im->blocks[0].ptr even when PILLOW_ALIGNMENT makes align",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112402",
+            "GHSA-7mwm-ghpf-9vrm"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4331",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow can double free image memory when ImagingScaleAffine encounters a selective allocation failure. The affected fast path handles Transform.EXT",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112403",
+            "GHSA-8g5g-8vmr-9782"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4332",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow's JPEG decoder can write a full-width scanline into a buffer sized for a requested draft scale. ImagingJpegDecode does not verify libjpeg's ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112397",
+            "GHSA-58r4-6rv3-gfh8"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4329",
+          "summary": "Pillow is a Python imaging library. Prior to 13.0.0, Pillow's ImageMorph.MorphOp.apply() can access memory before a row buffer for a zero-width image. PPM and PGM input can create an image with width ",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112405",
+            "GHSA-cp9v-662q-vvx9"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4333",
+          "summary": "Pillow is a Python imaging library. From 12.0.0 until 13.0.0, Pillow's Image.merge() can dereference a null image8 plane. Validation skips the first input band, allowing a 32-bit integer or floating-p",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-96643",
+            "GHSA-g4qv-2jxx-769h"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4342",
+          "summary": "Pillow is a Python imaging library. From 11.0.0 until 13.0.0, Exif.load() in src/PIL/Image.py repeatedly slices the remaining EXIF data while it begins with the six-byte Exif header. src/PIL/PngImageP",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-112902",
+            "GHSA-xvh5-g6gv-559v"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "PYSEC-2026-4363",
+          "summary": "Pillow is a Python imaging library. In versions through 12.3.0, the libtiff TIFF encoder can pass arguments to \u00a0TIFFSetField()\u00a0 that do not match libtiff\u2019s definition of the corresponding tag. When an",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-128067"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-xcvg-w56q-r89m",
+          "summary": "```\n============================================================================\nANT-2026-CS7N494P  [high]  CWE-787  memory-safety\nHeap buffer overflow saving TIFF with libtiff when tags override imag",
+          "withdrawn": null
+        },
+        {
+          "aliases": [
+            "CVE-2026-128066"
+          ],
+          "fixed_in": [
+            "13.0.0"
+          ],
+          "id": "GHSA-wqgw-9xfh-qf2g",
+          "summary": "```\n============================================================================\nANT-2026-D7STJUWL  [medium]  CWE-770  dos\nMemory DoS in TIFF and EXIF IFD parsing via overlapping tag data\nLocation: sr",
+          "withdrawn": null
+        }
+      ],
+      "name": "pillow",
+      "reason": "58 advisory(ies)",
+      "state": "ADVISORY PUBLISHED",
+      "version": "12.3.0"
+    },
+    {
+      "advisories": [],
+      "name": "PyMuPDF",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.24.14"
+    },
+    {
+      "advisories": [],
+      "name": "pyparsing",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.3.2"
+    },
+    {
+      "advisories": [],
+      "name": "pyqtgraph",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "0.13.7"
+    },
+    {
+      "advisories": [],
+      "name": "PySide6",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "PySide6_Addons",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "PySide6_Essentials",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "python-dateutil",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.9.0.post0"
+    },
+    {
+      "advisories": [],
+      "name": "pytz",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2026.3.post1"
+    },
+    {
+      "advisories": [],
+      "name": "shiboken6",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "six",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.17.0"
+    },
+    {
+      "advisories": [],
+      "name": "SQLAlchemy",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.0.36"
+    },
+    {
+      "advisories": [],
+      "name": "typing_extensions",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "4.16.0"
+    },
+    {
+      "advisories": [],
+      "name": "tzdata",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2026.3"
+    }
+  ],
+  "summary": {
+    "ADVISORY PUBLISHED": 1,
+    "NO PUBLISHED ADVISORY": 25
+  }
+}

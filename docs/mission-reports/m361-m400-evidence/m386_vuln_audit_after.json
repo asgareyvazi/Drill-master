@@ -1,0 +1,191 @@
+{
+  "contract": "vuln-audit-m386-v1",
+  "lock": "requirements-lock.txt",
+  "rows": [
+    {
+      "advisories": [],
+      "name": "bcrypt",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "4.2.1"
+    },
+    {
+      "advisories": [],
+      "name": "contourpy",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.3.3"
+    },
+    {
+      "advisories": [],
+      "name": "cycler",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "0.12.1"
+    },
+    {
+      "advisories": [],
+      "name": "et_xmlfile",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.0.0"
+    },
+    {
+      "advisories": [],
+      "name": "fonttools",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "4.64.0"
+    },
+    {
+      "advisories": [],
+      "name": "greenlet",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.5.5"
+    },
+    {
+      "advisories": [],
+      "name": "kiwisolver",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.5.1"
+    },
+    {
+      "advisories": [],
+      "name": "matplotlib",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.9.3"
+    },
+    {
+      "advisories": [],
+      "name": "numpy",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.1.3"
+    },
+    {
+      "advisories": [],
+      "name": "openpyxl",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.1.5"
+    },
+    {
+      "advisories": [],
+      "name": "packaging",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "26.3"
+    },
+    {
+      "advisories": [],
+      "name": "pandas",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.2.3"
+    },
+    {
+      "advisories": [],
+      "name": "pillow",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "13.0.0"
+    },
+    {
+      "advisories": [],
+      "name": "PyMuPDF",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.24.14"
+    },
+    {
+      "advisories": [],
+      "name": "pyparsing",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "3.3.2"
+    },
+    {
+      "advisories": [],
+      "name": "pyqtgraph",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "0.13.7"
+    },
+    {
+      "advisories": [],
+      "name": "PySide6",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "PySide6_Addons",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "PySide6_Essentials",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "python-dateutil",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.9.0.post0"
+    },
+    {
+      "advisories": [],
+      "name": "pytz",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2026.3.post1"
+    },
+    {
+      "advisories": [],
+      "name": "shiboken6",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "6.8.1.1"
+    },
+    {
+      "advisories": [],
+      "name": "six",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "1.17.0"
+    },
+    {
+      "advisories": [],
+      "name": "SQLAlchemy",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2.0.36"
+    },
+    {
+      "advisories": [],
+      "name": "typing_extensions",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "4.16.0"
+    },
+    {
+      "advisories": [],
+      "name": "tzdata",
+      "reason": "PyPI lists no advisory for this exact version",
+      "state": "NO PUBLISHED ADVISORY",
+      "version": "2026.3"
+    }
+  ],
+  "summary": {
+    "NO PUBLISHED ADVISORY": 26
+  }
+}

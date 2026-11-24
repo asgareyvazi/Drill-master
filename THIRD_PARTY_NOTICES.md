@@ -67,7 +67,7 @@ Every distribution pinned in `requirements-lock.txt` is bundled into the Windows
 | openpyxl | 3.1.5 | MIT [MIT License] | permissive | — |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | permissive | — |
 | pandas | 2.2.3 | BSD 3-Clause License [BSD License] | permissive | — |
-| pillow | 12.3.0 | MIT-CMU | permissive | — |
+| pillow | 13.0.0 | MIT-CMU | permissive | — |
 | PyMuPDF | 1.24.14 | GNU AFFERO GPL 3.0 | strong copyleft (AGPL) | PyMuPDF (AGPL-3.0) |
 | pyparsing | 3.3.2 | MIT | permissive | — |
 | pyqtgraph | 0.13.7 | MIT [MIT License] | permissive | — |
