@@ -13,7 +13,10 @@ Groups:
 * AC — anti-collision centre-line separation of parallel and skew straight wells (exact geometry);
 * CS — casing: API 5C3 Barlow burst 0.875·2·Yp·t/D and pipe-body yield π/4 (D² − d²) Yp;
 * M  — MSE (Teale 1965): WOB / A + 120 π N T / (A ROP);
-* WC — kill sheet (IWCF form): KMW = OMW + SIDPP / (0.052 TVD), ICP = SCR + SIDPP, FCP = SCR · KMW / OMW.
+* WC — kill sheet (IWCF form): KMW = OMW + SIDPP / (0.052 TVD), ICP = SCR + SIDPP, FCP = SCR · KMW / OMW;
+* N  — M371–M373 services against textbook shortcuts and SI arithmetic: bending 218·OD·DLS, thermal 207·A_s·ΔT
+       (steel E·α), ballooning 0.471 (ΔPi ID² − ΔPo OD²) (ν 0.3); a drill-off curve whose founder is known by
+       construction; the volumetric bleed volume from SI units (ρ g, Pa → psi, m → ft).
 
 ``--write`` stores the table; ``--check`` recomputes and fails on any case outside tolerance or any table drift.
 """
@@ -166,7 +169,38 @@ def casing_mse_wc_cases() -> List[Case]:
             ("WC3 FCP", 800.0 * (10.0 + 500.0 / 520.0) / 10.0, fcp, 1e-3, "SCR × KMW / OMW")]
 
 
-GROUPS: List[Callable[[], List[Case]]] = [hydraulics_cases, survey_cases, td_cases, ac_cases, casing_mse_wc_cases]
+def new_services_cases() -> List[Case]:
+    from core import casing_axial_loads as cal
+    from core import mse_drilloff as mdo
+    from core import well_control_volumetric as wcv
+
+    od, idd = 9.625, 8.681
+    area = math.pi / 4 * (od ** 2 - idd ** 2)
+    r = cal.evaluate({"od_in": od, "id_in": idd, "yield_psi": 80000.0, "youngs_modulus_psi": 30e6,
+                      "dls_deg_per_100ft": 3.0, "expansion_per_degf": 6.9e-6, "delta_temperature_degf": 100.0,
+                      "poisson_ratio": 0.3, "delta_internal_psi": 1000.0, "delta_external_psi": 500.0})
+    comps = r["components"]
+    steps = [{"wob_klbf": w, "rpm": 100.0, "torque_ft_lbf": 6000.0,
+              "rop_ft_hr": 4.0 * w if w <= 20 else 80.0 + 0.4 * (w - 20)} for w in (5, 10, 15, 20, 25, 30, 35)]
+    founder = mdo.evaluate({"bit_diameter_in": 8.5, "founder_slope_fraction": 0.5, "rpm_tolerance_rpm": 0.0},
+                           steps)["founder"]["wob_klbf"]
+    vol = wcv.evaluate({"sicp_psi": 400.0, "mud_density_pcf": 90.0, "annular_capacity_bbl_ft": 0.0459,
+                        "safety_margin_psi": 100.0, "working_range_psi": 100.0, "cycles": 1})["volume_per_cycle_bbl"]
+    rho_si = 90.0 * 0.45359237 / 0.3048 ** 3                       # kg/m^3
+    grad_psi_ft = rho_si * 9.80665 * 0.3048 / 6894.757293168      # Pa/m -> psi/ft
+    return [("N1 casing bending stress 218·OD·DLS", 218.0 * od * 3.0, comps["bending"]["stress_psi"], 1e-3,
+             "textbook shortcut (E 30e6); 1e-3 covers its rounding"),
+            ("N2 casing thermal load 207·A_s·ΔT", -207.0 * area * 100.0, comps["temperature"]["value"], 1e-9,
+             "steel E·α = 207 psi/°F"),
+            ("N3 casing ballooning 0.471 (ΔPi ID² − ΔPo OD²)", 0.471 * (1000 * idd ** 2 - 500 * od ** 2),
+             comps["ballooning"]["value"], 1e-3, "Lubinski shortcut, ν 0.3 (0.4712 rounded)"),
+            ("N4 drill-off founder by construction", 20.0, founder, 1e-9, "ROP = 4·WOB to 20 klbf, then 0.4/klbf"),
+            ("N5 volumetric bleed per cycle (SI)", 100.0 * 0.0459 / grad_psi_ft, vol, 1e-6,
+             "ρ g in SI, converted; TRAINING AID")]
+
+
+GROUPS: List[Callable[[], List[Case]]] = [hydraulics_cases, survey_cases, td_cases, ac_cases, casing_mse_wc_cases,
+                                          new_services_cases]
 
 
 def run() -> Tuple[List[str], int]:

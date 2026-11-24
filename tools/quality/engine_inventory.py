@@ -69,6 +69,21 @@ def hydraulics() -> list[dict]:
     return rows
 
 
+def services() -> list[dict]:
+    """M392: workflow services in ``core/`` that declare a ``METHOD_ID`` and ``METHOD_VERSION`` (replayable cases)."""
+    rows = []
+    for path in sorted((ROOT / "core").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        constants = {t.id: _string_value(n.value, {}) for n in tree.body if isinstance(n, ast.Assign)
+                     for t in n.targets if isinstance(t, ast.Name)}
+        if constants.get("METHOD_ID") and constants.get("METHOD_VERSION"):
+            label = constants.get("LABEL", "")
+            rows.append({"module": f"core/{path.name}", "symbol": path.stem, "method": constants["METHOD_ID"],
+                         "version": constants["METHOD_VERSION"].replace("|", "/"),
+                         "labels": [lab for lab in LABELS if lab in label.upper()]})
+    return rows
+
+
 def render() -> str:
     tests = _tests()
     lines = ["# Engine inventory", "",
@@ -91,6 +106,12 @@ def render() -> str:
         if any("\u0600" <= ch <= "\u06ff" for ch in method):   # repository docs are English-only
             method = "(docstring not in English)"
         lines.append(f"| `{row['symbol']}` | {method or '-'} | {len(refs)} |")
+    lines += ["", "## Workflow services with replayable cases (`core/*.py` declaring `METHOD_ID`)", "",
+              "| Module | Method id | Version | Labels | Tests |", "|---|---|---|---|---|"]
+    for row in services():
+        refs = _referencing(row["symbol"], tests)
+        lines.append(f"| `{row['module']}` | `{row['method']}` | {row['version']} | "
+                     f"{', '.join(row['labels']) or '-'} | {len(refs)} |")
     untested = [r["symbol"] for r in hydraulics() if not _referencing(r["symbol"].split(".", 1)[1], tests)]
     lines += ["", f"Hydraulics functions named by no test file: {len(untested)}"
               + (f" ({', '.join(f'`{u}`' for u in untested)})" if untested else ""), ""]

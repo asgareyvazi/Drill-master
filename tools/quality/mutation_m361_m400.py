@@ -35,6 +35,8 @@ AE = "core/analysis_evidence.py"
 CRS = "tools/quality/ci_run_states.py"
 SPD = "core/survey_plan_deviation.py"
 CAL = "core/casing_axial_loads.py"
+MDO = "core/mse_drilloff.py"
+WCV = "core/well_control_volumetric.py"
 
 THW = ["tests/test_m366_hydraulics_workflow.py"]
 TID = ["tests/test_m365_d87_identity.py", "tests/test_m303_m306_clone_contract_and_bulk.py"]
@@ -43,6 +45,8 @@ TKPI = ["tests/test_m374_w12_kpi_specs.py", "tests/test_m48_analysis_evidence.py
 TCRS = ["tests/test_m377_ci_run_states.py"]
 TSPD = ["tests/test_m368_survey_plan_deviation.py"]
 TCAL = ["tests/test_m371_casing_axial_loads.py"]
+TMDO = ["tests/test_m372_mse_drilloff.py"]
+TWCV = ["tests/test_m373_volumetric_method.py"]
 TTD = TENG + ["tests/test_m349_benchmarks_d92.py", "tests/test_m318_td_friction_sensitivity.py"]
 
 MUTANTS = [
@@ -197,6 +201,34 @@ MUTANTS = [
     Mutant("CAL-bending-diameter-not-halved", CAL,
            "        sigma_b = v[\"youngs_modulus_psi\"] * od / 2.0 * kappa\n",
            "        sigma_b = v[\"youngs_modulus_psi\"] * od * kappa\n", TCAL, "bending stress doubled"),
+    # ------------------------------------------------------------------ M372 drill-off founder and step MSE
+    Mutant("MDO-founder-upper-step", MDO, "            step = usable[index]\n",
+           "            step = usable[index + 1]\n", TMDO, "the founder is reported one step too high"),
+    Mutant("MDO-fraction-ignored", MDO, "        if slope < fraction * reference:\n",
+           "        if slope < reference:\n", TMDO, "any slope drop is a founder"),
+    Mutant("MDO-rpm-check-removed", MDO, "    if max(rpms) - min(rpms) > tolerance:\n",
+           "    if False:\n", TMDO, "a varying-RPM test is analysed as a drill-off test"),
+    Mutant("MDO-steps-not-sorted", MDO,
+           "    ordered = sorted(v[\"steps\"], key=lambda s: (s[\"wob_klbf\"] is None, s[\"wob_klbf\"] or 0.0))\n",
+           "    ordered = list(v[\"steps\"])\n", TMDO, "slopes taken in entry order"),
+    Mutant("MDO-efficiency-inverted", MDO, "        out[\"efficiency\"] = ccs / mse\n",
+           "        out[\"efficiency\"] = mse / ccs\n", TMDO, "efficiency is MSE / CCS"),
+    Mutant("MDO-wob-units", MDO, "    res = MSEEngine.calculate(wob_lbf=step[\"wob_klbf\"] * 1000.0,",
+           "    res = MSEEngine.calculate(wob_lbf=step[\"wob_klbf\"],", TMDO, "klbf passed as lbf"),
+    # ------------------------------------------------------------------ M373 volumetric method (TRAINING AID)
+    Mutant("WCV-safety-margin-dropped", WCV,
+           "        hold = v[\"sicp_psi\"] + v[\"safety_margin_psi\"] + k * v[\"working_range_psi\"]\n",
+           "        hold = v[\"sicp_psi\"] + k * v[\"working_range_psi\"]\n", TWCV, "Ps not added"),
+    Mutant("WCV-volume-inverted", WCV, "    volume = v[\"working_range_psi\"] / per_bbl\n",
+           "    volume = v[\"working_range_psi\"] * per_bbl\n", TWCV, "bleed volume Pw x H"),
+    Mutant("WCV-no-stop-at-limit", WCV, "            stopped = k\n            break\n",
+           "            stopped = k\n", TWCV, "the schedule continues past the declared limit"),
+    Mutant("WCV-limit-inclusive-wrong", WCV,
+           "WITHIN if hold <= limit else EXCEEDS", "WITHIN if hold < limit else EXCEEDS", TWCV,
+           "a hold exactly at the limit is flagged"),
+    Mutant("WCV-migration-ignores-gradient", WCV,
+           "    return {\"status\": COMPUTED, \"value\": rate / gradient,",
+           "    return {\"status\": COMPUTED, \"value\": rate,", TWCV, "psi/h reported as ft/h"),
 ]
 
 

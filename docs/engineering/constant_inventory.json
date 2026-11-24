@@ -30,15 +30,17 @@
    "°/100 ft": {
     "files": {
      "core/calculation_history.py": 1,
+     "core/casing_axial_loads.py": 2,
      "core/engineering/core.py": 3,
      "core/engineering/engines/trajectory.py": 2,
      "core/trajectory_views.py": 2,
      "core/unit_manager.py": 3,
      "core/well_trajectory.py": 2,
+     "dialogs/casing_axial_loads_dialog.py": 1,
      "tabs/trajectory_viewer.py": 6,
      "tabs/w15_Reference_Tables.py": 2
     },
-    "uses": 21
+    "uses": 24
    },
    "°/30 m": {
     "files": {
@@ -85,10 +87,12 @@
    },
    "°F": {
     "files": {
+     "core/casing_axial_loads.py": 3,
+     "dialogs/casing_axial_loads_dialog.py": 2,
      "dialogs/settings_dialog.py": 1,
      "tabs/w15_Reference_Tables.py": 13
     },
-    "uses": 14
+    "uses": 19
    }
   }
  },
@@ -335,9 +339,10 @@
     },
     "144.0": {
      "files": {
-      "core/hydraulics_engine.py": 2
+      "core/hydraulics_engine.py": 2,
+      "core/well_control_volumetric.py": 1
      },
-     "uses": 2,
+     "uses": 3,
      "value": 144.0
     }
    }

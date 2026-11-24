@@ -29,6 +29,7 @@ FIELD_TOLERANCES: Dict[str, float] = {
     "gpm": 1e-6, "psi": 0.01, "hp": 0.01, "hp/in²": 0.001, "ft/s": 0.01, "lbf": 0.1, "bbl": 0.001, "%": 0.01,
     "m": 0.001, "klbf": 0.001, "ft·lbf": 0.1, "": 1e-9,
     "ppg": 1e-4, "in²": 1e-6, "ft/min": 0.01,                       # M366
+    "in": 1e-6, "ft/h": 0.01, "psi/bbl": 1e-4,                       # M371 / M372 / M373 (M388: every unit listed)
 }
 
 
@@ -62,6 +63,14 @@ def _unit_of(method: str, key: str) -> str:
         from core.casing_axial_loads import unit_of as m371_unit_of
 
         return m371_unit_of(key)
+    if method == "m372.mse_drilloff":
+        from core.mse_drilloff import unit_of as m372_unit_of
+
+        return m372_unit_of(key)
+    if method == "m373.volumetric_method":
+        from core.well_control_volumetric import unit_of as m373_unit_of
+
+        return m373_unit_of(key)
     return ""
 
 
@@ -290,6 +299,58 @@ def _m371_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
         raise SnapshotIntegrityError(str(exc)) from exc
 
 
+# ---- M372 ---------------------------------------------------------------------------------------------------
+def _m372_current() -> str:
+    from core import mse_drilloff as mdo
+
+    return f"{mdo.METHOD_ID} {mdo.METHOD_VERSION}"
+
+
+def _m372_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import mse_drilloff as mdo
+
+    if version != mdo.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"drill-off version {version!r} is not available in this build"
+    if not isinstance(inputs.get("inputs_sha256"), dict):
+        return "NOT REPRODUCIBLE", "the case holds no inputs SHA-256"
+    return "REPRODUCIBLE", "re-run from the stored declared inputs and steps after their SHA-256 check"
+
+
+def _m372_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
+    from core import mse_drilloff as mdo
+
+    try:
+        return mdo.replay_results(inputs)
+    except mdo.IntegrityError as exc:
+        raise SnapshotIntegrityError(str(exc)) from exc
+
+
+# ---- M373 ---------------------------------------------------------------------------------------------------
+def _m373_current() -> str:
+    from core import well_control_volumetric as wcv
+
+    return f"{wcv.METHOD_ID} {wcv.METHOD_VERSION}"
+
+
+def _m373_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+    from core import well_control_volumetric as wcv
+
+    if version != wcv.METHOD_VERSION:
+        return "NOT REPRODUCIBLE", f"volumetric-method version {version!r} is not available in this build"
+    if not isinstance(inputs.get("inputs_sha256"), dict):
+        return "NOT REPRODUCIBLE", "the case holds no inputs SHA-256"
+    return "REPRODUCIBLE", "re-run from the stored declared inputs after their SHA-256 check"
+
+
+def _m373_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
+    from core import well_control_volumetric as wcv
+
+    try:
+        return wcv.replay_results(inputs)
+    except wcv.IntegrityError as exc:
+        raise SnapshotIntegrityError(str(exc)) from exc
+
+
 ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
     "m314.ddr_bit_hydraulics_check": (_m314_reproducible, _m314_replay, _m314_current),
     "m317.cement_job_reconciliation": (_m317_reproducible, _m317_replay, _m317_current),
@@ -297,6 +358,8 @@ ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
     "m366.hydraulics_workflow": (_m366_reproducible, _m366_replay, _m366_current),
     "m368.survey_plan_deviation": (_m368_reproducible, _m368_replay, _m368_current),
     "m371.casing_axial_loads": (_m371_reproducible, _m371_replay, _m371_current),
+    "m372.mse_drilloff": (_m372_reproducible, _m372_replay, _m372_current),
+    "m373.volumetric_method": (_m373_reproducible, _m373_replay, _m373_current),
 }
 
 

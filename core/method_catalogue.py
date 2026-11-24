@@ -227,8 +227,49 @@ def _workflow_methods() -> List[CatalogueEntry]:
     ]
 
 
+def _case_services() -> List[CatalogueEntry]:
+    """M392: workflow services that store replayable calculation cases (``core.history_replay`` adapters)."""
+    from core import casing_axial_loads, cement_job_reconciliation, ddr_hydraulics_check, hydraulics_workflow
+    from core import mse_drilloff, survey_plan_deviation, torque_drag_sensitivity, well_control_volumetric
+
+    def entry(module, title, family, reference, limits, blocker=""):
+        label = _label(getattr(module, "LABEL", ""))
+        return CatalogueEntry(module.METHOD_ID, title, family, "calculation case service", "IMPLEMENTED", label,
+                              module.METHOD_VERSION, reference, OWN_CODE, limits, blocker,
+                              f"core/{module.__name__.rsplit('.', 1)[-1]}.py")
+
+    return [
+        entry(ddr_hydraulics_check, "DDR recorded vs recomputed bit hydraulics", "Hydraulics",
+              "AdvancedHydraulicsEngine.calc_bit_hydraulics at the recorded flow range",
+              "Missing recorded values -> NOT_COMPUTED; no inferred nozzles"),
+        entry(cement_job_reconciliation, "Cement job vs architecture reconciliation", "Cement",
+              "Gauge annulus from the frozen architecture; CementEngine.displacement",
+              "Declared yield units only; WORKSHEET - not a cement design approval"),
+        entry(torque_drag_sensitivity, "T&D friction-factor sensitivity", "Torque and drag",
+              "TorqueDragEngine per declared friction factor", "Observation bracketed, never interpolated; "
+              "not a calibrated friction factor"),
+        entry(hydraulics_workflow, "Hydraulics pressure budget, sensitivities, plan vs actual, CCI", "Hydraulics",
+              "W13 circulating-system engine; CCI = K x AV x MW / 400000",
+              "Refused until inputs are confirmed; ECD only with complete annular geometry; CCI <= 35 deg"),
+        entry(survey_plan_deviation, "Survey vs plan centreline deviation and targets", "Directional",
+              "Minimum-curvature interpolation on the plan; right / high / distance",
+              "Centreline only; refuses a datum or azimuth-reference mismatch; no uncertainty",
+              "ISCWSA error model (see wellpath.iscwsa_error_model)"),
+        entry(casing_axial_loads, "Casing axial-load components and worn-wall ratings", "Casing",
+              "Lubinski / Bourgoyne closed forms; CasingEngine burst and collapse on the worn wall",
+              "Pipe body only; E, alpha, nu declared; no triaxial envelope, connection rating or casing buckling"),
+        entry(mse_drilloff, "Drill-off test founder point and step MSE", "Drilling performance",
+              "Dupriest & Koederitz (SPE 92194) step test; Teale MSE via MSEEngine; efficiency = CCS / MSE",
+              "Constant RPM within a declared tolerance; stated slope-fraction rule; no CCS correlation"),
+        entry(well_control_volumetric, "Volumetric method bleed schedule and gas migration", "Well control",
+              "IWCF / IADC volumetric method; gradient = density / 144",
+              "Single bubble, constant capacity, no gas law; stops at a declared casing limit",
+              "Kill sheet / well-control operational use (P11)"),
+    ]
+
+
 def catalogue() -> List[CatalogueEntry]:
-    entries = _engines() + _contracts() + _specialist() + _workflow_methods()
+    entries = _engines() + _contracts() + _specialist() + _workflow_methods() + _case_services()
     return sorted(entries, key=lambda e: (e.family, e.method_id))
 
 

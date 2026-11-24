@@ -125,7 +125,7 @@ def test_catalogue_evidence_is_counted_per_method(audit):
 
     rows = audit["catalogue"]["rows"]
     assert [r["method_id"] for r in rows] == [e.method_id for e in mc.catalogue()]
-    assert audit["catalogue"]["entries"] == len(rows) == 54 and audit["catalogue"]["approved"] == 0
+    assert audit["catalogue"]["entries"] == len(rows) == 62 and audit["catalogue"]["approved"] == 0
     assert all(r["approval"] == "NOT APPROVED — OWNER REVIEW REQUIRED" for r in rows)
     missing = audit["catalogue"]["without_test_evidence"]
     assert missing == [r["method_id"] for r in rows if r["evidence_tests"] == 0]

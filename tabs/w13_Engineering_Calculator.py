@@ -2209,6 +2209,12 @@ class EngineeringCalculatorTab(DrillTabBase):
             "Browse, inspect and verify previously saved MSE (Teale) runs.")
         mse_history.clicked.connect(self._mse_open_history)
         res_layout.addWidget(mse_history, 4, 2)
+        self.mse_drilloff_btn = QPushButton("📈 Drill-off test (founder)…")
+        self.mse_drilloff_btn.setObjectName("mse_drilloff_btn")
+        self.mse_drilloff_btn.setToolTip("M372: WOB step test at constant RPM - founder point, per-step MSE and "
+                                         "drilling efficiency (CCS / MSE when CCS is declared). SCREENING.")
+        self.mse_drilloff_btn.clicked.connect(self._mse_drilloff_dialog)
+        res_layout.addWidget(self.mse_drilloff_btn, 4, 3)
 
         # M123 (D6): the measured depth of the run is recorded ONLY when the user enters it here (with the
         # wellbore it was measured in); nothing derives it from a report, a survey or the selection.
@@ -4396,6 +4402,32 @@ class EngineeringCalculatorTab(DrillTabBase):
                                               "data, not a catalog); yield strength entered by the user.")
 
     # ========== M371 axial loads & wear ==========
+    def mse_drilloff_dialog(self):
+        """The M372 dialog: bit size from this page (0 = not entered); the page WOB/RPM/torque/ROP become the first
+        step only when all four are entered."""
+        from dialogs.mse_drilloff_dialog import MseDrillOffDialog
+
+        first = {"wob_klbf": self.bit_wob.value() or None, "rpm": self.bit_rpm.value() or None,
+                 "torque_ft_lbf": self.bit_tq.value() or None, "rop_ft_hr": self.bit_rop.value() or None}
+        page = {"bit_diameter_in": self.bit_od.value() or None,
+                "first_step": first if all(value is not None for value in first.values()) else None}
+        return MseDrillOffDialog(page, db=getattr(self, "db", None),
+                                 well_id=getattr(self, "current_well_id", None), parent=self)
+
+    def _mse_drilloff_dialog(self, _checked=False):
+        self.mse_drilloff_dialog().exec()
+
+    def wc_volumetric_dialog(self):
+        """The M373 TRAINING AID dialog: SICP and mud density (pcf) from the kill-sheet page (0 = not entered)."""
+        from dialogs.well_control_volumetric_dialog import VolumetricMethodDialog
+
+        page = {"sicp_psi": self.wc_sicp.value() or None, "mud_density_pcf": self.wc_mw.value() or None}
+        return VolumetricMethodDialog(page, db=getattr(self, "db", None),
+                                      well_id=getattr(self, "current_well_id", None), parent=self)
+
+    def _wc_volumetric_dialog(self, _checked=False):
+        self.wc_volumetric_dialog().exec()
+
     def csg_axial_loads_dialog(self):
         """The M371 dialog on a frozen copy of OD / ID / yield / axial tension from this page (0 = not entered)."""
         from dialogs.casing_axial_loads_dialog import CasingAxialLoadsDialog
@@ -4995,6 +5027,12 @@ class EngineeringCalculatorTab(DrillTabBase):
         wc_history = QPushButton("📜 Calculation History")
         wc_history.clicked.connect(self._wc_open_history)
         wc_persist_row.addWidget(wc_history)
+        self.wc_volumetric_btn = QPushButton("🫧 Volumetric method (TRAINING AID)…")
+        self.wc_volumetric_btn.setObjectName("wc_volumetric_btn")
+        self.wc_volumetric_btn.setToolTip("M373: volumetric-method bleed schedule and gas-migration rate. TRAINING AID "
+                                          "- NOT FOR OPERATIONAL WELL CONTROL (P11).")
+        self.wc_volumetric_btn.clicked.connect(self._wc_volumetric_dialog)
+        wc_persist_row.addWidget(self.wc_volumetric_btn)
         ks_layout.addLayout(wc_persist_row)
 
         # Results

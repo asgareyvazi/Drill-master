@@ -48,4 +48,19 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 | `AdvancedHydraulicsEngine.calc_bottoms_up_time` | (docstring not in English) | 1 |
 | `AdvancedHydraulicsEngine.calc_lag_time` | (docstring not in English) | 2 |
 
+## Workflow services with replayable cases (`core/*.py` declaring `METHOD_ID`)
+
+| Module | Method id | Version | Labels | Tests |
+|---|---|---|---|---|
+| `core/casing_axial_loads.py` | `m371.casing_axial_loads` | M371 casing axial-load components and wear v1 | SCREENING | 2 |
+| `core/cement_job_reconciliation.py` | `m317.cement_job_reconciliation` | M317 v2 (yield-unit registry; well_architecture.cement_annulus + CementEngine.displacement) | WORKSHEET | 3 |
+| `core/ddr_hydraulics_check.py` | `m314.ddr_bit_hydraulics_check` | M314 v1 (AdvancedHydraulicsEngine.calc_bit_hydraulics) | - | 2 |
+| `core/hydraulics_workflow.py` | `m366.hydraulics_workflow` | M366 v1 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual) | SCREENING | 5 |
+| `core/mse_drilloff.py` | `m372.mse_drilloff` | M372 drill-off founder and step MSE v1 | SCREENING | 3 |
+| `core/survey_plan_deviation.py` | `m368.survey_plan_deviation` | M368 survey-vs-plan centreline deviation v1 | SCREENING | 4 |
+| `core/torque_drag_sensitivity.py` | `m318.td_friction_sensitivity` | M318 v3 (TorqueDragEngine.calculate per declared friction factor, segments <= 5 m, vertical-aware buckling) | SCREENING | 5 |
+| `core/w13_hydraulics.py` | `w13.hydraulics.circulating_system` | M126 circulating-system hydraulics v1 | - | 1 |
+| `core/well_control_volumetric.py` | `m373.volumetric_method` | M373 volumetric method worksheet v1 | TRAINING AID | 2 |
+| `core/well_volumes.py` | `w13.volume.well_volumes` | M126 well volumes v1 | - | 2 |
+
 Hydraulics functions named by no test file: 0

@@ -26,4 +26,9 @@ M1 MSE Teale | 159887 | 159887 | 2.13e-07 | 1e-03 | PASS | display rounding
 WC1 kill mud weight | 10.9615 | 10.9615 | 0.00e+00 | 1e-03 | PASS | TRAINING AID; display rounding
 WC2 ICP | 1300 | 1300 | 0.00e+00 | 1e-09 | PASS | SCR + SIDPP
 WC3 FCP | 876.923 | 876.923 | 1.30e-16 | 1e-03 | PASS | SCR × KMW / OMW
-TOTAL 26 cases, 0 outside tolerance
+N1 casing bending stress 218·OD·DLS | 6294.75 | 6299.55 | 7.62e-04 | 1e-03 | PASS | textbook shortcut (E 30e6); 1e-3 covers its rounding
+N2 casing thermal load 207·A_s·ΔT | -280948 | -280948 | 0.00e+00 | 1e-09 | PASS | steel E·α = 207 psi/°F
+N3 casing ballooning 0.471 (ΔPi ID² − ΔPo OD²) | 13677.6 | 13684.5 | 5.07e-04 | 1e-03 | PASS | Lubinski shortcut, ν 0.3 (0.4712 rounded)
+N4 drill-off founder by construction | 20 | 20 | 0.00e+00 | 1e-09 | PASS | ROP = 4·WOB to 20 klbf, then 0.4/klbf
+N5 volumetric bleed per cycle (SI) | 7.344 | 7.344 | 5.22e-14 | 1e-06 | PASS | ρ g in SI, converted; TRAINING AID
+TOTAL 31 cases, 0 outside tolerance
