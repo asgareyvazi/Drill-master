@@ -142,6 +142,7 @@
     "0.3048": {
      "files": {
       "core/engineering/extended.py": 1,
+      "core/hydraulics_hb_slot.py": 1,
       "core/managers.py": 1,
       "core/survey_file_import.py": 1,
       "core/survey_revisions.py": 1,
@@ -151,7 +152,7 @@
       "dialogs/calculator_dialog.py": 1,
       "tabs/w13_Engineering_Calculator.py": 1
      },
-     "uses": 15,
+     "uses": 16,
      "value": 0.3048
     },
     "3.28084": {

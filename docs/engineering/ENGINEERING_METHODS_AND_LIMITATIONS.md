@@ -280,3 +280,34 @@ services); every entry stays "NOT APPROVED — OWNER REVIEW REQUIRED".
   cycle above a declared casing limit. Single bubble, constant capacity, no gas law, no lubricate-and-bleed.
 - **Replay tolerances (M388).** Absolute, per unit, repeatability only: adds `in` 1e-6, `ft/h` 0.01,
   `psi/bbl` 1e-4; every unit an M361–M400 adapter reports is listed (tested).
+
+## M401–M460 methods
+
+Four calculation-case services were added. The method catalogue now has 66 entries, and every entry stays "NOT APPROVED — OWNER REVIEW REQUIRED".
+
+- **R-HYD-2 HB annulus (M416, SCREENING).** Concentric annulus as a narrow slot (Dh = Do − Di), allowed only for κ = Di/Do ≥ 0.3. At κ = 0.3 the Newtonian slot under-predicts the exact concentric flow by 2.25 %.
+  - **Laminar.** Exact HB slot solution, solved for τw by bisection.
+  - **Generalised Reynolds number.** Re_G = 12ρV²/τw,lam.
+  - **Transition.** Published transition bands with a linear blend.
+  - **Turbulent.** Colebrook on Dh.
+  - **Inputs.** τ0, K and n are declared. They are never fitted inside the method, and `core/mud_engineering.py` still reports the HB fit as NOT ASSESSED.
+  - **Not modelled.** Eccentricity, pipe rotation, tool joints, cuttings and temperature.
+  - **Relation to the legacy engine.** The legacy W13 hydraulics engine is unchanged. Its HB option is still a power-law plus yield-stress screening approximation, and it says so in its own warning. M416 is a separate method and is not a replacement for it.
+- **Surge / swab (M420, SCREENING, quasi-steady).**
+  - **Model.** Closed-end string, Q = v_p·πDi²/4. Burkhardt effective velocity V_f + K_c·v_p, with K_c declared. For a Newtonian laminar slot, K_c = 0.5 equals the exact Couette–Poiseuille result.
+  - **Section losses.** Computed by M416.
+  - **Total.** The total is the sum over sections, and a partial sum is never reported as a total.
+  - **EMW.** MW ± ΔP/((12/231)·TVD), and only when TVD is declared.
+  - **Not implemented.** The open-ended string. No transient model is provided.
+  - **Relation to the legacy surge.** The legacy W13 "📉 Surge/Swab" (Bingham / power-law with a fixed 0.45 clinging factor) is unchanged and separate. Consolidation is backlog `BL-SS-CONSOLIDATE`.
+- **CCI provenance (M422).** `M366 v2` stores the CCI value, class and inputs as case fields: lowest annular velocity and its section, θ600, θ300, K, n and inclination. `M366 v1` cases replay unchanged.
+  - **Correction to M400 catalogue row 16.** CCI value and class were already stored since `70fa14b`; only the provenance fields were missing.
+- **Fitted drill-off (M423, SCREENING).** ROP = a + b·WOB + c·max(WOB − W*, 0), a continuous hinge fitted by least squares over W* with at least two steps per side.
+  - **Founder.** Reported when b + c < r·b, with r declared.
+  - **Outlier flags.** A step is flagged when |r_i| > 3·s₍ᵢ₎, where s₍ᵢ₎ is the leave-one-out scale. The pooled scale cannot flag anything for n ≤ 12.
+  - **Limitation.** Least squares is not robust. A gross outlier near the knee can capture the breakpoint (tested). M372 is unchanged.
+- **IADC dull grade (M427, RECORD).**
+  - **Validation.** The eight fields are checked against the stored IADC code set, with bit-type gating.
+  - **Trend.** Saved grades of a well, ordered by depth out.
+  - **Not implemented.** Remaining-life or wear prediction (`BIT_DULL_GRADE_RECORD_NOTE_M427.md`).
+

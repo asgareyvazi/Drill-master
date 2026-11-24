@@ -329,3 +329,21 @@ evidence for each package:
 
 Dependency change made without an owner gate: **pillow 12.3.0 → 13.0.0** (M386; 58 published advisories fixed in
 13.0.0; same MIT-CMU licence; not a Qt package, so P2 does not apply). It is listed here so the owner can reverse it.
+
+## M460 status (M401–M460)
+
+**No decision P1–P19 is recorded as approved.** `core/method_catalogue.OWNER_APPROVALS` is still empty. The 66-entry method catalogue shows "NOT APPROVED — OWNER REVIEW REQUIRED" on every row.
+
+| Package / decision | State | M401–M460 evidence / consequence |
+|---|---|---|
+| P2 PySide6 | OPEN | The pin stays at 6.8.1.1. M401–M460 extends the dialog-lifecycle test to the M372, M373 and the four new dialogs. |
+| P8 density divisor | OPEN — current behaviour kept | M420 converts EMW with the exact 12/231 psi/ft per ppg. It needs no gallon-to-cubic-foot divisor. |
+| P10 datum / CRS | OPEN | The M404 addendum restates the rule. M129 v2 trajectory comparison reduces RKB / RT to MSL through the declared `rte_msl`. M368 checks only that the datums are the same and refuses a mismatch. No CRS transform exists. |
+| P11 kill sheet | OPEN | Unchanged. |
+| P12 method approvals | OPEN | Four catalogue entries were added (m416, m420, m423, m427), all NOT APPROVED. |
+| P19 ISCWSA | OPEN | Benchmark M412 D94 checks the centreline 3D closest approach. It is never called a separation factor. |
+| D88 CI 3.12 timeout | **BLOCKED BY OWNER DECISION — active risk** | The 3.12 leg on `e9244e8` attempt 1 hit the TIMEOUT; the re-run passed in 56m19s. M409 (`m409_suite_profile.md`) gives the per-file time shares and a balanced two- or three-way split as decision input. The 60 min limit has not been raised and the workflow has not been split. |
+| `BL-BIT-DEFAULTS` | OPEN (backlog) | `d_exponent_corrected` defaults to a normal gradient of 8.6 ppg. `cost_per_foot` without rotating hours returns the trip-only cost. Both are documented, not changed. |
+| `BL-SS-CONSOLIDATE` | OPEN (backlog) | Two surge methods coexist: the legacy W13 screening and M420. Consolidating them is an owner and product decision. |
+| `BL-M408` | OPEN | The `test_m129` intermittent failure was not reproduced (loaded 396/396 twice, 20/20 repeats). |
+

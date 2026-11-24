@@ -231,6 +231,7 @@ def _case_services() -> List[CatalogueEntry]:
     """M392: workflow services that store replayable calculation cases (``core.history_replay`` adapters)."""
     from core import casing_axial_loads, cement_job_reconciliation, ddr_hydraulics_check, hydraulics_workflow
     from core import mse_drilloff, survey_plan_deviation, torque_drag_sensitivity, well_control_volumetric
+    from core import bit_dull_grade, drilloff_fitted, hydraulics_hb_slot, surge_swab
 
     def entry(module, title, family, reference, limits, blocker=""):
         label = _label(getattr(module, "LABEL", ""))
@@ -265,6 +266,22 @@ def _case_services() -> List[CatalogueEntry]:
               "IWCF / IADC volumetric method; gradient = density / 144",
               "Single bubble, constant capacity, no gas law; stops at a declared casing limit",
               "Kill sheet / well-control operational use (P11)"),
+        entry(hydraulics_hb_slot, "Annular friction loss, Herschel-Bulkley slot (R-HYD-2)", "Hydraulics",
+              "Founargiotakis et al. 2008 slot solution and transition band; Erge et al. 2015 band (declared); "
+              "Colebrook (Darcy = 4 x Fanning)",
+              "Concentric annulus, kappa >= 0.3, 0.1 <= n <= 1; no eccentricity, rotation or temperature/pressure "
+              "rheology; transitional = linear blend; Erge Re2 refused outside its fitted n' range"),
+        entry(surge_swab, "Surge and swab pressure, quasi-steady closed-end", "Hydraulics",
+              "Burkhardt (1961) effective velocity V + K_c v_p with a declared clinging constant; R-HYD-2 HB slot loss",
+              "Quasi-steady only (no fluid inertia, compressibility or pressure waves); closed-end string only - open "
+              "end NOT ASSESSED; concentric, no tool-joint detail"),
+        entry(drilloff_fitted, "Drill-off founder, fitted two-segment line", "Drilling performance",
+              "Continuous hinge least squares (ROP = a + bW + c max(W - W*, 0)); founder rule as declared",
+              "Separate from M372 (unchanged); >= 5 distinct-WOB steps at constant RPM; residuals > 3 s flagged, "
+              "not removed; no CCS correlation"),
+        entry(bit_dull_grade, "Bit dull grade record (IADC)", "Drilling performance",
+              "IADC dull grading system (roller-cone 1987; fixed-cutter IADC/SPE 23939, 1992) code set",
+              "Record, validation and per-well ordering only; no remaining-life or wear prediction"),
     ]
 
 

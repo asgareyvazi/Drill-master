@@ -30,6 +30,7 @@ FIELD_TOLERANCES: Dict[str, float] = {
     "m": 0.001, "klbf": 0.001, "ft·lbf": 0.1, "": 1e-9,
     "ppg": 1e-4, "in²": 1e-6, "ft/min": 0.01,                       # M366
     "in": 1e-6, "ft/h": 0.01, "psi/bbl": 1e-4,                       # M371 / M372 / M373 (M388: every unit listed)
+    "psi/ft": 1e-6, "ft/h/klbf": 1e-6, "cP": 1e-6, "deg": 1e-9,      # M416 / M420 / M422 / M423
 }
 
 
@@ -71,6 +72,10 @@ def _unit_of(method: str, key: str) -> str:
         from core.well_control_volumetric import unit_of as m373_unit_of
 
         return m373_unit_of(key)
+    if method in SERVICE_MODULES:
+        import importlib
+
+        return importlib.import_module(SERVICE_MODULES[method][0]).unit_of(key)
     return ""
 
 
@@ -231,7 +236,7 @@ def _m366_current() -> str:
 def _m366_reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
     from core import hydraulics_workflow as hw
 
-    if version != hw.METHOD_VERSION:
+    if version not in hw.REPLAYABLE_VERSIONS:
         return "NOT REPRODUCIBLE", f"hydraulics workflow version {version!r} is not available in this build"
     if not isinstance(_input(inputs, "snapshot"), dict):
         return "NOT REPRODUCIBLE", "the case holds no frozen hydraulics snapshot"
@@ -242,7 +247,7 @@ def _m366_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
     from core import hydraulics_workflow as hw
 
     try:
-        return hw.replay_results(inputs)
+        return hw.replay_results(inputs, version)
     except hw.IntegrityError as exc:
         raise SnapshotIntegrityError(str(exc)) from exc
 
@@ -351,6 +356,45 @@ def _m373_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
         raise SnapshotIntegrityError(str(exc)) from exc
 
 
+# ---- M416 / M420 / M423 / M427: SHA-checked declared-input services (one generic adapter) ---------------------------
+#: method id -> (module, description used in the NOT REPRODUCIBLE reason)
+SERVICE_MODULES: Dict[str, Tuple[str, str]] = {
+    "m416.hb_slot_annulus": ("core.hydraulics_hb_slot", "Herschel-Bulkley slot annulus"),
+    "m420.surge_swab": ("core.surge_swab", "surge/swab"),
+    "m423.drilloff_fitted": ("core.drilloff_fitted", "fitted drill-off"),
+    "m427.bit_dull_grade": ("core.bit_dull_grade", "IADC dull grade record"),
+}
+
+
+def _service_adapter(method: str) -> Tuple[Callable, Callable, Callable]:
+    import importlib
+
+    module_name, what = SERVICE_MODULES[method]
+
+    def module():
+        return importlib.import_module(module_name)
+
+    def current() -> str:
+        mod = module()
+        return f"{mod.METHOD_ID} {mod.METHOD_VERSION}"
+
+    def reproducible(inputs: Dict[str, Any], version: str) -> Tuple[str, str]:
+        if version != module().METHOD_VERSION:
+            return "NOT REPRODUCIBLE", f"{what} version {version!r} is not available in this build"
+        if not isinstance(inputs.get("inputs_sha256"), dict):
+            return "NOT REPRODUCIBLE", "the case holds no inputs SHA-256"
+        return "REPRODUCIBLE", "re-run from the stored declared inputs after their SHA-256 check"
+
+    def replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
+        mod = module()
+        try:
+            return mod.replay_results(inputs)
+        except mod.IntegrityError as exc:
+            raise SnapshotIntegrityError(str(exc)) from exc
+
+    return reproducible, replay, current
+
+
 ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
     "m314.ddr_bit_hydraulics_check": (_m314_reproducible, _m314_replay, _m314_current),
     "m317.cement_job_reconciliation": (_m317_reproducible, _m317_replay, _m317_current),
@@ -360,6 +404,7 @@ ADAPTERS: Dict[str, Tuple[Callable, Callable, Callable]] = {
     "m371.casing_axial_loads": (_m371_reproducible, _m371_replay, _m371_current),
     "m372.mse_drilloff": (_m372_reproducible, _m372_replay, _m372_current),
     "m373.volumetric_method": (_m373_reproducible, _m373_replay, _m373_current),
+    **{method: _service_adapter(method) for method in SERVICE_MODULES},
 }
 
 

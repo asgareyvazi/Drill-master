@@ -1416,3 +1416,23 @@ Report: `docs/mission-reports/M361_M400_INTEGRATED_ENGINEERING_COMPLETION_REPORT
 | Replay unit tolerances (M388) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/history_replay.py`, `tests/test_m388_units_contract.py` |
 | Method catalogue: 8 calculation-case services added (62 entries, 0 approved) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/method_catalogue.py` `_case_services` |
 | Engine inventory: workflow-services section (generated) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/engine_inventory.py` |
+
+## M401–M460
+
+**PARTIAL — UNSIGNED — NOT RELEASE-APPROVED — NOT FIELD-ACCEPTED.** Full state table:
+`docs/engineering/DRILLMASTER_COMPLETE_ENGINEERING_CAPABILITY_CATALOGUE_M460.md`.
+
+| Capability | State | Evidence / gap |
+|---|---|---|
+| R-HYD-2 HB slot annulus friction loss; W13 "🧮 HB Annulus (R-HYD-2)" (M415 / M416) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/hydraulics_hb_slot.py`, `R_HYD_2_HB_SLOT_METHOD_SPECIFICATION.md`, `tests/test_m415_m427_engineering_services.py`; HB-* mutants; benchmarks R1–R8; κ < 0.3 refused; no eccentricity or rotation; rheology declared, not fitted |
+| Quasi-steady closed-end surge / swab; W13 "📉 Surge/Swab HB (closed-end)" (M419 / M420) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/surge_swab.py`, `SURGE_SWAB_METHOD_SPECIFICATION.md`; SS-* mutants; benchmarks SS1, SS2; open-ended string NOT IMPLEMENTED; no transient model |
+| CCI stored as case fields, `M366 v2` (M422) | IMPLEMENTED AND QUALIFIED — SYNTHETIC | `core/hydraulics_workflow.py` `CCI_FIELDS`; v1 cases replay; HW-cci-v2-fields-not-stored mutant |
+| Fitted drill-off line; W13 "📐 Drill-off fitted line…" (M423) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) | `core/drilloff_fitted.py`, `DRILLOFF_FITTED_LINE_METHOD_SPECIFICATION.md`; DF-* mutants; benchmarks DF1, DF2; least squares is not robust (tested limitation) |
+| IADC dull-grade record and trend; W13 "🦷 Bit dull grade (IADC)…" (M427) | VERIFIED COMPLETE FOR STATED SYNTHETIC SCOPE (record only) | `core/bit_dull_grade.py`, `BIT_DULL_GRADE_RECORD_NOTE_M427.md`; DG-* mutants; wear prediction NOT IMPLEMENTED |
+| Shared engineering-service dialog (M418 / M421 / M423 / M427 UI) | IMPLEMENTED — PARTIALLY QUALIFIED | `dialogs/engineering_service_dialog.py`; empty fields are sent as None, never 0 (DLG-* mutants); `tests/test_m376_qt_lifecycle.py` |
+| Method catalogue: 4 calculation-case services added (66 entries, 0 approved) | IMPLEMENTED — PARTIALLY QUALIFIED | `core/method_catalogue.py` `_case_services` |
+| Sharded runner with exact pytest outcomes and per-test durations (M407 / M409) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/run_suite_sharded.py`, `pytest_outcome_recorder.py`, `suite_profile_m409.py`, `tests/test_m407_sharded_runner_counts.py` |
+| M1–M400 traceability ledger (M403) | DOCUMENTED ONLY (generated) | `M403_TRACEABILITY_LEDGER_M1_M400.md`; directives UNAVAILABLE IN REPOSITORY |
+| Mutant audit: first killing test per mutant (M411) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/mutant_audit_m411.py`; `m411_mutant_audit.md` |
+| Independent benchmarks M412 (30 cases + 6 status checks) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) | `tools/quality/benchmark_m412.py`, `m412_benchmarks.txt` |
+

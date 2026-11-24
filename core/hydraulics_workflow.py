@@ -30,7 +30,13 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 CONTRACT = "hydraulics-workflow-v1"
 METHOD_ID = "m366.hydraulics_workflow"
-METHOD_VERSION = "M366 v1 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual)"
+METHOD_VERSION_V1 = "M366 v1 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual)"
+# M422: v2 stores the carrying capacity index as a first-class result with its provenance (rheology source, n, K,
+# annular velocity, MW, inclination, method). The calculation is unchanged; v1 cases replay with the v1 payload.
+METHOD_VERSION = ("M366 v2 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual; "
+                  "M422 CCI result fields)")
+REPLAYABLE_VERSIONS = (METHOD_VERSION_V1, METHOD_VERSION)
+CCI_METHOD = "Robinson-Morgan carrying capacity index (2004), SCREENING; applies at <= 35 deg maximum inclination"
 LABEL = "SCREENING — PRESSURE BUDGET AND SENSITIVITY — NOT FIELD-CALIBRATED"
 CALCULATOR = "Hydraulics workflow"
 MAX_FLOW_POINTS = 12
@@ -414,8 +420,15 @@ _POINT_FIELDS = (("spp_psi", "psi"), ("bit_loss_psi", "psi"), ("annular_loss_psi
 # M370: the carrying capacity index of the base point is stored with the case (None when not assessed)
 
 
-def case_payload(result: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """(inputs, results) of a saved workflow case: one builder for save and M328-style replay."""
+#: M422 (v2) CCI provenance fields: result key -> (hole-cleaning key, unit)
+CCI_FIELDS = (("base_cci_n", "n", ""), ("base_cci_k_equiv_cp", "k_equiv_cp", "cP"),
+              ("base_cci_av_ft_min", "av_ft_min", "ft/min"), ("base_cci_mw_ppg", "mw_ppg", "ppg"))
+
+
+def case_payload(result: Mapping[str, Any], version: str = METHOD_VERSION) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """(inputs, results) of a saved workflow case: one builder for save and M328-style replay.
+
+    ``version`` selects the stored layout: v1 cases (before M422) replay without the CCI provenance fields."""
     snap = result["snapshot"]
     inputs = {"snapshot": {"value": snap, "unit": "", "label": "frozen W13 hydraulics inputs and workflow options",
                            "source": "SNAPSHOT"},
@@ -440,6 +453,15 @@ def case_payload(result: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, A
         hc = base.get("hole_cleaning") or {}
         results["base_cci"] = {"value": hc.get("cci"), "unit": "", "label": "carrying capacity index (SCREENING)"}
         results["base_hole_cleaning_status"] = {"value": hc.get("status"), "label": hc.get("reason") or ""}
+        if version != METHOD_VERSION_V1:
+            for key, source, unit in CCI_FIELDS:
+                results[key] = {"value": hc.get(source), "unit": unit, "label": f"CCI {source}"}
+            results["base_cci_rheology_source"] = {"value": hc.get("rheology_source"), "label": "CCI rheology source"}
+            results["base_cci_av_source"] = {"value": "lowest annular velocity of the engine's annular profile"
+                                             if hc.get("av_ft_min") is not None else None, "label": "CCI AV source"}
+            results["base_cci_max_inclination_deg"] = {"value": _num((snap.get("values") or {}).get("max_inc")),
+                                                       "unit": "deg", "label": "maximum inclination entered"}
+            results["base_cci_method"] = {"value": CCI_METHOD, "label": "CCI method and applicability"}
         for point in result["flow_sweep"]:
             tag = f"flow_{point['flow_gpm']:g}"
             results[f"{tag}_status"] = {"value": point["status"], "label": point["reason"] or "OK"}
@@ -462,6 +484,11 @@ def case_payload(result: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, A
 
 def unit_of(key: str) -> str:
     """Unit of a stored result field (from the field-name suffix, never guessed)."""
+    for field, _source, unit in CCI_FIELDS:
+        if key == field:
+            return unit
+    if key == "base_cci_max_inclination_deg":
+        return "deg"
     for field, unit in _POINT_FIELDS:
         if key.endswith(field):
             return unit
@@ -482,7 +509,7 @@ def save_case(db, result: Mapping[str, Any], *, well_id: Optional[int], user_id:
                         well_id=well_id, user_id=user_id, note=f"{LABEL}; inputs SHA-256 {result['values_sha256']}")
 
 
-def replay_results(inputs: Mapping[str, Any]) -> Dict[str, Any]:
+def replay_results(inputs: Mapping[str, Any], version: str = METHOD_VERSION) -> Dict[str, Any]:
     """Re-run a saved case from its frozen snapshot after the SHA-256 check (raises ValueError if it fails)."""
     snap = inputs["snapshot"]["value"] if isinstance(inputs.get("snapshot"), dict) else None
     if not isinstance(snap, dict) or not isinstance(snap.get("values"), dict):
@@ -495,7 +522,7 @@ def replay_results(inputs: Mapping[str, Any]) -> Dict[str, Any]:
                       nozzle_sets=options.get("nozzle_sets") or [],
                       observed_spp_psi=options.get("observed_spp_psi"),
                       spp_tolerance_psi=options.get("spp_tolerance_psi"))
-    return case_payload(result)[1]
+    return case_payload(result, version)[1]
 
 
 class IntegrityError(ValueError):

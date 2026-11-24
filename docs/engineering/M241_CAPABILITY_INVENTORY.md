@@ -194,3 +194,25 @@ the M290 table above for **state** (both are kept). Areas M361–M400 changed:
 
 Mutation reach: every M361–M400 service module is in `tools/quality/mutation_m361_m400.py` (53 mutants; results in
 `docs/mission-reports/m361-m400-evidence/`). Mutation results are not proof of correctness.
+
+## M401–M460 additions
+
+Areas changed in M401–M460. The M400 catalogue stays the historical record; corrections to its statements are in
+`docs/mission-reports/m401-m460-evidence/m404_reconciliation_addendum.md`, and the current full table is
+`DRILLMASTER_COMPLETE_ENGINEERING_CAPABILITY_CATALOGUE_M460.md`.
+
+| Area | Change | State |
+|---|---|---|
+| Hydraulics — HB annulus | R-HYD-2 Herschel-Bulkley narrow-slot friction loss, laminar / transitional / turbulent, κ ≥ 0.3 only (M415 spec, M416 service, W13 "🧮 HB Annulus (R-HYD-2)") | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Hydraulics — surge / swab | quasi-steady closed-end surge / swab on the R-HYD-2 slot, declared clinging constant (M419 spec, M420 service, W13 "📉 Surge/Swab HB (closed-end)"); the legacy surge dialog is unchanged and separate (`BL-SS-CONSOLIDATE`) | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Hydraulics — CCI provenance | CCI inputs (lowest annular velocity, its section, Fann readings, K, n, inclination) stored as case fields in `M366 v2`; `M366 v1` cases still replay (M422) | IMPLEMENTED AND QUALIFIED — SYNTHETIC |
+| MSE / bit — fitted drill-off | continuous two-segment least-squares founder, leave-one-out outlier flags (M423 spec and service, W13 "📐 Drill-off fitted line…"); M372 unchanged | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
+| Bit — dull grade | IADC I-O-D-L-B-G-O-R record, validation and per-well trend (M427, W13 "🦷 Bit dull grade (IADC)…"); no wear prediction | IMPLEMENTED AND QUALIFIED — SYNTHETIC (record only) |
+| Help → Method catalogue | +4 calculation-case services (m416, m420, m423, m427): 66 entries, 0 approved | IMPLEMENTED — PARTIALLY QUALIFIED |
+| Qt lifecycle | M372 / M373 and the four new dialogs parented to the W13 tab and destroyed with it (M401–M460 extension of M376) | IMPLEMENTED — PARTIALLY QUALIFIED |
+| Test tooling | sharded runner records pytest's own per-test outcomes and durations (M407 / M409); suite profile; M403 traceability ledger; M411 mutant audit | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) |
+| Benchmarks | `tools/quality/benchmark_m412.py`: 30 independent cases + 6 status checks (R, SS, DF, D94, F, B, Z, U) | IMPLEMENTED — NOT UI-INTEGRATED (developer tooling) |
+
+Mutation reach: every M401–M460 service module is in `tools/quality/mutation_m401_m460.py`: 30 mutants, all killed in
+run 2. Run 1 had 3 survivors, each then killed by a new test. Mutation results are not proof of correctness.
+

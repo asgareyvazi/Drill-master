@@ -76,3 +76,20 @@ def test_reopening_creates_a_fresh_dialog_and_the_old_one_can_be_released(app, d
     finally:
         tab.deleteLater()
         _flush(app)
+
+
+def test_m372_m373_and_m401_m460_dialogs_are_parented_to_the_tab_and_die_with_it(app, db):  # noqa: F811
+    """M414 / M404: the M372 and M373 dialogs (not covered by the M376 tests above) and the M418 / M421 / M423 / M427
+    service dialogs follow the same lifecycle rule."""
+    from tabs.w13_Engineering_Calculator import EngineeringCalculatorTab
+
+    tab = EngineeringCalculatorTab(db)
+    names = ("mse_drilloff_dialog", "wc_volumetric_dialog", "hy_hb_slot_dialog", "hy_surge_hb_dialog",
+             "drilloff_fitted_dialog", "dull_grade_dialog")
+    dialogs = [getattr(tab, name)() for name in names]
+    assert all(dialog.parent() is tab for dialog in dialogs)
+    for dialog in dialogs:
+        dialog.close()
+    tab.deleteLater()
+    _flush(app)
+    assert not any(shiboken6.isValid(dialog) for dialog in dialogs) and not shiboken6.isValid(tab)

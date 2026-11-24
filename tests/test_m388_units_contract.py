@@ -60,3 +60,21 @@ def test_the_volumetric_aid_does_not_mix_ppg_into_its_pcf_inputs():
     assert "ppg" not in source.lower().replace("no gallon", "")
     assert wcv.PSI_PER_FT_PER_PCF == pytest.approx(1 / 144)
     assert wcv.UNITS["mud_density_pcf"] == "pcf"
+
+
+def test_m416_m420_m423_m427_services_declare_input_units_and_result_tolerances():
+    """M412 / M437: the M401-M460 services follow the same unit contract (inputs carry units; every stored result unit
+    has a replay tolerance)."""
+    from core import bit_dull_grade as dg
+    from core import drilloff_fitted as df
+    from core import hydraulics_hb_slot as hb
+    from core import surge_swab as ss
+
+    for module in (hb, ss, df):
+        for key, unit, _required in module.FIELDS:
+            assert module.UNITS[key] == unit
+        for key, unit in module.RESULT_FIELDS:
+            assert hr._unit_of(module.METHOD_ID, key) == unit and unit in hr.FIELD_TOLERANCES
+    assert dg.UNITS["depth_out_m"] == "m" and hr._unit_of(dg.METHOD_ID, "footage_m") == "m"
+    assert hb.PA_PER_PSI == pytest.approx(6894.757293168361, rel=1e-15)          # exact lbf / in^2
+    assert ss.PSI_FT_PER_PPG == pytest.approx(12.0 / 231.0, rel=1e-12)          # 1 lb/gal over 12 in, 231 in^3/gal

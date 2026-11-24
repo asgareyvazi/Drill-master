@@ -229,7 +229,10 @@ def test_w13_anti_collision_is_the_revision_panel_without_a_separation_factor(w1
     panel.actual_combo.setCurrentIndex(panel.actual_combo.findData(ref["id"]))
     panel.crs_check.setChecked(True)
     panel.run()
-    assert panel.wait_until_idle() and panel.result.status == tc.ASSESSED
+    # M408: one assertion per stage, so a recurrence of the shard-3 failure (8ceaeb7) names the stage that failed.
+    assert panel.wait_until_idle(), "the comparison worker was still running after the 30 s wait"
+    assert panel.result is not None, f"no result shown: {panel.status_label.text()!r}"
+    assert panel.result.status == tc.ASSESSED, panel.result.reasons
     assert panel.last_inputs["offset_survey_revision_id"] == off["id"]
     w13.case_bar.refresh()
     assert not w13.case_bar.save_btn.isEnabled()

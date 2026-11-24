@@ -1,0 +1,34 @@
+baseline exit=0 37 passed in 9.76s
+HB-gap-is-full-clearance KILLED    the slot gap is taken as Do - Di instead of (Do - Di) / 2
+HB-yield-ignored-laminar KILLED    the yield stress is dropped in laminar flow
+HB-darcy-used-as-fanning KILLED    the Darcy factor is used as the Fanning factor
+HB-band-swapped          KILLED    Re1 and Re2 swapped
+HB-erge-kappa-sign       KILLED    Erge Re1 quadratic term sign
+HB-blend-uses-turbulent-at-re KILLED    the transitional blend evaluates Colebrook at Re instead of Re2
+HB-wide-annulus-accepted KILLED    the slot idealisation is used for a wide annulus
+HB-zero-flow-missing     KILLED    zero flow is not handled as a value
+HB-erge-re2-extrapolated KILLED    the Erge Re2 fit is extrapolated outside its n' range
+HB-psi-constant          KILLED    a rounded psi constant
+HB-replay-sha-skipped    KILLED    tampered HB inputs are replayed
+SS-clinging-dropped      KILLED    the clinging (drag) term is dropped
+SS-open-end-evaluated    KILLED    an open-ended string is evaluated as closed
+SS-displacement-uses-hole KILLED    the displaced volume uses the hole ID
+SS-partial-sum-total     KILLED    a NOT ASSESSED section is skipped and the rest summed
+SS-emw-sign              KILLED    swab EMW above the mud weight
+DF-upper-slope-is-c      KILLED    the upper slope is reported as the change c
+DF-min-steps-4           KILLED    4 steps are fitted
+DF-rpm-tolerance-ignored KILLED    a varying-RPM test is fitted
+DF-pooled-outlier-scale  KILLED    the pooled s masks the outlier
+DF-founder-ratio-inverted KILLED    founder rule inverted
+DG-cone-code-on-pdc      KILLED    a roller-cone code accepted on a fixed-cutter bit
+DG-scale-9-accepted      KILLED    row wear 9 accepted
+DG-no-well-saved         KILLED    a grade saved without a well
+DG-trend-unordered       KILLED    the trend is newest-first instead of by depth
+HW-cci-v2-fields-not-stored KILLED    the CCI provenance fields are not stored
+HW-v1-replays-with-v2-layout KILLED    a v1 case replays with the v2 layout (DIFFERENT)
+HR-service-version-unchecked KILLED    an unknown method version is replayed
+DLG-empty-is-zero        KILLED    an empty dialog field is sent as 0
+DLG-save-without-run-status KILLED    Save is enabled for a NOT ASSESSED result
+
+mutants=30 killed=30 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=81
+EXIT 0

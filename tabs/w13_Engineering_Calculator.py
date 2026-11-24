@@ -1074,6 +1074,8 @@ class EngineeringCalculatorTab(DrillTabBase):
             ("🔄 Calculate", "", "_hy_run_calc", "#27ae60"),
             ("📉 Surge/Swab", "", "_hy_surge_dialog", "#9b59b6"),
             ("📊 Budget & Sensitivity", "", "_hy_workflow_dialog", "#16a085"),
+            ("🧮 HB Annulus (R-HYD-2)", "", "_hy_hb_slot_dialog", "#2c3e50"),
+            ("📉 Surge/Swab HB (closed-end)", "", "_hy_surge_hb_dialog", "#8e44ad"),
             ("📤 Export", "", "_hy_export", "#3498db"),
             ("🖨️ Print", "", "_hy_print", "#e67e22"),
         ]:
@@ -1896,6 +1898,28 @@ class EngineeringCalculatorTab(DrillTabBase):
         if dialog is not None:
             dialog.exec()
 
+    # ========== M418 / M421 declared-input services ==========
+    def hy_hb_slot_dialog(self):
+        """M418: R-HYD-2 Herschel-Bulkley slot annulus. Every input is declared in the dialog (the page holds Bingham /
+        power-law readings in pcf, not HB parameters; nothing is converted or guessed here)."""
+        from dialogs.engineering_service_dialog import hb_slot_dialog
+
+        return hb_slot_dialog(db=getattr(self, "db", None), well_id=getattr(self, "current_well_id", None),
+                              parent=self)
+
+    def _hy_hb_slot_dialog(self, _checked=False):
+        self.hy_hb_slot_dialog().exec()
+
+    def hy_surge_hb_dialog(self):
+        """M421: quasi-steady closed-end surge/swab on the R-HYD-2 HB slot model (declared inputs only)."""
+        from dialogs.engineering_service_dialog import surge_swab_dialog
+
+        return surge_swab_dialog(db=getattr(self, "db", None), well_id=getattr(self, "current_well_id", None),
+                                 parent=self)
+
+    def _hy_surge_hb_dialog(self, _checked=False):
+        self.hy_surge_hb_dialog().exec()
+
     # ========== Surge/Swab Dialog ==========
 
     def _hy_surge_dialog(self):
@@ -2215,6 +2239,18 @@ class EngineeringCalculatorTab(DrillTabBase):
                                          "drilling efficiency (CCS / MSE when CCS is declared). SCREENING.")
         self.mse_drilloff_btn.clicked.connect(self._mse_drilloff_dialog)
         res_layout.addWidget(self.mse_drilloff_btn, 4, 3)
+        self.drilloff_fitted_btn = QPushButton("📐 Drill-off fitted line…")
+        self.drilloff_fitted_btn.setObjectName("drilloff_fitted_btn")
+        self.drilloff_fitted_btn.setToolTip("M423: continuous two-segment least-squares fit of ROP on WOB (separate "
+                                            "method version; the M372 founder test is unchanged). SCREENING.")
+        self.drilloff_fitted_btn.clicked.connect(self._drilloff_fitted_dialog)
+        res_layout.addWidget(self.drilloff_fitted_btn, 6, 0, 1, 2)
+        self.dull_grade_btn = QPushButton("🦷 Bit dull grade (IADC)…")
+        self.dull_grade_btn.setObjectName("dull_grade_btn")
+        self.dull_grade_btn.setToolTip("M427: record and validate an IADC dull grade for the selected well; trend "
+                                       "of saved grades. No wear prediction.")
+        self.dull_grade_btn.clicked.connect(self._dull_grade_dialog)
+        res_layout.addWidget(self.dull_grade_btn, 6, 2, 1, 2)
 
         # M123 (D6): the measured depth of the run is recorded ONLY when the user enters it here (with the
         # wellbore it was measured in); nothing derives it from a report, a survey or the selection.
@@ -4416,6 +4452,30 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _mse_drilloff_dialog(self, _checked=False):
         self.mse_drilloff_dialog().exec()
+
+    def drilloff_fitted_dialog(self):
+        """M423: the page WOB/RPM/ROP become the first step only when all three are entered (0 = not entered)."""
+        from dialogs.engineering_service_dialog import drilloff_fitted_dialog
+
+        first = {"wob_klbf": self.bit_wob.value() or None, "rpm": self.bit_rpm.value() or None,
+                 "rop_ft_hr": self.bit_rop.value() or None}
+        page = {"rows": [first]} if all(value is not None for value in first.values()) else {}
+        return drilloff_fitted_dialog(page, db=getattr(self, "db", None),
+                                      well_id=getattr(self, "current_well_id", None), parent=self)
+
+    def _drilloff_fitted_dialog(self, _checked=False):
+        self.drilloff_fitted_dialog().exec()
+
+    def dull_grade_dialog(self):
+        """M427: bit size from this page (0 = not entered); every grade field is typed or chosen by the user."""
+        from dialogs.engineering_service_dialog import dull_grade_dialog
+
+        page = {"bit_size_in": self.bit_od.value() or None}
+        return dull_grade_dialog(page, db=getattr(self, "db", None),
+                                 well_id=getattr(self, "current_well_id", None), parent=self)
+
+    def _dull_grade_dialog(self, _checked=False):
+        self.dull_grade_dialog().exec()
 
     def wc_volumetric_dialog(self):
         """The M373 TRAINING AID dialog: SICP and mud density (pcf) from the kill-sheet page (0 = not entered)."""

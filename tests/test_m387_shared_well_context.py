@@ -18,7 +18,9 @@ from tests.test_m73_contracts_history import db  # noqa: E402,F401
 from tests.test_m372_mse_drilloff import PARAMS, STEPS  # noqa: E402
 from tests.test_m373_volumetric_method import BASE  # noqa: E402
 
-OPENERS = ("csg_axial_loads_dialog", "mse_drilloff_dialog", "wc_volumetric_dialog")
+OPENERS = ("csg_axial_loads_dialog", "mse_drilloff_dialog", "wc_volumetric_dialog",
+           # M418 / M421 / M423 / M427 service dialogs
+           "hy_hb_slot_dialog", "hy_surge_hb_dialog", "drilloff_fitted_dialog", "dull_grade_dialog")
 
 
 def _fill_m373(dialog):
@@ -44,7 +46,7 @@ def test_dialogs_follow_the_selected_well_and_cases_are_attributed_to_it(db):  #
         tab.on_well_changed(well, {"name": "SYN-C-01"})
         _fill(tab)
         opened = [getattr(tab, name)() for name in OPENERS] + [tab.hy_workflow_dialog()]
-        assert [d.well_id for d in opened] == [well] * 4
+        assert [d.well_id for d in opened] == [well] * (len(OPENERS) + 1)
         volumetric, drilloff = opened[2], opened[1]
         _fill_m373(volumetric)
         _fill_m372(drilloff)
@@ -58,7 +60,7 @@ def test_dialogs_follow_the_selected_well_and_cases_are_attributed_to_it(db):  #
         tab._on_selection_cleared_internal()
         tab.on_selection_cleared()
         fresh = [getattr(tab, name)() for name in OPENERS]
-        assert [d.well_id for d in fresh] == [None] * 3
+        assert [d.well_id for d in fresh] == [None] * len(OPENERS)
         _fill_m373(fresh[2])
         assert fresh[2].run() and fresh[2].save()["well_id"] is None
         for dialog in opened + fresh:

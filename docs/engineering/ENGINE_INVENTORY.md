@@ -52,14 +52,18 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 
 | Module | Method id | Version | Labels | Tests |
 |---|---|---|---|---|
+| `core/bit_dull_grade.py` | `m427.bit_dull_grade` | M427 IADC dull grade record v1 | - | 2 |
 | `core/casing_axial_loads.py` | `m371.casing_axial_loads` | M371 casing axial-load components and wear v1 | SCREENING | 2 |
 | `core/cement_job_reconciliation.py` | `m317.cement_job_reconciliation` | M317 v2 (yield-unit registry; well_architecture.cement_annulus + CementEngine.displacement) | WORKSHEET | 3 |
 | `core/ddr_hydraulics_check.py` | `m314.ddr_bit_hydraulics_check` | M314 v1 (AdvancedHydraulicsEngine.calc_bit_hydraulics) | - | 2 |
-| `core/hydraulics_workflow.py` | `m366.hydraulics_workflow` | M366 v1 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual) | SCREENING | 5 |
-| `core/mse_drilloff.py` | `m372.mse_drilloff` | M372 drill-off founder and step MSE v1 | SCREENING | 3 |
+| `core/drilloff_fitted.py` | `m423.drilloff_fitted` | M423 drill-off founder, continuous two-segment least squares v1 | SCREENING | 4 |
+| `core/hydraulics_hb_slot.py` | `m416.hb_slot_annulus` | M416 Herschel-Bulkley slot annulus v1 | SCREENING | 2 |
+| `core/hydraulics_workflow.py` | `m366.hydraulics_workflow` | M366 v2 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual; M422 CCI result fields) | SCREENING | 6 |
+| `core/mse_drilloff.py` | `m372.mse_drilloff` | M372 drill-off founder and step MSE v1 | SCREENING | 5 |
+| `core/surge_swab.py` | `m420.surge_swab` | M420 quasi-steady surge/swab, closed-end string v1 | SCREENING | 4 |
 | `core/survey_plan_deviation.py` | `m368.survey_plan_deviation` | M368 survey-vs-plan centreline deviation v1 | SCREENING | 4 |
 | `core/torque_drag_sensitivity.py` | `m318.td_friction_sensitivity` | M318 v3 (TorqueDragEngine.calculate per declared friction factor, segments <= 5 m, vertical-aware buckling) | SCREENING | 5 |
-| `core/w13_hydraulics.py` | `w13.hydraulics.circulating_system` | M126 circulating-system hydraulics v1 | - | 1 |
+| `core/w13_hydraulics.py` | `w13.hydraulics.circulating_system` | M126 circulating-system hydraulics v1 | - | 2 |
 | `core/well_control_volumetric.py` | `m373.volumetric_method` | M373 volumetric method worksheet v1 | TRAINING AID | 2 |
 | `core/well_volumes.py` | `w13.volume.well_volumes` | M126 well volumes v1 | - | 2 |
 

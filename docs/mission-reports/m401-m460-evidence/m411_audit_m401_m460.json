@@ -1,0 +1,305 @@
+{
+  "summary": "mutation_m401_m460: 30 mutants, 30 killed, 0 survived, 0 invalid; SHA e9244e80364641315d1da31e62e055b9548d57dd (DIRTY TREE); 71 s",
+  "rows": [
+    {
+      "id": "HB-gap-is-full-clearance",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "evaluate (l.203)",
+      "defect": "the slot gap is taken as Do - Di instead of (Do - Di) / 2",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_newtonian_laminar_equals_plane_poiseuille[50.0]",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-yield-ignored-laminar",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "evaluate (l.220)",
+      "defect": "the yield stress is dropped in laminar flow",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_bingham_laminar_equals_the_buckingham_slot_form",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-darcy-used-as-fanning",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "evaluate (l.251)",
+      "defect": "the Darcy factor is used as the Fanning factor",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_turbulent_newtonian_uses_colebrook_on_the_hydraulic_diameter",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-band-swapped",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "transition_band (l.170)",
+      "defect": "Re1 and Re2 swapped",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_transition_bands_match_the_published_equations_and_blend_linearly",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-erge-kappa-sign",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "transition_band (l.171)",
+      "defect": "Erge Re1 quadratic term sign",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_transition_bands_match_the_published_equations_and_blend_linearly",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-blend-uses-turbulent-at-re",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "evaluate (l.243)",
+      "defect": "the transitional blend evaluates Colebrook at Re instead of Re2",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_transition_bands_match_the_published_equations_and_blend_linearly",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-wide-annulus-accepted",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "evaluate (l.199)",
+      "defect": "the slot idealisation is used for a wide annulus",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_the_slot_idealisation_bound_holds_and_wide_annuli_are_refused",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-zero-flow-missing",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "evaluate (l.215)",
+      "defect": "zero flow is not handled as a value",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_zero_missing_and_invalid_inputs_are_never_guessed",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-erge-re2-extrapolated",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "evaluate (l.231)",
+      "defect": "the Erge Re2 fit is extrapolated outside its n' range",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_zero_missing_and_invalid_inputs_are_never_guessed",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-psi-constant",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "<module> (l.62)",
+      "defect": "a rounded psi constant",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_newtonian_laminar_equals_plane_poiseuille[50.0]",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HB-replay-sha-skipped",
+      "path": "core/hydraulics_hb_slot.py",
+      "symbol": "replay_results (l.324)",
+      "defect": "tampered HB inputs are replayed",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_saved_cases_replay_match_and_tampering_is_caught[hb]",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "SS-clinging-dropped",
+      "path": "core/surge_swab.py",
+      "symbol": "evaluate (l.128)",
+      "defect": "the clinging (drag) term is dropped",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_closed_end_newtonian_surge_equals_couette_poiseuille_at_kc_half",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "SS-open-end-evaluated",
+      "path": "core/surge_swab.py",
+      "symbol": "evaluate (l.104)",
+      "defect": "an open-ended string is evaluated as closed",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_surge_refusals_open_end_partial_sections_and_no_tvd",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "SS-displacement-uses-hole",
+      "path": "core/surge_swab.py",
+      "symbol": "evaluate (l.126)",
+      "defect": "the displaced volume uses the hole ID",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_closed_end_newtonian_surge_equals_couette_poiseuille_at_kc_half",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "SS-partial-sum-total",
+      "path": "core/surge_swab.py",
+      "symbol": "evaluate (l.144)",
+      "defect": "a NOT ASSESSED section is skipped and the rest summed",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_surge_refusals_open_end_partial_sections_and_no_tvd",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "SS-emw-sign",
+      "path": "core/surge_swab.py",
+      "symbol": "evaluate (l.156)",
+      "defect": "swab EMW above the mud weight",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_closed_end_newtonian_surge_equals_couette_poiseuille_at_kc_half",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DF-upper-slope-is-c",
+      "path": "core/drilloff_fitted.py",
+      "symbol": "evaluate (l.221)",
+      "defect": "the upper slope is reported as the change c",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_the_fit_recovers_an_exact_hinge",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DF-min-steps-4",
+      "path": "core/drilloff_fitted.py",
+      "symbol": "<module> (l.41)",
+      "defect": "4 steps are fitted",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_an_outlier_is_flagged_not_removed_and_bad_tests_are_refused",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DF-rpm-tolerance-ignored",
+      "path": "core/drilloff_fitted.py",
+      "symbol": "evaluate (l.195)",
+      "defect": "a varying-RPM test is fitted",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_an_outlier_is_flagged_not_removed_and_bad_tests_are_refused",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DF-pooled-outlier-scale",
+      "path": "core/drilloff_fitted.py",
+      "symbol": "evaluate (l.218)",
+      "defect": "the pooled s masks the outlier",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_an_outlier_is_flagged_not_removed_and_bad_tests_are_refused",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DF-founder-ratio-inverted",
+      "path": "core/drilloff_fitted.py",
+      "symbol": "evaluate (l.222)",
+      "defect": "founder rule inverted",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_the_fit_recovers_an_exact_hinge",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DG-cone-code-on-pdc",
+      "path": "core/bit_dull_grade.py",
+      "symbol": "validate (l.130)",
+      "defect": "a roller-cone code accepted on a fixed-cutter bit",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_dull_grade_validation_follows_the_iadc_code_set",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DG-scale-9-accepted",
+      "path": "core/bit_dull_grade.py",
+      "symbol": "_scale (l.112)",
+      "defect": "row wear 9 accepted",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_dull_grade_validation_follows_the_iadc_code_set",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DG-no-well-saved",
+      "path": "core/bit_dull_grade.py",
+      "symbol": "save_case (l.218)",
+      "defect": "a grade saved without a well",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_dull_grade_needs_a_well_and_the_trend_orders_by_depth",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DG-trend-unordered",
+      "path": "core/bit_dull_grade.py",
+      "symbol": "trend (l.248)",
+      "defect": "the trend is newest-first instead of by depth",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_dull_grade_needs_a_well_and_the_trend_orders_by_depth",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HW-cci-v2-fields-not-stored",
+      "path": "core/hydraulics_workflow.py",
+      "symbol": "case_payload (l.456)",
+      "defect": "the CCI provenance fields are not stored",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_cci_provenance_is_stored_in_v2_and_v1_cases_still_replay",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HW-v1-replays-with-v2-layout",
+      "path": "core/hydraulics_workflow.py",
+      "symbol": "replay_results (l.525)",
+      "defect": "a v1 case replays with the v2 layout (DIFFERENT)",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_cci_provenance_is_stored_in_v2_and_v1_cases_still_replay",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "HR-service-version-unchecked",
+      "path": "core/history_replay.py",
+      "symbol": "reproducible (l.382)",
+      "defect": "an unknown method version is replayed",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_saved_cases_replay_match_and_tampering_is_caught[df]",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DLG-empty-is-zero",
+      "path": "dialogs/engineering_service_dialog.py",
+      "symbol": "values (l.115)",
+      "defect": "an empty dialog field is sent as 0",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_w13_dialogs_run_save_and_replay_through_the_services",
+      "exit": 1,
+      "equivalent": ""
+    },
+    {
+      "id": "DLG-save-without-run-status",
+      "path": "dialogs/engineering_service_dialog.py",
+      "symbol": "run (l.147)",
+      "defect": "Save is enabled for a NOT ASSESSED result",
+      "status": "KILLED",
+      "killing_test": "tests/test_m415_m427_engineering_services.py::test_w13_dialogs_run_save_and_replay_through_the_services",
+      "exit": 1,
+      "equivalent": ""
+    }
+  ]
+}

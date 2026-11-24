@@ -1,0 +1,410 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m388_units_contract.py",
+      "tests/test_m415_m427_engineering_services.py"
+    ],
+    "exit": 0,
+    "summary": "37 passed in 9.76s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "HB-gap-is-full-clearance",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "the slot gap is taken as Do - Di instead of (Do - Di) / 2",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.24s"
+    },
+    {
+      "id": "HB-yield-ignored-laminar",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "the yield stress is dropped in laminar flow",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.24s"
+    },
+    {
+      "id": "HB-darcy-used-as-fanning",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "the Darcy factor is used as the Fanning factor",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 0.48s"
+    },
+    {
+      "id": "HB-band-swapped",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "Re1 and Re2 swapped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.49s"
+    },
+    {
+      "id": "HB-erge-kappa-sign",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "Erge Re1 quadratic term sign",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.48s"
+    },
+    {
+      "id": "HB-blend-uses-turbulent-at-re",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "the transitional blend evaluates Colebrook at Re instead of Re2",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.51s"
+    },
+    {
+      "id": "HB-wide-annulus-accepted",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "the slot idealisation is used for a wide annulus",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 0.50s"
+    },
+    {
+      "id": "HB-zero-flow-missing",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "zero flow is not handled as a value",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.48s"
+    },
+    {
+      "id": "HB-erge-re2-extrapolated",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "the Erge Re2 fit is extrapolated outside its n' range",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.47s"
+    },
+    {
+      "id": "HB-psi-constant",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "a rounded psi constant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py",
+        "tests/test_m388_units_contract.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.37s"
+    },
+    {
+      "id": "HB-replay-sha-skipped",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "tampered HB inputs are replayed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 22 passed in 5.08s"
+    },
+    {
+      "id": "SS-clinging-dropped",
+      "path": "core/surge_swab.py",
+      "note": "the clinging (drag) term is dropped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.53s"
+    },
+    {
+      "id": "SS-open-end-evaluated",
+      "path": "core/surge_swab.py",
+      "note": "an open-ended string is evaluated as closed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.54s"
+    },
+    {
+      "id": "SS-displacement-uses-hole",
+      "path": "core/surge_swab.py",
+      "note": "the displaced volume uses the hole ID",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.59s"
+    },
+    {
+      "id": "SS-partial-sum-total",
+      "path": "core/surge_swab.py",
+      "note": "a NOT ASSESSED section is skipped and the rest summed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.54s"
+    },
+    {
+      "id": "SS-emw-sign",
+      "path": "core/surge_swab.py",
+      "note": "swab EMW above the mud weight",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.54s"
+    },
+    {
+      "id": "DF-upper-slope-is-c",
+      "path": "core/drilloff_fitted.py",
+      "note": "the upper slope is reported as the change c",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.54s"
+    },
+    {
+      "id": "DF-min-steps-4",
+      "path": "core/drilloff_fitted.py",
+      "note": "4 steps are fitted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.64s"
+    },
+    {
+      "id": "DF-rpm-tolerance-ignored",
+      "path": "core/drilloff_fitted.py",
+      "note": "a varying-RPM test is fitted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.70s"
+    },
+    {
+      "id": "DF-pooled-outlier-scale",
+      "path": "core/drilloff_fitted.py",
+      "note": "the pooled s masks the outlier",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 17 passed in 0.61s"
+    },
+    {
+      "id": "DF-founder-ratio-inverted",
+      "path": "core/drilloff_fitted.py",
+      "note": "founder rule inverted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 15 passed in 0.56s"
+    },
+    {
+      "id": "DG-cone-code-on-pdc",
+      "path": "core/bit_dull_grade.py",
+      "note": "a roller-cone code accepted on a fixed-cutter bit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.64s"
+    },
+    {
+      "id": "DG-scale-9-accepted",
+      "path": "core/bit_dull_grade.py",
+      "note": "row wear 9 accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 18 passed in 0.67s"
+    },
+    {
+      "id": "DG-no-well-saved",
+      "path": "core/bit_dull_grade.py",
+      "note": "a grade saved without a well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 2.32s"
+    },
+    {
+      "id": "DG-trend-unordered",
+      "path": "core/bit_dull_grade.py",
+      "note": "the trend is newest-first instead of by depth",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 2.39s"
+    },
+    {
+      "id": "HW-cci-v2-fields-not-stored",
+      "path": "core/hydraulics_workflow.py",
+      "note": "the CCI provenance fields are not stored",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 8.04s"
+    },
+    {
+      "id": "HW-v1-replays-with-v2-layout",
+      "path": "core/hydraulics_workflow.py",
+      "note": "a v1 case replays with the v2 layout (DIFFERENT)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 7.74s"
+    },
+    {
+      "id": "HR-service-version-unchecked",
+      "path": "core/history_replay.py",
+      "note": "an unknown method version is replayed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 3.47s"
+    },
+    {
+      "id": "DLG-empty-is-zero",
+      "path": "dialogs/engineering_service_dialog.py",
+      "note": "an empty dialog field is sent as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed in 9.20s"
+    },
+    {
+      "id": "DLG-save-without-run-status",
+      "path": "dialogs/engineering_service_dialog.py",
+      "note": "Save is enabled for a NOT ASSESSED result",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m415_m427_engineering_services.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 26 passed in 9.26s"
+    }
+  ],
+  "killed": [
+    "HB-gap-is-full-clearance",
+    "HB-yield-ignored-laminar",
+    "HB-darcy-used-as-fanning",
+    "HB-band-swapped",
+    "HB-erge-kappa-sign",
+    "HB-blend-uses-turbulent-at-re",
+    "HB-wide-annulus-accepted",
+    "HB-zero-flow-missing",
+    "HB-erge-re2-extrapolated",
+    "HB-psi-constant",
+    "HB-replay-sha-skipped",
+    "SS-clinging-dropped",
+    "SS-open-end-evaluated",
+    "SS-displacement-uses-hole",
+    "SS-partial-sum-total",
+    "SS-emw-sign",
+    "DF-upper-slope-is-c",
+    "DF-min-steps-4",
+    "DF-rpm-tolerance-ignored",
+    "DF-pooled-outlier-scale",
+    "DF-founder-ratio-inverted",
+    "DG-cone-code-on-pdc",
+    "DG-scale-9-accepted",
+    "DG-no-well-saved",
+    "DG-trend-unordered",
+    "HW-cci-v2-fields-not-stored",
+    "HW-v1-replays-with-v2-layout",
+    "HR-service-version-unchecked",
+    "DLG-empty-is-zero",
+    "DLG-save-without-run-status"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
