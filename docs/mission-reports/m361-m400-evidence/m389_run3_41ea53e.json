@@ -1,0 +1,743 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m286_m272_authorization.py",
+      "tests/test_m303_m306_clone_contract_and_bulk.py",
+      "tests/test_m318_td_friction_sensitivity.py",
+      "tests/test_m349_benchmarks_d92.py",
+      "tests/test_m365_d87_identity.py",
+      "tests/test_m366_hydraulics_workflow.py",
+      "tests/test_m367_m369_m396_engineering.py",
+      "tests/test_m368_survey_plan_deviation.py",
+      "tests/test_m371_casing_axial_loads.py",
+      "tests/test_m372_mse_drilloff.py",
+      "tests/test_m373_volumetric_method.py",
+      "tests/test_m374_w12_kpi_specs.py",
+      "tests/test_m377_ci_run_states.py",
+      "tests/test_m48_analysis_evidence.py"
+    ],
+    "exit": 0,
+    "summary": "237 passed in 70.22s (0:01:10)"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "HW-budget-misclassified",
+      "path": "core/hydraulics_workflow.py",
+      "note": "BHA losses are booked as drill-pipe losses in the pressure budget",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 4.51s"
+    },
+    {
+      "id": "HW-pump-limit-zero-is-limit",
+      "path": "core/hydraulics_workflow.py",
+      "note": "an un-entered pump limit (0 on the page) is treated as a 0 psi limit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 9.74s"
+    },
+    {
+      "id": "HW-no-tolerance-classified",
+      "path": "core/hydraulics_workflow.py",
+      "note": "plan vs actual is classified without a declared tolerance",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 12.39s"
+    },
+    {
+      "id": "HW-replay-sha-skipped",
+      "path": "core/hydraulics_workflow.py",
+      "note": "a tampered frozen snapshot is replayed instead of UNREADABLE",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 13.72s"
+    },
+    {
+      "id": "HW-sweep-flow-not-proportional",
+      "path": "core/hydraulics_workflow.py",
+      "note": "every pump is charged the whole sensitivity flow",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 9.33s"
+    },
+    {
+      "id": "HW-budget-closure-ignored",
+      "path": "core/hydraulics_workflow.py",
+      "note": "a budget that does not sum to the SPP is reported as closing",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 33 passed in 17.36s"
+    },
+    {
+      "id": "HW-cci-inclination-gate-dropped",
+      "path": "core/hydraulics_workflow.py",
+      "note": "the vertical-hole CCI is reported for a 60° well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 25 passed in 16.50s"
+    },
+    {
+      "id": "HW-cci-fann-ignored",
+      "path": "core/hydraulics_workflow.py",
+      "note": "entered Fann readings are ignored in favour of PV/YP",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 23 passed in 15.69s"
+    },
+    {
+      "id": "HW-cci-uses-mean-not-lowest-av",
+      "path": "core/hydraulics_workflow.py",
+      "note": "the index uses the fastest annulus instead of the slowest",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m366_hydraulics_workflow.py",
+        "tests/test_m367_m369_m396_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 32 passed in 17.36s"
+    },
+    {
+      "id": "ID-mark-fingerprint-ignored",
+      "path": "core/calculation_workbench.py",
+      "note": "an equal-timestamp replacement row inherits the archive mark",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.25s"
+    },
+    {
+      "id": "ID-mark-fingerprint-not-stored",
+      "path": "core/calculation_workbench.py",
+      "note": "new archive marks are timestamp-only again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.27s"
+    },
+    {
+      "id": "ID-link-fingerprint-not-stored",
+      "path": "core/calculation_cases.py",
+      "note": "new clone links are timestamp-only again",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.22s"
+    },
+    {
+      "id": "ID-match-ignores-born-after-link",
+      "path": "core/calculation_clone_contract.py",
+      "note": "an identical-content row created after the link is VERIFIED as the clone source",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 8 passed in 9.41s"
+    },
+    {
+      "id": "ID-different-not-decisive",
+      "path": "core/calculation_clone_contract.py",
+      "note": "a changed source with the same timestamp is VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.43s"
+    },
+    {
+      "id": "ID-null-time-refusal-removed",
+      "path": "core/calculation_workbench.py",
+      "note": "a NULL-time row of a table without a fingerprint contract can be archived",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 13.62s"
+    },
+    {
+      "id": "ID-compare-always-match",
+      "path": "core/record_identity.py",
+      "note": "fingerprint comparison never reports DIFFERENT",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 8.44s"
+    },
+    {
+      "id": "ID-mark-authorization-skipped",
+      "path": "core/calculation_workbench.py",
+      "note": "a user without the right writes archive marks",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m365_d87_identity.py",
+        "tests/test_m303_m306_clone_contract_and_bulk.py",
+        "tests/test_m286_m272_authorization.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 35 passed in 31.89s"
+    },
+    {
+      "id": "TD-vertical-load-dropped",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "D93 regression: vertical collars under small WOB flagged helical",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py",
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.99s"
+    },
+    {
+      "id": "TD-vertical-coefficient-wrong",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "Lubinski coefficient 1.94 replaced by 1.0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py",
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 1.01s"
+    },
+    {
+      "id": "TD-v2-default-is-v1",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "new runs keep the defective buckling thresholds",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py",
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 0.94s"
+    },
+    {
+      "id": "TDP-v1-run-replayed-with-v2",
+      "path": "core/engineering/torque_drag_persistence.py",
+      "note": "a run saved before M367 is verified against buckling v2 (false DIFFERENT)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py",
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 1.03s"
+    },
+    {
+      "id": "TDS-v2-case-replayed-with-v3",
+      "path": "core/torque_drag_sensitivity.py",
+      "note": "an M318 v2 sweep is replayed with buckling v2",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py",
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 12 passed in 1.17s"
+    },
+    {
+      "id": "TD-criterion-mislabelled",
+      "path": "core/engineering/engines/torque_drag.py",
+      "note": "the governing buckling criterion is reported inverted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py",
+        "tests/test_m349_benchmarks_d92.py",
+        "tests/test_m318_td_friction_sensitivity.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 1.17s"
+    },
+    {
+      "id": "AC-3d-warning-dropped",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "a smaller geometric approach is not warned",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.14s"
+    },
+    {
+      "id": "AC-conservative-uses-common-md",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "the conservative separation ignores the geometric closest approach",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.11s"
+    },
+    {
+      "id": "AC-segment-clamp-dropped",
+      "path": "core/engineering/engines/anti_collision.py",
+      "note": "closest points outside the offset segment are accepted (distance too small)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m367_m369_m396_engineering.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.13s"
+    },
+    {
+      "id": "KPI-spec-fields-not-shown",
+      "path": "core/analysis_evidence.py",
+      "note": "the card tooltip drops window / scope / source / method / missing / counting",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m374_w12_kpi_specs.py",
+        "tests/test_m48_analysis_evidence.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.29s"
+    },
+    {
+      "id": "CRS-timeout-annotation-ignored",
+      "path": "tools/quality/ci_run_states.py",
+      "note": "a D88 timeout with stale job times is reported as an unexplained cancel",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m377_ci_run_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 16 passed in 0.08s"
+    },
+    {
+      "id": "CRS-cancel-is-green",
+      "path": "tools/quality/ci_run_states.py",
+      "note": "an unexplained cancel counts as green",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m377_ci_run_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.06s"
+    },
+    {
+      "id": "CRS-other-workflow-supersedes",
+      "path": "tools/quality/ci_run_states.py",
+      "note": "a newer run of another workflow or branch marks a cancel SUPERSEDED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m377_ci_run_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.07s"
+    },
+    {
+      "id": "CRS-best-job-wins",
+      "path": "tools/quality/ci_run_states.py",
+      "note": "one green leg makes the run green",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m377_ci_run_states.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.06s"
+    },
+    {
+      "id": "SPD-right-sign-flipped",
+      "path": "core/survey_plan_deviation.py",
+      "note": "left and right are swapped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m368_survey_plan_deviation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.64s"
+    },
+    {
+      "id": "SPD-reference-not-compared",
+      "path": "core/survey_plan_deviation.py",
+      "note": "a survey in another datum / azimuth reference is compared with the plan",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m368_survey_plan_deviation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 3.84s"
+    },
+    {
+      "id": "SPD-frame-prefix-skipped",
+      "path": "core/survey_plan_deviation.py",
+      "note": "a survey in another frame above the tie-in is compared",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m368_survey_plan_deviation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 9 passed in 5.66s"
+    },
+    {
+      "id": "SPD-tolerance-defaulted",
+      "path": "core/survey_plan_deviation.py",
+      "note": "no declared tolerance is reported WITHIN",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m368_survey_plan_deviation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.64s"
+    },
+    {
+      "id": "SPD-replay-hash-unchecked",
+      "path": "core/survey_plan_deviation.py",
+      "note": "a tampered frozen snapshot is replayed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m368_survey_plan_deviation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 7.45s"
+    },
+    {
+      "id": "SPD-not-reached-as-miss",
+      "path": "core/survey_plan_deviation.py",
+      "note": "a target below the drilled depth is reported HIT / MISS",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m368_survey_plan_deviation.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 0.60s"
+    },
+    {
+      "id": "CAL-thermal-sign-flipped",
+      "path": "core/casing_axial_loads.py",
+      "note": "heating increases tension",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m371_casing_axial_loads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.25s"
+    },
+    {
+      "id": "CAL-ballooning-areas-swapped",
+      "path": "core/casing_axial_loads.py",
+      "note": "ballooning uses the wrong areas",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m371_casing_axial_loads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.26s"
+    },
+    {
+      "id": "CAL-partial-sum-as-total",
+      "path": "core/casing_axial_loads.py",
+      "note": "a total is reported with a component not assessed",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m371_casing_axial_loads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.26s"
+    },
+    {
+      "id": "CAL-wear-ignored",
+      "path": "core/casing_axial_loads.py",
+      "note": "the ratings ignore the declared wear",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m371_casing_axial_loads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.24s"
+    },
+    {
+      "id": "CAL-bending-diameter-not-halved",
+      "path": "core/casing_axial_loads.py",
+      "note": "bending stress doubled",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m371_casing_axial_loads.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.27s"
+    },
+    {
+      "id": "MDO-founder-upper-step",
+      "path": "core/mse_drilloff.py",
+      "note": "the founder is reported one step too high",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m372_mse_drilloff.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.24s"
+    },
+    {
+      "id": "MDO-fraction-ignored",
+      "path": "core/mse_drilloff.py",
+      "note": "any slope drop is a founder",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m372_mse_drilloff.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.29s"
+    },
+    {
+      "id": "MDO-rpm-check-removed",
+      "path": "core/mse_drilloff.py",
+      "note": "a varying-RPM test is analysed as a drill-off test",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m372_mse_drilloff.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 0.27s"
+    },
+    {
+      "id": "MDO-steps-not-sorted",
+      "path": "core/mse_drilloff.py",
+      "note": "slopes taken in entry order",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m372_mse_drilloff.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 0.24s"
+    },
+    {
+      "id": "MDO-efficiency-inverted",
+      "path": "core/mse_drilloff.py",
+      "note": "efficiency is MSE / CCS",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m372_mse_drilloff.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.23s"
+    },
+    {
+      "id": "MDO-wob-units",
+      "path": "core/mse_drilloff.py",
+      "note": "klbf passed as lbf",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m372_mse_drilloff.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.24s"
+    },
+    {
+      "id": "WCV-safety-margin-dropped",
+      "path": "core/well_control_volumetric.py",
+      "note": "Ps not added",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m373_volumetric_method.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.18s"
+    },
+    {
+      "id": "WCV-volume-inverted",
+      "path": "core/well_control_volumetric.py",
+      "note": "bleed volume Pw x H",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m373_volumetric_method.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.17s"
+    },
+    {
+      "id": "WCV-no-stop-at-limit",
+      "path": "core/well_control_volumetric.py",
+      "note": "the schedule continues past the declared limit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m373_volumetric_method.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.19s"
+    },
+    {
+      "id": "WCV-limit-inclusive-wrong",
+      "path": "core/well_control_volumetric.py",
+      "note": "a hold exactly at the limit is flagged",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m373_volumetric_method.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 0.24s"
+    },
+    {
+      "id": "WCV-migration-ignores-gradient",
+      "path": "core/well_control_volumetric.py",
+      "note": "psi/h reported as ft/h",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m373_volumetric_method.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.19s"
+    }
+  ],
+  "killed": [
+    "HW-budget-misclassified",
+    "HW-pump-limit-zero-is-limit",
+    "HW-no-tolerance-classified",
+    "HW-replay-sha-skipped",
+    "HW-sweep-flow-not-proportional",
+    "HW-budget-closure-ignored",
+    "HW-cci-inclination-gate-dropped",
+    "HW-cci-fann-ignored",
+    "HW-cci-uses-mean-not-lowest-av",
+    "ID-mark-fingerprint-ignored",
+    "ID-mark-fingerprint-not-stored",
+    "ID-link-fingerprint-not-stored",
+    "ID-match-ignores-born-after-link",
+    "ID-different-not-decisive",
+    "ID-null-time-refusal-removed",
+    "ID-compare-always-match",
+    "ID-mark-authorization-skipped",
+    "TD-vertical-load-dropped",
+    "TD-vertical-coefficient-wrong",
+    "TD-v2-default-is-v1",
+    "TDP-v1-run-replayed-with-v2",
+    "TDS-v2-case-replayed-with-v3",
+    "TD-criterion-mislabelled",
+    "AC-3d-warning-dropped",
+    "AC-conservative-uses-common-md",
+    "AC-segment-clamp-dropped",
+    "KPI-spec-fields-not-shown",
+    "CRS-timeout-annotation-ignored",
+    "CRS-cancel-is-green",
+    "CRS-other-workflow-supersedes",
+    "CRS-best-job-wins",
+    "SPD-right-sign-flipped",
+    "SPD-reference-not-compared",
+    "SPD-frame-prefix-skipped",
+    "SPD-tolerance-defaulted",
+    "SPD-replay-hash-unchecked",
+    "SPD-not-reached-as-miss",
+    "CAL-thermal-sign-flipped",
+    "CAL-ballooning-areas-swapped",
+    "CAL-partial-sum-as-total",
+    "CAL-wear-ignored",
+    "CAL-bending-diameter-not-halved",
+    "MDO-founder-upper-step",
+    "MDO-fraction-ignored",
+    "MDO-rpm-check-removed",
+    "MDO-steps-not-sorted",
+    "MDO-efficiency-inverted",
+    "MDO-wob-units",
+    "WCV-safety-margin-dropped",
+    "WCV-volume-inverted",
+    "WCV-no-stop-at-limit",
+    "WCV-limit-inclusive-wrong",
+    "WCV-migration-ignores-gradient"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}
