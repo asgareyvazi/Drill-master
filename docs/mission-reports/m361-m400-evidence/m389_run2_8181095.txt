@@ -1,0 +1,42 @@
+SHA=8181095cb88de569416bde3f28193e962d7a766e
+baseline exit=0 210 passed in 63.12s (0:01:03)
+HW-budget-misclassified  KILLED    BHA losses are booked as drill-pipe losses in the pressure budget
+HW-pump-limit-zero-is-limit KILLED    an un-entered pump limit (0 on the page) is treated as a 0 psi limit
+HW-no-tolerance-classified KILLED    plan vs actual is classified without a declared tolerance
+HW-replay-sha-skipped    KILLED    a tampered frozen snapshot is replayed instead of UNREADABLE
+HW-sweep-flow-not-proportional KILLED    every pump is charged the whole sensitivity flow
+HW-budget-closure-ignored KILLED    a budget that does not sum to the SPP is reported as closing
+HW-cci-inclination-gate-dropped KILLED    the vertical-hole CCI is reported for a 60° well
+HW-cci-fann-ignored      KILLED    entered Fann readings are ignored in favour of PV/YP
+HW-cci-uses-mean-not-lowest-av KILLED    the index uses the fastest annulus instead of the slowest
+ID-mark-fingerprint-ignored KILLED    an equal-timestamp replacement row inherits the archive mark
+ID-mark-fingerprint-not-stored KILLED    new archive marks are timestamp-only again
+ID-link-fingerprint-not-stored KILLED    new clone links are timestamp-only again
+ID-match-ignores-born-after-link KILLED    an identical-content row created after the link is VERIFIED as the clone source
+ID-different-not-decisive KILLED    a changed source with the same timestamp is VERIFIED
+ID-null-time-refusal-removed KILLED    a NULL-time row of a table without a fingerprint contract can be archived
+ID-compare-always-match  KILLED    fingerprint comparison never reports DIFFERENT
+ID-mark-authorization-skipped KILLED    a user without the right writes archive marks
+TD-vertical-load-dropped KILLED    D93 regression: vertical collars under small WOB flagged helical
+TD-vertical-coefficient-wrong KILLED    Lubinski coefficient 1.94 replaced by 1.0
+TD-v2-default-is-v1      KILLED    new runs keep the defective buckling thresholds
+TDP-v1-run-replayed-with-v2 KILLED    a run saved before M367 is verified against buckling v2 (false DIFFERENT)
+TDS-v2-case-replayed-with-v3 KILLED    an M318 v2 sweep is replayed with buckling v2
+TD-criterion-mislabelled KILLED    the governing buckling criterion is reported inverted
+AC-3d-warning-dropped    KILLED    a smaller geometric approach is not warned
+AC-conservative-uses-common-md KILLED    the conservative separation ignores the geometric closest approach
+AC-segment-clamp-dropped KILLED    closest points outside the offset segment are accepted (distance too small)
+KPI-spec-fields-not-shown KILLED    the card tooltip drops window / scope / source / method / missing / counting
+CRS-timeout-annotation-ignored KILLED    a D88 timeout with stale job times is reported as an unexplained cancel
+CRS-cancel-is-green      KILLED    an unexplained cancel counts as green
+CRS-other-workflow-supersedes KILLED    a newer run of another workflow or branch marks a cancel SUPERSEDED
+CRS-best-job-wins        KILLED    one green leg makes the run green
+SPD-right-sign-flipped   KILLED    left and right are swapped
+SPD-reference-not-compared KILLED    a survey in another datum / azimuth reference is compared with the plan
+SPD-frame-prefix-skipped KILLED    a survey in another frame above the tie-in is compared
+SPD-tolerance-defaulted  KILLED    no declared tolerance is reported WITHIN
+SPD-replay-hash-unchecked KILLED    a tampered frozen snapshot is replayed
+SPD-not-reached-as-miss  KILLED    a target below the drilled depth is reported HIT / MISS
+
+mutants=37 killed=37 survived_non_equivalent=0 declared_equivalent=0 invalid=0 complete=True seconds=324
+EXIT=0
