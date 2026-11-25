@@ -5,10 +5,11 @@
       "tests/test_m467_eowr_mainwindow_journey.py",
       "tests/test_m469_citation_passage_service.py",
       "tests/test_m472_citation_mainwindow_journey.py",
-      "tests/test_m475_drilloff_robust.py"
+      "tests/test_m475_drilloff_robust.py",
+      "tests/test_m488_integration_consistency.py"
     ],
     "exit": 0,
-    "summary": "70 passed, 14 warnings in 30.95s"
+    "summary": "85 passed, 14 warnings in 30.62s"
   },
   "complete": true,
   "python": "3.11.2",
@@ -23,7 +24,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 6.36s"
+      "summary": "1 failed, 5 passed in 6.84s"
     },
     {
       "id": "ES-query-failed-as-empty",
@@ -35,7 +36,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 4 passed in 5.46s"
+      "summary": "1 failed, 4 passed in 5.65s"
     },
     {
       "id": "ES-empty-payload-as-included",
@@ -47,7 +48,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed in 3.83s"
+      "summary": "1 failed, 2 passed in 3.73s"
     },
     {
       "id": "ES-escape-dropped",
@@ -59,7 +60,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 1 passed in 2.84s"
+      "summary": "1 failed, 1 passed in 2.96s"
     },
     {
       "id": "ES-unknown-keys-dropped",
@@ -71,7 +72,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 1 passed in 3.01s"
+      "summary": "1 failed, 1 passed in 2.88s"
     },
     {
       "id": "ES-missing-as-zero",
@@ -83,7 +84,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 1 passed in 2.81s"
+      "summary": "1 failed, 1 passed in 3.08s"
     },
     {
       "id": "ES-time-order-insertion",
@@ -95,7 +96,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 1 passed in 2.90s"
+      "summary": "1 failed, 1 passed in 2.80s"
     },
     {
       "id": "ES-undated-first",
@@ -107,7 +108,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 1 passed in 3.01s"
+      "summary": "1 failed, 1 passed in 3.06s"
     },
     {
       "id": "ES-inverted-period-accepted",
@@ -119,7 +120,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 6 passed in 7.78s"
+      "summary": "1 failed, 6 passed in 7.36s"
     },
     {
       "id": "ES-source-id-dropped",
@@ -131,7 +132,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed in 2.09s"
+      "summary": "1 failed in 2.07s"
     },
     {
       "id": "ES-legacy-bha-unreadable",
@@ -143,7 +144,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed in 2.07s"
+      "summary": "1 failed in 1.83s"
     },
     {
       "id": "RE-failed-query-as-empty",
@@ -155,7 +156,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 4 passed in 5.59s"
+      "summary": "1 failed, 4 passed in 5.81s"
     },
     {
       "id": "RE-period-ignored",
@@ -168,7 +169,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 6.77s"
+      "summary": "1 failed, 5 passed in 6.82s"
     },
     {
       "id": "RE-period-time-logs-unfiltered",
@@ -181,7 +182,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 7.07s"
+      "summary": "1 failed, 5 passed in 6.48s"
     },
     {
       "id": "RE-period-undated-equipment-kept",
@@ -193,7 +194,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 6.97s"
+      "summary": "1 failed, 5 passed in 6.93s"
     },
     {
       "id": "RE-sections-not-in-body",
@@ -206,7 +207,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed in 2.21s"
+      "summary": "1 failed in 1.96s"
     },
     {
       "id": "RE-sections-not-in-excel",
@@ -218,7 +219,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 10 passed in 11.44s"
+      "summary": "1 failed, 10 passed in 11.19s"
     },
     {
       "id": "RS-eowr-scope-hidden",
@@ -230,7 +231,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 6.64s"
+      "summary": "1 failed, 5 passed in 6.79s"
     },
     {
       "id": "RP-period-not-stated",
@@ -242,7 +243,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 6.94s"
+      "summary": "1 failed, 5 passed in 6.81s"
     },
     {
       "id": "W11-period-ignored",
@@ -254,7 +255,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 1 passed, 14 warnings in 8.49s"
+      "summary": "1 failed, 1 passed, 14 warnings in 8.17s"
     },
     {
       "id": "W11-inverted-period-accepted",
@@ -266,7 +267,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed, 14 warnings in 9.41s"
+      "summary": "1 failed, 2 passed, 14 warnings in 9.58s"
     },
     {
       "id": "CP-duplicate-keys-accepted",
@@ -278,7 +279,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed in 1.64s"
+      "summary": "1 failed, 2 passed in 1.43s"
     },
     {
       "id": "CP-nan-accepted",
@@ -290,7 +291,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 6 passed in 2.14s"
+      "summary": "1 failed, 6 passed in 1.85s"
     },
     {
       "id": "CP-recursion-uncaught",
@@ -302,7 +303,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 7 passed in 2.10s"
+      "summary": "1 failed, 7 passed in 1.98s"
     },
     {
       "id": "CP-non-regular-file-read",
@@ -314,7 +315,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 13 passed in 1.89s"
+      "summary": "1 failed, 13 passed in 2.07s"
     },
     {
       "id": "CP-size-limit-raised",
@@ -326,7 +327,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed in 0.91s"
+      "summary": "1 failed in 1.03s"
     },
     {
       "id": "CP-bool-as-offset",
@@ -338,7 +339,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 2.01s"
+      "summary": "1 failed, 5 passed in 1.90s"
     },
     {
       "id": "CP-sha-unchecked",
@@ -350,7 +351,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 20 passed in 2.07s"
+      "summary": "1 failed, 20 passed in 2.02s"
     },
     {
       "id": "CP-identity-unchecked",
@@ -363,7 +364,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 4 passed in 1.87s"
+      "summary": "1 failed, 4 passed in 1.64s"
     },
     {
       "id": "CP-invalid-entry-verified",
@@ -375,7 +376,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 3 passed in 1.64s"
+      "summary": "1 failed, 3 passed in 1.60s"
     },
     {
       "id": "DT-guard-dropped",
@@ -388,7 +389,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 3 passed in 1.79s"
+      "summary": "1 failed, 3 passed in 1.76s"
     },
     {
       "id": "DT-stale-targets",
@@ -400,7 +401,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed in 1.42s"
+      "summary": "1 failed, 2 passed in 1.51s"
     },
     {
       "id": "DT-rich-text-status",
@@ -412,7 +413,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 3 passed in 1.72s"
+      "summary": "1 failed, 3 passed in 1.46s"
     },
     {
       "id": "KA-rich-text-status",
@@ -424,7 +425,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 3 passed in 1.49s"
+      "summary": "1 failed, 3 passed in 1.67s"
     },
     {
       "id": "KA-bypasses-service",
@@ -436,7 +437,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 5 passed in 2.10s"
+      "summary": "1 failed, 5 passed in 1.95s"
     },
     {
       "id": "DR-l2-not-l1",
@@ -448,7 +449,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed in 0.36s"
+      "summary": "1 failed, 2 passed in 0.31s"
     },
     {
       "id": "DR-last-tie",
@@ -460,7 +461,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed in 0.38s"
+      "summary": "1 failed, 2 passed in 0.36s"
     },
     {
       "id": "DR-golden-kept-blindly",
@@ -472,7 +473,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 7 passed in 0.46s"
+      "summary": "1 failed, 7 passed in 0.45s"
     },
     {
       "id": "DR-range-includes-ends",
@@ -496,7 +497,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 11 passed in 0.63s"
+      "summary": "1 failed, 11 passed in 0.51s"
     },
     {
       "id": "DR-outlier-removed",
@@ -508,7 +509,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed in 0.28s"
+      "summary": "1 failed, 2 passed in 0.30s"
     },
     {
       "id": "DR-flags-dropped",
@@ -520,7 +521,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 2 passed in 0.37s"
+      "summary": "1 failed, 2 passed in 0.38s"
     },
     {
       "id": "DR-basis-defaulted",
@@ -532,7 +533,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 13 passed in 0.73s"
+      "summary": "1 failed, 13 passed in 0.70s"
     },
     {
       "id": "DR-basis-not-hashed",
@@ -544,7 +545,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed in 0.25s"
+      "summary": "1 failed in 0.24s"
     },
     {
       "id": "DR-surface-shown-as-downhole",
@@ -556,7 +557,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 13 passed in 0.62s"
+      "summary": "1 failed, 13 passed in 0.69s"
     },
     {
       "id": "DR-founder-rule-inverted",
@@ -568,7 +569,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed in 0.28s"
+      "summary": "1 failed in 0.22s"
     },
     {
       "id": "DR-min-steps-lowered",
@@ -580,7 +581,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 14 passed in 0.66s"
+      "summary": "1 failed, 14 passed in 0.70s"
     },
     {
       "id": "DR-rpm-tolerance-ignored",
@@ -592,7 +593,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 14 passed in 0.77s"
+      "summary": "1 failed, 14 passed in 0.76s"
     },
     {
       "id": "HB-erge-note-dropped",
@@ -604,7 +605,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 19 passed in 4.79s"
+      "summary": "1 failed, 19 passed in 5.07s"
     },
     {
       "id": "HB-erge-note-not-in-case",
@@ -616,7 +617,7 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 19 passed in 4.45s"
+      "summary": "1 failed, 19 passed in 4.95s"
     },
     {
       "id": "SS-erge-note-dropped",
@@ -628,7 +629,56 @@
       ],
       "status": "KILLED",
       "exit": 1,
-      "summary": "1 failed, 19 passed in 5.03s"
+      "summary": "1 failed, 19 passed in 4.79s"
+    },
+    {
+      "id": "ESD-rich-text-summary",
+      "path": "dialogs/engineering_service_dialog.py",
+      "note": "typed text in an error reason renders as rich text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m488_integration_consistency.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.89s"
+    },
+    {
+      "id": "MDD-rich-text-summary",
+      "path": "dialogs/mse_drilloff_dialog.py",
+      "note": "the M372 dialog summary renders rich text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m488_integration_consistency.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.94s"
+    },
+    {
+      "id": "VMD-rich-text-summary",
+      "path": "dialogs/well_control_volumetric_dialog.py",
+      "note": "the volumetric dialog summary renders rich text",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m488_integration_consistency.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.99s"
+    },
+    {
+      "id": "HR-robust-adapter-missing",
+      "path": "core/history_replay.py",
+      "note": "a catalogued case service has no replay adapter",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m488_integration_consistency.py",
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.81s"
     }
   ],
   "killed": [
@@ -682,7 +732,11 @@
     "DR-rpm-tolerance-ignored",
     "HB-erge-note-dropped",
     "HB-erge-note-not-in-case",
-    "SS-erge-note-dropped"
+    "SS-erge-note-dropped",
+    "ESD-rich-text-summary",
+    "MDD-rich-text-summary",
+    "VMD-rich-text-summary",
+    "HR-robust-adapter-missing"
   ],
   "survived_non_equivalent": [],
   "declared_equivalent": [],

@@ -1,0 +1,10 @@
+# M494 benchmark re-run at 44d3fb4 (docs-only changes after)
+## benchmark_m412.py --check
+TOTAL 30 benchmark cases, 0 outside tolerance
+TOTAL 6 status checks, 0 failed
+## benchmark_m396.py --check
+TOTAL 31 cases, 0 outside tolerance
+## benchmark_m349.py --check
+PASS lines: 44; FAIL lines: 0
+## benchmark_m478_drilloff_robust.py
+TOTAL 9 benchmark cases, 0 failed

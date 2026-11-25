@@ -347,3 +347,25 @@ Dependency change made without an owner gate: **pillow 12.3.0 → 13.0.0** (M386
 | `BL-SS-CONSOLIDATE` | OPEN (backlog) | Two surge methods coexist: the legacy W13 screening and M420. Consolidating them is an owner and product decision. |
 | `BL-M408` | OPEN | The `test_m129` intermittent failure was not reproduced (loaded 396/396 twice, 20/20 repeats). |
 
+
+## M520 status (M461–M520)
+
+**No decision P1–P19 is recorded as approved.** `core/method_catalogue.OWNER_APPROVALS` is still empty. Every row of
+the 67-entry method catalogue shows "NOT APPROVED — OWNER REVIEW REQUIRED".
+
+| Package / decision | State | M461–M520 evidence / consequence |
+|---|---|---|
+| P2 PySide6 | OPEN | The pin stays at 6.8.1.1. The lock and packaging are unchanged, and `core.qt_gc` is kept. |
+| P3 LGPL | OPEN | No LGPL code was adopted. BoreTHM (Apache-2.0) was read as a method reference only for the M482 check; no code was copied. |
+| P8 density divisor | OPEN — current behaviour kept | Unchanged. |
+| P10 datum / CRS | OPEN | Unchanged. No conversion exists. |
+| P11 kill sheet | OPEN | Well control stays a TRAINING AID. WC-* mutants 7/7 were killed again in M473. |
+| P12 method approvals | OPEN | One catalogue entry was added (`m475.drilloff_robust`); it is NOT APPROVED. The E1c package (M483) depends on P12. |
+| P12 / P18 ratings | OPEN | No rating data was added. |
+| P13 / P16 / P17 | OPEN | No encryption, signing or field-acceptance claim is made. |
+| P19 ISCWSA | OPEN | AC-claims-iscwsa was killed again in M473. No separation-factor claim is made. |
+| D88 CI 3.12 timeout | **BLOCKED BY OWNER DECISION — active risk** | M487 refreshes the per-file profile. The 60 min limit and the workflow are unchanged. |
+| E1c HB fit | OPEN — DISABLED | Package M483 (`M483_M485_OWNER_PACKAGES_E1C_E11_E12.md`). |
+| `BL-SS-CONSOLIDATE` (E11) | OPEN | Package M484. No behaviour change. |
+| `BL-BIT-DEFAULTS` (E12) | OPEN | Package M485. No behaviour change. |
+| `BL-M408` | OPEN | `test_m129` passed 20/20 repeats and passed in the full sharded run (M486). Not reproduced. |

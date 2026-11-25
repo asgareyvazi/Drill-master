@@ -58,3 +58,18 @@ U3 is **closed for mutation coverage**: 39/39 mutants are killed on the current 
 
 This is not new qualification of the engines. The phases keep the status the M261–M290 report gave them (PARTIAL),
 and the owner gates P8, P10, P11, P12/P18 and P19 are unchanged.
+
+## Addendum (M494): anchors outside U3
+
+A full anchor scan of `mutation_m261_m290.py` (89 mutants) finds **7 INVALID anchors outside the U3 families**. They
+are in the IL family (M273 import lineage) and the WB family (M286 workbench), where later missions changed the code:
+
+- IL-changed-since-hidden, IL-first-correction-expected, IL-open-item-checked;
+- WB-archive-without-reason (2 matches), WB-first-mark-wins, WB-reused-id-inherits-archive,
+  WB-clone-empty-inputs-accepted.
+
+They were **not repaired** in M461–M520, which is out of scope for U3. An INVALID mutant is never counted as a kill,
+and they are recorded as open item R4b in the M520 roadmap.
+
+The 39 U3 mutants and every mutant of `mutation_m321_m360`, `mutation_m361_m400` (53), `mutation_m401_m460` and
+`mutation_m461_m520` have valid anchors. `test_m473_mutation_anchor_integrity` now covers these four tools.

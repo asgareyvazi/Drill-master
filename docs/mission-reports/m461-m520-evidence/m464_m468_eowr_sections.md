@@ -96,7 +96,7 @@ The End-of-Well tab has a new "Limit to period (dated records only)" option with
 
 | File | Tests | What is checked |
 |---|---|---|
-| `tests/test_m464_eowr_source_sections.py` | 16 | All six sections with sources, well isolation, chronology, units, `—` for missing values, escaping, unknown keys, legacy BHA, empty → NOT_RECORDED, malformed → NOT_RENDERED, dropped table → QUERY_FAILED, period with undated exclusion, invalid periods, Excel/CSV/PDF, column mapping, benchmark at small scale |
+| `tests/test_m464_eowr_source_sections.py` | 15 (corrected in M494 from 16; `pytest --collect-only`) | All six sections with sources, well isolation, chronology, units, `—` for missing values, escaping, unknown keys, legacy BHA, empty → NOT_RECORDED, malformed → NOT_RENDERED, dropped table → QUERY_FAILED, period with undated exclusion, invalid periods, Excel/CSV/PDF, column mapping, benchmark at small scale |
 | `tests/test_m467_eowr_mainwindow_journey.py` | 3 | Real `MainWindow` → W11 End-of-Well tab: whole-well export, well switch, period export, inverted period refused |
 | `tests/test_m320d_report_sections.py` | updated | The old assertion `Bit reports == NOT_RENDERED` described the defect. It is replaced by a stronger one: the empty payload is NOT_RECORDED, named by ID, and **no** EOWR section is NOT_RENDERED |
 

@@ -36,7 +36,7 @@ def test_u3_families_have_the_reported_counts_and_valid_anchors():
     assert all(m.tests and all((ROOT / t).exists() for t in m.tests) for m in mutants)
 
 
-@pytest.mark.parametrize("tool", ["mutation_m461_m520", "mutation_m321_m360", "mutation_m401_m460"])
+@pytest.mark.parametrize("tool", ["mutation_m461_m520", "mutation_m321_m360", "mutation_m361_m400", "mutation_m401_m460"])
 def test_current_mutation_tools_have_valid_anchors(tool):
     mutants = _load(tool).MUTANTS
     assert len({m.id for m in mutants}) == len(mutants)
