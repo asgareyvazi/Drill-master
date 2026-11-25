@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "drillmaster:citation_record_v1",
+  "title": "DrillMaster citation record (M320-E citation record v1)",
+  "description": "A Knowledge Assistant answer frozen with exact citations (core/citation_record.py). Read by the M469 citation passage service (core/citation_passage.py), which enforces this schema plus: no duplicate keys, no NaN/Infinity, a regular file of at most max_file_bytes, and start < end. A citation that fails is UNREADABLE (never opened); a top-level failure refuses the whole file.",
+  "type": "object",
+  "required": ["record_version", "citations"],
+  "properties": {
+    "record_version": {"const": "M320-E citation record v1"},
+    "created_at": {"type": "string"},
+    "question": {"type": ["string", "null"]},
+    "answer": {"type": ["string", "null"]},
+    "mode": {"type": ["string", "null"]},
+    "citation_label": {"type": ["string", "null"]},
+    "semantic_label": {"type": ["string", "null"]},
+    "problems": {"type": "array"},
+    "notes": {"type": "array"},
+    "citations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": ["label", "document_id", "page_id", "page_no", "start", "end", "text_version", "quote"],
+        "properties": {
+          "label": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.:#-]{0,31}$"},
+          "document_id": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+          "page_id": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+          "page_no": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+          "start": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+          "end": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+          "text_version": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "quote": {"type": "string", "maxLength": 20000},
+          "file_name": {"type": ["string", "null"], "maxLength": 260},
+          "location": {"type": ["string", "null"]},
+          "review_status": {"type": ["string", "null"]},
+          "method": {"type": ["string", "null"]},
+          "instruction_like": {"type": "boolean"}
+        }
+      }
+    }
+  },
+  "x-drillmaster": {
+    "service": "M469 citation passage service v1",
+    "max_file_bytes": 4194304,
+    "statuses": ["EXACT", "PAGE_CHANGED", "SPAN_MISMATCH", "PAGE_MISSING", "DOCUMENT_MISSING", "UNREADABLE", "IDENTITY_MISMATCH"],
+    "openable": ["EXACT", "PAGE_CHANGED"]
+  }
+}

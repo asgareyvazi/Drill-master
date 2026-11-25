@@ -357,10 +357,40 @@ class DocumentsTab(QWidget):
         self.delete_button.setEnabled(False)
         self.delete_button.clicked.connect(self.delete_selected)
         library_actions.addWidget(self.delete_button)
+        # M471 (U2): open a passage cited by a saved .citations.json record, from the library page itself
+        self.open_citation_file_button = QPushButton("Open citation file…")
+        self.open_citation_file_button.setObjectName("libraryOpenCitationFile")
+        self.open_citation_file_button.setToolTip("Verify a saved answer's citation record against this library "
+                                                  "(read-only) and open a cited passage.")
+        self.open_citation_file_button.clicked.connect(lambda _c=False: self.open_citation_file())
+        library_actions.addWidget(self.open_citation_file_button)
         library_actions.addStretch()
         self.library_info = QLabel("")
         library_actions.addWidget(self.library_info)
         library_layout.addLayout(library_actions)
+        self.citation_file_navigation = QWidget()
+        self.citation_file_navigation.setObjectName("libraryCitationNavigation")
+        citation_row = QHBoxLayout(self.citation_file_navigation)
+        citation_row.setContentsMargins(0, 0, 0, 0)
+        self.citation_file_combo = QComboBox()
+        self.citation_file_combo.setObjectName("libraryCitationTargets")
+        self.citation_file_combo.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.citation_file_combo.setMinimumContentsLength(12)
+        self.citation_file_combo.currentIndexChanged.connect(lambda _i: self._citation_file_target_changed())
+        self.open_citation_passage_button = QPushButton("Open passage")
+        self.open_citation_passage_button.setObjectName("libraryOpenCitationPassage")
+        self.open_citation_passage_button.clicked.connect(lambda _c=False: self.open_citation_target())
+        citation_row.addWidget(QLabel("Citation record:"))
+        citation_row.addWidget(self.citation_file_combo, 1)
+        citation_row.addWidget(self.open_citation_passage_button)
+        self.citation_file_navigation.setVisible(False)
+        library_layout.addWidget(self.citation_file_navigation)
+        self.citation_file_status = QLabel("")
+        self.citation_file_status.setObjectName("libraryCitationStatus")
+        self.citation_file_status.setTextFormat(Qt.PlainText)       # record text is untrusted, never rich text
+        self.citation_file_status.setWordWrap(True)
+        library_layout.addWidget(self.citation_file_status)
+        self.citation_file_targets: list = []
         left.addWidget(library_box)
         left.addWidget(self._build_links_box())
         self.results = QListWidget()
@@ -633,6 +663,67 @@ class DocumentsTab(QWidget):
         self.cited_span = (int(document_id), int(page_no), start, end)
         self.viewer_title.setText(self.viewer_title.text() + f" — cited passage, line {line_of(text, start)}")
         return True
+
+    # -------------------------------------------------------------- M471 (U2) citation record passages
+    def open_citation_file(self, path: Optional[str] = None) -> Optional[list]:
+        """Verify a ``.citations.json`` record against this library (read-only) and list its passages.
+
+        The file is read by ``core.citation_passage`` (bounded, strict schema, identity check). A file that is
+        refused clears the previous record's passages, so nothing stale stays openable."""
+        from core import citation_passage as cp
+        from core import citation_record as cr
+
+        if path is None:
+            from PySide6.QtWidgets import QFileDialog
+
+            path, _filter = QFileDialog.getOpenFileName(self, "Open citation file", "", "Citation record (*.json)")
+            if not path:
+                return None
+        try:
+            _record, results, targets = cp.open_record(self.db_manager, path)
+        except cr.CitationRecordError as exc:
+            self.citation_file_status.setText(f"Not opened: {exc}")
+            self._set_citation_file_targets([])
+            return None
+        self._set_citation_file_targets(targets)
+        openable = sum(1 for t in targets if t["openable"])
+        self.citation_file_status.setText(f"{cr.summary(results)}; {openable} of {len(targets)} passage(s) can be "
+                                          f"opened. Not semantically verified.")
+        return results
+
+    def _set_citation_file_targets(self, targets: list) -> None:
+        self.citation_file_targets = list(targets)
+        self.citation_file_combo.blockSignals(True)
+        self.citation_file_combo.clear()
+        for t in self.citation_file_targets:
+            page = f" p.{t['page_no']}" if t.get("page_no") is not None else ""
+            self.citation_file_combo.addItem(f"[{t['label'] or '?'}] {t['status']} – {t.get('file_name') or '?'}"
+                                             f"{page}")
+        self.citation_file_combo.blockSignals(False)
+        self.citation_file_navigation.setVisible(bool(self.citation_file_targets))
+        self._citation_file_target_changed()
+
+    def _citation_file_target_changed(self) -> None:
+        index = self.citation_file_combo.currentIndex()
+        targets = self.citation_file_targets
+        target = targets[index] if 0 <= index < len(targets) else None
+        self.open_citation_passage_button.setEnabled(bool(target and target["openable"]))
+        self.open_citation_passage_button.setToolTip(
+            "" if target is None else ("Opens the page; the passage is highlighted only if the page is unchanged."
+                                       if target["openable"] else f"Not openable: {target['reason']}"))
+
+    def open_citation_target(self, index: Optional[int] = None) -> bool:
+        """Open one passage of the loaded record in the viewer (EXACT highlighted; PAGE_CHANGED without highlight)."""
+        index = self.citation_file_combo.currentIndex() if index is None else index
+        if not 0 <= index < len(self.citation_file_targets):
+            return False
+        target = self.citation_file_targets[index]
+        if not target["openable"]:
+            self.citation_file_status.setText(f"[{target['label'] or '?'}] not opened – {target['status']}: "
+                                              f"{target['reason']}")
+            return False
+        return self.open_evidence(target["document_id"], target["page_no"], target["start"], target["end"],
+                                  target["text_version"])
 
     def delete_selected(self):
         document_id = self._selected_document_id()

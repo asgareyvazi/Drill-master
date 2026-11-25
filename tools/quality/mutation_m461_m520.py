@@ -26,9 +26,14 @@ RE = "core/report_engine.py"
 RS = "core/report_sections.py"
 RP = "core/report_provenance.py"
 W11 = "tabs/w11_Export.py"
+CP = "core/citation_passage.py"
+DT = "tabs/documents_tab.py"
+KA = "tabs/knowledge_assistant.py"
 
 T = ["tests/test_m464_eowr_source_sections.py"]
 J = ["tests/test_m467_eowr_mainwindow_journey.py"]
+TC = ["tests/test_m469_citation_passage_service.py"]
+JC = TC + ["tests/test_m472_citation_mainwindow_journey.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------------ M464-M466 EOWR source-data sections
@@ -90,6 +95,44 @@ MUTANTS = [
            "the W11 period option is shown but not applied"),
     Mutant("W11-inverted-period-accepted", W11, "            if date_from > date_to:\n", "            if False:\n", J,
            "the W11 tab starts an export with an inverted period"),
+    # ------------------------------------------------------------------ M469-M472 citation passage service (U2)
+    Mutant("CP-duplicate-keys-accepted", CP, "object_pairs_hook=_no_duplicates, ", "", TC,
+           "a repeated key silently shadows the first (a second \"start\" wins)"),
+    Mutant("CP-nan-accepted", CP, ", parse_constant=_no_constant)", ")", TC, "NaN / Infinity are accepted"),
+    Mutant("CP-recursion-uncaught", CP, "    except RecursionError as exc:\n"
+           "        raise PassageError(\"The citation file is nested too deeply; it is refused.\") from exc\n", "",
+           TC, "a deeply nested file crashes the reader instead of being refused"),
+    Mutant("CP-non-regular-file-read", CP, "    if not stat.S_ISREG(info.st_mode):\n", "    if False:\n", TC,
+           "a directory / device / FIFO is opened as a record"),
+    Mutant("CP-size-limit-raised", CP, "MAX_FILE_BYTES = 4 * 1024 * 1024\n", "MAX_FILE_BYTES = 4 * 1024 ** 3\n", TC,
+           "the published file-size limit is not the enforced one"),
+    Mutant("CP-bool-as-offset", CP, "        if isinstance(value, bool) or not isinstance(value, int)",
+           "        if not isinstance(value, int)", TC, "a JSON boolean is accepted as an id or offset"),
+    Mutant("CP-sha-unchecked", CP,
+           "    if not isinstance(entry[\"text_version\"], str) or not SHA_PATTERN.fullmatch(entry[\"text_version\"]):\n",
+           "    if not isinstance(entry[\"text_version\"], str):\n", TC, "any text is accepted as a page hash"),
+    Mutant("CP-identity-unchecked", CP, "                and recorded != stored:\n", "                and False:\n", JC,
+           "a record from another library opens an unrelated document with the same id"),
+    Mutant("CP-invalid-entry-verified", CP, "        if problem:\n            label = ", "        if False:\n            label = ",
+           TC, "a malformed citation is passed on to verification and navigation"),
+    Mutant("DT-guard-dropped", DT, "        if not target[\"openable\"]:\n            self.citation_file_status.setText(",
+           "        if False:\n            self.citation_file_status.setText(", TC + ["tests/test_m472_citation_mainwindow_journey.py"],
+           "the library page opens a passage that is not openable"),
+    Mutant("DT-stale-targets", DT, "            self.citation_file_status.setText(f\"Not opened: {exc}\")\n"
+           "            self._set_citation_file_targets([])\n",
+           "            self.citation_file_status.setText(f\"Not opened: {exc}\")\n", TC,
+           "a refused file leaves the previous record's passages openable"),
+    Mutant("DT-rich-text-status", DT,
+           "        self.citation_file_status.setTextFormat(Qt.PlainText)       # record text is untrusted, never rich text\n",
+           "", TC, "untrusted record text can render as rich text on the library page"),
+    Mutant("KA-rich-text-status", KA,
+           "        self.citation_status.setTextFormat(Qt.PlainText)      # M471: record text is untrusted, never rich text\n",
+           "", TC, "untrusted record text can render as rich text in the assistant"),
+    Mutant("KA-bypasses-service", KA,
+           "            record, results, targets = cp.open_record(self.db_manager, path)   # M470: bounded strict read\n",
+           "            record = cr.load(path)\n            results = cr.verify_record(self.db_manager, record)\n"
+           "            targets = cr.navigation(record, results)\n", TC,
+           "the assistant reads a record without the strict service"),
 ]
 
 

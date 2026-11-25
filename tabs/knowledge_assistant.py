@@ -562,6 +562,7 @@ class KnowledgeAssistantPanel(QWidget):
         citation_row = QHBoxLayout()
         self.citation_status = QLabel("")
         self.citation_status.setObjectName("knowledgeCitationStatus")
+        self.citation_status.setTextFormat(Qt.PlainText)      # M471: record text is untrusted, never rich text
         self.citation_status.setWordWrap(True)
         self.citation_status.setMinimumWidth(0)
         citation_row.addWidget(self.citation_status, 1)
@@ -1274,16 +1275,17 @@ class KnowledgeAssistantPanel(QWidget):
             path, _filter = QFileDialog.getOpenFileName(self, "Verify citation file", "", "Citation record (*.json)")
             if not path:
                 return None
+        from core import citation_passage as cp
+
         try:
-            record = cr.load(path)
-            results = cr.verify_record(self.db_manager, record)
+            record, results, targets = cp.open_record(self.db_manager, path)   # M470: bounded strict read
         except cr.CitationRecordError as exc:
             self.citation_status.setText(f"Not verified: {exc}")
             self._show_record_targets([])
             return None
         details = "; ".join(f"[{r['label']}] {r['status']} – {r['reason']}" for r in results)
         self.citation_status.setText(f"{cr.summary(results)}. {details}")
-        self._show_record_targets(cr.navigation(record, results))
+        self._show_record_targets(targets)
         return results
 
     def _show_record_targets(self, targets: list) -> None:
