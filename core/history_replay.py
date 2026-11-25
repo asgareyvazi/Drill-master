@@ -356,13 +356,14 @@ def _m373_replay(db, inputs: Dict[str, Any], version: str) -> Dict[str, Any]:
         raise SnapshotIntegrityError(str(exc)) from exc
 
 
-# ---- M416 / M420 / M423 / M427: SHA-checked declared-input services (one generic adapter) ---------------------------
+# ---- M416 / M420 / M423 / M427 / M475: SHA-checked declared-input services (one generic adapter) ---------------------------
 #: method id -> (module, description used in the NOT REPRODUCIBLE reason)
 SERVICE_MODULES: Dict[str, Tuple[str, str]] = {
     "m416.hb_slot_annulus": ("core.hydraulics_hb_slot", "Herschel-Bulkley slot annulus"),
     "m420.surge_swab": ("core.surge_swab", "surge/swab"),
     "m423.drilloff_fitted": ("core.drilloff_fitted", "fitted drill-off"),
     "m427.bit_dull_grade": ("core.bit_dull_grade", "IADC dull grade record"),
+    "m475.drilloff_robust": ("core.drilloff_robust", "robust (L1) drill-off"),
 }
 
 

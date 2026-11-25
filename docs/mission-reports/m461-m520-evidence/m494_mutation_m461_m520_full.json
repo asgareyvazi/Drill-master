@@ -1,0 +1,690 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m464_eowr_source_sections.py",
+      "tests/test_m467_eowr_mainwindow_journey.py",
+      "tests/test_m469_citation_passage_service.py",
+      "tests/test_m472_citation_mainwindow_journey.py",
+      "tests/test_m475_drilloff_robust.py"
+    ],
+    "exit": 0,
+    "summary": "70 passed, 14 warnings in 30.95s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "ES-undated-in-period",
+      "path": "core/eowr_sections.py",
+      "note": "an undated record is reported inside every period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.36s"
+    },
+    {
+      "id": "ES-query-failed-as-empty",
+      "path": "core/eowr_sections.py",
+      "note": "a failed table is reported as 'none recorded'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.46s"
+    },
+    {
+      "id": "ES-empty-payload-as-included",
+      "path": "core/eowr_sections.py",
+      "note": "a stored bit report with an empty payload is reported INCLUDED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.83s"
+    },
+    {
+      "id": "ES-escape-dropped",
+      "path": "core/eowr_sections.py",
+      "note": "stored (user / import) text is written into the report HTML unescaped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.84s"
+    },
+    {
+      "id": "ES-unknown-keys-dropped",
+      "path": "core/eowr_sections.py",
+      "note": "a payload key that is not a known column disappears",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.01s"
+    },
+    {
+      "id": "ES-missing-as-zero",
+      "path": "core/eowr_sections.py",
+      "note": "a missing stored value is shown as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.81s"
+    },
+    {
+      "id": "ES-time-order-insertion",
+      "path": "core/eowr_sections.py",
+      "note": "time logs are listed in insertion order, not chronologically",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.90s"
+    },
+    {
+      "id": "ES-undated-first",
+      "path": "core/eowr_sections.py",
+      "note": "undated rows sort before dated ones",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 3.01s"
+    },
+    {
+      "id": "ES-inverted-period-accepted",
+      "path": "core/eowr_sections.py",
+      "note": "a period that ends before it starts is accepted (empty report instead of an error)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.78s"
+    },
+    {
+      "id": "ES-source-id-dropped",
+      "path": "core/eowr_sections.py",
+      "note": "a time-log row no longer names its source record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.09s"
+    },
+    {
+      "id": "ES-legacy-bha-unreadable",
+      "path": "core/eowr_sections.py",
+      "note": "legacy named BHA configurations are reported unreadable instead of rendered",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.07s"
+    },
+    {
+      "id": "RE-failed-query-as-empty",
+      "path": "core/report_engine.py",
+      "note": "the engine swallows a failed query as an empty table",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.59s"
+    },
+    {
+      "id": "RE-period-ignored",
+      "path": "core/report_engine.py",
+      "note": "the requested period is silently replaced by the whole well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py",
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.77s"
+    },
+    {
+      "id": "RE-period-time-logs-unfiltered",
+      "path": "core/report_engine.py",
+      "note": "24-hour time logs ignore the period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py",
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 7.07s"
+    },
+    {
+      "id": "RE-period-undated-equipment-kept",
+      "path": "core/report_engine.py",
+      "note": "equipment logs ignore the period (undated ones included)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.97s"
+    },
+    {
+      "id": "RE-sections-not-in-body",
+      "path": "core/report_engine.py",
+      "note": "the manifest names INCLUDED sections that the report body does not show",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py",
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.21s"
+    },
+    {
+      "id": "RE-sections-not-in-excel",
+      "path": "core/report_engine.py",
+      "note": "the Excel / CSV outputs lose the source-data sections",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 11.44s"
+    },
+    {
+      "id": "RS-eowr-scope-hidden",
+      "path": "core/report_sections.py",
+      "note": "the manifest claims a whole-well scope for a period report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.64s"
+    },
+    {
+      "id": "RP-period-not-stated",
+      "path": "core/report_provenance.py",
+      "note": "the provenance scope keeps the daily-report span instead of the requested period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.94s"
+    },
+    {
+      "id": "W11-period-ignored",
+      "path": "tabs/w11_Export.py",
+      "note": "the W11 period option is shown but not applied",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 8.49s"
+    },
+    {
+      "id": "W11-inverted-period-accepted",
+      "path": "tabs/w11_Export.py",
+      "note": "the W11 tab starts an export with an inverted period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 9.41s"
+    },
+    {
+      "id": "CP-duplicate-keys-accepted",
+      "path": "core/citation_passage.py",
+      "note": "a repeated key silently shadows the first (a second \"start\" wins)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.64s"
+    },
+    {
+      "id": "CP-nan-accepted",
+      "path": "core/citation_passage.py",
+      "note": "NaN / Infinity are accepted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 2.14s"
+    },
+    {
+      "id": "CP-recursion-uncaught",
+      "path": "core/citation_passage.py",
+      "note": "a deeply nested file crashes the reader instead of being refused",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 2.10s"
+    },
+    {
+      "id": "CP-non-regular-file-read",
+      "path": "core/citation_passage.py",
+      "note": "a directory / device / FIFO is opened as a record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 1.89s"
+    },
+    {
+      "id": "CP-size-limit-raised",
+      "path": "core/citation_passage.py",
+      "note": "the published file-size limit is not the enforced one",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.91s"
+    },
+    {
+      "id": "CP-bool-as-offset",
+      "path": "core/citation_passage.py",
+      "note": "a JSON boolean is accepted as an id or offset",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 2.01s"
+    },
+    {
+      "id": "CP-sha-unchecked",
+      "path": "core/citation_passage.py",
+      "note": "any text is accepted as a page hash",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 20 passed in 2.07s"
+    },
+    {
+      "id": "CP-identity-unchecked",
+      "path": "core/citation_passage.py",
+      "note": "a record from another library opens an unrelated document with the same id",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py",
+        "tests/test_m472_citation_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 1.87s"
+    },
+    {
+      "id": "CP-invalid-entry-verified",
+      "path": "core/citation_passage.py",
+      "note": "a malformed citation is passed on to verification and navigation",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.64s"
+    },
+    {
+      "id": "DT-guard-dropped",
+      "path": "tabs/documents_tab.py",
+      "note": "the library page opens a passage that is not openable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py",
+        "tests/test_m472_citation_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.79s"
+    },
+    {
+      "id": "DT-stale-targets",
+      "path": "tabs/documents_tab.py",
+      "note": "a refused file leaves the previous record's passages openable",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 1.42s"
+    },
+    {
+      "id": "DT-rich-text-status",
+      "path": "tabs/documents_tab.py",
+      "note": "untrusted record text can render as rich text on the library page",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.72s"
+    },
+    {
+      "id": "KA-rich-text-status",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "untrusted record text can render as rich text in the assistant",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 3 passed in 1.49s"
+    },
+    {
+      "id": "KA-bypasses-service",
+      "path": "tabs/knowledge_assistant.py",
+      "note": "the assistant reads a record without the strict service",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m469_citation_passage_service.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 2.10s"
+    },
+    {
+      "id": "DR-l2-not-l1",
+      "path": "core/drilloff_robust.py",
+      "note": "the vertex search minimises squared residuals (least squares), not absolute residuals",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.36s"
+    },
+    {
+      "id": "DR-last-tie",
+      "path": "core/drilloff_robust.py",
+      "note": "the worst vertex is kept instead of the L1 minimum",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.38s"
+    },
+    {
+      "id": "DR-golden-kept-blindly",
+      "path": "core/drilloff_robust.py",
+      "note": "the refined breakpoint replaces a better grid point",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 7 passed in 0.46s"
+    },
+    {
+      "id": "DR-range-includes-ends",
+      "path": "core/drilloff_robust.py",
+      "note": "the breakpoint may sit at the first or last step (one-point segments)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 0.68s"
+    },
+    {
+      "id": "DR-vertex-in-scale",
+      "path": "core/drilloff_robust.py",
+      "note": "the robust scale is biased to zero, so ordinary residuals are flagged as outliers",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 11 passed in 0.63s"
+    },
+    {
+      "id": "DR-outlier-removed",
+      "path": "core/drilloff_robust.py",
+      "note": "flagged steps are silently dropped from the reported step count",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.28s"
+    },
+    {
+      "id": "DR-flags-dropped",
+      "path": "core/drilloff_robust.py",
+      "note": "outliers are no longer reported",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 0.37s"
+    },
+    {
+      "id": "DR-basis-defaulted",
+      "path": "core/drilloff_robust.py",
+      "note": "a missing WOB basis is silently taken as surface",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.73s"
+    },
+    {
+      "id": "DR-basis-not-hashed",
+      "path": "core/drilloff_robust.py",
+      "note": "the declared WOB basis is not part of the frozen inputs and their SHA-256",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.25s"
+    },
+    {
+      "id": "DR-surface-shown-as-downhole",
+      "path": "core/drilloff_robust.py",
+      "note": "a surface WOB is labelled as a downhole WOB",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 13 passed in 0.62s"
+    },
+    {
+      "id": "DR-founder-rule-inverted",
+      "path": "core/drilloff_robust.py",
+      "note": "the declared founder rule is inverted",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 0.28s"
+    },
+    {
+      "id": "DR-min-steps-lowered",
+      "path": "core/drilloff_robust.py",
+      "note": "too few steps are accepted for a robust fit",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.66s"
+    },
+    {
+      "id": "DR-rpm-tolerance-ignored",
+      "path": "core/drilloff_robust.py",
+      "note": "a test with varying RPM is fitted as a drill-off test",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 14 passed in 0.77s"
+    },
+    {
+      "id": "HB-erge-note-dropped",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "Erge 2015 results no longer say NOT VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 4.79s"
+    },
+    {
+      "id": "HB-erge-note-not-in-case",
+      "path": "core/hydraulics_hb_slot.py",
+      "note": "a stored Erge case loses the NOT VERIFIED note",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 4.45s"
+    },
+    {
+      "id": "SS-erge-note-dropped",
+      "path": "core/surge_swab.py",
+      "note": "the surge summary hides that Erge 2015 is NOT VERIFIED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m475_drilloff_robust.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 19 passed in 5.03s"
+    }
+  ],
+  "killed": [
+    "ES-undated-in-period",
+    "ES-query-failed-as-empty",
+    "ES-empty-payload-as-included",
+    "ES-escape-dropped",
+    "ES-unknown-keys-dropped",
+    "ES-missing-as-zero",
+    "ES-time-order-insertion",
+    "ES-undated-first",
+    "ES-inverted-period-accepted",
+    "ES-source-id-dropped",
+    "ES-legacy-bha-unreadable",
+    "RE-failed-query-as-empty",
+    "RE-period-ignored",
+    "RE-period-time-logs-unfiltered",
+    "RE-period-undated-equipment-kept",
+    "RE-sections-not-in-body",
+    "RE-sections-not-in-excel",
+    "RS-eowr-scope-hidden",
+    "RP-period-not-stated",
+    "W11-period-ignored",
+    "W11-inverted-period-accepted",
+    "CP-duplicate-keys-accepted",
+    "CP-nan-accepted",
+    "CP-recursion-uncaught",
+    "CP-non-regular-file-read",
+    "CP-size-limit-raised",
+    "CP-bool-as-offset",
+    "CP-sha-unchecked",
+    "CP-identity-unchecked",
+    "CP-invalid-entry-verified",
+    "DT-guard-dropped",
+    "DT-stale-targets",
+    "DT-rich-text-status",
+    "KA-rich-text-status",
+    "KA-bypasses-service",
+    "DR-l2-not-l1",
+    "DR-last-tie",
+    "DR-golden-kept-blindly",
+    "DR-range-includes-ends",
+    "DR-vertex-in-scale",
+    "DR-outlier-removed",
+    "DR-flags-dropped",
+    "DR-basis-defaulted",
+    "DR-basis-not-hashed",
+    "DR-surface-shown-as-downhole",
+    "DR-founder-rule-inverted",
+    "DR-min-steps-lowered",
+    "DR-rpm-tolerance-ignored",
+    "HB-erge-note-dropped",
+    "HB-erge-note-not-in-case",
+    "SS-erge-note-dropped"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

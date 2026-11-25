@@ -29,11 +29,15 @@ W11 = "tabs/w11_Export.py"
 CP = "core/citation_passage.py"
 DT = "tabs/documents_tab.py"
 KA = "tabs/knowledge_assistant.py"
+DR = "core/drilloff_robust.py"
+HB = "core/hydraulics_hb_slot.py"
+SS = "core/surge_swab.py"
 
 T = ["tests/test_m464_eowr_source_sections.py"]
 J = ["tests/test_m467_eowr_mainwindow_journey.py"]
 TC = ["tests/test_m469_citation_passage_service.py"]
 JC = TC + ["tests/test_m472_citation_mainwindow_journey.py"]
+TD = ["tests/test_m475_drilloff_robust.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------------ M464-M466 EOWR source-data sections
@@ -133,6 +137,50 @@ MUTANTS = [
            "            record = cr.load(path)\n            results = cr.verify_record(self.db_manager, record)\n"
            "            targets = cr.navigation(record, results)\n", TC,
            "the assistant reads a record without the strict service"),
+    # ------------------------------------------------------------------ M475-M478 robust drill-off v2 / M482 Erge
+    Mutant("DR-l2-not-l1", DR, "    sad = np.abs(y[None, :] - coef @ design.T).sum(axis=1)\n",
+           "    sad = ((y[None, :] - coef @ design.T) ** 2).sum(axis=1)\n", TD,
+           "the vertex search minimises squared residuals (least squares), not absolute residuals"),
+    Mutant("DR-last-tie", DR, "    index = int(np.flatnonzero(sad <= best + TIE_REL * max(1.0, best))[0])",
+           "    index = int(np.argmax(sad))", TD, "the worst vertex is kept instead of the L1 minimum"),
+    Mutant("DR-golden-kept-blindly", DR, "        if fit is not None and (best is None or fit[1] < best[2]):\n"
+           "            best = (b, fit[0], fit[1], fit[2])\n",
+           "        if fit is not None:\n            best = (b, fit[0], fit[1], fit[2])\n", TD,
+           "the refined breakpoint replaces a better grid point"),
+    Mutant("DR-range-includes-ends", DR, "    lo_index, hi_index = 1, len(xs) - 2\n",
+           "    lo_index, hi_index = 0, len(xs) - 1\n", TD,
+           "the breakpoint may sit at the first or last step (one-point segments)"),
+    Mutant("DR-vertex-in-scale", DR, "    off_vertex = [abs(r) for i, r in enumerate(residuals) if i not in vertex]\n",
+           "    off_vertex = [abs(r) for r in residuals] + [0.0] * 40\n", TD,
+           "the robust scale is biased to zero, so ordinary residuals are flagged as outliers"),
+    Mutant("DR-outlier-removed", DR, "    return {\"status\": COMPUTED, **base, \"founder_status\": status,",
+           "    xs = [x for x in xs if x not in flagged]\n"
+           "    return {\"status\": COMPUTED, **base, \"founder_status\": status,", TD,
+           "flagged steps are silently dropped from the reported step count"),
+    Mutant("DR-flags-dropped", DR, "            \"vertex_wob_klbf\": [xs[i] for i in vertex], \"flagged_wob_klbf\": flagged,",
+           "            \"vertex_wob_klbf\": [xs[i] for i in vertex], \"flagged_wob_klbf\": [],", TD,
+           "outliers are no longer reported"),
+    Mutant("DR-basis-defaulted", DR, "    basis = basis.strip() if isinstance(basis, str) and basis.strip() else None\n",
+           "    basis = basis.strip() if isinstance(basis, str) and basis.strip() else \"surface\"\n", TD,
+           "a missing WOB basis is silently taken as surface"),
+    Mutant("DR-basis-not-hashed", DR, "    frozen[\"wob_basis\"] = basis\n    rows = []\n",
+           "    rows = []\n", TD, "the declared WOB basis is not part of the frozen inputs and their SHA-256"),
+    Mutant("DR-surface-shown-as-downhole", DR, "    if basis == \"downhole\":\n", "    if basis:\n", TD,
+           "a surface WOB is labelled as a downhole WOB"),
+    Mutant("DR-founder-rule-inverted", DR, "    if b > 0 and upper < v[\"slope_ratio\"] * b:\n",
+           "    if b > 0 and upper > v[\"slope_ratio\"] * b:\n", TD, "the declared founder rule is inverted"),
+    Mutant("DR-min-steps-lowered", DR, "MIN_STEPS = 6\n", "MIN_STEPS = 4\n", TD,
+           "too few steps are accepted for a robust fit"),
+    Mutant("DR-rpm-tolerance-ignored", DR, "    if max(rpms) - min(rpms) > v[\"rpm_tolerance_rpm\"]:\n",
+           "    if False:\n", TD, "a test with varying RPM is fitted as a drill-off test"),
+    Mutant("HB-erge-note-dropped", HB, "            \"verification_note\": verification_note(v[\"transition_criterion\"])}\n",
+           "            \"verification_note\": None}\n", TD, "Erge 2015 results no longer say NOT VERIFIED"),
+    Mutant("HB-erge-note-not-in-case", HB,
+           "    return f\"{label}; \" + (f\"NOT VERIFIED: {note}; \" if note else \"\") + f\"inputs SHA-256",
+           "    return f\"{label}; \" + f\"inputs SHA-256", TD, "a stored Erge case loses the NOT VERIFIED note"),
+    Mutant("SS-erge-note-dropped", SS,
+           "    note = hb.verification_note((result.get(\"inputs\") or {}).get(\"transition_criterion\"))   # M482\n",
+           "    note = None\n", TD, "the surge summary hides that Erge 2015 is NOT VERIFIED"),
 ]
 
 

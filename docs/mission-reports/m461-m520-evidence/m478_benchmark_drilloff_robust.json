@@ -1,0 +1,286 @@
+{
+  "cases": {
+    "H1 exact, knee between steps": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 0.0,
+        "knee": 26.0,
+        "outliers": {},
+        "slope_above": 0.4,
+        "slope_below": 4.0
+      },
+      "l1": {
+        "breakpoint": 26.0,
+        "fitted_breakpoint": 26.0,
+        "flagged": [],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 0.0
+      },
+      "m423_least_squares_breakpoint_info": 26.0,
+      "passed": true,
+      "seconds": 0.017
+    },
+    "H2 exact, knee on a step": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 5.0,
+        "knee": 30.0,
+        "outliers": {},
+        "slope_above": 0.4,
+        "slope_below": 2.0
+      },
+      "l1": {
+        "breakpoint": 30.0,
+        "fitted_breakpoint": 30.0,
+        "flagged": [],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 0.0
+      },
+      "m423_least_squares_breakpoint_info": 30.0,
+      "passed": true,
+      "seconds": 0.0259
+    },
+    "H3 exact, flat upper slope": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 12.0,
+        "knee": 22.0,
+        "outliers": {},
+        "slope_above": 0.0,
+        "slope_below": 3.0
+      },
+      "l1": {
+        "breakpoint": 22.0,
+        "fitted_breakpoint": 22.0,
+        "flagged": [],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 0.0
+      },
+      "m423_least_squares_breakpoint_info": 22.0,
+      "passed": true,
+      "seconds": 0.0296
+    },
+    "N1 linear, no founder": {
+      "checks": {
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 5.0,
+        "knee": null,
+        "outliers": {},
+        "slope_above": 3.0,
+        "slope_below": 3.0
+      },
+      "l1": {
+        "breakpoint": null,
+        "fitted_breakpoint": 13.0,
+        "flagged": [],
+        "founder_status": "NO FOUNDER IN TESTED RANGE",
+        "sum_abs_residuals": 0.0
+      },
+      "m423_least_squares_breakpoint_info": 23.65,
+      "passed": true,
+      "seconds": 0.0092
+    },
+    "O1 +40 below the knee (M423 limitation case)": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 0.0,
+        "knee": 26.0,
+        "outliers": {
+          "16": 40.0
+        },
+        "slope_above": 0.4,
+        "slope_below": 4.0
+      },
+      "l1": {
+        "breakpoint": 26.0,
+        "fitted_breakpoint": 26.0,
+        "flagged": [
+          16.0
+        ],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 40.0
+      },
+      "m423_least_squares_breakpoint_info": 16.0,
+      "passed": true,
+      "seconds": 0.0186
+    },
+    "O2 +40 just above the knee": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 5.0,
+        "knee": 30.0,
+        "outliers": {
+          "35": 40.0
+        },
+        "slope_above": 0.4,
+        "slope_below": 2.0
+      },
+      "l1": {
+        "breakpoint": 30.0,
+        "fitted_breakpoint": 30.0,
+        "flagged": [
+          35.0
+        ],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 40.0
+      },
+      "m423_least_squares_breakpoint_info": 35.0,
+      "passed": true,
+      "seconds": 0.0243
+    },
+    "O3 +40 at the knee step": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 5.0,
+        "knee": 30.0,
+        "outliers": {
+          "30": 40.0
+        },
+        "slope_above": 0.4,
+        "slope_below": 2.0
+      },
+      "l1": {
+        "breakpoint": 30.0,
+        "fitted_breakpoint": 30.0,
+        "flagged": [
+          30.0
+        ],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 40.0
+      },
+      "m423_least_squares_breakpoint_info": 30.0,
+      "passed": true,
+      "seconds": 0.023
+    },
+    "O4 two outliers of opposite sign": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 5.0,
+        "knee": 30.0,
+        "outliers": {
+          "35": -30.0,
+          "50": 25.0
+        },
+        "slope_above": 0.4,
+        "slope_below": 2.0
+      },
+      "l1": {
+        "breakpoint": 30.0,
+        "fitted_breakpoint": 30.0,
+        "flagged": [
+          35.0,
+          50.0
+        ],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 55.0
+      },
+      "m423_least_squares_breakpoint_info": 50.0,
+      "passed": true,
+      "seconds": 0.0239
+    },
+    "O5 drop to zero ROP (stall) above the knee": {
+      "checks": {
+        "breakpoint": true,
+        "flagged": true,
+        "founder_status": true,
+        "intercept": true,
+        "slope_above": true,
+        "slope_below": true,
+        "sum_abs_residuals": true
+      },
+      "expected": {
+        "intercept": 12.0,
+        "knee": 22.0,
+        "outliers": {
+          "28": -78.0
+        },
+        "slope_above": 0.0,
+        "slope_below": 3.0
+      },
+      "l1": {
+        "breakpoint": 22.0,
+        "fitted_breakpoint": 22.0,
+        "flagged": [
+          28.0
+        ],
+        "founder_status": "FOUNDER IDENTIFIED",
+        "sum_abs_residuals": 78.0
+      },
+      "m423_least_squares_breakpoint_info": 20.194444,
+      "passed": true,
+      "seconds": 0.0308
+    }
+  },
+  "failed": 0,
+  "input_class": "SYNTHETIC",
+  "method": "m475.drilloff_robust",
+  "timing_seconds": {
+    "10": 0.017,
+    "20": 0.216,
+    "30": 1.211
+  },
+  "version": "M475 drill-off founder, least-absolute-deviations two-segment line v1"
+}

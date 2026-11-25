@@ -2245,6 +2245,13 @@ class EngineeringCalculatorTab(DrillTabBase):
                                             "method version; the M372 founder test is unchanged). SCREENING.")
         self.drilloff_fitted_btn.clicked.connect(self._drilloff_fitted_dialog)
         res_layout.addWidget(self.drilloff_fitted_btn, 6, 0, 1, 2)
+        self.drilloff_robust_btn = QPushButton("🛡 Drill-off robust (L1) line…")
+        self.drilloff_robust_btn.setObjectName("drilloff_robust_btn")
+        self.drilloff_robust_btn.setToolTip("M475: least-absolute-deviations two-segment fit of ROP on WOB with a "
+                                            "declared WOB basis (surface or downhole, never converted). M372 and M423 "
+                                            "are unchanged. SCREENING.")
+        self.drilloff_robust_btn.clicked.connect(self._drilloff_robust_dialog)
+        res_layout.addWidget(self.drilloff_robust_btn, 7, 0, 1, 2)
         self.dull_grade_btn = QPushButton("🦷 Bit dull grade (IADC)…")
         self.dull_grade_btn.setObjectName("dull_grade_btn")
         self.dull_grade_btn.setToolTip("M427: record and validate an IADC dull grade for the selected well; trend "
@@ -4465,6 +4472,20 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _drilloff_fitted_dialog(self, _checked=False):
         self.drilloff_fitted_dialog().exec()
+
+    def drilloff_robust_dialog(self):
+        """M475: the page WOB/RPM/ROP become the first step only when all three are entered (0 = not entered); the
+        WOB basis is never preset - the page WOB is a surface value only if the user says so."""
+        from dialogs.engineering_service_dialog import drilloff_robust_dialog
+
+        first = {"wob_klbf": self.bit_wob.value() or None, "rpm": self.bit_rpm.value() or None,
+                 "rop_ft_hr": self.bit_rop.value() or None}
+        page = {"rows": [first]} if all(value is not None for value in first.values()) else {}
+        return drilloff_robust_dialog(page, db=getattr(self, "db", None),
+                                      well_id=getattr(self, "current_well_id", None), parent=self)
+
+    def _drilloff_robust_dialog(self, _checked=False):
+        self.drilloff_robust_dialog().exec()
 
     def dull_grade_dialog(self):
         """M427: bit size from this page (0 = not entered); every grade field is typed or chosen by the user."""

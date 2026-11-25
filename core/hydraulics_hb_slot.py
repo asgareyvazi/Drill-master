@@ -24,7 +24,8 @@ Transition band (declared, never defaulted):
 * ``founargiotakis-2008``: Re1 = 3250 - 1150 n', Re2 = 4150 - 1150 n' (their eqs. 18-19); 0 < n' <= 1.
 * ``erge-2015`` (concentric, e = 0): Re1 = 2100 n'^0.331 (1 + 1.402 kappa - 0.977 kappa^2),
   Re2 = 2900 n'^(-0.039 Re1^0.307) (Erge et al. 2015, eqs. 17-18, as documented in BoreTHM ``fluids.transition_band``,
-  Apache-2.0 - method reference only; not re-checked against the paper: a stated verification gap). Re1 holds for
+  Apache-2.0 - method reference only; not re-checked against the paper: a stated verification gap, reported as NOT
+  VERIFIED in every summary and case note since M482). Re1 holds for
   0.1 < n' < 1; Re2 was fitted at kappa 0.5 for 0.15 < n' < 0.4 - a flow at or above Re1 outside that n' range is
   refused (no extrapolation), and kappa != 0.5 is a warning.
 
@@ -64,6 +65,13 @@ PA_PER_PSI = 4.4482216152605 / M_PER_IN ** 2
 KAPPA_MIN = 0.3
 N_RANGE = (0.1, 1.0)
 ERGE_RE2_N_RANGE = (0.15, 0.4)
+#: M482: transition criteria whose coefficients have NOT been checked against the primary paper. The note is shown in
+#: every summary and stored in the case note; it is not part of the replayed results (the numbers are unchanged).
+UNVERIFIED_CRITERIA = {
+    "erge-2015": ("Erge et al. 2015 (SPE Drill. Complet. 30(3)) transition coefficients NOT VERIFIED against the "
+                  "primary paper - transcribed from the BoreTHM secondary reference (matches its fluids."
+                  "transition_band at e = 0); use for comparison only"),
+}
 COLEBROOK_TOL = 1e-12
 COLEBROOK_MAX_ITER = 100
 BISECTION_ITER = 200
@@ -111,6 +119,11 @@ def freeze(inputs: Mapping[str, Any]) -> Dict[str, Any]:
         raise SlotError(f"transition criterion {criterion!r} is not one of {', '.join(CRITERIA)}")
     frozen["transition_criterion"] = criterion
     return frozen
+
+
+def verification_note(criterion: Optional[str]) -> Optional[str]:
+    """M482: the NOT VERIFIED statement for a declared transition criterion (None when none applies)."""
+    return UNVERIFIED_CRITERIA.get(criterion) if criterion else None
 
 
 def inputs_sha256(frozen: Mapping[str, Any]) -> str:
@@ -176,7 +189,8 @@ def transition_band(criterion: str, n_prime: float, kappa: float) -> Tuple[float
 # ---- evaluation --------------------------------------------------------------------------------------------------
 def evaluate(inputs: Mapping[str, Any]) -> Dict[str, Any]:
     v = freeze(inputs)
-    base = {"label": LABEL, "inputs": v, "inputs_sha256": inputs_sha256(v), "method_version": METHOD_VERSION}
+    base = {"label": LABEL, "inputs": v, "inputs_sha256": inputs_sha256(v), "method_version": METHOD_VERSION,
+            "verification_note": verification_note(v["transition_criterion"])}
     missing = [key for key, _u, required in FIELDS + TEXT_FIELDS if required and v[key] is None]
     if missing:
         return {"status": NOT_ASSESSED, "reason": f"missing: {', '.join(missing)}", **base}
@@ -265,9 +279,12 @@ def evaluate(inputs: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def summary_lines(result: Mapping[str, Any]) -> List[str]:
+    note = result.get("verification_note")
     if result.get("status") != COMPUTED:
-        return [f"NOT ASSESSED: {result.get('reason')}", LABEL]
+        return [f"NOT ASSESSED: {result.get('reason')}", LABEL] + ([f"NOT VERIFIED: {note}"] if note else [])
     lines = [LABEL, f"Method {METHOD_ID} {METHOD_VERSION}."]
+    if note:
+        lines.append(f"NOT VERIFIED: {note}.")
     lines.append(f"Regime {result['regime']}: {result['reason']}.")
     lines.append(f"Mean annular velocity {result['velocity_ft_min']:.1f} ft/min; diameter ratio {result['kappa']:.3f}.")
     lines.append(f"Friction loss {result['pressure_loss_psi']:.2f} psi ({result['gradient_psi_ft']:.5f} psi/ft).")
@@ -316,7 +333,12 @@ def save_case(db, result: Mapping[str, Any], *, well_id: Optional[int], user_id:
                         name=f"HB slot annulus {v['hole_id_in']:g} x {v['pipe_od_in']:g} in, "
                              f"{v['flow_rate_gpm']:g} gpm, {result['regime']}",
                         inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
-                        well_id=well_id, user_id=user_id, note=f"{LABEL}; inputs SHA-256 {result['inputs_sha256']}")
+                        well_id=well_id, user_id=user_id, note=_case_note(LABEL, result))
+
+
+def _case_note(label: str, result: Mapping[str, Any]) -> str:
+    note = verification_note((result.get("inputs") or {}).get("transition_criterion"))
+    return f"{label}; " + (f"NOT VERIFIED: {note}; " if note else "") + f"inputs SHA-256 {result['inputs_sha256']}"
 
 
 def replay_results(inputs: Mapping[str, Any]) -> Dict[str, Any]:

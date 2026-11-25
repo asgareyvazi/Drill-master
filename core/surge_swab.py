@@ -159,9 +159,12 @@ def evaluate(inputs: Mapping[str, Any], sections: Sequence[Mapping[str, Any]]) -
 
 
 def summary_lines(result: Mapping[str, Any]) -> List[str]:
+    note = hb.verification_note((result.get("inputs") or {}).get("transition_criterion"))   # M482
     if result.get("status") != COMPUTED:
-        return [f"NOT ASSESSED: {result.get('reason')}", LABEL]
+        return [f"NOT ASSESSED: {result.get('reason')}", LABEL] + ([f"NOT VERIFIED: {note}"] if note else [])
     lines = [LABEL, f"Method {METHOD_ID} {METHOD_VERSION}; {result['reason']}."]
+    if note:
+        lines.append(f"NOT VERIFIED: {note}.")
     for row in result["sections"]:
         lines.append(f"Section {row['section']}: {row['hole_id_in']:g} x {row['pipe_od_in']:g} in over "
                      f"{row['length_ft']:g} ft - fluid {row['fluid_velocity_ft_min']:.1f} ft/min, effective "
@@ -213,7 +216,7 @@ def save_case(db, result: Mapping[str, Any], *, well_id: Optional[int], user_id:
                         name=f"Surge/swab at {result['trip_speed_ft_min']:g} ft/min, "
                              f"{len(result['sections'])} section(s)",
                         inputs=inputs, results=results, method=METHOD_ID, method_version=METHOD_VERSION,
-                        well_id=well_id, user_id=user_id, note=f"{LABEL}; inputs SHA-256 {result['inputs_sha256']}")
+                        well_id=well_id, user_id=user_id, note=hb._case_note(LABEL, result))
 
 
 def replay_results(inputs: Mapping[str, Any]) -> Dict[str, Any]:

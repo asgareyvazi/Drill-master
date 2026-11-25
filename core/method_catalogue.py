@@ -231,7 +231,7 @@ def _case_services() -> List[CatalogueEntry]:
     """M392: workflow services that store replayable calculation cases (``core.history_replay`` adapters)."""
     from core import casing_axial_loads, cement_job_reconciliation, ddr_hydraulics_check, hydraulics_workflow
     from core import mse_drilloff, survey_plan_deviation, torque_drag_sensitivity, well_control_volumetric
-    from core import bit_dull_grade, drilloff_fitted, hydraulics_hb_slot, surge_swab
+    from core import bit_dull_grade, drilloff_fitted, drilloff_robust, hydraulics_hb_slot, surge_swab
 
     def entry(module, title, family, reference, limits, blocker=""):
         label = _label(getattr(module, "LABEL", ""))
@@ -279,6 +279,12 @@ def _case_services() -> List[CatalogueEntry]:
               "Continuous hinge least squares (ROP = a + bW + c max(W - W*, 0)); founder rule as declared",
               "Separate from M372 (unchanged); >= 5 distinct-WOB steps at constant RPM; residuals > 3 s flagged, "
               "not removed; no CCS correlation"),
+        entry(drilloff_robust, "Drill-off founder, robust L1 two-segment line", "Drilling performance",
+              "Continuous hinge by least absolute deviations (exact vertex search; Bloomfield & Steiger 1983); "
+              "founder rule as declared",
+              "Separate from M372 and M423 (unchanged); 6-30 distinct-WOB steps at constant RPM; declared WOB basis "
+              "(surface or downhole), never converted; LAD optimum may be non-unique; not robust to WOB errors; "
+              "not a validated downhole method"),
         entry(bit_dull_grade, "Bit dull grade record (IADC)", "Drilling performance",
               "IADC dull grading system (roller-cone 1987; fixed-cutter IADC/SPE 23939, 1992) code set",
               "Record, validation and per-well ordering only; no remaining-life or wear prediction"),

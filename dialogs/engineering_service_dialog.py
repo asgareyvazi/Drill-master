@@ -1,4 +1,4 @@
-"""M418 / M421 / M423 / M427 — one W13 dialog for the declared-input calculation services.
+"""M418 / M421 / M423 / M427 / M475 — one W13 dialog for the declared-input calculation services.
 
 UI → service module (``evaluate`` with declared inputs; validation in the service) → ``save_case`` (immutable
 calculation case, inputs SHA-256 as provenance) → Calculation History replay (``core.history_replay`` generic
@@ -214,6 +214,18 @@ def drilloff_fitted_dialog(page_values=None, **kwargs) -> EngineeringServiceDial
     return EngineeringServiceDialog(df, title="Drill-off test — fitted two-segment line (M423, SCREENING)",
                                     labels=DF_LABELS, table=("steps", df.STEP_FIELDS, 10), page_values=page_values,
                                     object_prefix="m423", **kwargs)
+
+
+DR_LABELS = {**DF_LABELS, "wob_basis": "WOB basis of the typed values"}
+
+
+def drilloff_robust_dialog(page_values=None, **kwargs) -> EngineeringServiceDialog:
+    from core import drilloff_robust as dr
+
+    return EngineeringServiceDialog(dr, title="Drill-off test — robust L1 two-segment line (M475, SCREENING)",
+                                    labels=DR_LABELS, choices={"wob_basis": dr.WOB_BASES},
+                                    table=("steps", dr.STEP_FIELDS, 12), page_values=page_values,
+                                    object_prefix="m475", **kwargs)
 
 
 DG_LABELS = {"bit_size_in": "Bit size", "depth_in_m": "Depth in", "depth_out_m": "Depth out", "bit_no": "Bit number",

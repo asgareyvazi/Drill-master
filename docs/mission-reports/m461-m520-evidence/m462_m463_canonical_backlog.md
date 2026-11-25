@@ -20,8 +20,8 @@ Every row's final status is given in the integrated report:
 | B | M468 | Mutation (`tools/quality/mutation_m461_m520.py`) and scale benchmark (`benchmark_m468_eowr.py`) | U1 | none |
 | C | M469–M472 | Citation passage navigation. Covers the schema, a secure passage service, Documents-tab UI, and E2E plus security tests | U2 | none |
 | D | M473–M474 | Recover the historical mutations M275, M276, M278, M279, M282 and M283 | U3 | none |
-| E | M475–M478 | Robust drill-off v2 under a new method ID. Preserves M423 v1 and replay | E8b | none (no field validation claim) |
-| E | M479 | Open-ended surge, only if a primary-source validation is available; otherwise a recorded blocker | E6b | data |
+| E | M475–M478 | Robust drill-off v2 under a new method ID. Preserves M423 v1 and replay | E6b | none (no field validation claim) |
+| E | M479 | Open-ended surge, only if a primary-source validation is available; otherwise a recorded blocker | E8b | data |
 | E | M480–M481 | E1b HB extensions, only if validated | E1b | data |
 | E | M482 | Erge 2015 coefficients checked against the primary source; otherwise marked NOT VERIFIED or disabled | Erge gap | source access |
 | E | M483–M485 | Owner packages only, no behaviour change: E1c (fitting stays DISABLED), E11, E12 | E1c, E11, E12 | owner |

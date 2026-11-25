@@ -72,6 +72,6 @@ Every input and result carries its unit (`UNITS`, `RESULT_FIELDS`), and replay t
 ## 6. Open items
 
 * Owner approval is required before any operational use.
-* The Erge equations have not been verified against the original paper.
+* The Erge equations have not been verified against the original paper. Since M482, every `erge-2015` result, summary and case note says NOT VERIFIED. The transcription matches the BoreTHM secondary reference at e = 0 (`m475_m485_engineering.md`). The numbers are unchanged.
 * No field data comparison has been made.
 * The HB fit from Fann readings is not part of this method.
