@@ -7,8 +7,9 @@ one status:
 * ``NOT_RECORDED``   – rendered as an explicit "Not recorded" statement (never as a zero or a blank heading);
 * ``SUMMARISED``     – rendered as counts only (the rows are not reproduced in the report body);
 * ``QUERY_FAILED``   – the data could not be read; totals are not assessed;
-* ``NOT_RENDERED``   – data was collected for the scope but this template does not render it. It is named, with
-  its row count and the export where it does appear, so nothing disappears unannounced.
+* ``NOT_RENDERED``   – data was collected for the scope but is not rendered: the template does not render it (Plan:
+  inactive versions) or a stored payload cannot be read as records (EOWR, M464). It is named, with its row count
+  and the unreadable source IDs, so nothing disappears unannounced.
 
 ``manifest(kind, data)`` builds the list from the engine's collected data; ``report_provenance.emit`` adds it to the
 provenance, so it appears in HTML, PDF, Excel and CSV alike. Kinds without a manifest are stated as such.
@@ -17,7 +18,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-MANIFEST_VERSION = "M320-D report section manifest v2"          # v2 (M333): + npt, cost, plan
+MANIFEST_VERSION = "M320-D report section manifest v3"          # v2 (M333): + npt, cost, plan; v3 (M464): EOWR
+#                                                                  source-data sections rendered
 INCLUDED, NOT_RECORDED, SUMMARISED, QUERY_FAILED, NOT_RENDERED = (
     "INCLUDED", "NOT_RECORDED", "SUMMARISED", "QUERY_FAILED", "NOT_RENDERED")
 MANIFEST_KINDS = ("ddr", "eowr", "npt", "cost", "plan")
@@ -81,13 +83,18 @@ def eowr_manifest(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                f"{_count(data.get('transport'))} transport"),
         cost_entry,
     ]
-    for key, title in (("bit_reports", "Bit reports"), ("bha_reports", "BHA reports"),
-                       ("time_logs_24h", "24-hour time logs"), ("time_logs_morning", "Morning time logs"),
-                       ("requests", "Material requests"), ("equipment_logs", "Equipment logs")):
-        n = _count(data.get(key))
-        entries.append(_entry(title, NOT_RENDERED, n,
-                              f"collected ({n} row(s)) but not rendered by the EOWR template; see the professional "
-                              f"workbook export" if n else "not rendered by the EOWR template; none recorded"))
+    # M464: the six source-data sections are rendered (core/eowr_sections.py); their status comes from the same
+    # analysis the report body uses, so the manifest cannot claim rows the body does not show.
+    from core import eowr_sections
+
+    for res in eowr_sections.analyse(data):
+        entries.append(_entry(res.title, res.status, None if res.status == QUERY_FAILED else len(res.rows),
+                              res.detail))
+    period = data.get("period")
+    excluded = {k: v for k, v in (data.get("period_excluded_undated") or {}).items() if v}
+    entries.insert(0, _entry("Scope", INCLUDED, None, eowr_sections.period_label(period) + (
+        "; undated records excluded: " + ", ".join(f"{k} {v}" for k, v in sorted(excluded.items()))
+        if excluded else "")))
     return entries
 
 

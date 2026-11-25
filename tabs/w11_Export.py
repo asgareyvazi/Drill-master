@@ -277,6 +277,26 @@ class ExportWidget(DrillTabBase):
         wm_w, self.eowr_watermark = self._watermark_input()
         layout.addWidget(wm_w)
 
+        # M465: optional period scope (unchecked = whole well, the historical behaviour)
+        pr = QHBoxLayout()
+        self.eowr_period = QCheckBox("Limit to period (dated records only)")
+        pr.addWidget(self.eowr_period)
+        pr.addWidget(QLabel("From:"))
+        self.eowr_from = QDateEdit()
+        self.eowr_from.setCalendarPopup(True)
+        self.eowr_from.setDate(QDate.currentDate().addDays(-30))
+        pr.addWidget(self.eowr_from)
+        pr.addWidget(QLabel("To:"))
+        self.eowr_to = QDateEdit()
+        self.eowr_to.setCalendarPopup(True)
+        self.eowr_to.setDate(QDate.currentDate())
+        pr.addWidget(self.eowr_to)
+        pr.addStretch()
+        for w in (self.eowr_from, self.eowr_to):
+            w.setEnabled(False)
+            self.eowr_period.toggled.connect(w.setEnabled)
+        layout.addLayout(pr)
+
         export_btn = QPushButton("🚀 Generate EOWR")
         export_btn.setStyleSheet(
             "background: #27ae60; color: white; font-weight: bold; "
@@ -299,6 +319,13 @@ class ExportWidget(DrillTabBase):
             QMessageBox.warning(self, "Warning", "Select a well.")
             return
         fmt = self.eowr_fmt.currentText().lower()
+        args = ()
+        if self.eowr_period.isChecked():
+            date_from, date_to = self.eowr_from.date().toPython(), self.eowr_to.date().toPython()
+            if date_from > date_to:
+                QMessageBox.warning(self, "Warning", "The EOWR period starts after it ends.")
+                return
+            args = ((date_from, date_to),)
         ext = extension_for(fmt)
         fn, _ = QFileDialog.getSaveFileName(
             self, "Export EOWR",
@@ -307,7 +334,7 @@ class ExportWidget(DrillTabBase):
         )
         if not fn:
             return
-        job = ExportJob("eowr", "EOWR", fn, target, fmt, watermark=self.eowr_watermark.text(),
+        job = ExportJob("eowr", "EOWR", fn, target, fmt, args=args, watermark=self.eowr_watermark.text(),
                         direction=self.direction())
         self._start_single_export(job, self.eowr_status)
 

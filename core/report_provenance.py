@@ -227,6 +227,10 @@ def emit(engine, kind: str, target_id: int, data, html: str, path: str, fmt: str
 
     prov = build(engine.db, kind, target_id, direction=getattr(engine, "direction", "ltr"))
     prov["sections"] = report_sections.manifest(kind, data)
+    period = data.get("period") if isinstance(data, dict) and kind == "eowr" else None
+    if period is not None:                                   # M465: a period-scoped EOWR states its period
+        prov["scope"]["period"] = (f"{_iso(period[0])} – {_iso(period[1])} (requested period; "
+                                   f"{len(data.get('daily_reports') or [])} daily report(s) inside it)")
     engine.last_provenance = prov
     if fmt == "pdf":
         return engine._save_pdf(attach(html, prov), path)

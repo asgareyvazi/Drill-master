@@ -1,0 +1,295 @@
+{
+  "baseline": {
+    "tests": [
+      "tests/test_m464_eowr_source_sections.py",
+      "tests/test_m467_eowr_mainwindow_journey.py"
+    ],
+    "exit": 0,
+    "summary": "18 passed, 14 warnings in 21.82s"
+  },
+  "complete": true,
+  "python": "3.11.2",
+  "mutants": [
+    {
+      "id": "ES-undated-in-period",
+      "path": "core/eowr_sections.py",
+      "note": "an undated record is reported inside every period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.66s"
+    },
+    {
+      "id": "ES-query-failed-as-empty",
+      "path": "core/eowr_sections.py",
+      "note": "a failed table is reported as 'none recorded'",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.72s"
+    },
+    {
+      "id": "ES-empty-payload-as-included",
+      "path": "core/eowr_sections.py",
+      "note": "a stored bit report with an empty payload is reported INCLUDED",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed in 3.85s"
+    },
+    {
+      "id": "ES-escape-dropped",
+      "path": "core/eowr_sections.py",
+      "note": "stored (user / import) text is written into the report HTML unescaped",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.79s"
+    },
+    {
+      "id": "ES-unknown-keys-dropped",
+      "path": "core/eowr_sections.py",
+      "note": "a payload key that is not a known column disappears",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.76s"
+    },
+    {
+      "id": "ES-missing-as-zero",
+      "path": "core/eowr_sections.py",
+      "note": "a missing stored value is shown as 0",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.68s"
+    },
+    {
+      "id": "ES-time-order-insertion",
+      "path": "core/eowr_sections.py",
+      "note": "time logs are listed in insertion order, not chronologically",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.81s"
+    },
+    {
+      "id": "ES-undated-first",
+      "path": "core/eowr_sections.py",
+      "note": "undated rows sort before dated ones",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed in 2.66s"
+    },
+    {
+      "id": "ES-inverted-period-accepted",
+      "path": "core/eowr_sections.py",
+      "note": "a period that ends before it starts is accepted (empty report instead of an error)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 6 passed in 7.57s"
+    },
+    {
+      "id": "ES-source-id-dropped",
+      "path": "core/eowr_sections.py",
+      "note": "a time-log row no longer names its source record",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.01s"
+    },
+    {
+      "id": "ES-legacy-bha-unreadable",
+      "path": "core/eowr_sections.py",
+      "note": "legacy named BHA configurations are reported unreadable instead of rendered",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 1.86s"
+    },
+    {
+      "id": "RE-failed-query-as-empty",
+      "path": "core/report_engine.py",
+      "note": "the engine swallows a failed query as an empty table",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 4 passed in 5.71s"
+    },
+    {
+      "id": "RE-period-ignored",
+      "path": "core/report_engine.py",
+      "note": "the requested period is silently replaced by the whole well",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py",
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.56s"
+    },
+    {
+      "id": "RE-period-time-logs-unfiltered",
+      "path": "core/report_engine.py",
+      "note": "24-hour time logs ignore the period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py",
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.87s"
+    },
+    {
+      "id": "RE-period-undated-equipment-kept",
+      "path": "core/report_engine.py",
+      "note": "equipment logs ignore the period (undated ones included)",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.72s"
+    },
+    {
+      "id": "RE-sections-not-in-body",
+      "path": "core/report_engine.py",
+      "note": "the manifest names INCLUDED sections that the report body does not show",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py",
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed in 2.02s"
+    },
+    {
+      "id": "RE-sections-not-in-excel",
+      "path": "core/report_engine.py",
+      "note": "the Excel / CSV outputs lose the source-data sections",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 10 passed in 10.57s"
+    },
+    {
+      "id": "RS-eowr-scope-hidden",
+      "path": "core/report_sections.py",
+      "note": "the manifest claims a whole-well scope for a period report",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.22s"
+    },
+    {
+      "id": "RP-period-not-stated",
+      "path": "core/report_provenance.py",
+      "note": "the provenance scope keeps the daily-report span instead of the requested period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m464_eowr_source_sections.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 5 passed in 6.27s"
+    },
+    {
+      "id": "W11-period-ignored",
+      "path": "tabs/w11_Export.py",
+      "note": "the W11 period option is shown but not applied",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 1 passed, 14 warnings in 8.19s"
+    },
+    {
+      "id": "W11-inverted-period-accepted",
+      "path": "tabs/w11_Export.py",
+      "note": "the W11 tab starts an export with an inverted period",
+      "equivalent": "",
+      "tests": [
+        "tests/test_m467_eowr_mainwindow_journey.py"
+      ],
+      "status": "KILLED",
+      "exit": 1,
+      "summary": "1 failed, 2 passed, 14 warnings in 9.58s"
+    }
+  ],
+  "killed": [
+    "ES-undated-in-period",
+    "ES-query-failed-as-empty",
+    "ES-empty-payload-as-included",
+    "ES-escape-dropped",
+    "ES-unknown-keys-dropped",
+    "ES-missing-as-zero",
+    "ES-time-order-insertion",
+    "ES-undated-first",
+    "ES-inverted-period-accepted",
+    "ES-source-id-dropped",
+    "ES-legacy-bha-unreadable",
+    "RE-failed-query-as-empty",
+    "RE-period-ignored",
+    "RE-period-time-logs-unfiltered",
+    "RE-period-undated-equipment-kept",
+    "RE-sections-not-in-body",
+    "RE-sections-not-in-excel",
+    "RS-eowr-scope-hidden",
+    "RP-period-not-stated",
+    "W11-period-ignored",
+    "W11-inverted-period-accepted"
+  ],
+  "survived_non_equivalent": [],
+  "declared_equivalent": [],
+  "invalid": []
+}

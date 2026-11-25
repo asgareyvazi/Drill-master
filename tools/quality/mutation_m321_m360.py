@@ -275,9 +275,10 @@ MUTANTS = [
            "    if cost is None or data.get(\"cost_query_status\") == \"query-failed\":\n",
            "    if data.get(\"cost_query_status\") == \"query-failed\":\n", TRS,
            "a cost query that returned nothing (None) is reported as 'no cost records'"),
-    Mutant("RS-not-rendered-hidden", RS, "        entries.append(_entry(title, NOT_RENDERED, n,",
-           "        entries.append(_entry(title, INCLUDED, n,", TRS,
-           "collected-but-not-rendered EOWR data is reported as included"),
+    Mutant("RS-not-rendered-hidden", "core/eowr_sections.py", "            state = NOT_RENDERED\n",
+           "            state = INCLUDED\n",            # anchor updated in M464 (EOWR sections rendered)
+           TRS + ["tests/test_m464_eowr_source_sections.py"],
+           "collected-but-not-rendered (unreadable) EOWR data is reported as included"),
     Mutant("RS-unknown-kind-as-ddr", RS, "    if kind == \"ddr\":\n        return ddr_manifest(data)\n",
            "    if kind != \"eowr\":\n        return ddr_manifest(data)\n", TRS,
            "an NPT / cost / plan report gets a DDR manifest it does not have"),

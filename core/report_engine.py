@@ -5,6 +5,7 @@ Professional Report Engine
 """
 import logging
 from datetime import datetime
+from html import escape as _html_escape
 from typing import Dict, Optional
 
 
@@ -713,9 +714,12 @@ class EOWRReportEngine:
         self.branding = ReportBranding()
 
     def generate(self, well_id: int, output_path: str,
-                 format: str = "pdf") -> bool:
+                 format: str = "pdf", period=None) -> bool:
+        """``period``: ``None`` (whole well) or an inclusive (from, to) date pair (M465); an invalid period fails."""
         try:
-            data = self._collect_data(well_id)
+            from core import eowr_sections
+            period = eowr_sections.parse_period(period)
+            data = self._collect_data(well_id, period=period)
             if not data:
                 logger.warning(
                     f"No plan data for well {well_id}"
@@ -731,8 +735,15 @@ class EOWRReportEngine:
             logger.error(f"EOWR report error: {e}", exc_info=True)
             return False
 
-    def _collect_data(self, well_id: int) -> dict:
-        """جمع‌آوری کامل داده‌های یک چاه برای EOWR"""
+    def _collect_data(self, well_id: int, period=None) -> dict:
+        """جمع‌آوری کامل داده‌های یک چاه برای EOWR
+
+        M464-M465: the six source-data sets (bit, BHA, 24 h / morning time logs, material requests, equipment logs)
+        are each read in their own guarded query: a failed table is ``None`` with status ``query-failed`` (the
+        section says so) instead of failing the whole report or reading as "none recorded". With ``period`` only
+        records dated inside it are kept; undated records are excluded and counted (core/eowr_sections.py).
+        """
+        from core import eowr_sections
         from core.database import (
             DailyReport, DrillingParameters, MudReport, BitReport,
             BHAReport, SurveyPoint, CementReport, CasingReport,
@@ -758,13 +769,27 @@ class EOWRReportEngine:
                     MudReport.well_id == well_id
                 ).order_by(MudReport.report_date).all()
 
-                bit_reports = session.query(BitReport).filter(
-                    BitReport.well_id == well_id
-                ).order_by(BitReport.report_date).all()
+                source_query_status = {}
 
-                bha_reports = session.query(BHAReport).filter(
+                def guarded(key, run):
+                    # a SAVEPOINT isolates the failed read: rolling it back keeps the rows already loaded
+                    try:
+                        with session.begin_nested():
+                            rows = run()
+                    except Exception:
+                        logger.exception("EOWR %s query failed for well %s", key, well_id)
+                        source_query_status[key] = eowr_sections.QUERY_FAILED_STATUS
+                        return None
+                    source_query_status[key] = eowr_sections.AVAILABLE
+                    return rows
+
+                bit_reports = guarded("bit_reports", lambda: session.query(BitReport).filter(
+                    BitReport.well_id == well_id
+                ).order_by(BitReport.report_date, BitReport.id).all())
+
+                bha_reports = guarded("bha_reports", lambda: session.query(BHAReport).filter(
                     BHAReport.well_id == well_id
-                ).order_by(BHAReport.updated_at.desc()).all()
+                ).order_by(BHAReport.id).all())
 
                 surveys = session.query(SurveyPoint).filter(
                     SurveyPoint.well_id == well_id
@@ -782,13 +807,13 @@ class EOWRReportEngine:
                     SafetyReport.well_id == well_id
                 ).order_by(SafetyReport.report_date).all()
 
-                time_logs_24h = session.query(TimeLog24H).join(
+                time_logs_24h = guarded("time_logs_24h", lambda: session.query(TimeLog24H).join(
                     DailyReport, TimeLog24H.report_id == DailyReport.id
-                ).filter(DailyReport.well_id == well_id).all()
+                ).filter(DailyReport.well_id == well_id).all())
 
-                time_logs_morning = session.query(TimeLogMorning).join(
+                time_logs_morning = guarded("time_logs_morning", lambda: session.query(TimeLogMorning).join(
                     DailyReport, TimeLogMorning.report_id == DailyReport.id
-                ).filter(DailyReport.well_id == well_id).all()
+                ).filter(DailyReport.well_id == well_id).all())
 
                 personnel = session.query(LogisticsPersonnel).filter(
                     LogisticsPersonnel.well_id == well_id
@@ -802,13 +827,13 @@ class EOWRReportEngine:
                     TransportLog.well_id == well_id
                 ).all()
 
-                requests = session.query(MaterialRequest).filter(
+                requests = guarded("requests", lambda: session.query(MaterialRequest).filter(
                     MaterialRequest.well_id == well_id
-                ).all()
+                ).all())
 
-                equipment_logs = session.query(EquipmentLog).filter(
+                equipment_logs = guarded("equipment_logs", lambda: session.query(EquipmentLog).filter(
                     EquipmentLog.well_id == well_id
-                ).all()
+                ).all())
 
                 # A successful empty query and a failed query are different
                 # facts. Keep query failure explicit while allowing non-cost
@@ -825,6 +850,37 @@ class EOWRReportEngine:
                     cost_records = None
                     cost_query_status = "query-failed"
 
+                # M465: period scope — dated records inside the period only; undated ones are excluded and
+                # counted. Time logs and BHA are dated by their daily report.
+                excluded = {}
+                if period is not None:
+                    def dated(rows, name, attr):
+                        kept_rows, excluded[name] = eowr_sections.filter_period(
+                            rows, period, lambda row: getattr(row, attr, None))
+                        return kept_rows
+
+                    daily_reports = dated(daily_reports, "daily_reports", "report_date")
+                    drilling_params = dated(drilling_params, "drilling_params", "report_date")
+                    mud_reports = dated(mud_reports, "mud_reports", "report_date")
+                    bit_reports = dated(bit_reports, "bit_reports", "report_date")
+                    cement_reports = dated(cement_reports, "cement_reports", "report_date")
+                    casing_reports = dated(casing_reports, "casing_reports", "report_date")
+                    safety_reports = dated(safety_reports, "safety_reports", "report_date")
+                    requests = dated(requests, "requests", "request_date")
+                    equipment_logs = dated(equipment_logs, "equipment_logs", "service_date")
+                    cost_records = dated(cost_records, "cost_records", "cost_date")
+                    kept = {r.id for r in daily_reports}
+
+                    def by_report(rows, name):
+                        if rows is None:
+                            return None
+                        excluded[name] = sum(1 for r in rows if r.report_id is None)
+                        return [r for r in rows if r.report_id in kept]
+
+                    time_logs_24h = by_report(time_logs_24h, "time_logs_24h")
+                    time_logs_morning = by_report(time_logs_morning, "time_logs_morning")
+                    bha_reports = by_report(bha_reports, "bha_reports")
+
                 # Derived summaries
                 total_reports = len(daily_reports)
                 final_depth = max(
@@ -834,7 +890,7 @@ class EOWRReportEngine:
                 # NPT / NPT% are unknown when no time has been recorded across
                 # the well, not zero. With recorded time and no NPT rows they are
                 # a real 0.0 / 0%.
-                times = summarize_time_logs(time_logs_24h)
+                times = summarize_time_logs(time_logs_24h or [])
                 total_npt = times["npt_hours"]
                 npt_pct = times["npt_percent"]
 
@@ -889,6 +945,9 @@ class EOWRReportEngine:
                     "equipment_logs": equipment_logs,
                     "cost_records": cost_records,
                     "cost_query_status": cost_query_status,
+                    "source_query_status": source_query_status,
+                    "period": period,
+                    "period_excluded_undated": excluded,
                     "summary": {
                         "total_reports": total_reports,
                         "final_depth": final_depth,
@@ -928,6 +987,8 @@ class EOWRReportEngine:
         cost_display = format_money(cost_value, s.get("cost_currency"))
 
         well_name = w.get("name", "Unknown Well")
+        from core import eowr_sections
+        scope_label = eowr_sections.period_label(data.get("period"))
         rig_name = w.get("rig_name", "")
         operator = w.get("operator", "")
         field_name = w.get("field_name", "")
@@ -1060,7 +1121,7 @@ h3 {{
     <div class="title">END OF WELL REPORT</div>
     <div class="subtitle">{well_name}</div>
     <div class="meta">
-        <p><b>Scope:</b> Whole-Well Aggregate</p>
+        <p><b>Scope:</b> {_html_escape(scope_label)}</p>
         <p><b>Field:</b> {field_name}</p>
         <p><b>Operator:</b> {operator}</p>
         <p><b>Client:</b> {client}</p>
@@ -1281,6 +1342,9 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
                 "Total Actual Cost: — (no records)</p>"
             )
 
+        # M464: source-data sections (bit, BHA, time logs, requests, equipment) — from stored rows, with sources
+        html += '<div class="page-break"></div>' + eowr_sections.html_sections(eowr_sections.analyse(data))
+
         # Footer
         html += f"""
 <div class="footer">
@@ -1337,7 +1401,8 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
             # Scope metadata (kept in the summary, never mixed into the
             # engineering data sheets): EOWR aggregates the whole well.
             ws["A3"] = "Scope"
-            ws["B3"] = "Whole-Well Aggregate"
+            from core import eowr_sections
+            ws["B3"] = eowr_sections.period_label(data.get("period"))
             ws["A4"] = "Metric"
             ws["B4"] = "Value"
             ws["A4"].font = header_font
@@ -1386,6 +1451,10 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
             self._write_sheet_from_objects(
                 wb, "Cost", data.get("cost_records") or []
             )
+            # M464: the six source-data sections, the same rows as the report body (a status row when empty)
+            sheets = {key: sheet for key, _title, sheet in eowr_sections.SECTION_SPECS}
+            for res in eowr_sections.analyse(data):
+                self._write_sheet_from_objects(wb, sheets[res.key], eowr_sections.sheet_records(res))
 
             wb.save(output_path)
             return True

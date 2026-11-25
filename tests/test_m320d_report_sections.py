@@ -2,7 +2,8 @@
 
 A DDR or EOWR with empty sections states "Not recorded" for each of them in the body, and every format carries
 the section manifest in its provenance (HTML, PDF, Excel and CSV). Data that the EOWR collects but does not render
-is named as NOT_RENDERED with its row count.
+is named as NOT_RENDERED with its row count; since M464 the EOWR renders its bit / BHA / time-log / request /
+equipment sections (tests/test_m464_eowr_source_sections.py) and NOT_RENDERED there means an unreadable payload.
 """
 from __future__ import annotations
 
@@ -74,8 +75,13 @@ def test_eowr_states_empty_sections_and_names_unrendered_data(env, tmp_path):  #
     assert sections["4. Daily reports summary"]["rows"] == 2
     assert sections["5. Drilling performance"]["status"] == rs.NOT_RECORDED
     assert sections["7. Casing and cementing"]["status"] == rs.SUMMARISED
-    assert sections["Bit reports"]["status"] == rs.NOT_RENDERED and sections["Bit reports"]["rows"] == 1
-    assert "collected (1 row(s)) but not rendered" in sections["Bit reports"]["detail"]
+    # M464: the stored bit report has an empty payload: NOT_RECORDED, named with its source, never a zero row count
+    # claimed as data and never "not rendered" any more (the EOWR renders bit records).
+    bit = sections["12. Bit records"]
+    assert bit["status"] == rs.NOT_RECORDED and bit["rows"] == 0
+    assert "1 stored record(s) with no rows (bit_reports id" in bit["detail"] and "not a reported zero" in bit["detail"]
+    assert not any(e["status"] == rs.NOT_RENDERED for e in engine.last_provenance["sections"])
+    assert "Not recorded: 1 stored record(s) with no rows" in text
     assert sections["11. Cost summary"]["status"] in (rs.NOT_RECORDED, rs.INCLUDED, rs.QUERY_FAILED)
 
 

@@ -1,0 +1,39 @@
+{
+  "parameters": {
+    "days": 60,
+    "logs_per_day": 24,
+    "bits_per_snapshot": 3,
+    "bha_components": 12
+  },
+  "expected_rows": {
+    "12. Bit records": 180,
+    "13. BHA components": 720,
+    "14. 24-hour time logs": 1440,
+    "15. Morning tour time logs": 360,
+    "16. Material requests": 60,
+    "17. Equipment logs": 60
+  },
+  "rendered_rows": {
+    "12. Bit records": 180,
+    "13. BHA components": 720,
+    "14. 24-hour time logs": 1440,
+    "15. Morning tour time logs": 360,
+    "16. Material requests": 60,
+    "17. Equipment logs": 60
+  },
+  "checks": {
+    "html_generated": true,
+    "excel_generated": true,
+    "row_counts_match_generator": true,
+    "time_logs_chronological": true,
+    "no_other_well_rows": true,
+    "excel_time_log_rows": true
+  },
+  "passed": true,
+  "seconds": {
+    "seed": 0.8,
+    "eowr_html": 0.26,
+    "eowr_excel": 1.37
+  },
+  "html_bytes": 700980
+}
