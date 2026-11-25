@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout
 
 from core import well_control_volumetric as wcv
@@ -63,6 +64,7 @@ class VolumetricMethodDialog(QDialog):
         buttons.addStretch()
         lay.addLayout(buttons)
         self.summary = QLabel("Not run.")
+        self.summary.setTextFormat(Qt.PlainText)     # M491: echoes typed text (error reasons), never rich text
         self.summary.setWordWrap(True)
         lay.addWidget(self.summary, 1)
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QTableWidget, QTableWidgetItem, QVBoxLayout)
 
@@ -91,6 +92,7 @@ class EngineeringServiceDialog(QDialog):
         lay.addLayout(buttons)
         self.summary = QLabel("Not run.")
         self.summary.setObjectName(f"{object_prefix}_summary")
+        self.summary.setTextFormat(Qt.PlainText)     # M491: echoes typed text (error reasons), never rich text
         self.summary.setWordWrap(True)
         lay.addWidget(self.summary, 1)
 

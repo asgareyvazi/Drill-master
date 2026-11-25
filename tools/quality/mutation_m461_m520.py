@@ -38,6 +38,11 @@ J = ["tests/test_m467_eowr_mainwindow_journey.py"]
 TC = ["tests/test_m469_citation_passage_service.py"]
 JC = TC + ["tests/test_m472_citation_mainwindow_journey.py"]
 TD = ["tests/test_m475_drilloff_robust.py"]
+TI = ["tests/test_m488_integration_consistency.py"]
+ESD = "dialogs/engineering_service_dialog.py"
+MDD = "dialogs/mse_drilloff_dialog.py"
+VMD = "dialogs/well_control_volumetric_dialog.py"
+HR = "core/history_replay.py"
 
 MUTANTS = [
     # ------------------------------------------------------------------ M464-M466 EOWR source-data sections
@@ -181,6 +186,12 @@ MUTANTS = [
     Mutant("SS-erge-note-dropped", SS,
            "    note = hb.verification_note((result.get(\"inputs\") or {}).get(\"transition_criterion\"))   # M482\n",
            "    note = None\n", TD, "the surge summary hides that Erge 2015 is NOT VERIFIED"),
+    # ------------------------------------------------------------------ M488-M492 integration consistency
+    Mutant("ESD-rich-text-summary", ESD, "        self.summary.setTextFormat(Qt.PlainText)     # M491: echoes typed text (error reasons), never rich text\n", "", TI, "typed text in an error reason renders as rich text"),
+    Mutant("MDD-rich-text-summary", MDD, "        self.summary.setTextFormat(Qt.PlainText)     # M491: echoes typed text (error reasons), never rich text\n", "", TI, "the M372 dialog summary renders rich text"),
+    Mutant("VMD-rich-text-summary", VMD, "        self.summary.setTextFormat(Qt.PlainText)     # M491: echoes typed text (error reasons), never rich text\n", "", TI, "the volumetric dialog summary renders rich text"),
+    Mutant("HR-robust-adapter-missing", HR, "    \"m475.drilloff_robust\": (\"core.drilloff_robust\", \"robust (L1) drill-off\"),\n",
+           "", TI + TD, "a catalogued case service has no replay adapter"),
 ]
 
 
