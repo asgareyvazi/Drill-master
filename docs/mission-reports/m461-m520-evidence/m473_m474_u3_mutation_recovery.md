@@ -1,0 +1,60 @@
+# M473–M474: Recovery of the M261–M290 mutation-only items (U3)
+
+## Background
+
+The M261–M290 report gives six Part II phases that received mutation coverage only:
+
+| Phase | Module | Family | Count in the report |
+|---|---|---|---|
+| M275 | `core/engineering/engines/trajectory.py` | TR | 4 |
+| M276 | `core/engineering/engines/anti_collision.py` | AC | 12 |
+| M278 | `core/engineering/mud_volume_persistence.py` | MV | 4 |
+| M279 | `core/engineering/casing_persistence.py` | CP | 5 |
+| M282 | `core/engineering/engines/bit_performance.py` | BP | 7 |
+| M283 | `core/engineering/engines/well_control.py` | WC | 7 |
+
+The M403 traceability ledger lists these missions as `NOT VERIFIED — NO NAMED ARTEFACT`. That ledger is a snapshot of
+M1–M400 and is left unchanged. The M400 and M460 roadmaps carried the item over as U3.
+
+## M473: re-execution on the current code
+
+The mutants are still defined in `tools/quality/mutation_m261_m290.py`. They were executed at commit `842c35c`, the
+Phase C tip, with the M46 engine. Each mutant runs in a scratch copy, and its listed tests must fail.
+
+```
+python tools/quality/mutation_m261_m290.py --only <the 39 TR/AC/MV/CP/BP/WC ids> --json …
+baseline exit=0 245 passed
+mutants=39 killed=39 survived_non_equivalent=0 declared_equivalent=0 invalid=0 seconds=63
+```
+
+| Family | Killed / total | Invalid anchors |
+|---|---|---|
+| TR (M275) | 4/4 | 0 |
+| AC (M276) | 12/12, including `AC-claims-iscwsa` (P19 not approved) | 0 |
+| MV (M278) | 4/4 | 0 |
+| CP (M279) | 5/5 | 0 |
+| BP (M282) | 7/7 | 0 |
+| WC (M283) | 7/7 (well control stays a TRAINING AID, P11) | 0 |
+
+The machine-readable results are in `m473_u3_historical_mutation_rerun.json`, in this directory.
+
+## M474: keeping the anchors runnable
+
+`tests/test_m473_mutation_anchor_integrity.py` is a static test that runs in the normal suite. It checks the
+following:
+
+- The six U3 families still have exactly the counts in the report.
+- Every anchor matches its file exactly once. An INVALID mutant is never counted as killed.
+- Every listed test file exists.
+- The same checks apply to every mutant of `mutation_m461_m520.py`, `mutation_m321_m360.py` and
+  `mutation_m401_m460.py`.
+
+If a later code change moves an anchor, the normal suite fails. Before this test, the problem would only have shown up
+when someone next ran the mutation tool.
+
+## Status
+
+U3 is **closed for mutation coverage**: 39/39 mutants are killed on the current code, and the artefact is named.
+
+This is not new qualification of the engines. The phases keep the status the M261–M290 report gave them (PARTIAL),
+and the owner gates P8, P10, P11, P12/P18 and P19 are unchanged.
