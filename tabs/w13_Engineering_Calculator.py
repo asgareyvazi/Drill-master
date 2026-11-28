@@ -1075,6 +1075,7 @@ class EngineeringCalculatorTab(DrillTabBase):
             ("📉 Surge/Swab", "", "_hy_surge_dialog", "#9b59b6"),
             ("📊 Budget & Sensitivity", "", "_hy_workflow_dialog", "#16a085"),
             ("🧮 HB Annulus (R-HYD-2)", "", "_hy_hb_slot_dialog", "#2c3e50"),
+            ("🧮 HB Annulus exact (laminar)", "", "_hy_hb_exact_dialog", "#34495e"),
             ("📉 Surge/Swab HB (closed-end)", "", "_hy_surge_hb_dialog", "#8e44ad"),
             ("📤 Export", "", "_hy_export", "#3498db"),
             ("🖨️ Print", "", "_hy_print", "#e67e22"),
@@ -1909,6 +1910,17 @@ class EngineeringCalculatorTab(DrillTabBase):
 
     def _hy_hb_slot_dialog(self, _checked=False):
         self.hy_hb_slot_dialog().exec()
+
+    def hy_hb_exact_dialog(self):
+        """M538: exact laminar HB concentric annulus for any 0.01 <= kappa <= 0.99 (declared inputs only; M416 is
+        unchanged and remains the method for transitional / turbulent flow)."""
+        from dialogs.engineering_service_dialog import hb_exact_annulus_dialog
+
+        return hb_exact_annulus_dialog(db=getattr(self, "db", None), well_id=getattr(self, "current_well_id", None),
+                                       parent=self)
+
+    def _hy_hb_exact_dialog(self, _checked=False):
+        self.hy_hb_exact_dialog().exec()
 
     def hy_surge_hb_dialog(self):
         """M421: quasi-steady closed-end surge/swab on the R-HYD-2 HB slot model (declared inputs only)."""

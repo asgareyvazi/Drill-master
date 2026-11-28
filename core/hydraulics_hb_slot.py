@@ -68,9 +68,11 @@ ERGE_RE2_N_RANGE = (0.15, 0.4)
 #: M482: transition criteria whose coefficients have NOT been checked against the primary paper. The note is shown in
 #: every summary and stored in the case note; it is not part of the replayed results (the numbers are unchanged).
 UNVERIFIED_CRITERIA = {
-    "erge-2015": ("Erge et al. 2015 (SPE Drill. Complet. 30(3)) transition coefficients NOT VERIFIED against the "
-                  "primary paper - transcribed from the BoreTHM secondary reference (matches its fluids."
-                  "transition_band at e = 0); use for comparison only"),
+    "erge-2015": ("Erge et al. 2015 transition coefficients NOT VERIFIED against a primary paper - transcribed from "
+                  "the BoreTHM secondary reference, which cites SPE Drill. Complet. 30(3) 257-271 (DOI 10.2118/167950-"
+                  "PA) eqs. 17-18; the transition paper J. Pet. Sci. Eng. 128:128-139 (DOI 10.1016/j.petrol.2015.02."
+                  "007) is a distinct publication and which of the two holds these coefficients is unresolved (M541); "
+                  "matches BoreTHM fluids.transition_band at e = 0; use for comparison only"),
 }
 COLEBROOK_TOL = 1e-12
 COLEBROOK_MAX_ITER = 100

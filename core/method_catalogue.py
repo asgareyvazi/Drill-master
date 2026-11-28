@@ -232,6 +232,7 @@ def _case_services() -> List[CatalogueEntry]:
     from core import casing_axial_loads, cement_job_reconciliation, ddr_hydraulics_check, hydraulics_workflow
     from core import mse_drilloff, survey_plan_deviation, torque_drag_sensitivity, well_control_volumetric
     from core import bit_dull_grade, drilloff_fitted, drilloff_robust, hydraulics_hb_slot, surge_swab
+    from core import hydraulics_hb_annulus_exact
 
     def entry(module, title, family, reference, limits, blocker=""):
         label = _label(getattr(module, "LABEL", ""))
@@ -267,10 +268,17 @@ def _case_services() -> List[CatalogueEntry]:
               "Single bubble, constant capacity, no gas law; stops at a declared casing limit",
               "Kill sheet / well-control operational use (P11)"),
         entry(hydraulics_hb_slot, "Annular friction loss, Herschel-Bulkley slot (R-HYD-2)", "Hydraulics",
-              "Founargiotakis et al. 2008 slot solution and transition band; Erge et al. 2015 band (declared); "
+              "Founargiotakis et al. 2008 slot solution and transition band; Erge et al. 2015 band (declared, NOT "
+              "VERIFIED - primary paper unresolved, M541); "
               "Colebrook (Darcy = 4 x Fanning)",
               "Concentric annulus, kappa >= 0.3, 0.1 <= n <= 1; no eccentricity, rotation or temperature/pressure "
               "rheology; transitional = linear blend; Erge Re2 refused outside its fitted n' range"),
+        entry(hydraulics_hb_annulus_exact, "Annular friction loss, Herschel-Bulkley exact concentric annulus (laminar)",
+              "Hydraulics",
+              "Momentum balance tau = (G Ro / 2)(x - lambda^2 / x) with HB plug edges, solved exactly (Fredrickson & "
+              "Bird 1958; Hanks 1979, method references); laminar check Founargiotakis et al. 2008 Re1",
+              "Laminar only (Re_G >= Re1 refused); concentric, 0.01 <= kappa <= 0.99, 0.1 <= n <= 1; no eccentricity, "
+              "rotation, pipe movement or temperature/pressure rheology; M416 unchanged"),
         entry(surge_swab, "Surge and swab pressure, quasi-steady closed-end", "Hydraulics",
               "Burkhardt (1961) effective velocity V + K_c v_p with a declared clinging constant; R-HYD-2 HB slot loss",
               "Quasi-steady only (no fluid inertia, compressibility or pressure waves); closed-end string only - open "

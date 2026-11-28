@@ -31,6 +31,7 @@ FIELD_TOLERANCES: Dict[str, float] = {
     "ppg": 1e-4, "in²": 1e-6, "ft/min": 0.01,                       # M366
     "in": 1e-6, "ft/h": 0.01, "psi/bbl": 1e-4,                       # M371 / M372 / M373 (M388: every unit listed)
     "psi/ft": 1e-6, "ft/h/klbf": 1e-6, "cP": 1e-6, "deg": 1e-9,      # M416 / M420 / M422 / M423
+    "lbf/100ft²": 1e-6,                                               # M538
 }
 
 
@@ -364,6 +365,7 @@ SERVICE_MODULES: Dict[str, Tuple[str, str]] = {
     "m423.drilloff_fitted": ("core.drilloff_fitted", "fitted drill-off"),
     "m427.bit_dull_grade": ("core.bit_dull_grade", "IADC dull grade record"),
     "m475.drilloff_robust": ("core.drilloff_robust", "robust (L1) drill-off"),
+    "m538.hb_annulus_exact": ("core.hydraulics_hb_annulus_exact", "Herschel-Bulkley exact concentric annulus"),
 }
 
 

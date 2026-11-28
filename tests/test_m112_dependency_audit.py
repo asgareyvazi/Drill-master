@@ -126,7 +126,8 @@ def test_catalogue_evidence_is_counted_per_method(audit):
     rows = audit["catalogue"]["rows"]
     assert [r["method_id"] for r in rows] == [e.method_id for e in mc.catalogue()]
     # 62 at M400 + 4 M401-M460 services (m416 HB slot, m420 surge/swab, m423 fitted drill-off, m427 dull grade)
-    assert audit["catalogue"]["entries"] == len(rows) == 67 and audit["catalogue"]["approved"] == 0
+    # + m475 robust drill-off (M475) = 67; + m538 exact laminar HB concentric annulus (M538) = 68
+    assert audit["catalogue"]["entries"] == len(rows) == 68 and audit["catalogue"]["approved"] == 0
     assert all(r["approval"] == "NOT APPROVED — OWNER REVIEW REQUIRED" for r in rows)
     missing = audit["catalogue"]["without_test_evidence"]
     assert missing == [r["method_id"] for r in rows if r["evidence_tests"] == 0]

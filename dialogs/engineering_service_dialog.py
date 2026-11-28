@@ -191,6 +191,17 @@ def hb_slot_dialog(page_values=None, **kwargs) -> EngineeringServiceDialog:
                                     page_values=page_values, object_prefix="m416", **kwargs)
 
 
+EX_LABELS = {key: label for key, label in HB_LABELS.items() if key not in ("roughness_in", "transition_criterion")}
+
+
+def hb_exact_annulus_dialog(page_values=None, **kwargs) -> EngineeringServiceDialog:
+    from core import hydraulics_hb_annulus_exact as ex
+
+    return EngineeringServiceDialog(ex, title="Annular loss — Herschel-Bulkley exact concentric annulus, laminar "
+                                              "(M538, SCREENING)",
+                                    labels=EX_LABELS, page_values=page_values, object_prefix="m538", **kwargs)
+
+
 SS_LABELS = {**HB_LABELS, "trip_speed_ft_min": "Pipe speed (magnitude)", "clinging_constant": "Clinging constant K_c",
              "tvd_ft": "TVD at the bit (optional)", "pipe_end": "String end", "hole_id_in": "Hole / casing ID",
              "pipe_od_in": "String OD in the section", "length_ft": "Section length"}
