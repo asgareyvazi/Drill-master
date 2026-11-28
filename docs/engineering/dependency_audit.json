@@ -517,13 +517,14 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 2,
+    "evidence_tests": 3,
     "licence": "own code (product licence)",
     "method_id": "m475.drilloff_robust",
     "status": "IMPLEMENTED",
     "tests": [
      "test_m475_drilloff_robust.py",
-     "test_m488_integration_consistency.py"
+     "test_m488_integration_consistency.py",
+     "test_m556_drilloff_diagnostics.py"
     ]
    },
    {
@@ -1239,7 +1240,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 47,
+    "evidence_tests": 48,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.anti-collision",
     "status": "NOT SUPPORTED",
@@ -1273,6 +1274,7 @@
      "test_m488_integration_consistency.py",
      "test_m52_balanced_plug.py",
      "test_m538_hb_annulus_exact.py",
+     "test_m556_drilloff_diagnostics.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
      "test_m73_contracts_history.py",
@@ -1295,7 +1297,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 47,
+    "evidence_tests": 48,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.directional.multi-survey",
     "status": "NOT SUPPORTED",
@@ -1329,6 +1331,7 @@
      "test_m488_integration_consistency.py",
      "test_m52_balanced_plug.py",
      "test_m538_hb_annulus_exact.py",
+     "test_m556_drilloff_diagnostics.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
      "test_m73_contracts_history.py",
@@ -1351,7 +1354,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 47,
+    "evidence_tests": 48,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.dp_database",
     "status": "NOT SUPPORTED",
@@ -1385,6 +1388,7 @@
      "test_m488_integration_consistency.py",
      "test_m52_balanced_plug.py",
      "test_m538_hb_annulus_exact.py",
+     "test_m556_drilloff_diagnostics.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
      "test_m73_contracts_history.py",
@@ -1407,7 +1411,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 47,
+    "evidence_tests": 48,
     "licence": "own code (product licence)",
     "method_id": "w13.unsupported.well_control.kill_sheet",
     "status": "NOT SUPPORTED",
@@ -1441,6 +1445,7 @@
      "test_m488_integration_consistency.py",
      "test_m52_balanced_plug.py",
      "test_m538_hb_annulus_exact.py",
+     "test_m556_drilloff_diagnostics.py",
      "test_m56_calculator_finder.py",
      "test_m63_calculation_cases.py",
      "test_m73_contracts_history.py",
@@ -2889,6 +2894,14 @@
    "guarded": false,
    "lines": [
     151
+   ],
+   "module": "numpy"
+  },
+  {
+   "file": "core/drilloff_diagnostics.py",
+   "guarded": false,
+   "lines": [
+    29
    ],
    "module": "numpy"
   },

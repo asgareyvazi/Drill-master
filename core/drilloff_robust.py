@@ -259,6 +259,9 @@ def summary_lines(result: Mapping[str, Any]) -> List[str]:
     if result["flagged_wob_klbf"]:
         lines.append("Residual > 3 x robust scale at WOB " + ", ".join(f"{w:g}" for w in result["flagged_wob_klbf"])
                      + " klbf (flagged, not removed).")
+    from core import drilloff_diagnostics          # M556: shown only; not stored, not part of the replayed results
+
+    lines.extend(drilloff_diagnostics.summary_lines(result))
     return lines
 
 

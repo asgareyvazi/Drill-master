@@ -57,7 +57,7 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 | `core/cement_job_reconciliation.py` | `m317.cement_job_reconciliation` | M317 v2 (yield-unit registry; well_architecture.cement_annulus + CementEngine.displacement) | WORKSHEET | 3 |
 | `core/ddr_hydraulics_check.py` | `m314.ddr_bit_hydraulics_check` | M314 v1 (AdvancedHydraulicsEngine.calc_bit_hydraulics) | - | 2 |
 | `core/drilloff_fitted.py` | `m423.drilloff_fitted` | M423 drill-off founder, continuous two-segment least squares v1 | SCREENING | 6 |
-| `core/drilloff_robust.py` | `m475.drilloff_robust` | M475 drill-off founder, least-absolute-deviations two-segment line v1 | SCREENING | 2 |
+| `core/drilloff_robust.py` | `m475.drilloff_robust` | M475 drill-off founder, least-absolute-deviations two-segment line v1 | SCREENING | 3 |
 | `core/hydraulics_hb_annulus_exact.py` | `m538.hb_annulus_exact` | M538 Herschel-Bulkley concentric annulus exact laminar v1 | SCREENING | 2 |
 | `core/hydraulics_hb_slot.py` | `m416.hb_slot_annulus` | M416 Herschel-Bulkley slot annulus v1 | SCREENING | 7 |
 | `core/hydraulics_workflow.py` | `m366.hydraulics_workflow` | M366 v2 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual; M422 CCI result fields) | SCREENING | 6 |

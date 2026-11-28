@@ -31,12 +31,15 @@ DT = "tabs/documents_tab.py"
 EC = "core/eowr_consistency.py"
 RE = "core/report_engine.py"
 RP = "core/report_provenance.py"
+DD = "core/drilloff_diagnostics.py"
+DRB = "core/drilloff_robust.py"
 
 TX = ["tests/test_m538_hb_annulus_exact.py"]
 TE = ["tests/test_m541_erge_record.py"]
 TI = ["tests/test_m488_integration_consistency.py"]
 TU = ["tests/test_m546_citation_record_v2.py"]
 TC5 = ["tests/test_m551_eowr_consistency.py"]
+TG = ["tests/test_m556_drilloff_diagnostics.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------------ M536-M540 exact HB concentric annulus
@@ -146,6 +149,23 @@ MUTANTS = [
            "the EOWR body omits the consistency review"),
     Mutant("RP-review-not-in-manifest", RP, "        prov[\"consistency\"] = eowr_consistency.analyze(data)\n",
            "        pass\n", TC5, "the provenance manifest omits the consistency statuses"),
+    # ------------------------------------------------------------------ M556-M560 drill-off diagnostics
+    Mutant("DD-tie-hidden", DD, "    if len(optima) > 1:\n", "    if False:\n", TG,
+           "a non-unique L1 optimum is not warned"),
+    Mutant("DD-tie-collapsed", DD, "            if not any(np.allclose(", "            if not out and not any(np.allclose(",
+           TG, "tied fits are collapsed to one, so a non-unique optimum reads UNIQUE"),
+    Mutant("DD-loo-shift-silent", DD, "    if shifts and max(shifts) > spacing + 1e-9:\n", "    if False:\n", TG,
+           "a breakpoint that moves on removing one step is not warned"),
+    Mutant("DD-leverage-threshold", DD, "LEVERAGE_FACTOR = 2.0\n", "LEVERAGE_FACTOR = 20.0\n", TG,
+           "an isolated WOB step is not flagged as high leverage"),
+    Mutant("DD-surface-silent", DD, "    if result.get(\"wob_basis\") != \"downhole\":\n", "    if False:\n", TG,
+           "a surface WOB founder is not warned as surface WOB"),
+    Mutant("DD-edge-silent", DD, "    if n >= 4 and (bp - xs[1]", "    if False and (bp - xs[1]", TG,
+           "a breakpoint at the search edge is not warned"),
+    Mutant("DD-flat-narrowed", DD, "FLAT_REL = 0.01\n", "FLAT_REL = -1.0\n", TG,
+           "the weakly identified breakpoint interval is not reported"),
+    Mutant("DD-not-shown", DRB, "    lines.extend(drilloff_diagnostics.summary_lines(result))\n", "", TG,
+           "the W13 summary omits the diagnostics"),
 ]
 
 
