@@ -383,6 +383,14 @@ class DocumentsTab(QWidget):
         citation_row.addWidget(QLabel("Citation record:"))
         citation_row.addWidget(self.citation_file_combo, 1)
         citation_row.addWidget(self.open_citation_passage_button)
+        # M550 (U4): write a content-addressed v2 copy of an opened v1 record (the v1 file is never modified)
+        self.save_citation_v2_button = QPushButton("Save as v2…")
+        self.save_citation_v2_button.setObjectName("librarySaveCitationV2")
+        self.save_citation_v2_button.setToolTip("Write a citation record v2 copy: document content SHA-256 (from the "
+                                                "library, only for EXACT citations), quote hash and passage id")
+        self.save_citation_v2_button.setEnabled(False)
+        self.save_citation_v2_button.clicked.connect(lambda _c=False: self.save_citation_file_v2())
+        citation_row.addWidget(self.save_citation_v2_button)
         self.citation_file_navigation.setVisible(False)
         library_layout.addWidget(self.citation_file_navigation)
         self.citation_file_status = QLabel("")
@@ -391,6 +399,8 @@ class DocumentsTab(QWidget):
         self.citation_file_status.setWordWrap(True)
         library_layout.addWidget(self.citation_file_status)
         self.citation_file_targets: list = []
+        self.citation_file_record: Optional[dict] = None
+        self.citation_file_results: list = []
         left.addWidget(library_box)
         left.addWidget(self._build_links_box())
         self.results = QListWidget()
@@ -679,17 +689,57 @@ class DocumentsTab(QWidget):
             path, _filter = QFileDialog.getOpenFileName(self, "Open citation file", "", "Citation record (*.json)")
             if not path:
                 return None
+        self.citation_file_record, self.citation_file_results = None, []
+        self.save_citation_v2_button.setEnabled(False)
         try:
-            _record, results, targets = cp.open_record(self.db_manager, path)
+            record, results, targets = cp.open_record(self.db_manager, path)
         except cr.CitationRecordError as exc:
             self.citation_file_status.setText(f"Not opened: {exc}")
             self._set_citation_file_targets([])
             return None
         self._set_citation_file_targets(targets)
+        self.citation_file_record, self.citation_file_results = record, list(results)
+        is_v1 = record.get("record_version") == cr.RECORD_VERSION
+        self.save_citation_v2_button.setEnabled(is_v1)
         openable = sum(1 for t in targets if t["openable"])
-        self.citation_file_status.setText(f"{cr.summary(results)}; {openable} of {len(targets)} passage(s) can be "
-                                          f"opened. Not semantically verified.")
+        self.citation_file_status.setText(f"{record.get('record_version')}: {cr.summary(results)}; {openable} of "
+                                          f"{len(targets)} passage(s) can be opened. Not semantically verified.")
         return results
+
+    def save_citation_file_v2(self, path: Optional[str] = None) -> Optional[str]:
+        """M550: write the opened v1 record as a v2 record (``core.citation_record_v2.upgrade``); returns the path."""
+        import json
+
+        from core import citation_record as cr
+        from core import citation_record_v2 as cr2
+
+        if self.citation_file_record is None or self.citation_file_record.get("record_version") != cr.RECORD_VERSION:
+            self.citation_file_status.setText("Open a v1 citation record first.")
+            return None
+        try:
+            upgraded = cr2.upgrade(self.db_manager, self.citation_file_record, self.citation_file_results)
+        except cr.CitationRecordError as exc:
+            self.citation_file_status.setText(f"Not saved: {exc}")
+            return None
+        if path is None:
+            from PySide6.QtWidgets import QFileDialog
+
+            path, _filter = QFileDialog.getSaveFileName(self, "Save citation record v2", "",
+                                                        "Citation record (*.citations.json)")
+            if not path:
+                return None
+        if not path.endswith(".json"):
+            path += ".citations.json"
+        try:
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(upgraded, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        except OSError as exc:
+            self.citation_file_status.setText(f"Not saved: {exc}")
+            return None
+        verified = sum(1 for c in upgraded["citations"] if c["verification_state"] == cr2.VERIFIED_EXACT)
+        self.citation_file_status.setText(f"Saved {cr2.RECORD_VERSION}: {verified} of {len(upgraded['citations'])} "
+                                          "citation(s) carry a verified document content hash.")
+        return path
 
     def _set_citation_file_targets(self, targets: list) -> None:
         self.citation_file_targets = list(targets)

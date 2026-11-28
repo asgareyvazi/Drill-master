@@ -143,6 +143,10 @@ def rows(prov: Dict[str, Any]) -> List[List[str]]:
         from core import report_sections
 
         out += report_sections.rows(prov["sections"], prov["scope"]["kind"])
+    if "consistency" in prov:                                # M552: EOWR data-consistency statuses
+        from core import eowr_consistency
+
+        out += eowr_consistency.manifest_rows(prov["consistency"])
     return out
 
 
@@ -227,6 +231,10 @@ def emit(engine, kind: str, target_id: int, data, html: str, path: str, fmt: str
 
     prov = build(engine.db, kind, target_id, direction=getattr(engine, "direction", "ltr"))
     prov["sections"] = report_sections.manifest(kind, data)
+    if kind == "eowr" and isinstance(data, dict) and data:      # M552: consistency statuses in the manifest
+        from core import eowr_consistency
+
+        prov["consistency"] = eowr_consistency.analyze(data)
     period = data.get("period") if isinstance(data, dict) and kind == "eowr" else None
     if period is not None:                                   # M465: a period-scoped EOWR states its period
         prov["scope"]["period"] = (f"{_iso(period[0])} – {_iso(period[1])} (requested period; "

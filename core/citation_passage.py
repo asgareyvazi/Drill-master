@@ -23,6 +23,11 @@ use it. It adds the following on top of ``citation_record.verify_record``, and n
   that id has another file name, the citation is ``IDENTITY_MISMATCH`` and is not opened. Opening it would show an
   unrelated document as the cited source.
 * **Read-only, offline.** Nothing is repaired, re-anchored, searched elsewhere, written or fetched.
+* **M549 (U4).** A symbolic link is refused (the picked path itself must be a regular file, not a link to one).
+  Citation record v2 (``core/citation_record_v2.py``, schema ``citation_record_v2.schema.json``) is read through the
+  same path; its citations additionally need hex hashes, a bare file name (no directory part, no ``..``) and
+  internally consistent ``passage_id`` / ``quote_sha256`` / ``page_text_sha256``; the library document's content
+  SHA-256 is compared with the recorded one (``DOCUMENT_CHANGED``). v1 records are read exactly as before.
 
 Opening is still done by the Documents tab viewer (``DocumentsTab.open_evidence``). The viewer re-checks the page
 SHA-256 and highlights only an unchanged page.
@@ -36,6 +41,7 @@ import stat
 from typing import Any, Dict, List, Tuple
 
 from core import citation_record as cr
+from core import citation_record_v2 as cr2
 
 SERVICE_VERSION = "M469 citation passage service v1"
 MAX_FILE_BYTES = 4 * 1024 * 1024
@@ -47,6 +53,8 @@ LABEL_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9 _.:#-]{0,31}")
 SHA_PATTERN = re.compile(r"[0-9a-f]{64}")
 INT_FIELDS = ("document_id", "page_id", "page_no", "start", "end")
 TEXT_FIELDS = ("question", "answer", "mode", "citation_label", "semantic_label")
+RECORD_VERSIONS = (cr.RECORD_VERSION, cr2.RECORD_VERSION)
+V2_HASH_FIELDS = ("page_text_sha256", "quote_sha256", "passage_id")
 
 
 class PassageError(cr.CitationRecordError):
@@ -69,9 +77,11 @@ def _no_constant(name):
 def read_record(path: str) -> Dict[str, Any]:
     """Bounded, strict read of a citation record file. Raises ``PassageError`` with the reason."""
     try:
-        info = os.stat(path)
+        info = os.lstat(path)
     except (OSError, TypeError, ValueError) as exc:
         raise PassageError(f"The citation file cannot be read: {exc}") from exc
+    if stat.S_ISLNK(info.st_mode):
+        raise PassageError("The citation file is a symbolic link; pick the file itself. It is refused.")
     if not stat.S_ISREG(info.st_mode):
         raise PassageError("The citation file is not a regular file; it is refused.")
     if info.st_size > MAX_FILE_BYTES:
@@ -101,7 +111,7 @@ def read_record(path: str) -> Dict[str, Any]:
 
 def validate_record(record: Any) -> None:
     """Top-level schema; raises ``PassageError``. Citation entries are checked one by one in ``citation_problem``."""
-    if not isinstance(record, dict) or record.get("record_version") != cr.RECORD_VERSION:
+    if not isinstance(record, dict) or record.get("record_version") not in RECORD_VERSIONS:
         raise PassageError("This is not a DrillMaster citation record (unknown or missing record_version).")
     citations = record.get("citations")
     if not isinstance(citations, list) or not citations:
@@ -113,8 +123,24 @@ def validate_record(record: Any) -> None:
             raise PassageError(f"The citation record field {key!r} is not text.")
 
 
-def citation_problem(entry: Any) -> str:
+def citation_problem(entry: Any, version: str = cr.RECORD_VERSION) -> str:
     """'' when the citation entry is well-formed, else the reason (the entry is then UNREADABLE)."""
+    problem = _v1_problem(entry)
+    if problem or version != cr2.RECORD_VERSION:
+        return problem
+    for key in V2_HASH_FIELDS:
+        if not isinstance(entry.get(key), str) or not SHA_PATTERN.fullmatch(entry[key]):
+            return f"{key} is not a SHA-256 hex digest"
+    doc_hash = entry.get("document_sha256")
+    if doc_hash is not None and (not isinstance(doc_hash, str) or not SHA_PATTERN.fullmatch(doc_hash)):
+        return "document_sha256 is neither null nor a SHA-256 hex digest"
+    name = entry.get("file_name")
+    if name is not None and ("/" in name or "\\" in name or name in (".", "..") or ":" in name):
+        return "file_name is not a bare file name (directory parts are refused)"
+    return cr2.integrity_problem(entry)
+
+
+def _v1_problem(entry: Any) -> str:
     if not isinstance(entry, dict):
         return "the entry is not an object"
     missing = [k for k in cr.REQUIRED if entry.get(k) is None]
@@ -146,10 +172,15 @@ def citation_problem(entry: Any) -> str:
 def verify(db, record: Dict[str, Any]) -> List[Dict[str, Any]]:
     """One result per citation, in record order: schema, then ``verify_record``, then document identity."""
     validate_record(record)
+    version = record["record_version"]
     citations = record["citations"]
-    problems = [citation_problem(entry) for entry in citations]
+    problems = [citation_problem(entry, version) for entry in citations]
     valid = [entry for entry, problem in zip(citations, problems) if not problem]
-    checked = iter(cr.verify_record(db, {**record, "citations": valid}) if valid else [])
+    v1_view = {**record, "record_version": cr.RECORD_VERSION, "citations": valid}
+    v1_results = cr.verify_record(db, v1_view) if valid else []
+    if version == cr2.RECORD_VERSION:
+        v1_results = cr2.content_check(db, valid, v1_results)
+    checked = iter(v1_results)
     names = _library_names(db, {entry["document_id"] for entry in valid})
     out: List[Dict[str, Any]] = []
     for entry, problem in zip(citations, problems):
@@ -161,7 +192,8 @@ def verify(db, record: Dict[str, Any]) -> List[Dict[str, Any]]:
         result = next(checked)
         recorded = entry.get("file_name")
         stored = names.get(entry["document_id"])
-        if result["status"] != cr.DOCUMENT_MISSING and recorded is not None and stored is not None \
+        settled = result["status"] in (cr.DOCUMENT_MISSING, cr2.DOCUMENT_CHANGED)
+        if not settled and recorded is not None and stored is not None \
                 and recorded != stored:
             result = {**result, "status": IDENTITY_MISMATCH,
                       "reason": f"library document {entry['document_id']} is {stored!r}, the record cites "

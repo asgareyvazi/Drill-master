@@ -25,10 +25,18 @@ HB = "core/hydraulics_hb_slot.py"
 HR = "core/history_replay.py"
 ESD = "dialogs/engineering_service_dialog.py"
 W13 = "tabs/w13_Engineering_Calculator.py"
+CP = "core/citation_passage.py"
+CR2 = "core/citation_record_v2.py"
+DT = "tabs/documents_tab.py"
+EC = "core/eowr_consistency.py"
+RE = "core/report_engine.py"
+RP = "core/report_provenance.py"
 
 TX = ["tests/test_m538_hb_annulus_exact.py"]
 TE = ["tests/test_m541_erge_record.py"]
 TI = ["tests/test_m488_integration_consistency.py"]
+TU = ["tests/test_m546_citation_record_v2.py"]
+TC5 = ["tests/test_m551_eowr_consistency.py"]
 
 MUTANTS = [
     # ------------------------------------------------------------------ M536-M540 exact HB concentric annulus
@@ -80,6 +88,64 @@ MUTANTS = [
     Mutant("HB-erge-claimed-verified", HB, "    \"erge-2015\": (\"Erge et al. 2015 transition coefficients NOT VERIFIED",
            "    \"erge-2015\": (\"Erge et al. 2015 transition coefficients VERIFIED", TE + ["tests/test_m482_erge_secondary_consistency.py"],
            "Erge 2015 is claimed verified"),
+    # ------------------------------------------------------------------ M546-M550 (U4) citation record v2
+    Mutant("CP-symlink-followed", CP, "    if stat.S_ISLNK(info.st_mode):\n", "    if False:\n", TU,
+           "a symbolic link is followed instead of refused"),
+    Mutant("CP-v2-bare-name-skipped", CP, "    if name is not None and (\"/\" in name", "    if False and (\"/\" in name", TU,
+           "a v2 file name with directory parts is accepted"),
+    Mutant("CP-v2-integrity-skipped", CP, "    return cr2.integrity_problem(entry)\n", "    return \"\"\n", TU,
+           "an edited v2 citation (passage id / hashes) is accepted"),
+    Mutant("CP-v2-content-check-skipped", CP, "        v1_results = cr2.content_check(db, valid, v1_results)\n",
+           "        pass\n", TU, "the library document content hash is never compared"),
+    Mutant("CR2-hash-for-non-exact", CR2,
+           "        doc_hash = hashes.get(int(entry[\"document_id\"])) if exact else None\n",
+           "        doc_hash = _library_hashes(db, {int(entry[\"document_id\"])}).get(int(entry[\"document_id\"]))\n",
+           TU, "a citation that did not verify EXACT receives a document content hash"),
+    Mutant("CR2-passage-id-check-dropped", CR2, "    if entry.get(\"passage_id\") != expected:\n", "    if False:\n", TU,
+           "a passage id that does not match its fields is accepted"),
+    Mutant("CR2-quote-hash-check-dropped", CR2,
+           "    if entry.get(\"quote_sha256\") != sha256_text(entry.get(\"quote\") or \"\"):\n", "    if False:\n", TU,
+           "a quote that does not match its hash is accepted"),
+    Mutant("CR2-content-compare-dropped", CR2, "        elif hashes.get(int(entry[\"document_id\"])) != recorded:\n",
+           "        elif False:\n", TU, "a changed library file is still reported EXACT"),
+    Mutant("CR2-verified-without-hash", CR2,
+           "    if state == VERIFIED_EXACT and not entry.get(\"document_sha256\"):\n", "    if False:\n", TU,
+           "VERIFIED_EXACT is accepted without a content hash"),
+    Mutant("CR2-unreadable-carried", CR2,
+           "        if not isinstance(entry, dict) or result.get(\"status\") == cr.UNREADABLE:\n",
+           "        if not isinstance(entry, dict):\n", TU, "an unreadable v1 citation is carried into v2"),
+    Mutant("DT-v2-save-always-enabled", DT, "        self.save_citation_v2_button.setEnabled(is_v1)\n",
+           "        self.save_citation_v2_button.setEnabled(True)\n", TU, "a v2 record is offered for re-upgrade"),
+    # ------------------------------------------------------------------ M551-M555 (U5) EOWR consistency analyzer
+    Mutant("EC-continuity-ignored", EC, "            if abs(end - start) > DEPTH_TOL_M:\n", "            if False:\n", TC5,
+           "a depth gap between consecutive reports is not reported"),
+    Mutant("EC-decrease-ignored", EC, "        if end < start - DEPTH_TOL_M:\n", "        if False:\n", TC5,
+           "a depth decrease within a day is not reported"),
+    Mutant("EC-24h-limit", EC, "        if total > 24.0 + HOURS_TOL:\n", "        if total > 48.0:\n", TC5,
+           "more than 24 h of time logs in one day is accepted"),
+    Mutant("EC-midnight-wrap", EC, "        b += timedelta(days=1)                       # 24:00 wrap",
+           "        pass                       # 24:00 wrap", TC5, "an interval ending at 24:00 is misread"),
+    Mutant("EC-failed-query-assessed", EC,
+           "    return (data.get(\"source_query_status\") or {}).get(source) == QUERY_FAILED or data.get(source, []) is None\n",
+           "    return False\n", TC5, "a failed query is assessed as if it were empty"),
+    Mutant("EC-unclassified-npt-counted", EC,
+           "            complete = False                          # an unclassified row cannot be counted either way\n",
+           "            pass\n", TC5, "an unclassified time log is counted as productive"),
+    Mutant("EC-duplicate-report-missed", EC, "            if key in seen:\n", "            if False:\n", TC5,
+           "two reports with the same date and number are not reported"),
+    Mutant("EC-drilled-check-dropped", EC,
+           "            elif drilled is not None and abs((d_out - d_in) - drilled) > DEPTH_TOL_M:\n",
+           "            elif False:\n", TC5, "metres drilled that contradict depth in/out are accepted"),
+    Mutant("EC-survey-period-compared", EC, "    if data.get(\"period\") is not None:\n        return _result(\"survey_within_depth\"",
+           "    if False:\n        return _result(\"survey_within_depth\"", TC5,
+           "unfiltered surveys are compared with a period's depths"),
+    Mutant("EC-empty-is-consistent", EC, "    if checked:\n        return _result(key, CONSISTENT",
+           "    if True:\n        return _result(key, CONSISTENT", TC5, "nothing checked is reported CONSISTENT"),
+    Mutant("RE-review-not-rendered", RE, "        html += eowr_consistency.html_section(eowr_consistency.analyze(data))\n",
+           "", TC5 + ["tests/test_m555_eowr_consistency_mainwindow_journey.py"],
+           "the EOWR body omits the consistency review"),
+    Mutant("RP-review-not-in-manifest", RP, "        prov[\"consistency\"] = eowr_consistency.analyze(data)\n",
+           "        pass\n", TC5, "the provenance manifest omits the consistency statuses"),
 ]
 
 

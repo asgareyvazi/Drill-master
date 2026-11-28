@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "drillmaster:citation_record_v2",
+  "title": "DrillMaster citation record (M546 citation record v2)",
+  "description": "Citation record v2 (core/citation_record_v2.py): every v1 citation field plus content-addressed passage fields. document_sha256 is copied from the library (Document.sha256 of the imported file bytes) only when the citation verified EXACT at upgrade, else null; it is never invented. passage_id = SHA-256 of the JSON array [document_sha256 or \"\", page_no, start, end, quote_sha256] (compact separators). Read by the M469 passage service with the v1 rules plus: hex hashes, a bare file_name, internally consistent passage_id / quote_sha256 / page_text_sha256 (else UNREADABLE), and the library document content hash compared with document_sha256 (DOCUMENT_CHANGED, not openable). Symbolic links are refused.",
+  "type": "object",
+  "required": [
+    "record_version",
+    "citations"
+  ],
+  "properties": {
+    "record_version": {
+      "const": "M546 citation record v2"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "question": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "answer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "citation_label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "semantic_label": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "problems": {
+      "type": "array"
+    },
+    "notes": {
+      "type": "array"
+    },
+    "citations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "document_id",
+          "page_id",
+          "page_no",
+          "start",
+          "end",
+          "text_version",
+          "quote",
+          "page_text_sha256",
+          "quote_sha256",
+          "offset_unit",
+          "passage_id",
+          "verification_state"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.:#-]{0,31}$"
+          },
+          "document_id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "page_id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "page_no": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "text_version": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "file_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 260,
+            "pattern": "^[^/\\\\:]*$"
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "review_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instruction_like": {
+            "type": "boolean"
+          },
+          "document_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "page_text_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "quote_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "passage_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "offset_unit": {
+            "const": "unicode code points of the stored page text"
+          },
+          "verification_state": {
+            "enum": [
+              "VERIFIED_EXACT",
+              "NOT_VERIFIED"
+            ]
+          },
+          "state_reason": {
+            "type": "string"
+          },
+          "verified_at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "upgraded_from": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "upgraded_at": {
+      "type": "string"
+    }
+  },
+  "x-drillmaster": {
+    "service": "M469 citation passage service v1",
+    "max_file_bytes": 4194304,
+    "statuses": [
+      "EXACT",
+      "PAGE_CHANGED",
+      "SPAN_MISMATCH",
+      "PAGE_MISSING",
+      "DOCUMENT_MISSING",
+      "UNREADABLE",
+      "IDENTITY_MISMATCH",
+      "DOCUMENT_CHANGED"
+    ],
+    "openable": [
+      "EXACT",
+      "PAGE_CHANGED"
+    ],
+    "record_version_v1_still_read": "M320-E citation record v1"
+  }
+}

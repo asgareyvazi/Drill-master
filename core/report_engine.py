@@ -1344,6 +1344,9 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
 
         # M464: source-data sections (bit, BHA, time logs, requests, equipment) — from stored rows, with sources
         html += '<div class="page-break"></div>' + eowr_sections.html_sections(eowr_sections.analyse(data))
+        # M552: non-destructive data-consistency review (statuses + lineage; nothing is changed)
+        from core import eowr_consistency
+        html += eowr_consistency.html_section(eowr_consistency.analyze(data))
 
         # Footer
         html += f"""
@@ -1455,6 +1458,9 @@ East: {fmt_num(last.east, 2, default=None)} m | HD: {fmt_num(last.hd, 2, default
             sheets = {key: sheet for key, _title, sheet in eowr_sections.SECTION_SPECS}
             for res in eowr_sections.analyse(data):
                 self._write_sheet_from_objects(wb, sheets[res.key], eowr_sections.sheet_records(res))
+            from core import eowr_consistency                       # M552: consistency review sheet
+            self._write_sheet_from_objects(wb, "Data Consistency",
+                                           eowr_consistency.sheet_records(eowr_consistency.analyze(data)))
 
             wb.save(output_path)
             return True
