@@ -9,8 +9,10 @@ is delivered, and the Erge 2015 coefficients are marked NOT VERIFIED.
 
 **Why the result is PARTIAL:**
 
-1. **CI is not green.** Source CI for the last code commit with a completed run (`f7075a0`) ended in **TIMEOUT** on the
-   3.13 leg at the 60 min limit (D88). TIMEOUT ≠ SUCCESS.
+1. **CI is not cleanly green.** The 3.13 leg of the Source gate hit the 60 min limit (D88) at `f7075a0` and on attempt 1
+   at `46c471c`. TIMEOUT ≠ SUCCESS. A re-run of only the failed job at `46c471c` (attempt 2) passed in 42m48s, and no
+   3.13-specific regression was found (`m494_python313_ci_investigation.md`). The timeouts are kept in the history and
+   counted here.
 2. **Missions blocked by missing validation sources:** M479 (open-ended surge) and M480–M481 (HB extensions).
 3. **Owner decisions:** none of P1–P19 is approved.
 
@@ -31,13 +33,16 @@ The result "ACCEPTED FOR STATED SYNTHETIC SCOPE" is **not** claimed.
 
 | Item | Value |
 |---|---|
-| Commits | `3b4c297` (M461–M468) → `842c35c` (M469–M472) → `20c05d0` (M473–M474) → `f7075a0` (M475–M485) → `44d3fb4` (M486–M493 code and tests), followed by the commit that adds this report (M494–M503 documents only). Full SHAs: `m503_git_audit.md`. |
+| Commits | `3b4c297` (M461–M468) → `842c35c` (M469–M472) → `20c05d0` (M473–M474) → `f7075a0` (M475–M485) → `44d3fb4` (M486–M493 code and tests), → `46c471c` (this report and the M494–M503 documents) → `750e3cd` (R4b re-anchoring, Erge secondary-consistency test), followed by the commit that adds the 3.13 investigation and these report updates (documents only). Full SHAs: `m503_git_audit.md`. |
 | CI `3b4c297`, `842c35c`, `20c05d0` | Every run was **cancelled**, superseded by the next push (concurrency group). The runs are kept. |
 | CI `f7075a0` | Windows `45578429709` **SUCCESS** (31m12s). Source `45578429792` **TIMEOUT**: 3.11 SUCCESS and 3.12 SUCCESS (both about 55 min); 3.13 **TIMEOUT** ("exceeded the maximum execution time", 60 min; D88). Classified with `ci_run_states.py`. |
-| CI on the pushed tip | Not knowable inside this file. It is reported in the hand-over message. |
-| Full local suite at `44d3fb4` | **6229 collected, 6225 passed, 0 failed, 0 error, 4 skipped. 8/8 shards OK; 2677 s** (`m494_full_suite_44d3fb4.txt`). The 4 skips stay **NOT RUN**: they need real DDR files, real MinerU or a real Windows bundle. After this run, `test_m473` gained one parametrised case (the M361–M400 anchors); run alone, it passes 5/5. |
+| CI `46c471c` | Windows `45588540716` **SUCCESS**. Source `45588540843` attempt 1: 3.11 SUCCESS (43m46s), 3.12 SUCCESS (57m13s, coverage), 3.13 **TIMEOUT** (cancelled at 60 min). Attempt 2 (`gh run rerun --failed`, 3.13 only): **SUCCESS** (42m48s); the run now reports `success` at attempt 2. Attempt 1 is kept and counted as a TIMEOUT. |
+| Python 3.13 investigation (M494) | CI history shows 3.13 at 42–54 min before `f7075a0`. Local 3.13.18 sharded suite on the `750e3cd` tree: **6264 collected, 6260 passed, 0 failed, 4 skipped (NOT RUN)**, after re-running the one file whose 2 errors came from the diagnostic interpreter (missing stdlib `venv`). Summed test time 2701 s against 2608 s on 3.11; no file is pathologically slower. Result: intermittent, no code regression found (`m494_python313_ci_investigation.md`, `m494_full_suite_py313_46c471c_dirty.txt`). |
+| CI on the pushed tip (after `46c471c`) | Not knowable inside this file. It is reported in the hand-over message. |
+| Full local suite at `44d3fb4` | **6229 collected, 6225 passed, 0 failed, 0 error, 4 skipped. 8/8 shards OK; 2677 s** (`m494_full_suite_44d3fb4.txt`). The 4 skips stay **NOT RUN**: they need real DDR files, real MinerU or a real Windows bundle. After this run, `test_m473` gained two parametrised cases (the M361–M400 and M261–M290 anchors; run alone, it passes 6/6) and `test_m482` (33 tests) was added. The later 3.13 run below collects 6264. |
 | Mutation M461–M520 | **55 mutants, 55 KILLED, 0 invalid, complete=True** (`m494_mutation_m461_m520_full.json`). Breakdown: EOWR 21, citation 14, robust drill-off 13, Erge 3, integration 4. |
 | Historical U3 re-run | TR/AC/MV/CP/BP/WC: **39/39 KILLED** on current code (`m473_u3_historical_mutation_rerun.json`). |
+| Historical M261–M290 re-run (R4b) | The 7 drifted IL-* / WB-* mutants re-anchored to current code: **7/7 KILLED**; all 89 anchors of `mutation_m261_m290.py` valid and pinned by `test_m473` (6 cases). Commit `750e3cd`. |
 | Historical citation re-run | The CR-* / KA-* citation mutants in `mutation_m321_m360.py`: 15/15 KILLED with `--only` during Phase C. |
 | Benchmarks | M468 EOWR (60 days): rendered = expected in every section. M478 robust drill-off: 9/9. M412: 30 cases inside tolerance, 6 status checks pass. M396: 31 cases. M349: pass. |
 | Inventories and privacy | `dependency_audit`: lock 26, imports 185, 0 findings; catalogue **67 entries, 0 approved**. `engine_inventory` and `constant_inventory` pass `--check`. Privacy check: 0 findings. |
@@ -54,11 +59,11 @@ The result "ACCEPTED FOR STATED SYNTHETIC SCOPE" is **not** claimed.
 | M468 | EOWR mutants (21/21) and benchmark | `m468_*.json` | done |
 | M469–M471 | **U2:** strict bounded citation reader with a published schema. A malformed entry is UNREADABLE and the others are still verified; IDENTITY_MISMATCH; PlainText status labels; Documents tab › "Open citation file…" → passage. | `core/citation_passage.py`, `test_m469` (30), `m469_m472_citation_passages.md` | IMPLEMENTED — PARTIALLY QUALIFIED (synthetic) |
 | M472 | Citation real MainWindow journey, plus 14 mutants | `test_m472` (2) | done |
-| M473–M474 | **U3:** M275/M276/M278/M279/M282/M283 families 39/39 KILLED; anchors pinned by a suite test. Addendum: 7 drifted IL/WB anchors outside U3 recorded, not repaired. | `m473_m474_u3_mutation_recovery.md`, `test_m473` (5) | done (mutation coverage) |
+| M473–M474 | **U3:** M275/M276/M278/M279/M282/M283 families 39/39 KILLED; anchors pinned by a suite test. Addendum: 7 drifted IL/WB anchors outside U3 were re-anchored in M494 (R4b, 7/7 KILLED). | `m473_m474_u3_mutation_recovery.md`, `test_m473` (6) | done (mutation coverage) |
 | M475–M478 | **E6b (robust part):** `m475.drilloff_robust` v1 (L1 hinge, exact vertex search, MAD flags), with a declared WOB basis that is never converted. Catalogue entry, replay, W13 dialog, benchmark, 13 mutants. M372 and M423 v1 are unchanged. | `core/drilloff_robust.py`, `test_m475` (20), `m475_m485_engineering.md`, `m478_benchmark_drilloff_robust.json` | IMPLEMENTED — PARTIALLY QUALIFIED (SCREENING) |
 | M479 | E8b open-ended surge | blocker in `m475_m485_engineering.md` | **NOT IMPLEMENTED — BLOCKED (validation source)** |
 | M480–M481 | E1b eccentricity, rotation, κ < 0.3 | blocker in `m475_m485_engineering.md` | **NOT IMPLEMENTED — BLOCKED (validation data)** |
-| M482 | Erge 2015: primary paper not accessed. Matches the BoreTHM secondary reference at e = 0. Reported **NOT VERIFIED** in every result, summary and case note; numbers and replay unchanged. | `UNVERIFIED_CRITERIA`, `test_m475::test_erge_*` | **NOT VERIFIED** (marked) |
+| M482 | Erge 2015: primary paper not accessed. Numerically equal (rel. 1e-12) to an independent re-typing of the BoreTHM secondary reference at e = 0 inside the fitted range, pinned by `test_m482` (33 tests); outside 0.15 < n′ < 0.4 the engine refuses where BoreTHM clips. Reported **NOT VERIFIED** in every result, summary and case note; numbers and replay unchanged. | `UNVERIFIED_CRITERIA`, `test_m475::test_erge_*`, `test_m482_erge_secondary_consistency.py` | **NOT VERIFIED** (marked) |
 | M483–M485 | Owner packages E1c (stays DISABLED), E11, E12. No behaviour change. | `docs/engineering/M483_M485_OWNER_PACKAGES_E1C_E11_E12.md` | DOCUMENTED ONLY |
 | M486 | `BL-M408`: `test_m129` 20/20 repeats plus the full run | `m486_m493_reliability_integration.md` | OPEN (not reproduced) |
 | M487 | D88 profile at `44d3fb4`. No workflow change; the 60 min timeout is kept. | `m487_suite_profile.md` | done (decision input) |
@@ -69,7 +74,7 @@ The result "ACCEPTED FOR STATED SYNTHETIC SCOPE" is **not** claimed.
 | M494 | Full sharded suite, full mutation run, benchmarks | §1 | done |
 | M495–M500 | Audits: inventories, privacy, carried smoke checks (`workflow_m46` 24/24; `real_user_acceptance` and `well_package` call `generate(...)` with the new optional `period`) | §1 | done |
 | M501 | M520 catalogue and roadmap; M196 M520 status | links below | done |
-| M502 | This report and exact-SHA CI | §1 | **CI not green (TIMEOUT)** |
+| M502 | This report and exact-SHA CI | §1 | **CI not cleanly green** (3.13 TIMEOUT at `f7075a0` and on attempt 1 at `46c471c`; attempt 2 SUCCESS) |
 | M503 | Git audit | `m503_git_audit.md` | done |
 | M504–M520 | Reserved. No work is claimed. | – | – |
 
@@ -88,7 +93,7 @@ OWNER REVIEW REQUIRED". The M520 status table is in `docs/engineering/M196_OWNER
 | P12 / P18 | No ratings invented. |
 | P13 / P16 / P17 | No encryption, signing or field-acceptance claim. |
 | P19 | No ISCWSA separation-factor claim. |
-| D88 | Active risk: `f7075a0` 3.13 TIMEOUT. Timeout and workflow unchanged. |
+| D88 | Active risk: 3.13 TIMEOUT at `f7075a0` and `46c471c` (attempt 1); 3.12 with coverage at 55–59 min. Timeout and workflow unchanged. |
 | E1c, E11, E12 | Packages only. |
 
 ## 4. Capabilities that remain NOT IMPLEMENTED

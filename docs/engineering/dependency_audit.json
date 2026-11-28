@@ -594,7 +594,7 @@
    },
    {
     "approval": "NOT APPROVED — OWNER REVIEW REQUIRED",
-    "evidence_tests": 4,
+    "evidence_tests": 5,
     "licence": "own code (product licence)",
     "method_id": "m416.hb_slot_annulus",
     "status": "IMPLEMENTED",
@@ -602,6 +602,7 @@
      "test_m388_units_contract.py",
      "test_m415_m427_engineering_services.py",
      "test_m475_drilloff_robust.py",
+     "test_m482_erge_secondary_consistency.py",
      "test_m488_integration_consistency.py"
     ]
    },

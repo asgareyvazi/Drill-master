@@ -73,3 +73,27 @@ and they are recorded as open item R4b in the M520 roadmap.
 
 The 39 U3 mutants and every mutant of `mutation_m321_m360`, `mutation_m361_m400` (53), `mutation_m401_m460` and
 `mutation_m461_m520` have valid anchors. `test_m473_mutation_anchor_integrity` now covers these four tools.
+
+## Addendum 2 (M494, commit `750e3cd`): R4b repaired
+
+The 7 drifted IL-* / WB-* mutants were re-anchored to the current code. Each keeps its original defect; only the
+anchor text follows the code that later missions moved:
+
+| Mutant | Current anchor | Why it moved |
+|---|---|---|
+| IL-changed-since-hidden | `_check`: `if _same_value(stored_now, expected):` → `if True:` | `d57f5b2` (M296–M306, value lineage) moved the stored-now check into `_check` |
+| IL-first-correction-expected | `_check`: `corrections[-1]` → `corrections[0]` | same |
+| IL-open-item-checked | `_check`: `if item.state != accepted_state: return NOT_APPLICABLE` disabled | same |
+| WB-archive-without-reason | `_mark`: the single-record reason guard (the anchor now includes the error text, so it matches once; the bulk guard is unchanged) | `d57f5b2` (M296–M306, bulk actions) added a second, bulk guard |
+| WB-first-mark-wins | `latest[key] = action` → `latest.setdefault(key, action)` (indentation changed) | `0c90a5b` (M365) restructured the loop |
+| WB-reused-id-inherits-archive | `if key not in born or born[key] != snapshot:` → `if key not in born:` | `0c90a5b` (M365) inverted the condition into a `continue` |
+| WB-clone-empty-inputs-accepted | `core/calculation_clone_contract.py` `clone_check`: the empty-inputs guard | `d57f5b2` (M296–M306, clone contract) moved the guard into the clone contract |
+
+The IL mutants also run `tests/test_m300_m301_value_lineage.py`, and WB-clone-empty-inputs-accepted also runs
+`tests/test_m303_m306_clone_contract_and_bulk.py`, because those are the suites that now own the moved code.
+
+**Result** (`mutation_m261_m290.py --only <the 7 ids>`, Python 3.11.2): baseline 44 passed;
+**mutants=7 killed=7 survived_non_equivalent=0 invalid=0**, 232 s.
+
+All 89 anchors of `mutation_m261_m290.py` now match exactly once. `test_m473_mutation_anchor_integrity` covers five
+tools (adding `mutation_m261_m290`) and passes 6/6. Roadmap item R4b is closed.

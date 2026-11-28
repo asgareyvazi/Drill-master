@@ -27,8 +27,8 @@
 | R1 | PySide6 pin (D63, D74) | **BLOCKED BY OWNER DECISION.** The pin stays at 6.8.1.1. | Owner approval, then the M378 checklist. |
 | R2 | D88: the 3.12 coverage leg runs against the 60 min limit | **Active risk; BLOCKED BY OWNER DECISION.** M487 refreshes the profile (`m487_suite_profile.md`). The workflow and the timeout are unchanged. | The owner records a CI design decision. |
 | R3 | `BL-M408` | OPEN, not reproduced (M486). | N clean CI runs (owner). |
-| R4 | Mutation catalogue | The M461–M520 tool holds 55 mutants (`mutation_m461_m520.py`). `test_m473_mutation_anchor_integrity` keeps the anchors of four tools (M321–M360, M361–M400, M401–M460, M461–M520) valid. | Keep a mutant for every new service. |
-| R4b | Drifted historical anchors | 7 IL-* / WB-* mutants in `mutation_m261_m290.py` (M273, M286) no longer match the code and are INVALID (M494 addendum in `m473_m474_u3_mutation_recovery.md`). | Re-anchor the mutants to the current code and re-run them. |
+| R4 | Mutation catalogue | The M461–M520 tool holds 55 mutants (`mutation_m461_m520.py`). `test_m473_mutation_anchor_integrity` keeps the anchors of five tools (M261–M290, M321–M360, M361–M400, M401–M460, M461–M520) valid. | Keep a mutant for every new service. |
+| R4b | Drifted historical anchors | **DONE (M494, `750e3cd`).** The 7 IL-* / WB-* mutants in `mutation_m261_m290.py` (M273, M286) were re-anchored to the current code and re-run: 7/7 KILLED. All 89 anchors are valid and pinned by `test_m473` (addendum 2 in `m473_m474_u3_mutation_recovery.md`). | None. |
 
 ## 2. Engineering (ordered)
 
