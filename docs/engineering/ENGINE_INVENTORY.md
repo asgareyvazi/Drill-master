@@ -58,7 +58,7 @@ Methods, limits and references are in `ENGINEERING_METHODS_AND_LIMITATIONS.md`.
 | `core/ddr_hydraulics_check.py` | `m314.ddr_bit_hydraulics_check` | M314 v1 (AdvancedHydraulicsEngine.calc_bit_hydraulics) | - | 2 |
 | `core/drilloff_fitted.py` | `m423.drilloff_fitted` | M423 drill-off founder, continuous two-segment least squares v1 | SCREENING | 6 |
 | `core/drilloff_robust.py` | `m475.drilloff_robust` | M475 drill-off founder, least-absolute-deviations two-segment line v1 | SCREENING | 2 |
-| `core/hydraulics_hb_slot.py` | `m416.hb_slot_annulus` | M416 Herschel-Bulkley slot annulus v1 | SCREENING | 4 |
+| `core/hydraulics_hb_slot.py` | `m416.hb_slot_annulus` | M416 Herschel-Bulkley slot annulus v1 | SCREENING | 5 |
 | `core/hydraulics_workflow.py` | `m366.hydraulics_workflow` | M366 v2 (W13 circulating-system engine; budget, pump limits, flow/nozzle sensitivity, plan vs actual; M422 CCI result fields) | SCREENING | 6 |
 | `core/mse_drilloff.py` | `m372.mse_drilloff` | M372 drill-off founder and step MSE v1 | SCREENING | 7 |
 | `core/surge_swab.py` | `m420.surge_swab` | M420 quasi-steady surge/swab, closed-end string v1 | SCREENING | 5 |
