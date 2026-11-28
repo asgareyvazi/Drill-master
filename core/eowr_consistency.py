@@ -71,7 +71,7 @@ def _num(value: Any) -> Optional[float]:
     try:
         number = float(value)
     except (TypeError, ValueError):
-        return None
+        return None  # silent-ok: a non-numeric stored value counts as missing -> INSUFFICIENT_DATA, never 0
     return number if number == number and abs(number) != float("inf") else None
 
 
